@@ -40,13 +40,13 @@ function SortableGiftRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4"
+      className="flex items-center gap-4 border border-neutral-200 p-4"
     >
       <button
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
-        className="cursor-grab text-white/30 hover:text-white/70"
+        className="cursor-grab text-neutral-300 hover:text-neutral-600"
       >
         ⠿
       </button>
@@ -54,14 +54,14 @@ function SortableGiftRow({
         <img
           src={gift.imageUrl}
           alt=""
-          className="h-14 w-14 rounded-lg object-cover"
+          className="h-14 w-14 border border-neutral-200 object-cover"
         />
       ) : (
-        <div className="h-14 w-14 rounded-lg bg-white/10" />
+        <div className="h-14 w-14 border border-neutral-200 bg-neutral-50" />
       )}
       <div className="flex-1">
         <p className="font-medium">{gift.title}</p>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-neutral-500">
           {gift.occasion}
           {gift.price ? ` · ${gift.price}` : ""}
         </p>
@@ -108,7 +108,7 @@ export function GiftList({ initialGifts }: { initialGifts: AdminGiftDTO[] }) {
 
   if (gifts.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-white/20 p-8 text-center text-white/50">
+      <p className="border border-dashed border-neutral-300 p-8 text-center text-neutral-500">
         No gifts yet. Add your first one above.
       </p>
     );

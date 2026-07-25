@@ -7,14 +7,20 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-white/10 px-6 py-4">
+    <div className="min-h-screen bg-white text-black">
+      <header className="border-b border-neutral-200 px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/admin" className="font-semibold text-white">
+          <nav className="flex items-center gap-8 text-sm">
+            <span className="text-base font-semibold tracking-tight">
+              Gift Registry
+            </span>
+            <Link href="/admin" className="text-neutral-500 hover:text-black">
               Gifts
             </Link>
-            <Link href="/admin/theme" className="text-white/60 hover:text-white">
+            <Link
+              href="/admin/theme"
+              className="text-neutral-500 hover:text-black"
+            >
               Theme
             </Link>
           </nav>

@@ -41,10 +41,10 @@ model Claim {
 // Singleton row, id is always 1.
 model ThemeSettings {
   id                 Int      @id @default(1)
-  primaryColor       String   @default("#6d28d9")
-  accentColor        String   @default("#f59e0b")
-  backgroundColor    String   @default("#0f0f13")
-  textColor          String   @default("#f5f5f7")
+  primaryColor       String   @default("#171717")
+  accentColor        String   @default("#b45309")
+  backgroundColor    String   @default("#ffffff")
+  textColor          String   @default("#171717")
   backgroundImageUrl String?
   animationPack      String   @default("none")
   updatedAt          DateTime @updatedAt

@@ -8,8 +8,8 @@ export default async function AdminThemePage() {
 
   return (
     <div>
-      <h1 className="mb-2 text-2xl font-semibold">Theme</h1>
-      <p className="mb-6 text-sm text-white/50">
+      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Theme</h1>
+      <p className="mb-6 text-sm text-neutral-500">
         Changes apply to the family page instantly — no redeploy needed.
       </p>
       <ThemeEditor theme={theme} />

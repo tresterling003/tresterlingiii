@@ -12,8 +12,10 @@ export default async function AdminDashboardPage() {
     <div>
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Your gift list</h1>
-          <p className="text-sm text-white/50">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Your gift list
+          </h1>
+          <p className="text-sm text-neutral-500">
             Purchases are always hidden from you — this list never shows
             what&apos;s been claimed.
           </p>

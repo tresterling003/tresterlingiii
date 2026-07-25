@@ -107,7 +107,7 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
   return (
     <form onSubmit={handleSubmit} className="max-w-xl space-y-5">
       <div>
-        <label className="mb-1 block text-sm text-white/60">Gift link</label>
+        <label className="mb-1 block text-sm text-neutral-600">Gift link</label>
         <div className="flex gap-2">
           <Input
             type="url"
@@ -126,12 +126,12 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
           </Button>
         </div>
         {scrapeNote && (
-          <p className="mt-2 text-xs text-white/50">{scrapeNote}</p>
+          <p className="mt-2 text-xs text-neutral-500">{scrapeNote}</p>
         )}
       </div>
 
       <div>
-        <label className="mb-1 block text-sm text-white/60">Title</label>
+        <label className="mb-1 block text-sm text-neutral-600">Title</label>
         <Input
           required
           value={form.title}
@@ -141,7 +141,7 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm text-white/60">
+          <label className="mb-1 block text-sm text-neutral-600">
             Image URL
           </label>
           <Input
@@ -151,7 +151,7 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-white/60">Price</label>
+          <label className="mb-1 block text-sm text-neutral-600">Price</label>
           <Input
             placeholder="~$40"
             value={form.price}
@@ -161,7 +161,7 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm text-white/60">Occasion</label>
+        <label className="mb-1 block text-sm text-neutral-600">Occasion</label>
         <Input
           required
           placeholder="Birthday, Christmas, ..."
@@ -171,7 +171,7 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm text-white/60">Notes</label>
+        <label className="mb-1 block text-sm text-neutral-600">Notes</label>
         <Textarea
           rows={3}
           placeholder="Size, color, anything helpful"
@@ -180,7 +180,7 @@ export function GiftForm({ gift }: { gift?: AdminGiftDTO }) {
         />
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-3">
         <Button type="submit" disabled={saving}>

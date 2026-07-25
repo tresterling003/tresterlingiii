@@ -13,18 +13,25 @@ export function GiftCard({
   return (
     <motion.div
       layout
-      whileHover={gift.claimed ? undefined : { y: -6, scale: 1.02 }}
-      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg transition-shadow ${
-        gift.claimed ? "opacity-60" : "hover:shadow-2xl hover:shadow-primary/20"
+      whileHover={gift.claimed ? undefined : { y: -4 }}
+      className={`group relative z-0 bg-white transition-shadow hover:z-10 ${
+        gift.claimed ? "opacity-70" : "hover:shadow-lg"
       }`}
     >
-      <div className="aspect-square w-full overflow-hidden bg-white/10">
+      {gift.claimed && (
+        <div className="absolute left-3 top-3 z-10 bg-accent px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-white">
+          Claimed by {gift.claimedBy}
+        </div>
+      )}
+      <div className="aspect-square w-full overflow-hidden bg-neutral-100">
         {gift.imageUrl ? (
           <motion.img
             src={gift.imageUrl}
             alt={gift.title}
-            className="h-full w-full object-cover"
-            whileHover={gift.claimed ? undefined : { scale: 1.08 }}
+            className={`h-full w-full object-cover transition-all ${
+              gift.claimed ? "grayscale" : ""
+            }`}
+            whileHover={gift.claimed ? undefined : { scale: 1.04 }}
             transition={{ duration: 0.4 }}
           />
         ) : (
@@ -32,38 +39,31 @@ export function GiftCard({
             🎁
           </div>
         )}
-        {gift.claimed && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-black">
-              Claimed by {gift.claimedBy}
-            </span>
-          </div>
-        )}
       </div>
-      <div className="p-4">
-        <p className="mb-0.5 text-xs uppercase tracking-wide text-white/40">
+      <div className="border-t border-black/10 p-4">
+        <p className="mb-0.5 text-[11px] uppercase tracking-wide text-neutral-400">
           {gift.occasion}
         </p>
-        <h3 className="font-medium leading-snug">{gift.title}</h3>
+        <h3 className="font-medium leading-snug text-black">{gift.title}</h3>
         {gift.price && (
-          <p className="mt-1 text-sm text-white/50">{gift.price}</p>
+          <p className="mt-1 text-sm font-medium text-black">{gift.price}</p>
         )}
         {gift.notes && (
-          <p className="mt-2 text-xs text-white/40">{gift.notes}</p>
+          <p className="mt-2 text-xs text-neutral-500">{gift.notes}</p>
         )}
         <div className="mt-4 flex gap-2">
           <a
             href={gift.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-center text-sm text-white/70 transition hover:border-white/30 hover:text-white"
+            className="flex-1 border border-neutral-300 px-3 py-2 text-center text-sm text-black transition hover:border-black"
           >
             View
           </a>
           {!gift.claimed && (
             <button
               onClick={onClaim}
-              className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"
+              className="flex-1 bg-primary px-3 py-2 text-sm font-medium text-white transition hover:bg-black"
             >
               I&apos;ll get this
             </button>

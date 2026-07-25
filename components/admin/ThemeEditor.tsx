@@ -78,15 +78,15 @@ export function ThemeEditor({ theme }: { theme: ThemeSettings }) {
   } as React.CSSProperties;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid gap-10 lg:grid-cols-2">
       <div className="space-y-4">
         <ColorField
-          label="Primary color"
+          label="Primary color (buttons)"
           value={form.primaryColor}
           onChange={(v) => update("primaryColor", v)}
         />
         <ColorField
-          label="Accent color"
+          label="Accent color (claimed badge)"
           value={form.accentColor}
           onChange={(v) => update("accentColor", v)}
         />
@@ -102,7 +102,7 @@ export function ThemeEditor({ theme }: { theme: ThemeSettings }) {
         />
 
         <div>
-          <label className="mb-1 block text-sm text-white/60">
+          <label className="mb-1 block text-sm text-neutral-600">
             Background image
           </label>
           <input
@@ -110,19 +110,21 @@ export function ThemeEditor({ theme }: { theme: ThemeSettings }) {
             accept="image/*"
             onChange={handleUpload}
             disabled={uploading}
-            className="text-sm text-white/60"
+            className="text-sm text-neutral-600"
           />
-          {uploading && <p className="mt-1 text-xs text-white/40">Uploading…</p>}
+          {uploading && (
+            <p className="mt-1 text-xs text-neutral-400">Uploading…</p>
+          )}
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-white/60">
+          <label className="mb-1 block text-sm text-neutral-600">
             Animation pack
           </label>
           <select
             value={form.animationPack}
             onChange={(e) => update("animationPack", e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+            className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm"
           >
             {ANIMATION_PACKS.map((pack) => (
               <option key={pack} value={pack}>
@@ -132,41 +134,43 @@ export function ThemeEditor({ theme }: { theme: ThemeSettings }) {
           </select>
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <Button onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : "Save theme"}
         </Button>
       </div>
 
-      <div
-        style={previewStyle}
-        className="rounded-2xl border border-white/10 p-6"
-      >
-        <p className="mb-4 text-xs uppercase tracking-wide text-white/40">
+      <div style={previewStyle} className="border border-neutral-200 p-6">
+        <p className="mb-4 text-xs uppercase tracking-wide text-neutral-400">
           Live preview
         </p>
         <div
-          className="rounded-xl p-6"
+          className="p-6"
           style={{ background: "var(--color-bg)", color: "var(--color-text)" }}
         >
-          <div
-            className="mb-3 inline-block rounded-full px-3 py-1 text-xs font-medium"
-            style={{ background: "var(--color-accent)", color: "#000" }}
-          >
-            Claimed by a family member
-          </div>
-          <div className="rounded-lg border border-white/10 p-4">
-            <div className="mb-2 h-24 rounded-md bg-white/10" />
-            <p className="font-medium" style={{ color: "var(--color-text)" }}>
-              Example gift card
-            </p>
-            <button
-              className="mt-3 rounded-lg px-3 py-1.5 text-sm font-medium text-black"
-              style={{ background: "var(--color-primary)" }}
+          <div className="relative w-48 border" style={{ borderColor: "var(--color-text)", borderOpacity: 0.1 } as React.CSSProperties}>
+            <div
+              className="absolute left-2 top-2 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white"
+              style={{ background: "var(--color-accent)" }}
             >
-              I&apos;ll get this
-            </button>
+              Claimed
+            </div>
+            <div className="aspect-square w-full bg-neutral-100" />
+            <div className="p-3">
+              <p className="text-[10px] uppercase tracking-wide text-neutral-400">
+                Birthday
+              </p>
+              <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+                Example gift card
+              </p>
+              <button
+                className="mt-3 w-full px-3 py-2 text-xs font-medium tracking-wide text-white"
+                style={{ background: "var(--color-primary)" }}
+              >
+                I&apos;ll get this
+              </button>
+            </div>
           </div>
         </div>
       </div>

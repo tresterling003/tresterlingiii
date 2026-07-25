@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -30,49 +32,49 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-screen items-center justify-center bg-white px-4 text-black">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8 shadow-xl backdrop-blur"
+        className="w-full max-w-sm rounded border border-neutral-200 p-8"
       >
-        <h1 className="mb-6 text-2xl font-semibold">Admin sign in</h1>
+        <h1 className="mb-1 text-xl font-semibold tracking-tight">
+          Gift Registry
+        </h1>
+        <p className="mb-6 text-sm text-neutral-500">Admin sign in</p>
         <div className="mb-4">
-          <label className="mb-1 block text-sm text-white/60" htmlFor="email">
+          <label
+            className="mb-1 block text-sm text-neutral-600"
+            htmlFor="email"
+          >
             Email
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none focus:border-accent"
           />
         </div>
         <div className="mb-6">
           <label
-            className="mb-1 block text-sm text-white/60"
+            className="mb-1 block text-sm text-neutral-600"
             htmlFor="password"
           >
             Password
           </label>
-          <input
+          <Input
             id="password"
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none focus:border-accent"
           />
         </div>
-        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-black transition hover:brightness-110 disabled:opacity-50"
-        >
+        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Signing in…" : "Sign in"}
-        </button>
+        </Button>
       </form>
     </div>
   );

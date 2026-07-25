@@ -41,7 +41,8 @@ export function Snowfall() {
           position: absolute;
           top: -10px;
           border-radius: 9999px;
-          background: white;
+          background: #93c5fd;
+          box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
           animation-name: fall;
           animation-timing-function: linear;
           animation-iteration-count: infinite;

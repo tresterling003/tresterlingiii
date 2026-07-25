@@ -3,16 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #6d28d9;
-  --color-accent: #f59e0b;
-  --color-bg: #0f0f13;
-  --color-text: #f5f5f7;
+  /* Family page defaults — overridden per-occasion by app/g/[slug]/layout.tsx */
+  --color-primary: #171717;
+  --color-accent: #b45309;
+  --color-bg: #ffffff;
+  --color-text: #171717;
   --bg-image: none;
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
 }
 
 @media (prefers-reduced-motion: reduce) {

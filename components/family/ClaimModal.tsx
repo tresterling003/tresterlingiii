@@ -49,16 +49,16 @@ export function ClaimModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4"
+        className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 10 }}
+          initial={{ scale: 0.95, opacity: 0, y: 10 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0 }}
+          exit={{ scale: 0.95, opacity: 0 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl border border-white/10 bg-bg p-6 shadow-2xl"
+          className="w-full max-w-sm border border-black/10 bg-white p-6 text-black shadow-2xl"
         >
           {success ? (
             <>
@@ -70,11 +70,11 @@ export function ClaimModal({
           ) : (
             <form onSubmit={handleSubmit}>
               <h2 className="mb-1 text-lg font-semibold">{gift.title}</h2>
-              <p className="mb-4 text-sm text-white/50">
-                Claiming this hides it from other family members — and from
-                the recipient, always.
+              <p className="mb-4 text-sm text-neutral-500">
+                Other family members will see this is claimed, so no one
+                doubles up — the recipient never will.
               </p>
-              <label className="mb-1 block text-sm text-white/60">
+              <label className="mb-1 block text-sm text-neutral-600">
                 Your name
               </label>
               <Input
@@ -84,9 +84,7 @@ export function ClaimModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="So others know it's taken"
               />
-              {error && (
-                <p className="mt-2 text-sm text-red-400">{error}</p>
-              )}
+              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
               <div className="mt-5 flex gap-3">
                 <Button type="submit" disabled={submitting}>
                   {submitting ? "Claiming…" : "I'll get this"}

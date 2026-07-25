@@ -37,10 +37,10 @@ CREATE TABLE "Claim" (
 -- CreateTable
 CREATE TABLE "ThemeSettings" (
     "id" INTEGER NOT NULL DEFAULT 1,
-    "primaryColor" TEXT NOT NULL DEFAULT '#6d28d9',
-    "accentColor" TEXT NOT NULL DEFAULT '#f59e0b',
-    "backgroundColor" TEXT NOT NULL DEFAULT '#0f0f13',
-    "textColor" TEXT NOT NULL DEFAULT '#f5f5f7',
+    "primaryColor" TEXT NOT NULL DEFAULT '#171717',
+    "accentColor" TEXT NOT NULL DEFAULT '#b45309',
+    "backgroundColor" TEXT NOT NULL DEFAULT '#ffffff',
+    "textColor" TEXT NOT NULL DEFAULT '#171717',
     "backgroundImageUrl" TEXT,
     "animationPack" TEXT NOT NULL DEFAULT 'none',
     "updatedAt" TIMESTAMP(3) NOT NULL,
