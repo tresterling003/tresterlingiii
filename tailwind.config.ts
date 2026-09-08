@@ -5,13 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "var(--color-primary)",
-        accent: "var(--color-accent)",
-        bg: "var(--color-bg)",
-        text: "var(--color-text)",
+        canvas: "var(--color-canvas)",
+        surface: "var(--color-surface)",
+        ink: "var(--color-ink)",
+        muted: "var(--color-muted)",
+        border: "var(--color-border)",
       },
-      backgroundImage: {
-        "theme-bg": "var(--bg-image)",
+      borderRadius: {
+        xl2: "1.25rem",
       },
     },
   },

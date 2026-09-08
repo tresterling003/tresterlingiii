@@ -3,15 +3,15 @@
 // Password hashing lives in lib/auth/password.ts instead.
 import { SignJWT, jwtVerify } from "jose";
 
-const COOKIE_NAME = "gift_admin_session";
-const SESSION_DURATION = "7d";
+const COOKIE_NAME = "teacher_session";
+const SESSION_DURATION = "30d";
 
 function secretKey(): Uint8Array {
   return new TextEncoder().encode(process.env.AUTH_SECRET);
 }
 
-export async function signSessionToken(adminId: string): Promise<string> {
-  return new SignJWT({ sub: adminId })
+export async function signSessionToken(teacherId: string): Promise<string> {
+  return new SignJWT({ sub: teacherId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(SESSION_DURATION)
@@ -30,4 +30,4 @@ export async function verifySessionToken(
 }
 
 export const SESSION_COOKIE_NAME = COOKIE_NAME;
-export const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+export const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;

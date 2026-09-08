@@ -13,7 +13,10 @@ export const env = {
   get authSecret() {
     return required("AUTH_SECRET");
   },
-  get familyAccessSlug() {
-    return required("FAMILY_ACCESS_SLUG");
+  get anthropicApiKey() {
+    return required("ANTHROPIC_API_KEY");
+  },
+  get anthropicModel() {
+    return process.env.ANTHROPIC_MODEL || "claude-opus-5";
   },
 };

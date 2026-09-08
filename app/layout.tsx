@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Gift Registry",
+  title: "Classroom HQ",
+  description: "Your teaching dashboard — lessons, resources, and grading for every class.",
   robots: { index: false, follow: false },
 };
 
@@ -13,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-bg text-text antialiased">
+      <body className="min-h-screen bg-canvas text-ink antialiased">
         {children}
       </body>
     </html>

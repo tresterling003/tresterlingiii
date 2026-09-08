@@ -1,15 +1,27 @@
-# Family Gift Registry
+# Classroom HQ
 
-A private gift registry with two sides:
+A private teaching dashboard for a teacher juggling multiple classes — one page per class that tracks your pacing
+and what you've actually covered, drafts lessons/slides/notes/worksheets/quizzes/tests/projects with AI, and grades
+photographed student work against a rubric or answer key you provide.
 
-- **`/admin`** — you add, edit, and reorder gifts, and customize the theme. You can never see which gifts have been claimed or by whom — that data is structurally inaccessible to every admin-facing code path (see "How privacy is enforced" below).
-- **`/g/<FAMILY_ACCESS_SLUG>`** — the unlisted link you share with family. No login required. Family members browse gifts and claim one as "bought" by entering their name, so others can see it's spoken for.
+Single-login, single-teacher app — there's no student-facing side.
 
-Gifts and claims live in a real Postgres database — nothing is stored in the browser, so nothing gets wiped by a cache clear or a new device.
+## What's in here
+
+- **Per-class dashboard** — each class gets its own page: overview, curriculum (unit-by-unit pacing), a day-by-day
+  timeline of what you've covered, a resource library, and a roster.
+- **Import from your planning chats** — paste the export from a chat conversation where you've been tracking a
+  class, and it's parsed into a structured curriculum + timeline automatically. Safe to run more than once per class.
+- **AI resource generation** — pick a type (lesson plan, slide outline, notes, worksheet, quiz, test, or project) and
+  a topic; it drafts something classroom-ready as fully editable Markdown.
+- **Photo-based grading** — create an assignment with a rubric and/or an answer key, snap a photo of a student's
+  test/project/worksheet, and get a per-criterion AI grade with feedback — which you review and adjust before it's
+  final. Nothing is ever auto-finalized without you.
 
 ## Stack
 
-Next.js (App Router) + TypeScript, Prisma + Postgres, Tailwind CSS, Framer Motion, deployed on Vercel.
+Next.js (App Router) + TypeScript, Prisma + Postgres, Tailwind CSS, the Anthropic SDK (Claude), deployed on Vercel
+with Vercel Blob for photo storage.
 
 ## One-time setup (~10 minutes)
 
@@ -22,17 +34,26 @@ Next.js (App Router) + TypeScript, Prisma + Postgres, Tailwind CSS, Framer Motio
    - Create an account with GitHub, then "Add New Project" → import this repository.
    - Don't deploy yet — add environment variables first (next step).
 
-3. **Environment variables** — in the Vercel project's Settings → Environment Variables, add (see `.env.example` for descriptions):
+3. **Claude API key — [console.anthropic.com](https://console.anthropic.com)**
+   - Create an API key and make sure billing is enabled on the account (generation and grading calls use it).
+   - This becomes `ANTHROPIC_API_KEY`.
+
+4. **Environment variables** — in the Vercel project's Settings → Environment Variables, add (see `.env.example`
+   for full descriptions):
    - `DATABASE_URL`, `DIRECT_URL` — from Neon.
-   - `AUTH_SECRET` — random string, e.g. run `openssl rand -hex 32` locally.
-   - `FAMILY_ACCESS_SLUG` — random string, e.g. `openssl rand -hex 16`. This becomes part of the family link: `https://<your-project>.vercel.app/g/<FAMILY_ACCESS_SLUG>`.
-   - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` — your admin login. Used once by the seed step below; you can remove them from Vercel afterward if you like.
+   - `AUTH_SECRET` — random string, e.g. run `openssl rand -hex 32`.
+   - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` — your login. Used once by the seed step below; safe to remove
+     from Vercel afterward.
+   - `ANTHROPIC_API_KEY` — from step 3.
+   - `ANTHROPIC_MODEL` (optional) — defaults to `claude-opus-5` for the best quality. If you're generating or
+     grading at high volume and want to cut cost, set it to `claude-sonnet-5` or `claude-haiku-4-5`.
 
-4. **Blob storage** (for theme background image uploads) — in Settings → Storage, click "Create Database" → choose **Blob** → connect it to this project. This automatically adds `BLOB_READ_WRITE_TOKEN`.
+5. **Blob storage** (for photos of graded work) — in Settings → Storage, click "Create Database" → choose **Blob**
+   → connect it to this project. This automatically adds `BLOB_READ_WRITE_TOKEN`.
 
-5. **Deploy** — click Deploy. The build runs `prisma migrate deploy` against Neon automatically, then builds the app.
+6. **Deploy** — click Deploy. The build runs `prisma migrate deploy` against Neon automatically, then builds the app.
 
-6. **Seed the admin account** (one-time, from your own machine):
+7. **Seed your login** (one-time, from your own machine):
    ```bash
    npm install
    # Paste the same DATABASE_URL / DIRECT_URL / ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD
@@ -40,27 +61,23 @@ Next.js (App Router) + TypeScript, Prisma + Postgres, Tailwind CSS, Framer Motio
    npm run db:seed
    ```
 
-7. Visit `https://<your-project>.vercel.app/admin/login`, sign in, and add your first gifts. Share `https://<your-project>.vercel.app/g/<FAMILY_ACCESS_SLUG>` with family — that link is the only thing they need.
+8. Visit `https://<your-project>.vercel.app/login`, sign in, and add your first class. You'll land on that class's
+   Import page — paste your planning chat export there to seed its curriculum and timeline.
 
 ## Local development
 
 ```bash
 npm install
-cp .env.example .env   # fill in a local Postgres connection string, etc.
+cp .env.example .env   # fill in a local Postgres connection string, your Anthropic key, etc.
 npx prisma migrate deploy
 npm run db:seed
 npm run dev
 ```
 
-## How privacy is enforced
+## A note on cost
 
-The admin side must never see purchase/claim data — this isn't just hidden in the UI, it's structural:
-
-- `Gift` and `Claim` are separate tables with no Prisma-level relation between them, so `Gift`'s generated type has no `claims` field to accidentally select.
-- `lib/db/gifts.ts` (admin queries) and `lib/db/claims.ts` (claim queries) are separate files. `lib/db/family-gifts.ts` is the *only* module allowed to combine them, and it's used solely by the public family route.
-- An ESLint rule blocks `app/admin/**` and `app/api/admin/**` from ever importing `lib/db/claims` or `lib/db/family-gifts` — a violation fails linting/CI, not just code review.
-- Admin API responses are typed as `AdminGiftDTO`, which has no `claimed`/`claimedBy` fields at all.
-
-## Changing the look for a holiday, sports team, etc.
-
-Go to `/admin/theme` — colors, background image, and an animation pack (confetti, snow, fireworks, paw prints, team spirit) are all editable there and apply to the family page immediately, no redeploy needed.
+Every resource generation and every photo grade is a real Claude API call, billed to your Anthropic account.
+`claude-opus-5` (the default) gives the best quality; switching `ANTHROPIC_MODEL` to `claude-sonnet-5` cuts the
+per-call cost substantially with a smaller quality tradeoff, and `claude-haiku-4-5` is cheaper still if you're
+grading a large stack of submissions at once. You can change this at any time in your environment variables without
+touching code.

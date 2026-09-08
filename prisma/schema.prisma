@@ -8,44 +8,169 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model AdminUser {
+// Single-teacher app: one row, seeded once from ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD.
+model Teacher {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
 }
 
-// Deliberately has NO relation field back to Claim. Prisma's generated
-// GiftGetPayload / findMany types therefore have no `claims` accessor to
-// accidentally `include` or `select` from admin-side code.
-model Gift {
-  id        String   @id @default(cuid())
-  title     String
-  link      String
-  imageUrl  String?
-  price     String?
-  notes     String?
-  occasion  String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Claim {
+model Class {
   id          String   @id @default(cuid())
-  giftId      String   @unique
-  claimerName String
-  claimedAt   DateTime @default(now())
+  name        String
+  subject     String?
+  gradeLevel  String?
+  period      String?
+  color       String   @default("#6366f1")
+  emoji       String   @default("📘")
+  description String?
+  sortOrder   Int      @default(0)
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  units       Unit[]
+  logEntries  LogEntry[]
+  resources   Resource[]
+  assignments Assignment[]
+  students    Student[]
+
+  @@index([sortOrder])
 }
 
-// Singleton row, id is always 1.
-model ThemeSettings {
-  id                 Int      @id @default(1)
-  primaryColor       String   @default("#171717")
-  accentColor        String   @default("#b45309")
-  backgroundColor    String   @default("#ffffff")
-  textColor          String   @default("#171717")
-  backgroundImageUrl String?
-  animationPack      String   @default("none")
-  updatedAt          DateTime @updatedAt
+enum UnitStatus {
+  UPCOMING
+  IN_PROGRESS
+  DONE
+}
+
+// A chunk of the year-long scope-and-sequence for a class ("Unit 3: Cell Biology").
+model Unit {
+  id        String     @id @default(cuid())
+  classId   String
+  class     Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title     String
+  summary   String?
+  order     Int        @default(0)
+  status    UnitStatus @default(UPCOMING)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  logEntries  LogEntry[]
+  resources   Resource[]
+  assignments Assignment[]
+
+  @@index([classId, order])
+}
+
+// The running log of "what we actually did" on a given day — the class's timeline.
+model LogEntry {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  date      DateTime
+  summary   String
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([classId, date])
+}
+
+enum ResourceType {
+  LESSON_PLAN
+  SLIDES
+  NOTES
+  WORKSHEET
+  QUIZ
+  TEST
+  PROJECT
+  OTHER
+}
+
+// AI-drafted or hand-written teaching material: a lesson plan, slide outline,
+// notes page, worksheet, quiz, test, or project brief. Content is Markdown so
+// it stays fully editable in the browser.
+model Resource {
+  id        String       @id @default(cuid())
+  classId   String
+  class     Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  type      ResourceType
+  title     String
+  prompt    String?
+  content   String       @db.Text
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([classId, type])
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  submissions Submission[]
+
+  @@index([classId])
+}
+
+// A gradeable item (test, project, worksheet, quiz...) with a rubric and/or
+// answer key attached, used to grade photographed student submissions.
+model Assignment {
+  id             String       @id @default(cuid())
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  title          String
+  type           ResourceType @default(TEST)
+  pointsPossible Float        @default(100)
+  instructions   String?
+  rubric         Json?
+  answerKey      String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  submissions Submission[]
+
+  @@index([classId])
+}
+
+enum SubmissionStatus {
+  PENDING
+  GRADING
+  GRADED
+  REVIEWED
+  FAILED
+}
+
+// One student's photographed work for an assignment, plus the AI's proposed
+// grade and the teacher's edited/finalized grade.
+model Submission {
+  id                  String           @id @default(cuid())
+  assignmentId        String
+  assignment          Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId           String?
+  student             Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  studentNameFallback String?
+  photoUrls           String[]
+  status              SubmissionStatus @default(PENDING)
+  aiScore             Float?
+  aiFeedback          Json?
+  finalScore          Float?
+  teacherNotes        String?
+  gradedAt            DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([assignmentId])
 }
