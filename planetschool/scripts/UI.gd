@@ -219,17 +219,25 @@ func _build_hud() -> void:
 	left.anchor_bottom = 1
 	left.offset_left = 6
 	left.offset_top = 62
-	left.offset_right = 270
+	left.offset_right = 296
 	left.offset_bottom = -6
 	hud.add_child(left)
 	var lv := VBoxContainer.new()
 	left.add_child(lv)
 	lv.add_child(_label("BUILD", 16, C_ACCENT))
+	var lrow := HBoxContainer.new()
+	lv.add_child(lrow)
+	lrow.add_child(_button("Down", func(): world.set_level(world.level - 1), "Go down a floor (Page Down / [)"))
+	var level_lbl := _label(Data.LEVEL_NAMES[0], 15, C_TEXT)
+	level_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	level_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lrow.add_child(level_lbl)
+	lrow.add_child(_button("Up", func(): world.set_level(world.level + 1), "Go up a floor (Page Up / ])"))
+	world.level_changed.connect(func(l): level_lbl.text = Data.LEVEL_NAMES[l])
 	var tools := GridContainer.new()
 	tools.columns = 2
 	lv.add_child(tools)
-	for t in [["Select", "select", "Click people and buildings (Esc)"], ["Bulldoze", "bulldoze", "Drag to demolish, 50% refund (X)"],
-			["Sidewalk $10", "sidewalk", "Click & drag to paint outdoor paths"], ["Hallway $25", "hallway", "Click & drag to paint indoor hallways"]]:
+	for t in [["Select", "select", "Click people and rooms (Esc)"], ["Bulldoze", "bulldoze", "Drag a box to demolish on this floor, 50% refund on rooms (X)"]]:
 		var tid: String = t[1]
 		var b := _button(t[0], func(): world.set_tool(tid), t[2])
 		b.toggle_mode = true
@@ -240,7 +248,7 @@ func _build_hud() -> void:
 	var cats := GridContainer.new()
 	cats.columns = 2
 	lv.add_child(cats)
-	for c in Data.CATEGORIES:
+	for c in ["Construction"] + Data.CATEGORIES:
 		var cat: String = c
 		var b := _button(cat, func():
 			build_cat = cat
@@ -255,10 +263,10 @@ func _build_hud() -> void:
 	build_list = VBoxContainer.new()
 	build_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(build_list)
-	var vb := _button("View: Auto cutaway", func(): world.cycle_view_mode(), "Auto hides roofs when you zoom in (V)")
-	world.view_mode_changed.connect(func(m): vb.text = "View: " + {"auto": "Auto cutaway", "full": "Roofs on", "cutaway": "Cutaway"}[m])
+	var vb := _button("View: Auto cutaway", func(): world.cycle_view_mode(), "Auto hides roofs and upper floors when you zoom in (V)")
+	world.view_mode_changed.connect(func(m): vb.text = "View: " + {"auto": "Auto cutaway", "full": "Whole building", "cutaway": "Cutaway"}[m])
 	lv.add_child(vb)
-	lv.add_child(_wrap_label("WASD pan, Q/E or right-drag rotate, wheel zoom, middle-drag pan. Shift+click places several. Right-click / Esc cancels.", 11))
+	lv.add_child(_wrap_label("WASD pan, Q/E or right-drag rotate, wheel zoom. Drag to paint floors, draw walls along grid lines (drag diagonally for a box). R rotates stairs. Shift+click places several.", 11))
 
 	# ---- right info panel ----
 	info_panel = PanelContainer.new()
@@ -282,7 +290,7 @@ func _build_hud() -> void:
 	notif_box.anchor_left = 0
 	notif_box.anchor_top = 1
 	notif_box.anchor_bottom = 1
-	notif_box.offset_left = 285
+	notif_box.offset_left = 310
 	notif_box.offset_right = 760
 	notif_box.offset_bottom = -10
 	notif_box.offset_top = -260
@@ -304,9 +312,25 @@ func _refresh_build_list() -> void:
 		return
 	for c in build_list.get_children():
 		c.queue_free()
+	for t in tool_buttons:
+		tool_buttons[t].button_pressed = world.tool == t
+	if world.tool == "bulldoze":
+		build_list.add_child(_label("Bulldoze", 15, C_ACCENT))
+		for f in [["Everything", "all"], ["Rooms & objects", "rooms"], ["Walls", "walls"], ["Floors", "floors"], ["Roofs", "roofs"]]:
+			var fid: String = f[1]
+			var b := _button(f[0], func():
+				world.bulldoze_filter = fid
+				_refresh_build_list())
+			b.toggle_mode = true
+			b.button_pressed = world.bulldoze_filter == fid
+			build_list.add_child(b)
+		build_list.add_child(_hsep())
+	if build_cat == "Construction":
+		_construction_list()
+		return
 	for id in Data.BUILDINGS:
 		var d: Dictionary = Data.BUILDINGS[id]
-		if d["cat"] != build_cat:
+		if d["cat"] != build_cat or id in ["stairs", "elevator"]:
 			continue
 		var locked: bool = d.has("unlock") and not Game.research_done.has(d["unlock"])
 		var bid: String = id
@@ -321,8 +345,91 @@ func _refresh_build_list() -> void:
 		b.toggle_mode = true
 		b.button_pressed = world.tool == "build" and world.build_id == id
 		build_list.add_child(b)
-	for t in tool_buttons:
-		tool_buttons[t].button_pressed = world.tool == t
+	if build_cat != "Outdoor & Decor":
+		build_list.add_child(_hsep())
+		var cb := CheckBox.new()
+		cb.text = "Auto walls around new rooms"
+		cb.tooltip_text = "Wraps each new room in walls of the selected wall material, with a doorway. Leave off to build your own."
+		cb.button_pressed = world.auto_walls
+		cb.focus_mode = Control.FOCUS_NONE
+		cb.toggled.connect(func(on): world.auto_walls = on)
+		build_list.add_child(cb)
+
+
+func _section(text: String) -> void:
+	build_list.add_child(_hsep())
+	build_list.add_child(_label(text, 15, C_ACCENT))
+
+
+func _construction_list() -> void:
+	_section("Floors  (drag to paint)")
+	var fg := GridContainer.new()
+	fg.columns = 2
+	build_list.add_child(fg)
+	for id in Data.FLOORS:
+		var fid: int = id
+		var f: Dictionary = Data.FLOORS[fid]
+		var b := _button("%s $%d" % [f["name"], f["cost"]], func():
+			world.floor_mat = fid
+			world.set_tool("floor"),
+			"Walkable floor, $%d per tile.%s" % [f["cost"], " Ground floor only." if f.get("outdoor", false) else ""])
+		b.toggle_mode = true
+		b.button_pressed = world.tool == "floor" and world.floor_mat == fid
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.add_theme_font_size_override("font_size", 12)
+		fg.add_child(b)
+	_section("Walls  (drag along grid lines)")
+	var ob := OptionButton.new()
+	ob.focus_mode = Control.FOCUS_NONE
+	var keys := Data.WALL_MATERIALS.keys()
+	for i in keys.size():
+		ob.add_item(Data.WALL_MATERIALS[keys[i]]["name"])
+		if keys[i] == world.wall_mat:
+			ob.select(i)
+	ob.item_selected.connect(func(i):
+		world.wall_mat = keys[i]
+		if world.tool == "wall":
+			_refresh_build_list())
+	build_list.add_child(ob)
+	var wg := GridContainer.new()
+	wg.columns = 2
+	build_list.add_child(wg)
+	for k in Data.WALL_TYPES:
+		var kid: int = k
+		var t: Dictionary = Data.WALL_TYPES[kid]
+		var cost := Data.wall_cost(Data.wall_style(world.wall_mat, kid))
+		var b := _button("%s $%d" % [t["name"], cost], func():
+			world.wall_kind = kid
+			world.set_tool("wall"),
+			"People %s through this." % ("can walk" if t["passable"] else "can't walk"))
+		b.toggle_mode = true
+		b.button_pressed = world.tool == "wall" and world.wall_kind == kid
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.add_theme_font_size_override("font_size", 12)
+		wg.add_child(b)
+	_section("Roofs  (drag to cover this floor)")
+	for id in Data.ROOFS:
+		var rid: int = id
+		var r: Dictionary = Data.ROOFS[rid]
+		var b := _button("%s  $%d" % [r["name"], r["cost"]], func():
+			world.roof_kind = rid
+			world.set_tool("roof"))
+		b.toggle_mode = true
+		b.button_pressed = world.tool == "roof" and world.roof_kind == rid
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		build_list.add_child(b)
+	_section("Stairs & Elevators")
+	for id in ["stairs", "elevator"]:
+		var bid: String = id
+		var d: Dictionary = Data.BUILDINGS[bid]
+		var b := _button("%s   $%s" % [d["name"], Game.format_money(d["cost"])], func(): world.set_tool("build", bid), d["desc"])
+		b.toggle_mode = true
+		b.button_pressed = world.tool == "build" and world.build_id == bid
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		build_list.add_child(b)
+	build_list.add_child(_wrap_label("Stairs go up from the floor you're on. Put floor next to the top end on the floor above. Press R to rotate.", 11))
 
 
 func _process(delta: float) -> void:
@@ -509,7 +616,7 @@ func _info_building(b: Building) -> void:
 	info_box.add_child(_wrap_label(d["desc"], 12))
 	info_box.add_child(_label("Upkeep $%d/day" % d["upkeep"], 13, C_DIM))
 	if not b.connected:
-		info_box.add_child(_wrap_label("Not connected to a path from the main gate! Paint sidewalks or hallways up to it.", 12, C_BAD))
+		info_box.add_child(_wrap_label("Can't be reached from the main entrance! Connect it with floor, and give its walls a doorway.", 12, C_BAD))
 	if b.is_decor():
 		if d.get("appeal", 0) > 0:
 			info_box.add_child(_label("Appeal +%d to nearby rooms" % d["appeal"], 13))

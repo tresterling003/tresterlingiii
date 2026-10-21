@@ -7,8 +7,9 @@ var uid: int
 var role := "student"  # "student" or a key of Data.STAFF_ROLES
 var name := ""
 var present := false  # on campus right now
-var pos := Vector2.ZERO  # pixel position
-var path: Array = []  # remaining Vector2i tiles to walk
+var pos := Vector2.ZERO  # pixel position on the level plane
+var level := 0  # which floor the person is on
+var path: Array = []  # remaining Vector3i cells (x, y, level) to walk
 var dest_uid := -1  # building we're heading to / inside
 var activity := ""  # what we will do / are doing at dest
 var busy := 0  # minutes left on the current activity
@@ -54,6 +55,11 @@ func is_student() -> bool:
 
 func tile() -> Vector2i:
 	return Vector2i(floori(pos.x / Game.TILE), floori(pos.y / Game.TILE))
+
+
+func cell() -> Vector3i:
+	var t := tile()
+	return Vector3i(t.x, t.y, level)
 
 
 func is_walking() -> bool:

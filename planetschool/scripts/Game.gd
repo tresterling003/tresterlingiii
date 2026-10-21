@@ -12,8 +12,10 @@ signal fight_happened(uid: int)
 
 const W := 72
 const H := 48
+const LEVELS := 3
 const TILE := 32
 const GATE := Vector2i(36, 47)
+const GATE_CELL := Vector3i(36, 47, 0)
 
 # Daily timetable, in minutes after midnight.
 const DAY_START := 450  # 7:30 staff and students start arriving
@@ -49,11 +51,16 @@ var buildings: Array = []
 var bld_by_uid := {}
 var people: Array = []
 var person_by_uid := {}
-var grid_bld := PackedInt32Array()  # building uid per tile, -1 if empty
-var grid_path := PackedByteArray()  # 0 grass, 1 sidewalk, 2 hallway, 3 gate
-var litter := {}  # Vector2i -> pieces of trash
-var reachable := {}  # Vector2i -> true, tiles walkable from the gate
-var astar := AStarGrid2D.new()
+# Per-cell layers, indexed by cidx(Vector3i(x, y, level)).
+var grid_bld := PackedInt32Array()  # building uid, -1 if empty
+var grid_floor := PackedByteArray()  # floor material id (Data.FLOORS), 0 = none
+var grid_roof := PackedByteArray()  # roof type (Data.ROOFS) covering this cell, 0 = none
+# Walls live on tile edges. walls_h: top edge of tile (x, y); walls_v: left edge of tile (x, y).
+var walls_h := PackedByteArray()
+var walls_v := PackedByteArray()
+var litter := {}  # Vector3i -> pieces of trash
+var reachable := {}  # Vector3i -> true, cells walkable from the gate
+var astar := AStar3D.new()
 
 var research_done := {}
 var research_current := ""
@@ -63,7 +70,7 @@ var policies := {"tuition": 0, "lunch_price": 4, "phones": "allow", "uniforms": 
 var rating := {"academics": 50.0, "welfare": 70.0, "safety": 80.0, "cleanliness": 90.0,
 	"facilities": 0.0, "attendance": 100.0, "overall": 40.0}
 var incidents := 0.0  # recent misbehavior, decays daily
-var incident_tile := Vector2i(-1, -1)
+var incident_tile := Vector3i(-1, -1, 0)
 var wins := 0
 var losses := 0
 var graduates := 0
@@ -74,16 +81,12 @@ var finance_today := {}
 var finance_history: Array = []  # last 30 days of {income, expense, net}
 var hire_pool: Array = []
 var selected = null
+var _batch := 0  # >0 while building many pieces at once (skips nav rebuilds)
 
 
 func _ready() -> void:
 	_clear()
-	for x in range(GATE.x - 1, GATE.x + 2):
-		_set_path(Vector2i(x, GATE.y), 3)
-	astar.region = Rect2i(0, 0, W, H)
-	astar.cell_size = Vector2(1, 1)
-	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
-	astar.update()
+	_make_gate()
 
 
 # =====================================================================
@@ -100,14 +103,20 @@ func new_game(scen: String, name_: String) -> void:
 	if scen == "sandbox":
 		for r in Data.RESEARCH:
 			research_done[r] = true
-	# Entrance: the bus loop gate and a sidewalk leading in.
-	for x in range(GATE.x - 1, GATE.x + 2):
-		_set_path(Vector2i(x, GATE.y), 3)
-	for y in range(GATE.y - 4, GATE.y):
-		_set_path(Vector2i(GATE.x, y), 1)
-	if s["prebuilt"]:
-		_build_riverside()
-	_rebuild_nav()
+	_make_gate()
+	begin_batch()
+	match s["prebuilt"]:
+		"mega":
+			team_name = "Eagles"
+			if name_.strip_edges() in ["", "Sterling High"]:
+				school_name = "Eagle Ridge High"
+			SchoolTemplates.build_mega(self)
+		"riverside":
+			SchoolTemplates.build_riverside(self)
+		_:
+			for y in range(GATE.y - 4, GATE.y):
+				set_floor(Vector3i(GATE.x, y, 0), 1)
+	end_batch()
 	_refresh_hire_pool()
 	compute_ratings()
 	running = true
@@ -117,8 +126,8 @@ func new_game(scen: String, name_: String) -> void:
 	game_started.emit()
 	map_changed.emit()
 	notify.emit("Welcome to %s, home of the %s!" % [school_name, team_name], "good")
-	if scen == "fresh_start" or scen == "powerhouse":
-		notify.emit("Tip: build hallways from the gate, then classrooms for Math, English, Science and History.", "info")
+	if s["prebuilt"] == "":
+		notify.emit("Tip: paint floors from the gate, draw walls with doorways, then place classrooms. Use the level buttons to build upstairs.", "info")
 		notify.emit("Tip: hire a teacher for every classroom, and add Restrooms and a Cafeteria.", "info")
 
 
@@ -132,11 +141,20 @@ func _clear() -> void:
 	research_current = ""
 	research_progress = 0.0
 	grid_bld = PackedInt32Array()
-	grid_bld.resize(W * H)
+	grid_bld.resize(W * H * LEVELS)
 	grid_bld.fill(-1)
-	grid_path = PackedByteArray()
-	grid_path.resize(W * H)
-	grid_path.fill(0)
+	grid_floor = PackedByteArray()
+	grid_floor.resize(W * H * LEVELS)
+	grid_floor.fill(0)
+	grid_roof = PackedByteArray()
+	grid_roof.resize(W * H * LEVELS)
+	grid_roof.fill(0)
+	walls_h = PackedByteArray()
+	walls_h.resize(W * (H + 1) * LEVELS)
+	walls_h.fill(0)
+	walls_v = PackedByteArray()
+	walls_v.resize((W + 1) * H * LEVELS)
+	walls_v.fill(0)
 	policies = {"tuition": 0, "lunch_price": 4, "phones": "allow", "uniforms": false, "homework": "normal"}
 	day = 1
 	minute = DAY_START
@@ -150,39 +168,35 @@ func _clear() -> void:
 	finance_today = {}
 	finance_history.clear()
 	selected = null
+	_batch = 0
 
 
-func _build_riverside() -> void:
-	# A tired old campus with a central hallway spine.
-	for y in range(14, GATE.y - 4):
-		_set_path(Vector2i(GATE.x, y), 2)
-	for x in range(20, 54):
-		_set_path(Vector2i(x, 24), 2)
-	var layout := [["math_room", Vector2i(31, 21)], ["english_room", Vector2i(38, 21)], ["history_room", Vector2i(31, 25)],
-		["science_lab", Vector2i(38, 25)], ["restroom", Vector2i(26, 22)], ["cafeteria", Vector2i(44, 25)],
-		["lockers", Vector2i(32, 30)], ["vending", Vector2i(35, 30)], ["gymnasium", Vector2i(20, 25)]]
-	for item in layout:
-		var b := place_building(item[0], item[1], true)
-		if b:
-			b.cleanliness = randf_range(20, 45)
-			b.condition = randf_range(40, 65)
+func _make_gate() -> void:
+	for x in range(GATE.x - 1, GATE.x + 2):
+		grid_floor[cidx(Vector3i(x, GATE.y, 0))] = Data.GATE_FLOOR
+
+
+## Group many construction calls; navigation is rebuilt once at the end.
+func begin_batch() -> void:
+	_batch += 1
+
+
+func end_batch() -> void:
+	_batch = maxi(0, _batch - 1)
+	if _batch == 0:
+		_rebuild_nav()
+		auto_assign_staff()
+		map_changed.emit()
+		changed.emit()
+
+
+func _after_edit() -> void:
+	if _batch > 0:
+		return
 	_rebuild_nav()
-	for subj in ["Math", "English", "History"]:
-		var t := _make_staff("teacher", subj, 1 + randi() % 2)
-		t.morale = 40
-		_add_staff(t)
-	_add_staff(_make_staff("lunch", "", 1))
-	for i in 70:
-		var st := _make_student(9 + randi() % 4)
-		st.gpa = randf_range(1.2, 2.6)
-		st.happiness = randf_range(25, 55)
-		st.stress = randf_range(40, 70)
-		_add_person(st)
-	for i in 60:
-		var t := Vector2i(randi_range(18, 54), randi_range(16, 40))
-		if is_walkable(t):
-			add_litter(t, randi_range(1, 3))
-	incidents = 12
+	auto_assign_staff()
+	map_changed.emit()
+	changed.emit()
 
 
 # =====================================================================
@@ -193,111 +207,307 @@ func in_bounds(t: Vector2i) -> bool:
 	return t.x >= 0 and t.y >= 0 and t.x < W and t.y < H
 
 
-func idx(t: Vector2i) -> int:
-	return t.y * W + t.x
+func in_cell(c: Vector3i) -> bool:
+	return c.x >= 0 and c.y >= 0 and c.x < W and c.y < H and c.z >= 0 and c.z < LEVELS
 
 
-func path_at(t: Vector2i) -> int:
-	return grid_path[idx(t)] if in_bounds(t) else 0
+func cidx(c: Vector3i) -> int:
+	return (c.z * H + c.y) * W + c.x
 
 
-func building_at(t: Vector2i) -> Building:
-	if not in_bounds(t):
+func cell_of(id: int) -> Vector3i:
+	var lv := id / (W * H)
+	var r := id % (W * H)
+	return Vector3i(r % W, r / W, lv)
+
+
+func floor_at(c: Vector3i) -> int:
+	return grid_floor[cidx(c)] if in_cell(c) else 0
+
+
+func roof_at(c: Vector3i) -> int:
+	return grid_roof[cidx(c)] if in_cell(c) else 0
+
+
+func building_at(t: Vector2i, lv := 0) -> Building:
+	return building_at_cell(Vector3i(t.x, t.y, lv))
+
+
+func building_at_cell(c: Vector3i) -> Building:
+	if not in_cell(c):
 		return null
-	var u := grid_bld[idx(t)]
+	var u := grid_bld[cidx(c)]
 	return bld_by_uid.get(u) if u >= 0 else null
 
 
-func is_walkable(t: Vector2i) -> bool:
-	if not in_bounds(t):
+func is_walkable(c: Vector3i) -> bool:
+	if not in_cell(c):
 		return false
-	if grid_path[idx(t)] > 0:
+	var b := building_at_cell(c)
+	if b != null:
+		if b.is_decor() or b.capacity() == 0:
+			return false
+		if b.id == "stairs" and c.z > b.level:
+			return Vector2i(c.x, c.y) in b.stair_top_tiles()
 		return true
-	var b := building_at(t)
-	return b != null and not b.is_decor() and b.capacity() > 0
-
-
-func _set_path(t: Vector2i, kind: int) -> void:
-	grid_path[idx(t)] = kind
+	return grid_floor[cidx(c)] > 0
 
 
 func tile_center(t: Vector2i) -> Vector2:
 	return (Vector2(t) + Vector2(0.5, 0.5)) * TILE
 
 
-func can_place(id: String, at: Vector2i) -> String:
+# ---- walls -----------------------------------------------------------
+# An edge is Vector4i(x, y, level, dir): dir 0 = top edge of tile (x, y),
+# dir 1 = left edge of tile (x, y).
+
+func edge_valid(e: Vector4i) -> bool:
+	if e.z < 0 or e.z >= LEVELS:
+		return false
+	if e.w == 0:
+		return e.x >= 0 and e.x < W and e.y >= 0 and e.y <= H
+	return e.x >= 0 and e.x <= W and e.y >= 0 and e.y < H
+
+
+func _eidx(e: Vector4i) -> int:
+	if e.w == 0:
+		return (e.z * (H + 1) + e.y) * W + e.x
+	return (e.z * H + e.y) * (W + 1) + e.x
+
+
+func get_wall(e: Vector4i) -> int:
+	if not edge_valid(e):
+		return 0
+	return walls_h[_eidx(e)] if e.w == 0 else walls_v[_eidx(e)]
+
+
+func _set_wall_raw(e: Vector4i, style: int) -> void:
+	if e.w == 0:
+		walls_h[_eidx(e)] = style
+	else:
+		walls_v[_eidx(e)] = style
+
+
+## The wall style between two orthogonally adjacent cells on the same level.
+func wall_between(a: Vector3i, b: Vector3i) -> int:
+	if a.x == b.x:
+		return get_wall(Vector4i(a.x, maxi(a.y, b.y), a.z, 0))
+	return get_wall(Vector4i(maxi(a.x, b.x), a.y, a.z, 1))
+
+
+## Edges along a straight line between two grid vertices, or the outline of
+## the rectangle they span.
+func edges_between(a: Vector2i, b: Vector2i, lv: int) -> Array:
+	var out: Array = []
+	var x0 := mini(a.x, b.x)
+	var x1 := maxi(a.x, b.x)
+	var y0 := mini(a.y, b.y)
+	var y1 := maxi(a.y, b.y)
+	if a.y == b.y or a.x != b.x:
+		for x in range(x0, x1):
+			out.append(Vector4i(x, y0, lv, 0))
+			if y1 != y0:
+				out.append(Vector4i(x, y1, lv, 0))
+	if a.x == b.x or a.y != b.y:
+		for y in range(y0, y1):
+			out.append(Vector4i(x0, y, lv, 1))
+			if x1 != x0:
+				out.append(Vector4i(x1, y, lv, 1))
+	return out
+
+
+func _edge_blocked_for_gate(e: Vector4i) -> bool:
+	return e.z == 0 and e.w == 0 and e.y == GATE.y and e.x >= GATE.x - 1 and e.x <= GATE.x + 1
+
+
+func set_wall(e: Vector4i, style: int, free := false) -> bool:
+	if not edge_valid(e) or _edge_blocked_for_gate(e) or get_wall(e) == style:
+		return false
+	if style > 0:
+		var cost := Data.wall_cost(style)
+		if not free:
+			if money < cost:
+				return false
+			spend(cost, "Construction")
+	_set_wall_raw(e, style)
+	_after_edit()
+	return true
+
+
+# ---- floors & roofs --------------------------------------------------
+
+func can_floor(c: Vector3i, mat: int) -> bool:
+	if not in_cell(c) or c.y >= GATE.y or building_at_cell(c) != null:
+		return false
+	if Data.FLOORS[mat].get("outdoor", false) and c.z > 0:
+		return false
+	return grid_floor[cidx(c)] != mat
+
+
+func set_floor(c: Vector3i, mat: int, free := false) -> bool:
+	if mat > 0 and not can_floor(c, mat):
+		return false
+	if mat == 0 and (not in_cell(c) or grid_floor[cidx(c)] in [0, Data.GATE_FLOOR]):
+		return false
+	if mat > 0 and not free:
+		var cost: int = Data.FLOORS[mat]["cost"]
+		if money < cost:
+			return false
+		spend(cost, "Construction")
+	grid_floor[cidx(c)] = mat
+	_after_edit()
+	return true
+
+
+func set_roof(c: Vector3i, kind: int, free := false) -> bool:
+	if not in_cell(c) or grid_roof[cidx(c)] == kind:
+		return false
+	if kind > 0 and not free:
+		var cost: int = Data.ROOFS[kind]["cost"]
+		if money < cost:
+			return false
+		spend(cost, "Construction")
+	grid_roof[cidx(c)] = kind
+	_after_edit()
+	return true
+
+
+# ---- rooms & objects -------------------------------------------------
+
+func can_place(id: String, at: Vector2i, lv := 0, rot := 0) -> String:
 	var d: Dictionary = Data.BUILDINGS[id]
-	var sz: Vector2i = d["size"]
+	var sz := Building.footprint(id, rot)
 	if d.has("unlock") and not research_done.has(d["unlock"]):
 		return "Needs curriculum: %s" % Data.RESEARCH[d["unlock"]]["name"]
 	if money < d["cost"]:
 		return "Not enough money"
-	for y in sz.y:
-		for x in sz.x:
-			var t := at + Vector2i(x, y)
-			if not in_bounds(t) or t.y >= GATE.y:
-				return "Out of bounds"
-			if grid_bld[idx(t)] >= 0 or grid_path[idx(t)] > 0:
-				return "Space is occupied"
+	if d.get("outdoor", false) and lv > 0:
+		return "Only on the ground floor"
+	var span: int = d.get("span", 1)
+	if lv + span > LEVELS:
+		return "No floor above to connect to"
+	for l in range(lv, lv + span):
+		for y in sz.y:
+			for x in sz.x:
+				var t := at + Vector2i(x, y)
+				if not in_bounds(t) or t.y >= GATE.y:
+					return "Out of bounds"
+				if grid_bld[cidx(Vector3i(t.x, t.y, l))] >= 0:
+					return "Space is occupied"
 	return ""
 
 
-func place_building(id: String, at: Vector2i, free := false) -> Building:
-	if not free and can_place(id, at) != "":
+func place_building(id: String, at: Vector2i, free := false, lv := 0, rot := 0, wall_style := 0) -> Building:
+	if not free and can_place(id, at, lv, rot) != "":
 		return null
 	var d: Dictionary = Data.BUILDINGS[id]
 	var b := Building.new()
 	b.uid = _uid()
 	b.id = id
 	b.pos = at
-	b.size = d["size"]
+	b.level = lv
+	b.rot = rot
+	b.size = Building.footprint(id, rot)
 	buildings.append(b)
 	bld_by_uid[b.uid] = b
-	for y in b.size.y:
-		for x in b.size.x:
-			grid_bld[idx(at + Vector2i(x, y))] = b.uid
+	for l in range(lv, lv + b.span()):
+		for y in b.size.y:
+			for x in b.size.x:
+				grid_bld[cidx(Vector3i(at.x + x, at.y + y, l))] = b.uid
 	if not free:
 		spend(d["cost"], "Construction")
-	_rebuild_nav()
-	auto_assign_staff()
-	map_changed.emit()
-	changed.emit()
+	if wall_style > 0 and not b.is_decor():
+		begin_batch()
+		build_room_walls(b, wall_style, free)
+		end_batch()
+	else:
+		_after_edit()
 	return b
 
 
-func place_path(t: Vector2i, kind: int) -> bool:
-	if not in_bounds(t) or t.y >= GATE.y or grid_bld[idx(t)] >= 0 or grid_path[idx(t)] == kind:
-		return false
-	var cost: int = Data.PATHS["sidewalk" if kind == 1 else "hallway"]["cost"]
-	if money < cost:
-		return false
-	spend(cost, "Construction")
-	_set_path(t, kind)
-	return true
+## Optional convenience: wall a room in with one doorway facing a walkable neighbor.
+func build_room_walls(b: Building, style: int, free := false) -> void:
+	var lv := b.level
+	var mat := Data.wall_mat(style)
+	var edges := edges_between(b.pos, b.pos + b.size, lv)
+	var door := Vector4i(-1, -1, -1, -1)
+	var best := INF
+	var mid := Vector2(b.pos) + Vector2(b.size) * 0.5
+	for e in edges:
+		var outside := _edge_outside_cell(e, b)
+		if not is_walkable(outside):
+			continue
+		var d := (Vector2(e.x, e.y) - mid).length() + (0.0 if building_at_cell(outside) == null else 3.0)
+		if d < best:
+			best = d
+			door = e
+	if door.x < 0:
+		door = Vector4i(b.pos.x + b.size.x / 2, b.pos.y + b.size.y, lv, 0)
+	for e in edges:
+		if get_wall(e) == 0 or e == door:
+			set_wall(e, Data.wall_style(mat, 3) if e == door else style, free)
 
 
-func bulldoze(t: Vector2i) -> bool:
-	if not in_bounds(t):
-		return false
-	var b := building_at(t)
-	if b != null:
-		remove_building(b)
-		return true
-	if grid_path[idx(t)] in [1, 2]:
-		_set_path(t, 0)
-		return true
-	if litter.has(t):
-		litter.erase(t)
-		return true
-	return false
+func _edge_outside_cell(e: Vector4i, b: Building) -> Vector3i:
+	if e.w == 0:
+		return Vector3i(e.x, e.y - 1 if e.y == b.pos.y else e.y, e.z)
+	return Vector3i(e.x - 1 if e.x == b.pos.x else e.x, e.y, e.z)
+
+
+## Remove everything in a rectangle on one level. filter: all, rooms, walls, floors, roofs.
+func bulldoze_rect(r: Rect2i, lv: int, filter := "all") -> bool:
+	var any := false
+	begin_batch()
+	if filter in ["all", "rooms"]:
+		var seen := {}
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				var b := building_at(Vector2i(x, y), lv)
+				if b and not seen.has(b.uid):
+					seen[b.uid] = true
+					remove_building(b)
+					any = true
+	if filter in ["all", "walls"]:
+		for e in edges_between(r.position, r.end, lv):
+			if get_wall(e) > 0:
+				_set_wall_raw(e, 0)
+				any = true
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x + 1, r.end.x):
+				var e := Vector4i(x, y, lv, 1)
+				if get_wall(e) > 0:
+					_set_wall_raw(e, 0)
+					any = true
+		for y in range(r.position.y + 1, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				var e := Vector4i(x, y, lv, 0)
+				if get_wall(e) > 0:
+					_set_wall_raw(e, 0)
+					any = true
+	for y in range(r.position.y, r.end.y):
+		for x in range(r.position.x, r.end.x):
+			var c := Vector3i(x, y, lv)
+			if not in_cell(c):
+				continue
+			if filter in ["all", "floors"] and grid_floor[cidx(c)] > 0 and grid_floor[cidx(c)] != Data.GATE_FLOOR:
+				grid_floor[cidx(c)] = 0
+				any = true
+			if filter in ["all", "roofs"] and grid_roof[cidx(c)] > 0:
+				grid_roof[cidx(c)] = 0
+				any = true
+			if filter == "all" and litter.has(c):
+				litter.erase(c)
+	end_batch()
+	return any
 
 
 func remove_building(b: Building) -> void:
 	var refund := int(b.def()["cost"] * 0.5)
 	earn(refund, "Construction")
-	for y in b.size.y:
-		for x in b.size.x:
-			grid_bld[idx(b.pos + Vector2i(x, y))] = -1
+	for l in range(b.level, b.level + b.span()):
+		for y in b.size.y:
+			for x in b.size.x:
+				grid_bld[cidx(Vector3i(b.pos.x + x, b.pos.y + y, l))] = -1
 	buildings.erase(b)
 	bld_by_uid.erase(b.uid)
 	for p in people:
@@ -307,68 +517,100 @@ func remove_building(b: Building) -> void:
 			_reset_person(p)
 	if selected == b:
 		select(null)
-	notify.emit("Demolished %s (+$%d refund)" % [b.display_name(), refund], "money")
-	_rebuild_nav()
-	auto_assign_staff()
-	map_changed.emit()
-	changed.emit()
+	if _batch == 0:
+		notify.emit("Demolished %s (+$%d refund)" % [b.display_name(), refund], "money")
+	_after_edit()
 
 
-## Recompute walkability, what is reachable from the gate, and decor appeal.
+## Recompute the walk graph (walls block, doors pass, stairs connect floors),
+## what is reachable from the gate, and decor appeal.
 func _rebuild_nav() -> void:
-	for y in H:
-		for x in W:
-			var t := Vector2i(x, y)
-			astar.set_point_solid(t, not is_walkable(t))
+	astar.clear()
+	var walk := PackedByteArray()
+	walk.resize(W * H * LEVELS)
+	for lv in LEVELS:
+		for y in H:
+			for x in W:
+				var c := Vector3i(x, y, lv)
+				if is_walkable(c):
+					var i := cidx(c)
+					walk[i] = 1
+					astar.add_point(i, Vector3(x, lv * 3.0, y))
+	for lv in LEVELS:
+		for y in H:
+			for x in W:
+				var i := cidx(Vector3i(x, y, lv))
+				if walk[i] == 0:
+					continue
+				if x + 1 < W and walk[i + 1] == 1 and Data.wall_passable(walls_v[_eidx(Vector4i(x + 1, y, lv, 1))]):
+					astar.connect_points(i, i + 1)
+				if y + 1 < H and walk[i + W] == 1 and Data.wall_passable(walls_h[_eidx(Vector4i(x, y + 1, lv, 0))]):
+					astar.connect_points(i, i + W)
+	for b in buildings:
+		if not b.is_connector():
+			continue
+		var tiles: Array = b.stair_top_tiles() if b.id == "stairs" else []
+		if b.id == "elevator":
+			for y in b.size.y:
+				for x in b.size.x:
+					tiles.append(b.pos + Vector2i(x, y))
+		for t in tiles:
+			var a := cidx(Vector3i(t.x, t.y, b.level))
+			var c := cidx(Vector3i(t.x, t.y, b.level + 1))
+			if astar.has_point(a) and astar.has_point(c):
+				astar.connect_points(a, c)
 	reachable.clear()
-	var stack := [GATE]
-	reachable[GATE] = true
-	while not stack.is_empty():
-		var t: Vector2i = stack.pop_back()
-		for dvec in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			var n: Vector2i = t + dvec
-			if not reachable.has(n) and is_walkable(n):
-				reachable[n] = true
-				stack.append(n)
+	var start := cidx(GATE_CELL)
+	if astar.has_point(start):
+		var stack: Array = [start]
+		reachable[GATE_CELL] = true
+		while not stack.is_empty():
+			var i: int = stack.pop_back()
+			for n in astar.get_point_connections(i):
+				var nc := cell_of(n)
+				if not reachable.has(nc):
+					reachable[nc] = true
+					stack.append(n)
 	for b in buildings:
 		if b.is_decor() or b.capacity() == 0:
 			b.connected = _touches_reachable(b)
 		else:
-			b.connected = reachable.has(b.pos)
+			b.connected = reachable.has(Vector3i(b.pos.x, b.pos.y, b.level))
 		b.appeal = 0.0
 	for d in buildings:
 		var ap: float = d.def().get("appeal", 0)
 		if ap <= 0:
 			continue
 		for b in buildings:
-			if b.is_decor():
+			if b.is_decor() or b.level != d.level:
 				continue
 			if b.center_px().distance_to(d.center_px()) < 7 * TILE:
 				b.appeal += ap
 	# Anyone left standing somewhere unwalkable goes back to the gate.
 	for p in people:
-		if p.present and not is_walkable(p.tile()):
+		if p.present and not reachable.has(p.cell()):
 			p.pos = tile_center(GATE)
+			p.level = 0
 			_reset_person(p)
 
 
 func _touches_reachable(b: Building) -> bool:
 	for y in range(-1, b.size.y + 1):
 		for x in range(-1, b.size.x + 1):
-			if reachable.has(b.pos + Vector2i(x, y)):
+			if reachable.has(Vector3i(b.pos.x + x, b.pos.y + y, b.level)):
 				return true
 	return false
 
 
-func find_path(from: Vector2i, to: Vector2i) -> Array:
+func find_path(from: Vector3i, to: Vector3i) -> Array:
 	if not reachable.has(from) or not reachable.has(to):
 		return []
 	if from == to:
 		return [to]
-	var ids := astar.get_id_path(from, to)
+	var ids := astar.get_id_path(cidx(from), cidx(to))
 	var out: Array = []
 	for i in range(1, ids.size()):
-		out.append(ids[i])
+		out.append(cell_of(ids[i]))
 	return out
 
 
@@ -380,8 +622,8 @@ func near_building(t: Vector2i, id: String, radius: float) -> bool:
 	return false
 
 
-func add_litter(t: Vector2i, n := 1) -> void:
-	litter[t] = mini(litter.get(t, 0) + n, 6)
+func add_litter(c: Vector3i, n := 1) -> void:
+	litter[c] = mini(litter.get(c, 0) + n, 6)
 
 
 func total_litter() -> int:
@@ -657,10 +899,12 @@ func _process(delta: float) -> void:
 func _move(p: Person, dt: float) -> void:
 	var dist := WALK_TILES_PER_MIN * TILE / SEC_PER_MIN * dt
 	while dist > 0.0 and not p.path.is_empty():
-		var target := tile_center(p.path[0])
+		var c: Vector3i = p.path[0]
+		var target := tile_center(Vector2i(c.x, c.y))
 		var d := p.pos.distance_to(target)
 		if d <= dist:
 			p.pos = target
+			p.level = c.z
 			dist -= d
 			p.path.pop_front()
 		else:
@@ -785,6 +1029,7 @@ func _arrive(p: Person) -> void:
 	p.present = true
 	p.pos = tile_center(GATE) + Vector2(randf_range(-30, 30), 0)
 	p.pos.x = clampf(p.pos.x, tile_center(GATE + Vector2i.LEFT).x, tile_center(GATE + Vector2i.RIGHT).x)
+	p.level = 0
 	p.state_text = "Arriving"
 	_reset_person(p)
 
@@ -1042,9 +1287,12 @@ func _go_to_need(p: Person, need: String, act: String, label: String) -> bool:
 			continue
 		if b.required_staff() != "" and not b.is_staffed():
 			continue
-		if b.capacity() > 0 and b.occupants >= b.capacity():
+		# Restrooms get a line instead of turning people away.
+		if b.capacity() > 0 and b.occupants >= b.capacity() and need != "bladder":
 			continue
-		var d: float = b.center_px().distance_squared_to(p.pos)
+		var d: float = b.center_px().distance_squared_to(p.pos) + absi(b.level - p.level) * 250000.0
+		if need == "bladder":
+			d += maxi(0, b.occupants - b.capacity()) * 20000.0
 		if d < bd:
 			bd = d
 			best = b
@@ -1054,20 +1302,20 @@ func _go_to_need(p: Person, need: String, act: String, label: String) -> bool:
 
 
 func _send(p: Person, b: Building, act: String, label: String) -> bool:
-	var target := b.random_tile()
+	var target := b.random_cell()
 	if b.is_decor():
 		# Decor isn't walkable; stand on a walkable neighbor instead.
-		target = Vector2i(-1, -1)
+		target = Vector3i(-1, -1, -1)
 		for dvec in [Vector2i.DOWN, Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT]:
-			if reachable.has(b.pos + dvec):
-				target = b.pos + dvec
+			var n := Vector3i(b.pos.x + dvec.x, b.pos.y + dvec.y, b.level)
+			if reachable.has(n):
+				target = n
 				break
 		if target.x < 0:
 			return false
-	var from := p.tile()
-	if not reachable.has(from):
-		p.pos = tile_center(GATE)
-		from = GATE
+	elif not reachable.has(target):
+		target = Vector3i(b.pos.x, b.pos.y, b.level)
+	var from := _from_cell(p)
 	var path := find_path(from, target)
 	if path.is_empty():
 		return false
@@ -1079,13 +1327,20 @@ func _send(p: Person, b: Building, act: String, label: String) -> bool:
 	return true
 
 
-func _wander(p: Person, idle_class := false) -> void:
-	var from := p.tile()
-	if not reachable.has(from):
+## Where the person stands now; anyone stranded off the walk graph goes back to the gate.
+func _from_cell(p: Person) -> Vector3i:
+	var c := p.cell()
+	if not reachable.has(c):
 		p.pos = tile_center(GATE)
-		from = GATE
+		p.level = 0
+		c = GATE_CELL
+	return c
+
+
+func _wander(p: Person, idle_class := false) -> void:
+	var from := _from_cell(p)
 	for attempt in 6:
-		var t := from + Vector2i(randi_range(-7, 7), randi_range(-7, 7))
+		var t := from + Vector3i(randi_range(-7, 7), randi_range(-7, 7), 0)
 		if reachable.has(t) and t.y < GATE.y:
 			p.path = find_path(from, t)
 			break
@@ -1098,12 +1353,12 @@ func _wander(p: Person, idle_class := false) -> void:
 
 func _go_home(p: Person, label := "Going home") -> void:
 	_reset_person(p)
-	var from := p.tile()
+	var from := p.cell()
 	if not reachable.has(from):
 		p.present = false
 		_reset_person(p)
 		return
-	p.path = find_path(from, GATE)
+	p.path = find_path(from, GATE_CELL)
 	p.dest_uid = -1
 	p.activity = "home"
 	p.busy = 0
@@ -1119,7 +1374,7 @@ func _start_activity(p: Person) -> void:
 		var dirt := 0
 		for dy in range(-2, 3):
 			for dx in range(-2, 3):
-				dirt += litter.get(p.tile() + Vector2i(dx, dy), 0)
+				dirt += litter.get(p.cell() + Vector3i(dx, dy, 0), 0)
 		if dirt >= 5:
 			p.think("This place is covered in trash.", false)
 			p.needs["fun"] -= 4
@@ -1262,7 +1517,7 @@ func _maybe_litter(p: Person, chance: float) -> void:
 	if near_building(p.tile(), "trash_can", 4):
 		return
 	if randf() < chance:
-		add_litter(p.tile())
+		add_litter(p.cell())
 
 
 func _maybe_misbehave(p: Person) -> void:
@@ -1282,7 +1537,7 @@ func _maybe_misbehave(p: Person) -> void:
 		return
 	var roll := randf()
 	if roll < 0.5:
-		add_litter(p.tile(), 2)
+		add_litter(p.cell(), 2)
 		p.think("Whatever, someone else will pick it up.", false)
 	elif roll < 0.8:
 		var target: Building = null
@@ -1296,7 +1551,7 @@ func _maybe_misbehave(p: Person) -> void:
 			notify.emit("Vandalism! %s tagged the %s with graffiti." % [p.name, target.display_name()], "bad")
 	else:
 		incidents += 2
-		incident_tile = p.tile()
+		incident_tile = p.cell()
 		fight_happened.emit(p.uid)
 		p.stress += 15
 		p.happiness -= 15
@@ -1417,10 +1672,10 @@ func _staff_finish(p: Person) -> void:
 	if b:
 		b.occupants = maxi(0, b.occupants - 1)
 	if p.activity == "clean":
-		var t := p.tile()
+		var t := p.cell()
 		for dy in range(-1, 2):
 			for dx in range(-1, 2):
-				litter.erase(t + Vector2i(dx, dy))
+				litter.erase(t + Vector3i(dx, dy, 0))
 		if b:
 			b.cleanliness = minf(100, b.cleanliness + 40 + p.skill * 8)
 			b.condition = minf(100, b.condition + 10 + p.skill * 3)
@@ -1434,12 +1689,12 @@ func _staff_finish(p: Person) -> void:
 
 
 func _janitor_decide(p: Person) -> void:
-	var best_t := Vector2i(-1, -1)
+	var best_t := Vector3i(-1, -1, -1)
 	var bd := INF
 	for t in litter:
 		if not reachable.has(t):
 			continue
-		var d := tile_center(t).distance_squared_to(p.pos) / float(litter[t])
+		var d := (tile_center(Vector2i(t.x, t.y)).distance_squared_to(p.pos) + absi(t.z - p.level) * 40000.0) / float(litter[t])
 		if d < bd and not _claimed_by_other_janitor(p, t):
 			bd = d
 			best_t = t
@@ -1449,17 +1704,17 @@ func _janitor_decide(p: Person) -> void:
 			continue
 		var need: bool = (b.id in ["restroom", "cafeteria"] and b.cleanliness < 65) or b.condition < 80
 		if need:
-			var d: float = b.center_px().distance_squared_to(p.pos) * 0.5
+			var d: float = b.center_px().distance_squared_to(p.pos) * 0.5 + absi(b.level - p.level) * 40000.0
 			if d < bd:
 				bd = d
 				dirty = b
-				best_t = Vector2i(-1, -1)
+				best_t = Vector3i(-1, -1, -1)
 	if dirty:
 		_send(p, dirty, "clean", "Cleaning %s" % dirty.display_name())
 		return
 	if best_t.x >= 0:
-		var path := find_path(p.tile(), best_t)
-		if not path.is_empty() or p.tile() == best_t:
+		var path := find_path(_from_cell(p), best_t)
+		if not path.is_empty() or p.cell() == best_t:
 			p.path = path
 			p.activity = "clean"
 			p.dest_uid = -1
@@ -1468,7 +1723,7 @@ func _janitor_decide(p: Person) -> void:
 	_wander(p)
 
 
-func _claimed_by_other_janitor(me: Person, t: Vector2i) -> bool:
+func _claimed_by_other_janitor(me: Person, t: Vector3i) -> bool:
 	for o in people:
 		if o != me and o.role == "janitor" and o.activity == "clean" and not o.path.is_empty() and o.path.back() == t:
 			return true
@@ -1477,8 +1732,8 @@ func _claimed_by_other_janitor(me: Person, t: Vector2i) -> bool:
 
 func _security_decide(p: Person) -> void:
 	if incident_tile.x >= 0 and reachable.has(incident_tile):
-		var path := find_path(p.tile(), incident_tile)
-		incident_tile = Vector2i(-1, -1)
+		var path := find_path(_from_cell(p), incident_tile)
+		incident_tile = Vector3i(-1, -1, 0)
 		if not path.is_empty():
 			p.path = path
 			p.activity = "wander"
@@ -1765,8 +2020,7 @@ func _roll_morning_event() -> void:
 			if not cafs.is_empty():
 				var c: Building = cafs[0]
 				for i in 25:
-					var t: Vector2i = c.random_tile()
-					add_litter(t, 2)
+					add_litter(c.random_cell(), 2)
 				c.cleanliness = 10
 				notify.emit("FOOD FIGHT in the cafeteria! It's a mess in there.", "bad")
 		4:
@@ -1952,20 +2206,32 @@ const SAVE_PATH := "user://planetschool_save.json"
 
 
 func save_game() -> bool:
-	var paths: Array = []
-	for y in H:
-		for x in W:
-			var k := grid_path[y * W + x]
-			if k > 0:
-				paths.append([x, y, k])
+	var floors: Array = []
+	var roofs: Array = []
+	for i in grid_floor.size():
+		if grid_floor[i] > 0 and grid_floor[i] != Data.GATE_FLOOR:
+			var c := cell_of(i)
+			floors.append([c.x, c.y, c.z, grid_floor[i]])
+		if grid_roof[i] > 0:
+			var c := cell_of(i)
+			roofs.append([c.x, c.y, c.z, grid_roof[i]])
+	var walls: Array = []
+	for lv in LEVELS:
+		for y in H + 1:
+			for x in W + 1:
+				for dir in 2:
+					var e := Vector4i(x, y, lv, dir)
+					var st := get_wall(e)
+					if st > 0:
+						walls.append([x, y, lv, dir, st])
 	var lit: Array = []
 	for t in litter:
-		lit.append([t.x, t.y, litter[t]])
+		lit.append([t.x, t.y, t.z, litter[t]])
 	var data := {
-		"version": 1, "scenario": scenario_id, "name": school_name, "team": team_name, "money": money, "loan": loan,
+		"version": 2, "scenario": scenario_id, "name": school_name, "team": team_name, "money": money, "loan": loan,
 		"day": day, "next_uid": next_uid, "research_done": research_done.keys(), "research_current": research_current,
 		"research_progress": research_progress, "policies": policies, "incidents": incidents, "wins": wins,
-		"losses": losses, "graduates": graduates, "won": won_scenario, "paths": paths, "litter": lit,
+		"losses": losses, "graduates": graduates, "won": won_scenario, "floors": floors, "roofs": roofs, "walls": walls, "litter": lit,
 		"buildings": buildings.map(func(b): return b.to_dict()),
 		"people": people.map(func(p): return p.to_dict()),
 	}
@@ -2009,17 +2275,26 @@ func load_game() -> bool:
 	losses = int(data["losses"])
 	graduates = int(data["graduates"])
 	won_scenario = bool(data["won"])
-	for e in data["paths"]:
-		_set_path(Vector2i(int(e[0]), int(e[1])), int(e[2]))
+	if int(data.get("version", 1)) < 2:
+		notify.emit("That save is from an older version of PlanetSchool and can't be loaded.", "bad")
+		return false
+	_make_gate()
+	for e in data["floors"]:
+		grid_floor[cidx(Vector3i(int(e[0]), int(e[1]), int(e[2])))] = int(e[3])
+	for e in data["roofs"]:
+		grid_roof[cidx(Vector3i(int(e[0]), int(e[1]), int(e[2])))] = int(e[3])
+	for e in data["walls"]:
+		_set_wall_raw(Vector4i(int(e[0]), int(e[1]), int(e[2]), int(e[3])), int(e[4]))
 	for e in data["litter"]:
-		litter[Vector2i(int(e[0]), int(e[1]))] = int(e[2])
+		litter[Vector3i(int(e[0]), int(e[1]), int(e[2]))] = int(e[3])
 	for d in data["buildings"]:
 		var b := Building.from_dict(d)
 		buildings.append(b)
 		bld_by_uid[b.uid] = b
-		for y in b.size.y:
-			for x in b.size.x:
-				grid_bld[idx(b.pos + Vector2i(x, y))] = b.uid
+		for l in range(b.level, b.level + b.span()):
+			for y in b.size.y:
+				for x in b.size.x:
+					grid_bld[cidx(Vector3i(b.pos.x + x, b.pos.y + y, l))] = b.uid
 	for d in data["people"]:
 		var p := Person.from_dict(d)
 		p.jitter = Vector2(randf_range(-9, 9), randf_range(-9, 9))

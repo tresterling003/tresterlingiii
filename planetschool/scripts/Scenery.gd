@@ -48,7 +48,7 @@ func refresh_campus() -> void:
 		var t := Vector2i(rng.randi_range(0, Game.W - 1), rng.randi_range(0, Game.H - 2))
 		var px := rng.randf()
 		var pz := rng.randf()
-		if Game.path_at(t) > 0 or Game.building_at(t) != null:
+		if Game.floor_at(Vector3i(t.x, t.y, 0)) > 0 or Game.building_at(t) != null:
 			continue
 		var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(2.5, 4.0)),
 			Vector3((t.x + px) * T, 0, (t.y + pz) * T))
@@ -92,7 +92,7 @@ func _bus(p: Vector3) -> void:
 	Models.box(bus, Vector3(10.6, 0.25, 2.6), Vector3(0, 0.45, 0), black)
 	for wx in [-3.6, 4.6]:
 		for wz in [-1.15, 1.15]:
-			var wheel := Models.cylinder(bus, 0.5, 0.35, Vector3(wx, 0.5, wz), black)
+			var wheel := Models.cylinder(bus, 0.5, 0.35, Vector3(wx, 0.325, wz), black)
 			wheel.rotation.x = PI * 0.5
 	var stop := Models.box(bus, Vector3(0.05, 0.35, 0.5), Vector3(-1.0, 1.7, -1.3), Models.color_mat(Color(0.8, 0.05, 0.05), 0.5))
 	stop.rotation.x = 0

@@ -4,6 +4,7 @@ extends RefCounted
 ## 3D world. All world units are meters; one campus tile is Models.TILE meters.
 
 const TILE := 2.0
+const LEVEL_H := 4.0  # floor-to-floor height in meters
 const ROOT := "res://assets/models/"
 const TEX := "res://assets/textures/"
 
@@ -125,8 +126,8 @@ static func mesh_of(path: String) -> Array:
 	return found
 
 
-static func pbr(name_: String, uv_scale := 0.5, tint := Color.WHITE, rough := 1.0) -> StandardMaterial3D:
-	var key := "%s|%s|%s" % [name_, uv_scale, tint]
+static func pbr(name_: String, uv_scale := 0.5, tint := Color.WHITE, rough := 1.0, metal := 0.0) -> StandardMaterial3D:
+	var key := "%s|%s|%s|%s" % [name_, uv_scale, tint, metal]
 	if _mats.has(key):
 		return _mats[key]
 	var m := StandardMaterial3D.new()
@@ -140,6 +141,7 @@ static func pbr(name_: String, uv_scale := 0.5, tint := Color.WHITE, rough := 1.
 	m.uv1_triplanar = true
 	m.uv1_world_triplanar = true
 	m.uv1_scale = Vector3.ONE * uv_scale
+	m.metallic = metal
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_mats[key] = m
 	return m
@@ -159,20 +161,6 @@ static func color_mat(c: Color, rough := 0.8, metal := 0.0, emission := Color.BL
 		m.emission_enabled = true
 		m.emission = emission
 		m.emission_energy_multiplier = 1.5
-	_mats[key] = m
-	return m
-
-
-## Material that recolors the Kenney Building Kit wall swatch.
-static func wall_mat(tint: Color, dirt := 0.0) -> ShaderMaterial:
-	var key := "wall|%s|%.1f" % [tint, dirt]
-	if _mats.has(key):
-		return _mats[key]
-	var m := ShaderMaterial.new()
-	m.shader = load("res://shaders/kenney_tint.gdshader")
-	m.set_shader_parameter("albedo_tex", load(ROOT + "building/Textures/colormap.png"))
-	m.set_shader_parameter("tint", tint)
-	m.set_shader_parameter("dirt", dirt)
 	_mats[key] = m
 	return m
 
@@ -211,7 +199,7 @@ static func cylinder(parent: Node3D, r: float, h: float, pos: Vector3, mat: Mate
 	cm.radial_segments = 20
 	mi.mesh = cm
 	mi.material_override = mat
-	mi.position = pos
+	mi.position = pos + Vector3(0, h * 0.5, 0)  # pos is the base center
 	parent.add_child(mi)
 	return mi
 
@@ -239,3 +227,154 @@ static func px_to_world(p: Vector2) -> Vector3:
 
 static func world_to_px(w: Vector3) -> Vector2:
 	return Vector2(w.x / TILE * Game.TILE, w.z / TILE * Game.TILE)
+
+
+static func glass_mat() -> StandardMaterial3D:
+	if _mats.has("glass"):
+		return _mats["glass"]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.62, 0.76, 0.84, 0.3)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.metallic = 0.9
+	m.roughness = 0.04
+	m.specular = 0.9
+	_mats["glass"] = m
+	return m
+
+
+static func prop(name_: String) -> String:
+	return "res://assets/props/%s/%s.gltf" % [name_, name_]
+
+
+## Instance a Poly Haven prop (glTF) with its footprint centered on pos.
+static func place_prop(parent: Node3D, name_: String, pos: Vector3, scale := 1.0, rot_deg := 0.0) -> Node3D:
+	var path := prop(name_)
+	if not _scenes.has(path):
+		_scenes[path] = load(path)
+	var ps: PackedScene = _scenes[path]
+	if ps == null:
+		return null
+	var n: Node3D = ps.instantiate()
+	var key := "aabb|" + path
+	if not _meshes.has(key):
+		var acc: Array = [null]
+		_merge_aabb(n, Transform3D.IDENTITY, acc)
+		_meshes[key] = acc[0] if acc[0] != null else AABB()
+	var c: Vector3 = (_meshes[key] as AABB).get_center() * scale
+	c.y = 0
+	n.scale = Vector3.ONE * scale
+	n.rotation.y = deg_to_rad(rot_deg)
+	n.position = pos - c.rotated(Vector3.UP, deg_to_rad(rot_deg))
+	parent.add_child(n)
+	return n
+
+
+# ---------------------------------------------------------------------
+#  Procedural mesh kit: boxes and cylinders merged into one ArrayMesh with
+#  a surface per material. Used for walls, furniture and stadium pieces.
+# ---------------------------------------------------------------------
+
+class Kit:
+	var tools := {}  # material -> SurfaceTool
+	var mats := {}
+
+	func _st(mat: Material) -> SurfaceTool:
+		var key := mat.get_instance_id()
+		if not tools.has(key):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			tools[key] = st
+			mats[key] = mat
+		return tools[key]
+
+	func quad(mat: Material, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3) -> void:
+		var st := _st(mat)
+		for v in [a, b, c, a, c, d]:
+			st.set_normal(n)
+			st.set_uv(Vector2(v.x + v.y * 0.3, v.z + v.y * 0.7) * 0.5)
+			st.add_vertex(v)
+
+	## Axis-aligned box given center and size, optionally rotated about Y around `pivot`.
+	func box(mat: Material, center: Vector3, size: Vector3, xf := Transform3D.IDENTITY) -> void:
+		var h := size * 0.5
+		var p := [Vector3(-h.x, -h.y, -h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, h.y, -h.z), Vector3(-h.x, h.y, -h.z),
+			Vector3(-h.x, -h.y, h.z), Vector3(h.x, -h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z)]
+		for i in 8:
+			p[i] = xf * (center + p[i])
+		var b := xf.basis
+		quad(mat, p[4], p[5], p[6], p[7], b * Vector3.BACK)
+		quad(mat, p[1], p[0], p[3], p[2], b * Vector3.FORWARD)
+		quad(mat, p[0], p[4], p[7], p[3], b * Vector3.LEFT)
+		quad(mat, p[5], p[1], p[2], p[6], b * Vector3.RIGHT)
+		quad(mat, p[7], p[6], p[2], p[3], b * Vector3.UP)
+		quad(mat, p[0], p[1], p[5], p[4], b * Vector3.DOWN)
+
+	func cylinder(mat: Material, base: Vector3, r: float, h: float, segs := 12, xf := Transform3D.IDENTITY) -> void:
+		var st := _st(mat)
+		for i in segs:
+			var a0 := TAU * i / segs
+			var a1 := TAU * (i + 1) / segs
+			var d0 := Vector3(cos(a0), 0, sin(a0))
+			var d1 := Vector3(cos(a1), 0, sin(a1))
+			var v := [base + d0 * r, base + d1 * r, base + d1 * r + Vector3.UP * h, base + d0 * r + Vector3.UP * h]
+			for k in [0, 1, 2, 0, 2, 3]:
+				st.set_normal(xf.basis * (d0 if k in [0, 3] else d1))
+				st.set_uv(Vector2(float(i) / segs, v[k].y))
+				st.add_vertex(xf * v[k])
+			for cap in [[base + Vector3.UP * h, Vector3.UP], [base, Vector3.DOWN]]:
+				var c: Vector3 = cap[0]
+				var tri := [c, c + d1 * r, c + d0 * r] if cap[1] == Vector3.UP else [c, c + d0 * r, c + d1 * r]
+				for q in tri:
+					st.set_normal(xf.basis * cap[1])
+					st.set_uv(Vector2(q.x, q.z))
+					st.add_vertex(xf * q)
+
+	func commit() -> ArrayMesh:
+		var am := ArrayMesh.new()
+		for key in tools:
+			var st: SurfaceTool = tools[key]
+			st.generate_tangents()
+			st.commit(am)
+			am.surface_set_material(am.get_surface_count() - 1, mats[key])
+		return am
+
+	func is_empty() -> bool:
+		return tools.is_empty()
+
+
+static var _kit_meshes := {}
+
+
+## Cached procedural mesh built by `builder` (a Callable taking a Kit).
+static func kit_mesh(key: String, builder: Callable) -> ArrayMesh:
+	if not _kit_meshes.has(key):
+		var k := Kit.new()
+		builder.call(k)
+		_kit_meshes[key] = k.commit()
+	return _kit_meshes[key]
+
+
+static func mesh_node(parent: Node3D, mesh: Mesh, pos: Vector3, rot_deg := 0.0, shadows := true) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.position = pos
+	mi.rotation.y = deg_to_rad(rot_deg)
+	if not shadows:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	return mi
+
+
+## Many copies of one mesh as a single MultiMesh (transforms in parent space).
+static func multi(parent: Node3D, mesh: Mesh, xfs: Array) -> MultiMeshInstance3D:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xfs.size()
+	for i in xfs.size():
+		mm.set_instance_transform(i, xfs[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	parent.add_child(mmi)
+	return mmi
