@@ -8,6 +8,7 @@ signal map_changed
 signal selection_changed(obj)
 signal scenario_won(name: String)
 signal game_started
+signal fight_happened(uid: int)
 
 const W := 72
 const H := 48
@@ -76,6 +77,9 @@ var selected = null
 
 
 func _ready() -> void:
+	_clear()
+	for x in range(GATE.x - 1, GATE.x + 2):
+		_set_path(Vector2i(x, GATE.y), 3)
 	astar.region = Rect2i(0, 0, W, H)
 	astar.cell_size = Vector2(1, 1)
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
@@ -154,7 +158,7 @@ func _build_riverside() -> void:
 		_set_path(Vector2i(GATE.x, y), 2)
 	for x in range(20, 54):
 		_set_path(Vector2i(x, 24), 2)
-	var layout := [["math_room", Vector2i(31, 20)], ["english_room", Vector2i(38, 20)], ["history_room", Vector2i(31, 25)],
+	var layout := [["math_room", Vector2i(31, 21)], ["english_room", Vector2i(38, 21)], ["history_room", Vector2i(31, 25)],
 		["science_lab", Vector2i(38, 25)], ["restroom", Vector2i(26, 22)], ["cafeteria", Vector2i(44, 25)],
 		["lockers", Vector2i(32, 30)], ["vending", Vector2i(35, 30)], ["gymnasium", Vector2i(20, 25)]]
 	for item in layout:
@@ -1293,6 +1297,7 @@ func _maybe_misbehave(p: Person) -> void:
 	else:
 		incidents += 2
 		incident_tile = p.tile()
+		fight_happened.emit(p.uid)
 		p.stress += 15
 		p.happiness -= 15
 		if guard:
@@ -1302,6 +1307,8 @@ func _maybe_misbehave(p: Person) -> void:
 		for o in people:
 			if o.is_student() and o.present and o != p and o.pos.distance_to(p.pos) < 3 * TILE:
 				o.think("I saw a fight today. Scary.", false)
+				if o.pos.distance_to(p.pos) < 1.5 * TILE and not o.is_walking():
+					fight_happened.emit(o.uid)
 				o.stress += 5
 
 

@@ -255,7 +255,10 @@ func _build_hud() -> void:
 	build_list = VBoxContainer.new()
 	build_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(build_list)
-	lv.add_child(_wrap_label("Shift+click to place several. Right-click / Esc to cancel. WASD / right-drag to pan, wheel to zoom.", 11))
+	var vb := _button("View: Auto cutaway", func(): world.cycle_view_mode(), "Auto hides roofs when you zoom in (V)")
+	world.view_mode_changed.connect(func(m): vb.text = "View: " + {"auto": "Auto cutaway", "full": "Roofs on", "cutaway": "Cutaway"}[m])
+	lv.add_child(vb)
+	lv.add_child(_wrap_label("WASD pan, Q/E or right-drag rotate, wheel zoom, middle-drag pan. Shift+click places several. Right-click / Esc cancels.", 11))
 
 	# ---- right info panel ----
 	info_panel = PanelContainer.new()
@@ -929,7 +932,7 @@ func _win_pause(body: VBoxContainer) -> void:
 		menu.visible = true
 		_refresh_menu()))
 	body.add_child(_hsep())
-	body.add_child(_wrap_label("Keys: Space pause, 1-4 speed, X bulldoze, Esc cancel, WASD pan, mouse wheel zoom.", 12))
+	body.add_child(_wrap_label("Keys: Space pause, 1-4 speed, X bulldoze, V cutaway view, Esc cancel, WASD pan, Q/E rotate, mouse wheel zoom.", 12))
 
 
 # =====================================================================
@@ -942,16 +945,18 @@ var _menu_load: Button
 
 func _build_menu() -> void:
 	menu = ColorRect.new()
-	(menu as ColorRect).color = Color(0.07, 0.1, 0.16, 0.97)
+	(menu as ColorRect).color = Color(0.03, 0.05, 0.09, 0.35)
 	menu.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(menu)
 	var cc := CenterContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	menu.add_child(cc)
+	var mp := PanelContainer.new()
+	cc.add_child(mp)
 	var v := VBoxContainer.new()
 	v.custom_minimum_size.x = 640
 	v.add_theme_constant_override("separation", 10)
-	cc.add_child(v)
+	mp.add_child(v)
 	var title := _label("PlanetSchool", 64, C_ACCENT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
@@ -1004,7 +1009,6 @@ func _on_game_started() -> void:
 	_close_window()
 	_on_selection(null)
 	_refresh_build_list()
-	world.focus(Vector2(Game.W * Game.TILE * 0.5, Game.H * Game.TILE * 0.62))
 
 
 func _on_scenario_won(name_: String) -> void:

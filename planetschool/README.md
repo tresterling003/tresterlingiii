@@ -1,13 +1,24 @@
 # PlanetSchool
 
-A high school management sim built in **Godot 4.3** (GDScript, no external assets). Planet Zoo, but the
-residents are teenagers: build the campus, hire the staff, keep students happy and learning, and graduate them.
+A 3D high school management sim built in **Godot 4.3** (GDScript). Planet Zoo, but the residents are teenagers:
+build the campus, hire the staff, keep students happy and learning, and graduate them.
+
+The world is fully 3D: an orbiting Planet Zoo-style camera, a real sky and moving sun with shadows,
+modular buildings tinted per room type, furnished interiors, and animated students who walk the halls,
+sit at desks and cafeteria tables, run laps in the gym and get into fights. Zoom in and the roofs come off
+so you can watch classes in session.
+
+All art is free CC0 content: 3D models from [Kenney](https://kenney.nl) and textures + sky from
+[Poly Haven](https://polyhaven.com). See [`assets/CREDITS.md`](assets/CREDITS.md).
 
 ## Running it
 
 1. Install [Godot 4.3+](https://godotengine.org/download) (standard build, not .NET).
-2. Open Godot, choose **Import**, and select `planetschool/project.godot`.
+2. Open Godot, choose **Import**, and select `planetschool/project.godot`. The first import takes a minute.
 3. Press **F5** (Run Project).
+
+The game uses the Forward+ renderer (needs a Vulkan-capable GPU). On an older machine, start Godot with
+`--rendering-driver opengl3` - it will run with simpler lighting.
 
 ## How to play
 
@@ -43,8 +54,10 @@ residents are teenagers: build the campus, hire the staff, keep students happy a
 
 | Input | Action |
 | --- | --- |
-| WASD / arrows, right-drag, middle-drag | Pan |
-| Mouse wheel | Zoom |
+| WASD / arrows, middle-drag | Pan |
+| Q / E, right-drag | Rotate and tilt camera |
+| Mouse wheel | Zoom (roofs hide automatically when close) |
+| V | Cycle view: auto cutaway / roofs on / cutaway |
 | Left click | Select / place / paint |
 | Shift + click | Place several of the same building |
 | Right click / Esc | Cancel tool |
@@ -59,7 +72,12 @@ residents are teenagers: build the campus, hire the staff, keep students happy a
 | `scripts/Data.gd` | Autoload with all definitions: buildings, staff roles, curriculum, scenarios, names |
 | `scripts/Game.gd` | Autoload simulation: grid, pathfinding, clock, student and staff AI, economy, ratings, events, save/load |
 | `scripts/Person.gd`, `scripts/Building.gd` | Data classes for people and placed structures |
-| `scripts/World.gd` | Draws the campus and handles camera and map input |
+| `scripts/World3D.gd` | 3D world: camera rig, sky and sun, paths, litter, placement previews, picking |
+| `scripts/BuildingFactory.gd` | Builds each structure from Kenney kit pieces: tinted walls, roof, floor and furnished interior |
+| `scripts/PeopleView.gd` | Animated characters: seating, walking, sports laps, fights |
+| `scripts/Scenery.gd` | Lawn, street, school bus, neighborhood houses, trees, fence and front gate |
+| `scripts/Models.gd` | Model loading, scaling and material helpers |
+| `shaders/` | Wall recolor, water and build-grid shaders |
 | `scripts/UI.gd` | Main menu, HUD, build menu, info panel and management windows, all built in code |
 | `tests/SimTest.tscn` | Headless smoke test: builds a school and simulates 12 days |
 
