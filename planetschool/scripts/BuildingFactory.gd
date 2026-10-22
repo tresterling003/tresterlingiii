@@ -45,6 +45,9 @@ static func build(b: Building) -> Node3D:
 			var fl := Models.plane(root, Vector2(w, h), Vector3(w * 0.5, 0.075, h * 0.5), Models.pbr(f[0], f[1], CONCRETE_TINT if f[0] == "smooth_concrete_floor" else Color.WHITE))
 			fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_furnish(root, b, w, h)
+	if OS.has_feature("web"):
+		Models.flatten(root)
+		return root
 	if b.size.x * b.size.y > 3 and not b.is_decor() and not b.is_connector():
 		var sign := Label3D.new()
 		sign.text = b.display_name()
@@ -242,6 +245,11 @@ static func _batch(batch: Dictionary, mesh: Mesh, xf: Transform3D) -> void:
 
 
 static func _flush(root: Node3D, batch: Dictionary) -> void:
+	if batch.is_empty():
+		return
+	if OS.has_feature("web"):
+		Models.merged(root, batch)
+		return
 	for mesh in batch:
 		Models.multi(root, mesh, batch[mesh])
 

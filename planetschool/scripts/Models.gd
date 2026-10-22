@@ -249,6 +249,8 @@ static func prop(name_: String) -> String:
 
 ## Instance a Poly Haven prop (glTF) with its footprint centered on pos.
 static func place_prop(parent: Node3D, name_: String, pos: Vector3, scale := 1.0, rot_deg := 0.0) -> Node3D:
+	if OS.has_feature("web"):
+		return _prop_standin(parent, name_, pos, rot_deg)
 	var path := prop(name_)
 	if not _scenes.has(path):
 		_scenes[path] = load(path)
@@ -378,3 +380,135 @@ static func multi(parent: Node3D, mesh: Mesh, xfs: Array) -> MultiMeshInstance3D
 	mmi.multimesh = mm
 	parent.add_child(mmi)
 	return mmi
+
+
+## The browser (WebGL) build swaps the photo-scanned props for light stand-ins.
+static func _prop_standin(parent: Node3D, name_: String, pos: Vector3, rot_deg: float) -> Node3D:
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = deg_to_rad(rot_deg)
+	var leaf := color_mat(Color(0.22, 0.45, 0.2), 0.9)
+	match name_:
+		"potted_plant_02", "potted_plant_04":
+			cylinder(n, 0.24, 0.42, Vector3.ZERO, color_mat(Color(0.72, 0.42, 0.28), 0.8), 0.3)
+			var s := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 0.38
+			sm.height = 0.7
+			s.mesh = sm
+			s.material_override = leaf
+			s.position = Vector3(0, 0.78, 0)
+			n.add_child(s)
+		"shrub_02", "shrub_03":
+			for i in 3:
+				var s := MeshInstance3D.new()
+				var sm := SphereMesh.new()
+				sm.radius = 0.4
+				sm.height = 0.6
+				s.mesh = sm
+				s.material_override = leaf
+				s.position = Vector3(-0.45 + i * 0.45, 0.28, 0)
+				n.add_child(s)
+		"mid_century_lounge_chair", "modern_arm_chair_01":
+			var fab := color_mat(Color(0.45, 0.3, 0.2) if name_ == "mid_century_lounge_chair" else Color(0.15, 0.15, 0.17), 0.7)
+			box(n, Vector3(0.75, 0.14, 0.7), Vector3(0, 0.42, 0), fab)
+			box(n, Vector3(0.75, 0.5, 0.12), Vector3(0, 0.72, 0.32), fab)
+			for x in [-0.36, 0.36]:
+				box(n, Vector3(0.06, 0.4, 0.65), Vector3(x, 0.32, 0), color_mat(Color(0.3, 0.22, 0.15), 0.6))
+		"modern_coffee_table_01":
+			box(n, Vector3(0.6, 0.05, 1.2), Vector3(0, 0.38, 0), color_mat(Color(0.75, 0.6, 0.42), 0.6))
+			box(n, Vector3(0.5, 0.36, 1.0), Vector3(0, 0.18, 0), color_mat(Color(0.2, 0.2, 0.22), 0.5))
+		"industrial_microscope", "chemistry_set", "security_camera_01":
+			box(n, Vector3(0.3, 0.3, 0.3), Vector3(0, 0.15, 0), color_mat(Color(0.85, 0.86, 0.88), 0.4, 0.5))
+		_:
+			n.free()
+			return null
+	parent.add_child(n)
+	return n
+
+
+## Bake many copies of meshes into one static mesh with a surface per material
+## (used instead of MultiMesh in the browser build).
+static func merged(parent: Node3D, batch: Dictionary) -> MeshInstance3D:
+	var tools := {}
+	var mats := {}
+	for mesh in batch:
+		for s in mesh.get_surface_count():
+			var mat: Material = mesh.surface_get_material(s)
+			var key: int = mat.get_instance_id() if mat else 0
+			if not tools.has(key):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tools[key] = st
+				mats[key] = mat
+			for xf in batch[mesh]:
+				(tools[key] as SurfaceTool).append_from(mesh, s, xf)
+	var am := ArrayMesh.new()
+	for key in tools:
+		(tools[key] as SurfaceTool).commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, mats[key])
+	return mesh_node(parent, am, Vector3.ZERO)
+
+
+## Bake every static mesh under `root` into one MeshInstance3D (a surface per
+## material). The browser build does this per room: WebGL stops drawing the 3D
+## view when a frame holds too many separate objects.
+static func flatten(root: Node3D) -> void:
+	var tools := {}
+	var mats := {}
+	var merged_nodes: Array = []
+	_flatten_collect(root, Transform3D.IDENTITY, tools, mats, merged_nodes)
+	if tools.is_empty():
+		return
+	for n in merged_nodes:
+		if is_instance_valid(n):
+			n.get_parent().remove_child(n)
+			n.queue_free()
+	var am := ArrayMesh.new()
+	for key in tools:
+		(tools[key] as SurfaceTool).commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, mats[key])
+	var mi := MeshInstance3D.new()
+	mi.mesh = am
+	mi.name = "Baked"
+	root.add_child(mi)
+
+
+static func _flatten_collect(n: Node, xf: Transform3D, tools: Dictionary, mats: Dictionary, out: Array) -> void:
+	for c in n.get_children():
+		if c is Label3D:
+			continue
+		var cxf: Transform3D = xf * (c as Node3D).transform if c is Node3D else xf
+		if c is MeshInstance3D and (c as MeshInstance3D).mesh and (c as MeshInstance3D).skin == null:
+			var mi := c as MeshInstance3D
+			for s in mi.mesh.get_surface_count():
+				var mat: Material = mi.material_override
+				if mat == null:
+					mat = mi.get_surface_override_material(s)
+				if mat == null:
+					mat = mi.mesh.surface_get_material(s)
+				_flatten_add(tools, mats, mat, mi.mesh, s, cxf)
+			out.append(c)
+			continue
+		if c is MultiMeshInstance3D and (c as MultiMeshInstance3D).multimesh:
+			var mm := (c as MultiMeshInstance3D).multimesh
+			for i in mm.instance_count:
+				var ixf := cxf * mm.get_instance_transform(i)
+				for s in mm.mesh.get_surface_count():
+					_flatten_add(tools, mats, mm.mesh.surface_get_material(s), mm.mesh, s, ixf)
+			out.append(c)
+			continue
+		_flatten_collect(c, cxf, tools, mats, out)
+
+
+static func _flatten_add(tools: Dictionary, mats: Dictionary, mat: Material, mesh: Mesh, s: int, xf: Transform3D) -> void:
+	if mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+		return
+	var fmt: int = mesh.surface_get_format(s) & (Mesh.ARRAY_FORMAT_NORMAL | Mesh.ARRAY_FORMAT_TANGENT | Mesh.ARRAY_FORMAT_COLOR | Mesh.ARRAY_FORMAT_TEX_UV | Mesh.ARRAY_FORMAT_TEX_UV2)
+	var key := "%d|%d" % [mat.get_instance_id() if mat else 0, fmt]
+	if not tools.has(key):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		tools[key] = st
+		mats[key] = mat
+	(tools[key] as SurfaceTool).append_from(mesh, s, xf)

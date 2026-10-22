@@ -44,7 +44,7 @@ func refresh_campus() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
 	var xfs: Array = []
-	for i in 2600:
+	for i in (900 if OS.has_feature("web") else 2600):
 		var t := Vector2i(rng.randi_range(0, Game.W - 1), rng.randi_range(0, Game.H - 2))
 		var px := rng.randf()
 		var pz := rng.randf()
@@ -171,7 +171,7 @@ func _neighborhood(cw: float, ch: float, rng: RandomNumberGenerator) -> void:
 	# A belt of trees around everything.
 	var trees := ["nature/tree_oak", "nature/tree_default", "nature/tree_pineRoundA", "nature/tree_pineTallA",
 		"nature/tree_tall", "nature/tree_simple", "suburban/tree-large"]
-	for i in 260:
+	for i in (120 if OS.has_feature("web") else 260):
 		var p := Vector3(rng.randf_range(-170, cw + 170), 0, rng.randf_range(-120, ch + 110))
 		var inside := p.x > -34 and p.x < cw + 34 and p.z > -36 and p.z < ch + 30
 		if inside:
@@ -191,7 +191,7 @@ func _outside_grass(cw: float, ch: float, rng: RandomNumberGenerator) -> void:
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.mesh = m[0]
 		var xfs: Array = []
-		var n := 3000 if model != "nature/plant_bush" else 400
+		var n := (3000 if model != "nature/plant_bush" else 400) / (3 if OS.has_feature("web") else 1)
 		for i in n:
 			var p := Vector3(rng.randf_range(-130, cw + 130), 0, rng.randf_range(-90, ch + 90))
 			if p.x > -1 and p.x < cw + 1 and p.z > -1 and p.z < ch + 14:

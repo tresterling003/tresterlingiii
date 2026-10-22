@@ -106,7 +106,8 @@ func _setup_environment() -> void:
 	env = Environment.new()
 	var sky := Sky.new()
 	var psm := PanoramaSkyMaterial.new()
-	psm.panorama = load("res://assets/sky/sky_2k.hdr")
+	var sky_path := "res://assets/sky/sky_web.exr"
+	psm.panorama = load(sky_path if ResourceLoader.exists(sky_path) else "res://assets/sky/sky_2k.hdr")
 	sky.sky_material = psm
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
@@ -141,6 +142,9 @@ func _setup_environment() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 260.0
+	if OS.has_feature("web"):
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		sun.directional_shadow_max_distance = 140.0
 	sun.shadow_blur = 1.2
 	sun.light_energy = 1.4
 	add_child(sun)

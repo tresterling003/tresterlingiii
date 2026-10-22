@@ -26,6 +26,7 @@ const SEATED := ["class", "eat", "study", "nurse", "counsel", "rest", "hangout",
 const STANDING := ["restroom", "locker", "snack"]
 const A := "CharacterArmature|"
 const MAX_VIEWS := 320
+const MAX_VIEWS_WEB := 110
 
 var world  # World3D, for building nodes
 var visible_top := 2  # people above this floor are hidden (cutaway)
@@ -91,9 +92,10 @@ func _choose_visible() -> void:
 		if p.present and p.level <= visible_top:
 			var d := Models.px_to_world(p.pos).distance_squared_to(Vector3(focus.x, 0, focus.z))
 			cands.append([d, p.uid])
-	if cands.size() > MAX_VIEWS:
+	var cap := MAX_VIEWS_WEB if OS.has_feature("web") else MAX_VIEWS
+	if cands.size() > cap:
 		cands.sort_custom(func(a, b): return a[0] < b[0])
-		cands = cands.slice(0, MAX_VIEWS)
+		cands = cands.slice(0, cap)
 	_chosen.clear()
 	for c in cands:
 		_chosen[c[1]] = true
