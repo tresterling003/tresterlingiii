@@ -8,7 +8,7 @@ var id: String
 var pos: Vector2i
 var size: Vector2i
 var level := 0
-var rot := 0  # 0..3, only meaningful for stairs (which end is "up")
+var rot := 0  # 0..3 quarter turns; for stairs also which end is "up"
 var cleanliness := 100.0
 var condition := 100.0  # drops with vandalism / graffiti
 var connected := true

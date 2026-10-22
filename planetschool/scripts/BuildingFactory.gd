@@ -27,12 +27,25 @@ const CHAIR_COLORS := [Color(0.95, 0.55, 0.15), Color(0.2, 0.55, 0.85), Color(0.
 static var _tex_cache := {}
 
 
+## Where a room's node goes. Rooms are furnished in their unrotated frame
+## ([0, w] x [0, h] from Data size) and turned in quarter steps onto their footprint.
+static func root_transform(id: String, rot: int, pos: Vector2i, level: int) -> Transform3D:
+	var s: Vector2i = Data.BUILDINGS[id]["size"]
+	var basis := Basis(Vector3.UP, -PI * 0.5 * rot)
+	var lo := Vector3.ZERO
+	for c in [Vector3(s.x * T, 0, 0), Vector3(0, 0, s.y * T), Vector3(s.x * T, 0, s.y * T)]:
+		var r: Vector3 = basis * c
+		lo = Vector3(minf(lo.x, r.x), 0, minf(lo.z, r.z))
+	return Transform3D(basis, Vector3(pos.x * T, level * LH, pos.y * T) - lo)
+
+
 static func build(b: Building) -> Node3D:
 	var root := Node3D.new()
 	root.name = "B%d" % b.uid
-	root.position = Vector3(b.pos.x * T, b.level * LH, b.pos.y * T)
-	var w := b.size.x * T
-	var h := b.size.y * T
+	root.transform = root_transform(b.id, b.rot, b.pos, b.level)
+	var s: Vector2i = Data.BUILDINGS[b.id]["size"]
+	var w := s.x * T
+	var h := s.y * T
 	root.set_meta("seats", [])
 	root.set_meta("spots", [])
 	root.set_meta("staff", [Vector3(w * 0.5, 0, h * 0.5), 0.0])
@@ -623,7 +636,6 @@ static func _parking(root: Node3D, b: Building, w: float, h: float) -> void:
 static func _stairs(root: Node3D, b: Building, w: float, h: float) -> void:
 	var pivot := Node3D.new()
 	pivot.position = Vector3(w * 0.5, 0, h * 0.5)
-	pivot.rotation.y = deg_to_rad(-90.0 * b.rot)
 	root.add_child(pivot)
 	# unrotated: 4 m wide (x), 8 m long (z); the top is at z = -4
 	var steps := 20

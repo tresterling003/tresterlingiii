@@ -13,8 +13,9 @@ const LH := Models.LEVEL_H
 const CUTAWAY_DIST := 70.0
 
 # ---- tool state (read/written by the UI) ----
-var tool := "select"  # select, build, floor, wall, roof, bulldoze
+var tool := "select"  # select, build, move, floor, wall, roof, bulldoze
 var build_id := ""
+var moving: Building  # the room being moved (tool "move")
 var floor_mat := 2
 var wall_mat := 6
 var wall_kind := 2
@@ -63,6 +64,9 @@ var _drag_vertex := Vector2i.ZERO
 var _rotating := false
 var _rot_moved := 0.0
 var _panning := false
+var _left_down := false  # select tool: left-drag pans, a click picks
+var _left_moved := 0.0
+var over_ui := false  # mouse is over a panel, not the world
 var _refresh_t := 0.0
 
 
@@ -190,9 +194,24 @@ func set_tool(t: String, id := "") -> void:
 	tool = t
 	build_id = id
 	_dragging = false
-	if t == "build" and id != "" and id != "stairs":
-		place_rot = 0
+	if t != "move":
+		moving = null
 	tool_changed.emit(tool, build_id)
+
+
+## Pick up a room and carry it around until the player clicks to put it down.
+func start_move(b: Building) -> void:
+	set_tool("move", b.id)
+	moving = b
+	place_rot = b.rot
+	set_level(b.level)
+	_ghost_key = ""
+
+
+## Undo the last construction edit (Ctrl+Z).
+func undo() -> void:
+	if not Game.undo():
+		Game.notify.emit("Nothing to undo.", "info")
 
 
 func set_level(l: int) -> void:
@@ -216,7 +235,7 @@ func cycle_view_mode() -> void:
 
 
 func is_cutaway() -> bool:
-	if tool != "select":
+	if tool != "select" and not (tool == "build" and Data.BUILDINGS.get(build_id, {}).get("outdoor", false)):
 		return true
 	match view_mode:
 		"full":
@@ -251,7 +270,8 @@ func _process(delta: float) -> void:
 func _apply_view() -> void:
 	var cut := is_cutaway()
 	var top := level if cut else Game.LEVELS - 1
-	var key := "%s|%d" % [cut, top]
+	var carried := moving.uid if tool == "move" and moving else -1
+	var key := "%s|%d|%d" % [cut, top, carried]
 	if key == _view_key:
 		return
 	_view_key = key
@@ -259,7 +279,7 @@ func _apply_view() -> void:
 	for uid in _bld_nodes:
 		var b: Building = Game.bld_by_uid.get(uid)
 		if b:
-			_bld_nodes[uid].visible = b.level <= top
+			_bld_nodes[uid].visible = b.level <= top and uid != carried
 	people.visible_top = top
 	_grid.position = Vector3(Game.W * T * 0.5, level * LH + 0.1, Game.H * T * 0.5)
 
@@ -336,6 +356,12 @@ func _mouse_update() -> void:
 	hover_vertex = Vector2i(roundi(g.x / T), roundi(g.z / T))
 
 
+## Runs before the GUI; _unhandled_input clears it again when no panel took the event.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		over_ui = true
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not Game.running:
 		return
@@ -357,12 +383,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					_rotating = false
 					if _rot_moved < 6.0:
-						if _dragging:
-							_dragging = false
-						elif tool != "select":
-							set_tool("select")
-						else:
-							Game.select(null)
+						cancel()
 			MOUSE_BUTTON_LEFT:
 				if mb.pressed:
 					_on_left_press()
@@ -371,16 +392,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
+		over_ui = false
 		if _rotating:
 			_rot_moved += mm.relative.length()
 			_t_yaw -= mm.relative.x * 0.006
 			_t_pitch = clampf(_t_pitch + mm.relative.y * 0.004, deg_to_rad(15), deg_to_rad(85))
-		if _panning:
+		if _left_down:
+			_left_moved += mm.relative.length()
+		if _panning or _left_down and _left_moved > 6.0:
 			var right := Vector3.RIGHT.rotated(Vector3.UP, cam_yaw)
 			var fwd := Vector3.FORWARD.rotated(Vector3.UP, cam_yaw)
 			_t_target -= (right * mm.relative.x - fwd * mm.relative.y) * cam_dist * 0.0016
 	elif event is InputEventKey and event.pressed and not event.echo and not _text_focused():
-		match event.keycode:
+		var k := event as InputEventKey
+		if k.keycode == KEY_Z and (k.ctrl_pressed or k.meta_pressed):
+			undo()
+			return
+		match k.keycode:
 			KEY_SPACE:
 				Game.toggle_pause()
 			KEY_1:
@@ -392,7 +420,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_4:
 				Game.set_speed(8)
 			KEY_ESCAPE:
-				set_tool("select")
+				cancel()
 			KEY_X:
 				set_tool("bulldoze")
 			KEY_V:
@@ -400,10 +428,28 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R:
 				place_rot = (place_rot + 1) % 4
 				_ghost_key = ""
+			KEY_F:
+				if Game.selected is Building:
+					focus(Game.selected.center_px())
+					set_level(Game.selected.level)
+			KEY_DELETE:
+				if Game.selected is Building and tool == "select":
+					Game.checkpoint()
+					Game.remove_building(Game.selected)
 			KEY_PAGEUP, KEY_BRACKETRIGHT:
 				set_level(level + 1)
 			KEY_PAGEDOWN, KEY_BRACKETLEFT:
 				set_level(level - 1)
+
+
+## Right-click / Esc: stop dragging, put the tool away, or clear the selection.
+func cancel() -> void:
+	if _dragging:
+		_dragging = false
+	elif tool != "select":
+		set_tool("select")
+	else:
+		Game.select(null)
 
 
 func _build_origin() -> Vector2i:
@@ -411,23 +457,50 @@ func _build_origin() -> Vector2i:
 	return hover - Vector2i((sz.x - 1) / 2, (sz.y - 1) / 2)
 
 
+## Why the item in hand can't go at the cursor ("" if it can).
+func place_reason() -> String:
+	if tool == "move" and moving:
+		return Game.fit_reason(moving.id, _build_origin(), level, place_rot, moving.uid)
+	if tool == "build" and build_id != "":
+		return Game.can_place(build_id, _build_origin(), level, place_rot)
+	return ""
+
+
 func _on_left_press() -> void:
 	match tool:
 		"select":
-			_pick()
+			_left_down = true
+			_left_moved = 0.0
 		"build":
 			var o := _build_origin()
 			var why := Game.can_place(build_id, o, level, place_rot)
 			if why != "":
-				Game.notify.emit(why, "bad")
+				Game.notify.emit("Can't build here: " + why, "bad")
 				return
+			Game.checkpoint()
 			var style := Data.wall_style(wall_mat, 1) if auto_walls else 0
 			var b := Game.place_building(build_id, o, false, level, place_rot, style)
-			if b and not b.is_decor() and not b.connected:
-				Game.notify.emit("%s can't be reached yet - connect it with floor and a doorway." % b.display_name(), "info")
-			if not Input.is_key_pressed(KEY_SHIFT) and not b.is_decor():
+			if b and not b.is_decor():
+				var msg := "Built %s." % b.display_name()
+				if not b.connected:
+					msg += " Nobody can reach it yet - click it and press \"Lay hallway\", or paint floor to it."
+				elif not b.has_staff_assigned():
+					msg += " It needs a %s - hire one from the To-do list or Staff." % ("teacher" if b.required_staff() == "teacher" else Data.STAFF_ROLES[b.required_staff()]["name"])
+				Game.notify.emit(msg, "info" if b.connected else "bad")
+		"move":
+			if moving == null or not Game.bld_by_uid.has(moving.uid):
 				set_tool("select")
-				Game.select(b)
+				return
+			var o := _build_origin()
+			var why := Game.fit_reason(moving.id, o, level, place_rot, moving.uid)
+			if why != "":
+				Game.notify.emit("Can't put it here: " + why, "bad")
+				return
+			Game.checkpoint()
+			Game.move_building(moving, o, level, place_rot)
+			var b := moving
+			set_tool("select")
+			Game.select(b)
 		"floor", "roof", "bulldoze":
 			_dragging = true
 			_drag_start = hover
@@ -437,16 +510,22 @@ func _on_left_press() -> void:
 
 
 func _on_left_release() -> void:
+	if _left_down:
+		_left_down = false
+		if _left_moved < 6.0 and tool == "select":
+			_pick()
+		return
 	if not _dragging:
 		return
 	_dragging = false
 	match tool:
 		"floor":
 			var r := _drag_rect()
-			var cost := r.size.x * r.size.y * int(Data.FLOORS[floor_mat]["cost"])
+			var cost := floor_cost(r)
 			if cost > Game.money:
 				Game.notify.emit("Not enough money ($%s needed)" % Game.format_money(cost), "bad")
 				return
+			Game.checkpoint()
 			Game.begin_batch()
 			for y in range(r.position.y, r.end.y):
 				for x in range(r.position.x, r.end.x):
@@ -454,6 +533,11 @@ func _on_left_release() -> void:
 			Game.end_batch()
 		"roof":
 			var r := _drag_rect()
+			var cost := r.size.x * r.size.y * int(Data.ROOFS[roof_kind]["cost"])
+			if cost > Game.money:
+				Game.notify.emit("Not enough money ($%s needed)" % Game.format_money(cost), "bad")
+				return
+			Game.checkpoint()
 			Game.begin_batch()
 			for y in range(r.position.y, r.end.y):
 				for x in range(r.position.x, r.end.x):
@@ -466,12 +550,99 @@ func _on_left_release() -> void:
 			if cost > Game.money:
 				Game.notify.emit("Not enough money ($%s needed)" % Game.format_money(cost), "bad")
 				return
+			Game.checkpoint()
 			Game.begin_batch()
 			for e in edges:
 				Game.set_wall(e, style)
 			Game.end_batch()
 		"bulldoze":
+			Game.checkpoint()
 			Game.bulldoze_rect(_drag_rect(), level, bulldoze_filter)
+
+
+## What painting floor over a rectangle would cost (tiles that can take it).
+func floor_cost(r: Rect2i) -> int:
+	var n := 0
+	for y in range(r.position.y, r.end.y):
+		for x in range(r.position.x, r.end.x):
+			if Game.can_floor(Vector3i(x, y, level), floor_mat):
+				n += 1
+	return n * int(Data.FLOORS[floor_mat]["cost"])
+
+
+## One or two lines for the cursor tooltip: what the tool will do here and
+## what it costs, or why it can't. Returns [text, ok].
+func hint() -> Array:
+	match tool:
+		"build":
+			if build_id == "":
+				return ["", true]
+			var d: Dictionary = Data.BUILDINGS[build_id]
+			var head := "%s  $%s" % [d["name"], Game.format_money(d["cost"])]
+			var why := place_reason()
+			if why != "":
+				return [head + "\nCan't build here: " + why, false]
+			var tip := "Click to place  -  R rotates  -  right-click to stop"
+			if not Data.is_decor(build_id) and not _would_connect(_build_origin(), Building.footprint(build_id, place_rot)):
+				tip = "Not next to a hallway yet - you can lay one after placing\n" + tip
+			return [head + "\n" + tip, true]
+		"move":
+			if moving == null:
+				return ["", true]
+			var why := place_reason()
+			if why != "":
+				return ["Moving %s\nCan't put it here: %s" % [moving.display_name(), why], false]
+			return ["Moving %s (free)\nClick to put it down  -  R rotates  -  right-click cancels" % moving.display_name(), true]
+		"floor":
+			var f: Dictionary = Data.FLOORS[floor_mat]
+			if _dragging:
+				var r := _drag_rect()
+				var cost := floor_cost(r)
+				return ["%s  %d x %d  -  $%s" % [f["name"], r.size.x, r.size.y, Game.format_money(cost)], cost <= Game.money]
+			if f.get("outdoor", false) and level > 0:
+				return ["%s only goes on the ground floor" % f["name"], false]
+			return ["%s  $%d per tile\nClick and drag to paint" % [f["name"], f["cost"]], true]
+		"roof":
+			var rf: Dictionary = Data.ROOFS[roof_kind]
+			if _dragging:
+				var r := _drag_rect()
+				var cost: int = r.size.x * r.size.y * int(rf["cost"])
+				return ["%s  %d x %d  -  $%s" % [rf["name"], r.size.x, r.size.y, Game.format_money(cost)], cost <= Game.money]
+			return ["%s  $%d per tile\nDrag over the rooms on this floor to cover them" % [rf["name"], rf["cost"]], true]
+		"wall":
+			var style := Data.wall_style(wall_mat, wall_kind)
+			var name_ := "%s - %s" % [Data.WALL_MATERIALS[wall_mat]["name"], Data.WALL_TYPES[wall_kind]["name"]]
+			if _dragging:
+				var n := Game.edges_between(_drag_vertex, hover_vertex, level).size()
+				var cost := n * Data.wall_cost(style)
+				return ["%s  %d pieces  -  $%s" % [name_, n, Game.format_money(cost)], cost <= Game.money]
+			return ["%s  $%d each\nDrag along grid lines; drag diagonally for a box" % [name_, Data.wall_cost(style)], true]
+		"bulldoze":
+			var what: String = {"all": "everything", "rooms": "rooms & objects", "walls": "walls", "floors": "floors", "roofs": "roofs"}[bulldoze_filter]
+			return ["Bulldoze %s on this floor\nDrag a box  -  Ctrl+Z undoes" % what, true]
+		"select":
+			var b := Game.building_at(hover, level)
+			if b and not _left_down:
+				var t := b.display_name()
+				if not b.connected and not b.is_decor():
+					t += "  -  can't be reached!"
+				elif not b.has_staff_assigned():
+					t += "  -  needs staff"
+				return [t, b.connected or b.is_decor()]
+	return ["", true]
+
+
+## Would a room here touch a tile people can already walk to (through no wall)?
+func _would_connect(o: Vector2i, sz: Vector2i) -> bool:
+	for y in sz.y:
+		for x in sz.x:
+			var c := Vector3i(o.x + x, o.y + y, level)
+			for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
+				var n: Vector3i = c + off
+				var inside := n.x >= o.x and n.x < o.x + sz.x and n.y >= o.y and n.y < o.y + sz.y
+				if not inside and Game.reachable.has(n) and Data.wall_passable(Game.wall_between(c, n)):
+					return true
+	return false
 
 
 func _drag_rect() -> Rect2i:
@@ -523,8 +694,9 @@ func _on_game_started() -> void:
 	scenery.build()
 	level = 0
 	level_changed.emit(0)
-	_t_target = Vector3(Game.GATE.x * T, 0, Game.H * T * 0.55)
-	_t_dist = 95.0
+	var empty_lot: bool = Data.SCENARIOS[Game.scenario_id]["prebuilt"] == ""
+	_t_target = Vector3(Game.GATE.x * T, 0, Game.H * T * (0.72 if empty_lot else 0.55))
+	_t_dist = 60.0 if empty_lot else 95.0
 	_t_pitch = deg_to_rad(45)
 	_t_yaw = deg_to_rad(15)
 	_on_map_changed()
@@ -657,14 +829,20 @@ func _update_previews() -> void:
 				var c := Vector3((e.x + (0.5 if e.w == 0 else 0.0)) * T, y + 1.5, (e.y + (0.5 if e.w == 1 else 0.0)) * T)
 				k.box(m, c, Vector3(T if e.w == 0 else 0.25, 3.0, 0.25 if e.w == 0 else T))
 			k.cylinder(Models.color_mat(Color(1, 1, 1, 0.8), 0.5), Vector3(hover_vertex.x * T, y, hover_vertex.y * T), 0.18, 3.2, 10)
+	var holding := tool in ["build", "move"] and build_id != ""
+	var o := _build_origin() if holding else Vector2i.ZERO
+	var ok := place_reason() == "" if holding else true
+	if holding:
+		# tile footprint under the item, so it's clear exactly which squares it takes
+		var sz := Building.footprint(build_id, place_rot)
+		k.box(_preview_mat(ok), Vector3((o.x + sz.x * 0.5) * T, y + 0.1, (o.y + sz.y * 0.5) * T), Vector3(sz.x * T, 0.06, sz.y * T))
 	_preview.mesh = k.commit() if not k.is_empty() else null
-	if tool != "build" or build_id == "":
+	if not holding:
 		if _ghost:
 			_ghost.queue_free()
 			_ghost = null
 			_ghost_key = ""
 		return
-	var o := _build_origin()
 	var key := "%s|%d|%d" % [build_id, place_rot, level]
 	if _ghost_key != key:
 		if _ghost:
@@ -681,12 +859,11 @@ func _update_previews() -> void:
 		Models.shadows_off(_ghost)
 		_ghost_key = key
 		_ghost_dirty = true
-	var ok := Game.can_place(build_id, o, level, place_rot) == ""
 	if ok != _ghost_ok or _ghost_dirty:
 		_ghost_dirty = false
 		_ghost_ok = ok
 		Models.override_all(_ghost, _preview_mat(ok))
-	_ghost.position = Vector3(o.x * T, y + 0.02, o.y * T)
+	_ghost.transform = BuildingFactory.root_transform(build_id, place_rot, o, level).translated(Vector3(0, 0.02, 0))
 
 
 func _update_selection() -> void:

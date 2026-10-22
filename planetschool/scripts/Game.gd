@@ -82,6 +82,9 @@ var finance_history: Array = []  # last 30 days of {income, expense, net}
 var hire_pool: Array = []
 var selected = null
 var _batch := 0  # >0 while building many pieces at once (skips nav rebuilds)
+const UNDO_LIMIT := 30
+var _undo: Array = []  # construction snapshots, newest last
+var _build_spent := 0  # net construction spending, so undo can refund it
 
 
 func _ready() -> void:
@@ -127,8 +130,8 @@ func new_game(scen: String, name_: String) -> void:
 	map_changed.emit()
 	notify.emit("Welcome to %s, home of the %s!" % [school_name, team_name], "good")
 	if s["prebuilt"] == "":
-		notify.emit("Tip: paint floors from the gate, draw walls with doorways, then place classrooms. Use the level buttons to build upstairs.", "info")
-		notify.emit("Tip: hire a teacher for every classroom, and add Restrooms and a Cafeteria.", "info")
+		notify.emit("Follow the School To-Do list on the right - its buttons pick up the right room or hire the staff for you.", "info")
+		notify.emit("Placing: click to put a room down, R rotates, right-click stops, Ctrl+Z undoes. Rooms need floor (a hallway) to the front gate.", "info")
 
 
 func _clear() -> void:
@@ -169,6 +172,8 @@ func _clear() -> void:
 	finance_history.clear()
 	selected = null
 	_batch = 0
+	_undo.clear()
+	_build_spent = 0
 
 
 func _make_gate() -> void:
@@ -376,11 +381,18 @@ func set_roof(c: Vector3i, kind: int, free := false) -> bool:
 
 func can_place(id: String, at: Vector2i, lv := 0, rot := 0) -> String:
 	var d: Dictionary = Data.BUILDINGS[id]
-	var sz := Building.footprint(id, rot)
 	if d.has("unlock") and not research_done.has(d["unlock"]):
 		return "Needs curriculum: %s" % Data.RESEARCH[d["unlock"]]["name"]
 	if money < d["cost"]:
 		return "Not enough money"
+	return fit_reason(id, at, lv, rot)
+
+
+## Why a room of this type can't sit here ("" if it fits). Cells owned by
+## `ignore_uid` count as free, so a room can be moved onto part of itself.
+func fit_reason(id: String, at: Vector2i, lv := 0, rot := 0, ignore_uid := -1) -> String:
+	var d: Dictionary = Data.BUILDINGS[id]
+	var sz := Building.footprint(id, rot)
 	if d.get("outdoor", false) and lv > 0:
 		return "Only on the ground floor"
 	var span: int = d.get("span", 1)
@@ -392,9 +404,17 @@ func can_place(id: String, at: Vector2i, lv := 0, rot := 0) -> String:
 				var t := at + Vector2i(x, y)
 				if not in_bounds(t) or t.y >= GATE.y:
 					return "Out of bounds"
-				if grid_bld[cidx(Vector3i(t.x, t.y, l))] >= 0:
-					return "Space is occupied"
+				var u := grid_bld[cidx(Vector3i(t.x, t.y, l))]
+				if u >= 0 and u != ignore_uid:
+					return "Space is taken by the %s" % bld_by_uid[u].display_name()
 	return ""
+
+
+func _stamp(b: Building, value: int) -> void:
+	for l in range(b.level, b.level + b.span()):
+		for y in b.size.y:
+			for x in b.size.x:
+				grid_bld[cidx(Vector3i(b.pos.x + x, b.pos.y + y, l))] = value
 
 
 func place_building(id: String, at: Vector2i, free := false, lv := 0, rot := 0, wall_style := 0) -> Building:
@@ -410,10 +430,7 @@ func place_building(id: String, at: Vector2i, free := false, lv := 0, rot := 0, 
 	b.size = Building.footprint(id, rot)
 	buildings.append(b)
 	bld_by_uid[b.uid] = b
-	for l in range(lv, lv + b.span()):
-		for y in b.size.y:
-			for x in b.size.x:
-				grid_bld[cidx(Vector3i(at.x + x, at.y + y, l))] = b.uid
+	_stamp(b, b.uid)
 	if not free:
 		spend(d["cost"], "Construction")
 	if wall_style > 0 and not b.is_decor():
@@ -423,6 +440,25 @@ func place_building(id: String, at: Vector2i, free := false, lv := 0, rot := 0, 
 	else:
 		_after_edit()
 	return b
+
+
+## Pick a room up and put it down somewhere else (free). Keeps its staff and stats.
+func move_building(b: Building, at: Vector2i, lv: int, rot: int) -> String:
+	var why := fit_reason(b.id, at, lv, rot, b.uid)
+	if why != "":
+		return why
+	_stamp(b, -1)
+	b.pos = at
+	b.level = lv
+	b.rot = rot
+	b.size = Building.footprint(b.id, rot)
+	_stamp(b, b.uid)
+	for p in people:
+		if p.dest_uid == b.uid or p.class_uid == b.uid:
+			_reset_person(p)
+	b.occupants = 0
+	_after_edit()
+	return ""
 
 
 ## Optional convenience: wall a room in with one doorway facing a walkable neighbor.
@@ -504,12 +540,17 @@ func bulldoze_rect(r: Rect2i, lv: int, filter := "all") -> bool:
 func remove_building(b: Building) -> void:
 	var refund := int(b.def()["cost"] * 0.5)
 	earn(refund, "Construction")
-	for l in range(b.level, b.level + b.span()):
-		for y in b.size.y:
-			for x in b.size.x:
-				grid_bld[cidx(Vector3i(b.pos.x + x, b.pos.y + y, l))] = -1
+	_stamp(b, -1)
 	buildings.erase(b)
 	bld_by_uid.erase(b.uid)
+	_forget_building(b)
+	if _batch == 0:
+		notify.emit("Demolished %s (+$%d refund)" % [b.display_name(), refund], "money")
+	_after_edit()
+
+
+## Send away anyone working in, heading to or having class in a building that is gone.
+func _forget_building(b: Building) -> void:
 	for p in people:
 		if p.assigned_uid == b.uid:
 			p.assigned_uid = -1
@@ -517,9 +558,243 @@ func remove_building(b: Building) -> void:
 			_reset_person(p)
 	if selected == b:
 		select(null)
-	if _batch == 0:
-		notify.emit("Demolished %s (+$%d refund)" % [b.display_name(), refund], "money")
+
+
+# ---- undo ------------------------------------------------------------
+
+## Remember the campus layout so the next player edit can be undone (Ctrl+Z).
+func checkpoint() -> void:
+	_undo.append({"floor": grid_floor.duplicate(), "roof": grid_roof.duplicate(), "wh": walls_h.duplicate(),
+		"wv": walls_v.duplicate(), "bld": buildings.map(func(b): return b.to_dict()), "spent": _build_spent})
+	if _undo.size() > UNDO_LIMIT:
+		_undo.pop_front()
+
+
+func can_undo() -> bool:
+	return not _undo.is_empty()
+
+
+## Put floors, walls, roofs and rooms back the way they were at the last
+## checkpoint and refund (or charge back) the construction money in between.
+func undo() -> bool:
+	if _undo.is_empty():
+		return false
+	var s: Dictionary = _undo.pop_back()
+	grid_floor = s["floor"]
+	grid_roof = s["roof"]
+	walls_h = s["wh"]
+	walls_v = s["wv"]
+	var kept := {}
+	var list: Array = []
+	for d in s["bld"]:
+		var b: Building = bld_by_uid.get(int(d["uid"]))
+		if b == null:
+			b = Building.from_dict(d)
+		elif b.pos != Vector2i(int(d["x"]), int(d["y"])) or b.level != int(d["lv"]) or b.rot != int(d["rot"]):
+			for p in people:
+				if p.dest_uid == b.uid or p.class_uid == b.uid:
+					_reset_person(p)
+			b.occupants = 0
+			b.pos = Vector2i(int(d["x"]), int(d["y"]))
+			b.level = int(d["lv"])
+			b.rot = int(d["rot"])
+			b.size = Building.footprint(b.id, b.rot)
+		kept[b.uid] = true
+		list.append(b)
+	var gone: Array = buildings.filter(func(b): return not kept.has(b.uid))
+	buildings = list
+	bld_by_uid.clear()
+	grid_bld.fill(-1)
+	for b in buildings:
+		bld_by_uid[b.uid] = b
+		_stamp(b, b.uid)
+	for b in gone:
+		_forget_building(b)
+	var refund: int = _build_spent - int(s["spent"])
+	if refund != 0:
+		money += refund
+		finance_today["Construction"] = finance_today.get("Construction", 0) + refund
+	_build_spent = int(s["spent"])
 	_after_edit()
+	notify.emit("Undone%s" % ("" if refund == 0 else " (%s$%s)" % ["+" if refund > 0 else "-", format_money(absi(refund))]), "info")
+	return true
+
+
+# ---- helpers that do the fiddly parts for the player -------------------
+
+## Lay the cheapest hallway (floor tiles, plus doorways through any walls in
+## the way) from a room to the part of the school people can already reach.
+## Returns "" on success or the reason it couldn't.
+func auto_connect(b: Building) -> String:
+	if b.connected:
+		return ""
+	var plan := _connect_plan(b)
+	if plan.is_empty():
+		return "No route on this floor - build stairs up to it first" if b.level > 0 else "No route to the school"
+	var cost := 0
+	for c in plan["cells"]:
+		cost += Data.FLOORS[_hall_floor(c)]["cost"]
+	for e in plan["doors"]:
+		cost += Data.wall_cost(Data.wall_style(Data.wall_mat(get_wall(e)), 3))
+	if cost > money:
+		return "Not enough money ($%s needed)" % format_money(cost)
+	begin_batch()
+	for c in plan["cells"]:
+		set_floor(c, _hall_floor(c))
+	for e in plan["doors"]:
+		set_wall(e, Data.wall_style(Data.wall_mat(get_wall(e)), 3))
+	end_batch()
+	return ""
+
+
+## Sidewalk outside, polished concrete indoors and upstairs.
+func _hall_floor(c: Vector3i) -> int:
+	return 1 if c.z == 0 and roof_at(c) == 0 and _roof_over(c) == 0 else 2
+
+
+func _roof_over(c: Vector3i) -> int:
+	return grid_floor[cidx(c + Vector3i(0, 0, 1))] if c.z + 1 < LEVELS else 0
+
+
+## Cheapest route (Dijkstra with small integer costs) from a room's tiles to a
+## reachable tile: {"cells": tiles needing floor, "doors": wall edges to open}.
+func _connect_plan(b: Building) -> Dictionary:
+	var lv := b.level
+	var dist := {}
+	var prev := {}
+	var buckets := {0: []}
+	for y in b.size.y:
+		for x in b.size.x:
+			var c := Vector3i(b.pos.x + x, b.pos.y + y, lv)
+			dist[c] = 0
+			buckets[0].append(c)
+	var goal = null
+	var d := 0
+	var max_d := 0
+	while goal == null and d <= max_d:
+		var list: Array = buckets.get(d, [])
+		buckets.erase(d)
+		var i := 0
+		while i < list.size() and goal == null:
+			var c: Vector3i = list[i]
+			i += 1
+			if dist.get(c, -1) != d:
+				continue
+			for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
+				var n: Vector3i = c + off
+				if not in_cell(n) or dist.has(n) and dist[n] <= d:
+					continue
+				var step := 0
+				var nb := building_at_cell(n)
+				if reachable.has(n) and (nb == null or nb != b):
+					step = 0
+				elif nb != null or n.y >= GATE.y:
+					continue
+				elif grid_floor[cidx(n)] > 0:
+					step = 2
+				else:
+					step = 10
+				var wall := wall_between(c, n)
+				if wall > 0 and not Data.wall_passable(wall):
+					step += 25
+				var nd := d + step + 1
+				if dist.has(n) and dist[n] <= nd:
+					continue
+				dist[n] = nd
+				prev[n] = c
+				if reachable.has(n):
+					goal = n
+					break
+				if not buckets.has(nd):
+					buckets[nd] = []
+				buckets[nd].append(n)
+				max_d = maxi(max_d, nd)
+		d += 1
+	if goal == null:
+		return {}
+	var cells: Array = []
+	var doors: Array = []
+	var cur: Vector3i = goal
+	while prev.has(cur):
+		var p: Vector3i = prev[cur]
+		var wall := wall_between(p, cur)
+		if wall > 0 and not Data.wall_passable(wall):
+			doors.append(_edge_of(p, cur))
+		if prev.has(p) and grid_floor[cidx(p)] == 0 and building_at_cell(p) == null:
+			cells.append(p)
+		cur = p
+	return {"cells": cells, "doors": doors}
+
+
+func _edge_of(a: Vector3i, b: Vector3i) -> Vector4i:
+	if a.x == b.x:
+		return Vector4i(a.x, maxi(a.y, b.y), a.z, 0)
+	return Vector4i(maxi(a.x, b.x), a.y, a.z, 1)
+
+
+## Connect every room nobody can reach. Returns how many got connected.
+func connect_all() -> int:
+	var n := 0
+	begin_batch()
+	for b in buildings.duplicate():
+		if not b.connected and (b.is_connector() or not b.is_decor() and b.capacity() > 0):
+			if auto_connect(b) == "":
+				n += 1
+				_rebuild_nav()
+	end_batch()
+	return n
+
+
+## Hire someone for every room missing its teacher/staff member, plus enough
+## custodians and campus officers (1 per 60 students). Returns how many.
+func hire_missing_staff() -> int:
+	var hired := 0
+	var pay := 0
+	for b in buildings:
+		if b.required_staff() != "" and b.staff_uids.is_empty():
+			var p := hire_for(b, false)
+			hired += 1
+			pay += p.salary
+	for role in ["janitor", "security"]:
+		for i in maxi(0, recommended_staff(role) - staff().filter(func(p): return p.role == role).size()):
+			var p := _hire_role(role, "")
+			hired += 1
+			pay += p.salary
+	if hired > 0:
+		notify.emit("Hired %d staff (+$%s/day payroll)" % [hired, format_money(pay)], "good")
+		changed.emit()
+	return hired
+
+
+## Custodians / campus officers the school should have: 1 per 60 students.
+func recommended_staff(role: String) -> int:
+	return maxi(1, ceili(students().size() / 60.0)) if role in ["janitor", "security"] else 0
+
+
+## Hire the best applicant for this room's job (a new one if nobody applied).
+func hire_for(b: Building, announce := true) -> Person:
+	var role := b.required_staff()
+	var p := _hire_role(role, b.subject() if role == "teacher" else "")
+	if p.assigned_uid != b.uid:
+		assign_staff_to(p, b)
+	if announce:
+		notify.emit("Hired %s (%s) for $%d/day" % [p.name, p.role_name(), p.salary], "good")
+		changed.emit()
+	return p
+
+
+func _hire_role(role: String, subj: String) -> Person:
+	var cand: Person = null
+	for p in hire_pool:
+		if p.role == role and p.subject == subj and (cand == null or p.skill > cand.skill):
+			cand = p
+	if cand == null:
+		cand = _make_staff(role, subj, _rand_skill())
+	hire_pool.erase(cand)
+	_add_staff(cand)
+	if running and minute < STAFF_LEAVE and not day_off:
+		_arrive(cand)
+	return cand
 
 
 ## Recompute the walk graph (walls block, doors pass, stairs connect floors),
@@ -663,12 +938,16 @@ func has_building(id: String) -> bool:
 
 func spend(amount: int, cat: String) -> void:
 	money -= amount
+	if cat == "Construction":
+		_build_spent += amount
 	finance_today[cat] = finance_today.get(cat, 0) - amount
 	changed.emit()
 
 
 func earn(amount: int, cat: String) -> void:
 	money += amount
+	if cat == "Construction":
+		_build_spent -= amount
 	finance_today[cat] = finance_today.get(cat, 0) + amount
 	changed.emit()
 
@@ -2291,10 +2570,7 @@ func load_game() -> bool:
 		var b := Building.from_dict(d)
 		buildings.append(b)
 		bld_by_uid[b.uid] = b
-		for l in range(b.level, b.level + b.span()):
-			for y in b.size.y:
-				for x in b.size.x:
-					grid_bld[cidx(Vector3i(b.pos.x + x, b.pos.y + y, l))] = b.uid
+		_stamp(b, b.uid)
 	for d in data["people"]:
 		var p := Person.from_dict(d)
 		p.jitter = Vector2(randf_range(-9, 9), randf_range(-9, 9))

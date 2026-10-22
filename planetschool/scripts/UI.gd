@@ -20,6 +20,13 @@ var window_layer: CenterContainer
 var window_panel: PanelContainer
 var window_name := ""
 var follow_selected := false
+var tip_panel: PanelContainer  # follows the cursor while building
+var tip_label: Label
+var todo_panel: PanelContainer
+var todo_box: VBoxContainer
+var todo_open := true
+var _todo_sig := ""
+var undo_button: Button
 
 var _info_updaters: Array = []
 var _window_updaters: Array = []
@@ -47,6 +54,9 @@ func _ready() -> void:
 	Game.game_started.connect(_on_game_started)
 	Game.scenario_won.connect(_on_scenario_won)
 	world.tool_changed.connect(func(_t, _id): _refresh_build_list())
+	Game.map_changed.connect(func():
+		if Game.selected is Building and info_panel.visible:
+			_on_selection.call_deferred(Game.selected))
 
 
 func _make_theme() -> Theme:
@@ -201,7 +211,7 @@ func _build_hud() -> void:
 	dock.anchor_bottom = 1
 	dock.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	dock.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	dock.offset_right = -6
+	dock.offset_right = -6 if not OS.has_feature("web") else -118  # browser page has its own Full screen button here
 	dock.offset_bottom = -6
 	hud.add_child(dock)
 	var drow := HBoxContainer.new()
@@ -235,7 +245,7 @@ func _build_hud() -> void:
 	lrow.add_child(_button("Up", func(): world.set_level(world.level + 1), "Go up a floor (Page Up / ])"))
 	world.level_changed.connect(func(l): level_lbl.text = Data.LEVEL_NAMES[l])
 	var tools := GridContainer.new()
-	tools.columns = 2
+	tools.columns = 3
 	lv.add_child(tools)
 	for t in [["Select", "select", "Click people and rooms (Esc)"], ["Bulldoze", "bulldoze", "Drag a box to demolish on this floor, 50% refund on rooms (X)"]]:
 		var tid: String = t[1]
@@ -244,6 +254,9 @@ func _build_hud() -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tool_buttons[tid] = b
 		tools.add_child(b)
+	undo_button = _button("Undo", func(): world.undo(), "Undo the last thing you built or bulldozed (Ctrl+Z)")
+	undo_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tools.add_child(undo_button)
 	lv.add_child(_hsep())
 	var cats := GridContainer.new()
 	cats.columns = 2
@@ -266,7 +279,7 @@ func _build_hud() -> void:
 	var vb := _button("View: Auto cutaway", func(): world.cycle_view_mode(), "Auto hides roofs and upper floors when you zoom in (V)")
 	world.view_mode_changed.connect(func(m): vb.text = "View: " + {"auto": "Auto cutaway", "full": "Whole building", "cutaway": "Cutaway"}[m])
 	lv.add_child(vb)
-	lv.add_child(_wrap_label("WASD pan, Q/E or right-drag rotate, wheel zoom. Drag to paint floors, draw walls along grid lines (drag diagonally for a box). R rotates stairs. Shift+click places several.", 11))
+	lv.add_child(_wrap_label("Left-drag or WASD pans, right-drag or Q/E turns, wheel zooms. R rotates what you're placing; right-click or Esc puts it away. Ctrl+Z undoes. F jumps to the selected room.", 11))
 
 	# ---- right info panel ----
 	info_panel = PanelContainer.new()
@@ -284,6 +297,18 @@ func _build_hud() -> void:
 	info_box = VBoxContainer.new()
 	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	iscroll.add_child(info_box)
+
+	# ---- to-do checklist (shown when nothing is selected) ----
+	todo_panel = PanelContainer.new()
+	todo_panel.anchor_left = 1
+	todo_panel.anchor_right = 1
+	todo_panel.offset_left = -330
+	todo_panel.offset_right = -6
+	todo_panel.offset_top = 62
+	hud.add_child(todo_panel)
+	todo_box = VBoxContainer.new()
+	todo_box.custom_minimum_size.x = 310
+	todo_panel.add_child(todo_box)
 
 	# ---- notifications ----
 	notif_box = VBoxContainer.new()
@@ -303,6 +328,15 @@ func _build_hud() -> void:
 	window_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	window_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(window_layer)
+
+	# ---- cursor tooltip ----
+	tip_panel = PanelContainer.new()
+	tip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tip_panel.visible = false
+	hud.add_child(tip_panel)
+	tip_label = _label("", 13)
+	tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tip_panel.add_child(tip_label)
 
 	_refresh_build_list()
 
@@ -339,7 +373,7 @@ func _refresh_build_list() -> void:
 			txt = "%s  (locked)" % d["name"]
 		var b := _button(txt, func(): world.set_tool("build", bid),
 			d["desc"] + ("\nUnlock via Curriculum: " + Data.RESEARCH[d["unlock"]]["name"] if locked else "")
-			+ "\nUpkeep: $%d/day" % d["upkeep"])
+			+ "\nSize %d x %d tiles  -  upkeep $%d/day" % [d["size"].x, d["size"].y, d["upkeep"]])
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.disabled = locked
 		b.toggle_mode = true
@@ -435,6 +469,7 @@ func _construction_list() -> void:
 func _process(delta: float) -> void:
 	if not Game.running:
 		return
+	_update_tip()
 	_tick += delta
 	if follow_selected and Game.selected is Person and Game.selected.present:
 		world.focus(Game.selected.pos)
@@ -442,6 +477,8 @@ func _process(delta: float) -> void:
 		return
 	_tick = 0.0
 	_update_top()
+	undo_button.disabled = not Game.can_undo()
+	_refresh_todo()
 	for u in _info_updaters:
 		u.call()
 	for u in _window_updaters:
@@ -459,6 +496,116 @@ func _update_top() -> void:
 	for s in speed_buttons:
 		var on: bool = Game.paused if s == 0 else (not Game.paused and Game.speed == s)
 		speed_buttons[s].set_pressed_no_signal(on)
+
+
+func _update_tip() -> void:
+	var h: Array = world.hint()
+	var text: String = h[0]
+	if text == "" or world.over_ui or window_panel != null:
+		tip_panel.visible = false
+		return
+	tip_label.text = text
+	tip_label.add_theme_color_override("font_color", C_TEXT if h[1] else C_BAD)
+	tip_panel.visible = true
+	tip_panel.reset_size()
+	var vp := root.get_viewport_rect().size
+	var mp := root.get_viewport().get_mouse_position() + Vector2(20, 22)
+	tip_panel.position = Vector2(minf(mp.x, vp.x - tip_panel.size.x - 4), minf(mp.y, vp.y - tip_panel.size.y - 4))
+
+
+# =====================================================================
+#  To-do checklist
+# =====================================================================
+
+## [done, text, button label, action] for each step of getting a school running.
+func _todo_items() -> Array:
+	var items: Array = []
+	var missing_core: Array = []
+	for subj in Data.CORE_SUBJECTS:
+		var rid := Data.subject_room(subj)
+		if not Game.has_building(rid):
+			missing_core.append(rid)
+	var core_have := Data.CORE_SUBJECTS.size() - missing_core.size()
+	if missing_core.is_empty():
+		items.append([true, "Classrooms for Math, English, Science, History", "", Callable()])
+	else:
+		var rid: String = missing_core[0]
+		items.append([false, "Build a %s  (%d/4 core rooms)" % [Data.BUILDINGS[rid]["name"], core_have], "Place", func(): _place(rid)])
+	var unreachable := 0
+	for b in Game.buildings:
+		if not b.connected and (b.is_connector() or not b.is_decor() and b.capacity() > 0):
+			unreachable += 1
+	if unreachable == 0:
+		items.append([true, "Every room can be reached from the gate", "", Callable()])
+	else:
+		items.append([false, "%d room%s can't be reached" % [unreachable, "" if unreachable == 1 else "s"], "Lay hallways", func():
+			Game.checkpoint()
+			var n := Game.connect_all()
+			Game.notify.emit("Laid hallways to %d room%s." % [n, "" if n == 1 else "s"] if n > 0 else "Couldn't find a route - upstairs rooms need stairs first.", "good" if n > 0 else "bad")])
+	var nostaff := 0
+	for b in Game.buildings:
+		if not b.has_staff_assigned():
+			nostaff += 1
+	var short := 0
+	for role in ["janitor", "security"]:
+		short += maxi(0, Game.recommended_staff(role) - Game.staff().filter(func(p): return p.role == role).size())
+	if nostaff + short == 0:
+		items.append([true, "Every room has its teacher or staff", "", Callable()])
+	else:
+		var t: String = "%d room%s need%s staff" % [nostaff, "" if nostaff == 1 else "s", "s" if nostaff == 1 else ""] if nostaff > 0 else "Need custodians / campus officers"
+		items.append([false, t, "Hire all", func(): Game.hire_missing_staff()])
+	var rest := Game.buildings_of("restroom").size()
+	var rest_need := maxi(1, ceili(Game.students().size() / 80.0))
+	items.append([rest >= rest_need, "Restrooms  (%d / %d)" % [rest, rest_need], "Place", func(): _place("restroom")])
+	items.append([Game.has_building("cafeteria"), "A Cafeteria for lunch", "Place", func(): _place("cafeteria")])
+	items.append([Game.has_building("principal_office"), "A Main Office (stops fights, earns curriculum)", "Place", func(): _place("principal_office")])
+	return items
+
+
+func _place(id: String) -> void:
+	build_cat = Data.BUILDINGS[id]["cat"]
+	world.set_tool("build", id)
+	Game.notify.emit("Move the mouse to where you want the %s and click. R rotates it." % Data.BUILDINGS[id]["name"], "info")
+
+
+func _refresh_todo() -> void:
+	todo_panel.visible = not info_panel.visible and window_panel == null
+	if not todo_panel.visible:
+		return
+	var items := _todo_items()
+	var sig := str(todo_open) + str(items.map(func(i): return [i[0], i[1]]))
+	if sig == _todo_sig:
+		return
+	_todo_sig = sig
+	for c in todo_box.get_children():
+		c.queue_free()
+	var head := HBoxContainer.new()
+	todo_box.add_child(head)
+	var done := items.filter(func(i): return i[0]).size()
+	var title := _label("SCHOOL TO-DO  %d/%d" % [done, items.size()], 15, C_ACCENT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	head.add_child(_button("Hide" if todo_open else "Show", func():
+		todo_open = not todo_open
+		_refresh_todo()))
+	if not todo_open:
+		return
+	for it in items:
+		var row := HBoxContainer.new()
+		todo_box.add_child(row)
+		var l := _wrap_label(("[x]  " if it[0] else "[  ]  ") + it[1], 13, C_GOOD if it[0] else C_TEXT)
+		l.custom_minimum_size.x = 0
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		if not it[0] and it[2] != "":
+			var cb: Callable = it[3]
+			var b := _button(it[2], func():
+				cb.call()
+				_todo_sig = "")
+			b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(b)
+	if done == items.size():
+		todo_box.add_child(_wrap_label("All set! Press 2, 3 or 4 to speed up the day and watch your school run.", 12, C_GOOD))
 
 
 func _on_notify(text: String, kind: String) -> void:
@@ -498,8 +645,11 @@ func _on_selection(obj) -> void:
 	_info_updaters.clear()
 	if obj == null:
 		info_panel.visible = false
+		_todo_sig = ""
+		_refresh_todo()
 		return
 	info_panel.visible = true
+	todo_panel.visible = false
 	var head := HBoxContainer.new()
 	info_box.add_child(head)
 	if obj is Person:
@@ -615,8 +765,29 @@ func _info_building(b: Building) -> void:
 	var d := b.def()
 	info_box.add_child(_wrap_label(d["desc"], 12))
 	info_box.add_child(_label("Upkeep $%d/day" % d["upkeep"], 13, C_DIM))
-	if not b.connected:
-		info_box.add_child(_wrap_label("Can't be reached from the main entrance! Connect it with floor, and give its walls a doorway.", 12, C_BAD))
+	if not b.connected and not b.is_decor():
+		info_box.add_child(_wrap_label("Can't be reached from the main entrance! Paint floor to it and leave a doorway in its walls - or let the game lay the cheapest hallway for you:", 12, C_BAD))
+		info_box.add_child(_button("Lay hallway to it", func():
+			Game.checkpoint()
+			var why := Game.auto_connect(b)
+			if why != "":
+				Game.notify.emit(why, "bad")
+			else:
+				Game.notify.emit("Hallway laid - %s is open." % b.display_name(), "good"),
+			"Paints the cheapest floor path from the nearest hallway and opens a doorway where a wall is in the way."))
+	var acts := HBoxContainer.new()
+	info_box.add_child(acts)
+	acts.add_child(_button("Move", func(): world.start_move(b), "Pick it up and put it somewhere else for free (R rotates)"))
+	if not b.is_decor() and not b.is_connector():
+		acts.add_child(_button("Add walls", func():
+			Game.checkpoint()
+			Game.begin_batch()
+			Game.build_room_walls(b, Data.wall_style(world.wall_mat, 1))
+			Game.end_batch(),
+			"Wraps this room in %s walls with one doorway (pick the material under Construction > Walls)" % Data.WALL_MATERIALS[world.wall_mat]["name"]))
+	acts.add_child(_button("Focus", func():
+		world.set_level(b.level)
+		world.focus(b.center_px()), "Point the camera at it (F)"))
 	if b.is_decor():
 		if d.get("appeal", 0) > 0:
 			info_box.add_child(_label("Appeal +%d to nearby rooms" % d["appeal"], 13))
@@ -640,7 +811,9 @@ func _info_building(b: Building) -> void:
 			return "%s  (%s)  %s" % [s.name, _stars(s.skill), "on duty" if b.is_staffed() else "away"], u, 13))
 		if b.staff_uids.is_empty():
 			var who: String = "%s Teacher" % b.subject() if role == "teacher" else Data.STAFF_ROLES[role]["name"]
-			info_box.add_child(_button("Hire a %s" % who, func(): _toggle_window("staff")))
+			info_box.add_child(_button("Hire a %s" % who, func():
+				Game.hire_for(b)
+				_on_selection(b), "Hires the best applicant for this room right away"))
 	if b.subject() != "":
 		info_box.add_child(_live_label(func():
 			var n := 0
@@ -653,7 +826,9 @@ func _info_building(b: Building) -> void:
 
 func _building_footer(b: Building) -> void:
 	info_box.add_child(_hsep())
-	info_box.add_child(_button("Demolish (+$%s)" % Game.format_money(int(b.def()["cost"] * 0.5)), func(): Game.remove_building(b)))
+	info_box.add_child(_button("Demolish (+$%s)" % Game.format_money(int(b.def()["cost"] * 0.5)), func():
+		Game.checkpoint()
+		Game.remove_building(b), "Ctrl+Z brings it back"))
 
 
 func _stars(n: int) -> String:
@@ -1039,7 +1214,7 @@ func _win_pause(body: VBoxContainer) -> void:
 		menu.visible = true
 		_refresh_menu()))
 	body.add_child(_hsep())
-	body.add_child(_wrap_label("Keys: Space pause, 1-4 speed, X bulldoze, V cutaway view, Esc cancel, WASD pan, Q/E rotate, mouse wheel zoom.", 12))
+	body.add_child(_wrap_label("Keys: Space pause, 1-4 speed, R rotate, Ctrl+Z undo, X bulldoze, V cutaway view, F focus, Delete demolish selected, Esc cancel, WASD or left-drag pan, Q/E or right-drag turn, mouse wheel zoom, Page Up/Down change floor.", 12))
 
 
 # =====================================================================
@@ -1098,7 +1273,8 @@ func _build_menu() -> void:
 		if Game.load_game():
 			menu.visible = false)
 	v.add_child(_menu_load)
-	v.add_child(_button("Quit", func(): get_tree().quit()))
+	if not OS.has_feature("web"):
+		v.add_child(_button("Quit", func(): get_tree().quit()))
 	_refresh_menu()
 
 

@@ -22,9 +22,25 @@ All art is free CC0 content - see [`assets/CREDITS.md`](assets/CREDITS.md).
 
 ## Running it
 
-1. Install [Godot 4.3+](https://godotengine.org/download) (standard build, not .NET).
-2. Open Godot, choose **Import**, and select `planetschool/project.godot`. The first import takes a few minutes.
-3. Press **F5** (Run Project).
+There is a lighter browser build, but the full game (shadows, reflections, ambient occlusion, every prop and
+up to 320 animated people on screen) runs in Godot on your computer.
+
+### On Windows
+
+1. Download **Godot 4.3** from <https://godotengine.org/download/archive/4.3-stable/> - pick
+   **Windows, Standard** (not .NET). It's a zip with a single `.exe`; unzip it anywhere (e.g. your Desktop).
+   No installer is needed.
+2. Download the game: <https://github.com/tresterling003/tresterlingiii/archive/refs/heads/claude/planetschool-godot.zip>
+   (or on GitHub switch to the `claude/planetschool-godot` branch and choose **Code > Download ZIP**).
+   Unzip it.
+3. Run the Godot `.exe`. In the Project Manager click **Import**, browse into the unzipped folder, open
+   `planetschool`, select `project.godot`, then **Import & Edit**.
+4. The first time, Godot imports all the textures and models - give it a few minutes until the progress bar
+   at the bottom finishes.
+5. Press **F5** (or the play button at the top right) to play. Next time, just open Godot and double-click
+   PlanetSchool in the project list.
+
+On other systems the steps are the same with that platform's Godot 4.3 download.
 
 The game uses the Forward+ renderer (needs a Vulkan-capable GPU). On an older machine, start Godot with
 `--rendering-driver opengl3` - it will run with simpler lighting.
@@ -41,6 +57,13 @@ The game uses the Forward+ renderer (needs a Vulkan-capable GPU). On an older ma
 
 ## How to play
 
+- **School To-Do** (right side, when nothing is selected): the next steps for a working school. Its buttons
+  pick up the right room for you, lay hallways to rooms nobody can reach, and hire every missing teacher and
+  staff member in one click.
+- **Placing**: the item stays in your hand so you can place several; a tooltip by the cursor shows the price,
+  and if a spot is red it says why. **R** rotates any room. **Right-click** or **Esc** puts it away and
+  **Ctrl+Z** undoes your last build or bulldoze (with a refund). Click a room to **Move** it for free,
+  **Lay hallway to it**, **Add walls**, hire its teacher or demolish it.
 - **Build** (left panel): the **Construction** tab has floors, walls, roofs, stairs and elevators. Drag to paint
   floors and roofs; drag along grid lines to draw walls (drag diagonally to draw a box). Pick a wall material from
   the dropdown and a type (solid, window, doorway, glass curtain wall, glass doors, railing). Use **Up/Down**
@@ -70,21 +93,23 @@ The game uses the Forward+ renderer (needs a Vulkan-capable GPU). On an older ma
 | Fresh Start | Grow an empty lot to 120 students with a B rating |
 | Rescue Riverside High | Turn a dirty, failing school into an A school with a 3.0 average GPA |
 | Sports Powerhouse | Win 8 home football games and bank $250,000 |
-| Sandbox | $2M and every curriculum unlocked |
+| Sandbox | $5M and every curriculum unlocked |
 
 ### Controls
 
 | Input | Action |
 | --- | --- |
-| WASD / arrows, middle-drag | Pan |
+| WASD / arrows, left-drag (select tool), middle-drag | Pan |
 | Q / E, right-drag | Rotate and tilt camera |
 | Mouse wheel | Zoom (roofs and upper floors hide automatically when close) |
 | Page Up / Page Down, ] / [ | Go up / down a floor |
-| R | Rotate stairs before placing |
+| R | Rotate the room or stairs you're placing or moving |
+| Ctrl + Z | Undo the last build / bulldoze |
 | V | Cycle view: auto cutaway / whole building / cutaway |
 | Left click | Select / place / paint |
-| Shift + click | Place several of the same building |
-| Right click / Esc | Cancel tool |
+| Right click / Esc | Put the tool away |
+| F | Point the camera at the selected room |
+| Delete | Demolish the selected room |
 | X | Bulldoze tool (drag a box; filter rooms, walls, floors or roofs) |
 | Space | Pause |
 | 1-4 | Speed 1x / 2x / 4x / 8x |

@@ -49,6 +49,40 @@ func _ready() -> void:
 	for e in Game.edges_between(eng.pos, eng.pos + eng.size, 0):
 		Game.set_wall(e, Data.wall_style(1, 1))
 	print("english after sealing: connected ", eng.connected)
+	# ---- helpers: lay hallway, undo, move/rotate, hire ----
+	Game.checkpoint()
+	var why := Game.auto_connect(eng)
+	print("auto-connect sealed english: '%s' connected %s" % [why, eng.connected])
+	Game.undo()
+	print("after undo: english connected ", eng.connected)
+	var before_money := Game.money
+	var n_before := Game.buildings.size()
+	Game.checkpoint()
+	var lab := Game.place_building("science_lab", Vector2i(10, 10), false, 0, 1)
+	print("rotated lab size ", lab.size, " connected ", lab.connected, " spent ", before_money - Game.money)
+	Game.checkpoint()
+	print("connect far lab: '%s' connected %s" % [Game.auto_connect(lab), lab.connected])
+	Game.undo()
+	Game.undo()
+	print("undo place: buildings %d -> %d  money back %s" % [n_before, Game.buildings.size(), Game.money == before_money])
+	var mv := Game.move_building(math, Vector2i(40, 30), 0, 1)
+	print("move math: '%s' pos %s size %s connected %s" % [mv, math.pos, math.size, math.connected])
+	print("move onto english: '%s'" % Game.move_building(math, Vector2i(37, 20), 0, 0))
+	var node := BuildingFactory.build(math)
+	print("rotated node basis x ", node.transform.basis.x.snapped(Vector3.ONE * 0.01), " origin ", node.transform.origin)
+	node.free()
+	print("connect_all ", Game.connect_all(), "  hired ", Game.hire_missing_staff())
+	var world = ui.world
+	for t in [["build", "cafeteria"], ["floor", ""], ["wall", ""], ["roof", ""], ["bulldoze", ""], ["select", ""]]:
+		world.set_tool(t[0], t[1])
+		world._process(0.016)
+		ui._process(0.3)
+		print("hint %s: %s" % [t[0], str(world.hint())])
+	world.start_move(math)
+	world._process(0.016)
+	print("hint move: ", world.hint())
+	world.cancel()
+	print("todo: ", ui._todo_items().map(func(i): return [i[0], i[1]]))
 	# ---- Eagle Ridge: the two-story example ----
 	ui._start("eagle_ridge")
 	await get_tree().process_frame
