@@ -27,20 +27,24 @@ up to 320 animated people on screen) runs in Godot on your computer.
 
 ### On Windows
 
-1. Download **Godot 4.3** from <https://godotengine.org/download/archive/4.3-stable/> - pick
-   **Windows, Standard** (not .NET). It's a zip with a single `.exe`; unzip it anywhere (e.g. your Desktop).
-   No installer is needed.
-2. Download the game: <https://github.com/tresterling003/tresterlingiii/archive/refs/heads/claude/planetschool-godot.zip>
-   (or on GitHub switch to the `claude/planetschool-godot` branch and choose **Code > Download ZIP**).
-   Unzip it.
-3. Run the Godot `.exe`. In the Project Manager click **Import**, browse into the unzipped folder, open
-   `planetschool`, select `project.godot`, then **Import & Edit**.
-4. The first time, Godot imports all the textures and models - give it a few minutes until the progress bar
-   at the bottom finishes.
+1. Download Godot from <https://godotengine.org/download/windows/> - the **Standard** version (not .NET).
+   Godot 4.3 or newer works (tested on 4.3 and 4.7.2). It's a zip with a single `.exe`; unzip it anywhere
+   (e.g. your Desktop). No installer is needed.
+2. Download the game: <https://github.com/tresterling003/tresterlingiii/archive/refs/heads/claude/planetschool-godot.zip>.
+   **Don't unzip it** - Godot unpacks it for you in the next step.
+3. Run the Godot `.exe`. In the Project Manager click **Import**, pick the `.zip` you just downloaded, leave
+   **Create Folder** ticked, and choose where it goes (e.g. `Documents\PlanetSchool`). Click **Import**
+   (or **Import & Edit**).
+4. If Godot says the project was made with an older version, click **OK / Convert**. The first time it opens,
+   Godot imports all the textures and models - wait a few minutes until the bar at the bottom finishes.
 5. Press **F5** (or the play button at the top right) to play. Next time, just open Godot and double-click
    PlanetSchool in the project list.
 
-On other systems the steps are the same with that platform's Godot 4.3 download.
+If you see `Attempt to open script 'res://scripts/Data.gd' ... File not found`, the folder Godot opened only
+has `project.godot` without the `scripts`, `scenes` and `assets` folders next to it. Remove that entry from the
+Project Manager and import the `.zip` again as in step 3.
+
+On other systems the steps are the same with that platform's Godot download.
 
 The game uses the Forward+ renderer (needs a Vulkan-capable GPU). On an older machine, start Godot with
 `--rendering-driver opengl3` - it will run with simpler lighting.
