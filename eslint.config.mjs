@@ -29,7 +29,7 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   adminClaimIsolationRule,
   {
-    ignores: [".next/**", "node_modules/**"],
+    ignores: [".next/**", "node_modules/**", "fieldview/**"],
   },
 ];
 
