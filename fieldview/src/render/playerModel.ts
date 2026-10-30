@@ -288,6 +288,7 @@ export class ProceduralPlayer implements PlayerVisual {
   private feet: THREE.Group[] = [];
   private numberMats: THREE.MeshStandardMaterial[] = [];
   private skin: THREE.MeshStandardMaterial;
+  number = 0;
 
   constructor(
     mats: UniformMaterials,
@@ -296,6 +297,7 @@ export class ProceduralPlayer implements PlayerVisual {
     seed: number,
     opts: { shadows: boolean } = { shadows: true },
   ) {
+    this.number = number;
     const G = geo();
     const h = build.height;
     const w = build.width;
@@ -328,6 +330,7 @@ export class ProceduralPlayer implements PlayerVisual {
       const m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.8, alphaTest: 0.2, depthWrite: false });
       this.numberMats.push(m);
       const strip = new THREE.Mesh(back ? G.numBack : G.numFront, m);
+      strip.userData.number = number;
       // ellipse radius of the torso around y = 0.3
       strip.scale.set(1.18 * tw * 1.025, h, 0.66 * tw * (0.95 + 0.05 * w) * 1.07);
       strip.position.y = back ? 0.31 * h : 0.29 * h;
@@ -336,8 +339,8 @@ export class ProceduralPlayer implements PlayerVisual {
     }
 
     // Head + helmet
-    add(this.head, G.neck, this.skin, w, h, w);
-    add(this.head, G.face, this.skin, h, h, h);
+    add(this.head, G.neck, this.skin, w, h, w).userData.skin = true;
+    add(this.head, G.face, this.skin, h, h, h).userData.skin = true;
     add(this.head, G.helmetTop, mats.helmet, h, h, h);
     add(this.head, G.helmetLow, mats.helmet, h, h, h);
     const inner = add(this.head, G.helmetTop, mats.inner, h * 0.985, h * 0.985, h * 0.985);
@@ -348,10 +351,10 @@ export class ProceduralPlayer implements PlayerVisual {
 
     for (let s = 0; s < 2; s++) {
       const ua = new THREE.Group();
-      add(ua, G.upperArm, this.skin, w, DIM.upperArm * h, w);
+      add(ua, G.upperArm, this.skin, w, DIM.upperArm * h, w).userData.skin = true;
       add(ua, G.sleeve, mats.jersey, w * 1.05, h, w * 1.05);
       const fa = new THREE.Group();
-      add(fa, G.forearm, this.skin, w, DIM.forearm * h, w);
+      add(fa, G.forearm, this.skin, w, DIM.forearm * h, w).userData.skin = true;
       add(fa, G.tape, mats.tape, w, h, w).position.y = DIM.forearm * h * 0.92;
       const hd = new THREE.Group();
       add(hd, G.hand, mats.glove, w * h, h, w * h);

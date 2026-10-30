@@ -23,6 +23,8 @@ export function DisplayApp() {
       stateRef.current = s;
       setConnected(true);
     };
+    // exposed for automated verification
+    (window as unknown as { __displayState: () => SharedState | null }).__displayState = () => stateRef.current;
     client.hello();
     const helloTimer = setInterval(() => {
       if (!stateRef.current) client.hello();

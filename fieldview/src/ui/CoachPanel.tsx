@@ -7,6 +7,7 @@ import type { Hash } from '../data/field';
 import { physicalScreen, wideScaleFactor } from '../render/camera';
 import { POSITION_EYE_HEIGHT, type ViewSettings } from '../core/state';
 import type { ViewPosition } from '../data/schema';
+import { runBenchmark, type BenchResult } from './benchmark';
 
 export function fmtHeight(m: number) {
   const inches = m / 0.0254;
@@ -22,6 +23,8 @@ export function CoachPanel({ stage, onEdit }: { stage: Stage | null; onEdit: () 
   const [qb, setQb] = useState({ formation: 'doubles-11', strength: 'R' as Side, hash: 'M' as Hash, motion: 'across' as MotionType });
   const [qbError, setQbError] = useState<string | null>(null);
   const [offscreen, setOffscreen] = useState<string[]>([]);
+  const [bench, setBench] = useState<BenchResult | null>(null);
+  const [benchRunning, setBenchRunning] = useState(false);
   useEffect(() => {
     const id = setInterval(() => setOffscreen(stage?.offscreen.map((o) => o.label) ?? []), 400);
     return () => clearInterval(id);
@@ -307,6 +310,25 @@ export function CoachPanel({ stage, onEdit }: { stage: Stage | null; onEdit: () 
           {tally.filter((r) => r.correct).length}/{tally.length}
         </span>
       </div>
+
+      <h3>Performance</h3>
+      <button
+        disabled={!stage || benchRunning}
+        onClick={async () => {
+          if (!stage) return;
+          setBenchRunning(true);
+          setBench(await runBenchmark(ctl, stage, 8));
+          setBenchRunning(false);
+        }}
+      >
+        {benchRunning ? 'Measuring…' : 'Measure performance (8 reps)'}
+      </button>
+      {bench && (
+        <p className="hint">
+          {bench.frames} frames at {bench.width}×{bench.height}: avg <b>{bench.avgFps.toFixed(1)} fps</b>, 1% low {bench.lowFps.toFixed(1)} fps ({bench.avgMs.toFixed(1)} ms/frame), {bench.drawCalls} draw calls. GPU: {bench.renderer}. Lower the
+          resolution scale or turn off shadows in Settings if this is below 60 fps.
+        </p>
+      )}
     </div>
   );
 }

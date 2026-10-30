@@ -139,6 +139,14 @@ export const DrillSchema = z.object({
 });
 export type Drill = z.infer<typeof DrillSchema>;
 
+export const FormationTemplateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(60),
+  personnel: z.string().max(12).default(''),
+  players: z.array(PlayerSpecSchema).length(11),
+});
+export type FormationTemplate = z.infer<typeof FormationTemplateSchema>;
+
 export const PlaylistSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(60),
@@ -198,6 +206,7 @@ export const PackageSchema = z.object({
   playlists: z.array(PlaylistSchema).default([]),
   calibrations: z.array(CalibrationSchema).default([]),
   rules: z.array(CoachingRuleSchema).default([]),
+  formations: z.array(FormationTemplateSchema).default([]),
   team: TeamSettingsSchema.optional(),
 });
 export type FieldviewPackage = z.infer<typeof PackageSchema>;

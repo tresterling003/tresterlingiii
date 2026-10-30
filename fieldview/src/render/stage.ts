@@ -8,6 +8,7 @@ import { offensePoseContext, defensePoseContext } from '../anim/contexts';
 import { hashString } from '../sim/rng';
 import { FieldView } from './field';
 import { fieldCenterX } from '../data/field';
+import { PlayerCrowd, makeNumberAtlas } from './playerCrowd';
 import { ProceduralPlayer, makeBall, makeUniformMaterials, disposeUniformMaterials, type PlayerVisual, type UniformMaterials } from './playerModel';
 import { applyOffAxis, applyWide, calibrationReference, letterbox, physicalScreen } from './camera';
 import { CalibrationScene } from './calibrationScene';
@@ -54,6 +55,8 @@ export class Stage {
   private actors: Actor[] = [];
   private defenseActors: Actor[] = [];
   private actorsKey = '';
+  private crowds: PlayerCrowd[] = [];
+  private atlases: { material: THREE.Material; texture: THREE.Texture }[] = [];
   private matsO: UniformMaterials | null = null;
   private matsD: UniformMaterials | null = null;
   private ball = makeBall();
@@ -150,6 +153,7 @@ export class Stage {
     }
     this.losLine.visible = s.overlays.los && !s.evaluation;
     for (const a of this.defenseActors) a.visual.object.visible = s.overlays.showDefense;
+    if (this.crowds[1]) this.crowds[1].group.visible = s.overlays.showDefense;
   }
 
   private rebuildActors(s: SharedState) {
@@ -158,6 +162,16 @@ export class Stage {
       a.visual.dispose();
       if (a.label) this.overlayGroup.remove(a.label);
     }
+    for (const c of this.crowds) {
+      this.scene.remove(c.group);
+      c.dispose();
+    }
+    this.crowds = [];
+    for (const a of this.atlases) {
+      a.material.dispose();
+      a.texture.dispose();
+    }
+    this.atlases = [];
     if (this.matsO) disposeUniformMaterials(this.matsO);
     if (this.matsD) disposeUniformMaterials(this.matsD);
     this.matsO = makeUniformMaterials(s.team.offense);
@@ -171,7 +185,7 @@ export class Stage {
       const visual: PlayerVisual = glb
         ? glb(this.matsO!, spec.number, ctx.build, seed)
         : new ProceduralPlayer(this.matsO!, spec.number, ctx.build, seed, { shadows: s.quality.shadows });
-      this.scene.add(visual.object);
+      if (glb) this.scene.add(visual.object);
       return { track, visual, pose: createPose(), root: { X: 0, Z: 0, yaw: 0 }, ctx };
     });
     const athleteId = s.view.defenderId ?? s.drill.defense.athleteId;
@@ -186,9 +200,22 @@ export class Stage {
         const visual: PlayerVisual = glb
           ? glb(this.matsD!, number, ctx.build, seed)
           : new ProceduralPlayer(this.matsD!, number, ctx.build, seed, { shadows: s.quality.shadows });
-        this.scene.add(visual.object);
+        if (glb) this.scene.add(visual.object);
         return { track, visual, pose: createPose(), root: { X: 0, Z: 0, yaw: 0 }, ctx };
       });
+    if (!glb) {
+      // Procedural athletes: draw each body part of a whole team in one call.
+      const mk = (actors: Actor[], mats: UniformMaterials) => {
+        const atlas = makeNumberAtlas(mats.uniform.numbers, numberOutline(mats.uniform.jersey, mats.uniform.numbers));
+        this.atlases.push(atlas);
+        const crowd = new PlayerCrowd(actors.map((a) => a.visual as ProceduralPlayer), atlas, s.quality.shadows);
+        this.scene.add(crowd.group);
+        this.crowds.push(crowd);
+        return crowd;
+      };
+      mk(this.actors, this.matsO!);
+      if (this.defenseActors.length) mk(this.defenseActors, this.matsD!);
+    }
   }
 
   private rebuildOverlays(s: SharedState) {
@@ -247,6 +274,8 @@ export class Stage {
         a.visual.applyPose(a.pose, a.root);
       }
     }
+    this.crowds[0]?.update();
+    if (s.overlays.showDefense) this.crowds[1]?.update();
     this.updateBall(tt);
     this.updateCamera(s.view, s);
     this.sky.position.copy(this.camera.position);
@@ -417,6 +446,14 @@ export class Stage {
     this.field?.dispose();
     this.renderer.dispose();
   }
+}
+
+function numberOutline(jersey: string, numbers: string): string {
+  const c = new THREE.Color(jersey);
+  const n = new THREE.Color(numbers);
+  const lum = (x: THREE.Color) => x.r * 0.3 + x.g * 0.59 + x.b * 0.11;
+  if (Math.abs(lum(c) - lum(n)) > 0.4) return '#' + c.clone().multiplyScalar(0.6).getHexString();
+  return lum(c) > 0.5 ? '#111111' : '#ffffff';
 }
 
 function defNumber(d: DefenderSpec, seed: number): number {

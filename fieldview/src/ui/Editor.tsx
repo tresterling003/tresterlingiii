@@ -85,11 +85,25 @@ export function Editor() {
     setDrawing(true);
   };
 
+  const savedFormations = ctl.store.get().formations;
   const applyTemplate = () => {
     if (!confirm('Replace the offense with this formation? Movements will be cleared.')) return;
+    const saved = savedFormations.find((f) => f.id === tpl.formation);
+    if (saved) {
+      const players = clone(saved.players);
+      set({ players, movements: [], personnel: saved.personnel, formationName: saved.name, defense: { ...draft.defense, defenders: exampleDefense(players) } });
+      return;
+    }
     const players = buildFormation(tpl.formation, draft.ball.hash, tpl.strength);
     const f = FORMATIONS.find((x) => x.key === tpl.formation)!;
     set({ players, movements: [], personnel: f.personnel, formationName: `${f.name} ${tpl.strength === 'R' ? 'Right' : 'Left'}`, defense: { ...draft.defense, defenders: exampleDefense(players) } });
+  };
+  const saveFormation = () => {
+    const name = prompt('Name this formation', draft.formationName || 'My formation');
+    if (!name) return;
+    ctl.store.saveFormation({ id: `f-${Date.now().toString(36)}`, name, personnel: draft.personnel, players: clone(draft.players) });
+    setMsg('Formation saved');
+    setTimeout(() => setMsg(null), 2000);
   };
 
   const save = (asNew: boolean) => {
@@ -263,11 +277,22 @@ export function Editor() {
         <h3>Formation template</h3>
         <div className="row">
           <select className="grow" style={{ width: 'auto' }} value={tpl.formation} onChange={(e) => setTpl({ ...tpl, formation: e.target.value })}>
-            {FORMATIONS.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.name} ({f.personnel})
-              </option>
-            ))}
+            <optgroup label="Built-in">
+              {FORMATIONS.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.name} ({f.personnel})
+                </option>
+              ))}
+            </optgroup>
+            {savedFormations.length > 0 && (
+              <optgroup label="Saved formations">
+                {savedFormations.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} ({f.personnel})
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           <div className="seg">
             {(['L', 'R'] as Side[]).map((x) => (
@@ -277,6 +302,14 @@ export function Editor() {
             ))}
           </div>
           <button onClick={applyTemplate}>Apply</button>
+        </div>
+        <div className="row" style={{ marginTop: 6 }}>
+          <button onClick={saveFormation}>Save current formation</button>
+          {savedFormations.some((f) => f.id === tpl.formation) && (
+            <button className="danger" onClick={() => ctl.store.deleteFormation(tpl.formation)}>
+              Delete saved formation
+            </button>
+          )}
         </div>
 
         <h3>Offensive player {selPlayer ? `· ${selPlayer.label}` : ''}</h3>

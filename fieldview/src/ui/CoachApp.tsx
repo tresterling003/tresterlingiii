@@ -117,7 +117,7 @@ export function CoachApp() {
         <div style={{ minHeight: 0 }}>
           {mode === 'editor' && <Editor />}
           {mode === 'library' && <LibraryPage onOpen={() => setMode('coach')} />}
-          {mode === 'settings' && <SettingsPage stage={stage} />}
+          {mode === 'settings' && <SettingsPage />}
         </div>
       )}
       {(mode === 'coach' || mode === 'editor') && !collapsed && <Transport />}

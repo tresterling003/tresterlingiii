@@ -50,12 +50,13 @@ const PATTERNS: Record<string, string[]> = {
   foot: ['foot', 'ankle'],
 };
 
-function normalize(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/mixamorig\d*[:_]?/g, '')
-    .replace(/^(def|bip\d*|b|j|jnt|bone|c|ctrl)[-_.: ]/g, '')
-    .replace(/[\s:_.\-]/g, '');
+/** Side-free base name: "mixamorig:LeftUpLeg" → "upleg", "thigh_l" → "thigh", "upper_arm.L" → "upperarm". */
+function baseName(raw: string) {
+  let n = raw.toLowerCase().replace(/mixamorig\d*[:_]?/g, '');
+  n = n.replace(/left|right/g, '');
+  n = n.replace(/(^|[_.\-:\s])(l|r)(?=$|[_.\-:\s])/g, '$1');
+  n = n.replace(/^(def|bip\d*|b|j|jnt|bone|c|ctrl)[-_.: ]/g, '');
+  return n.replace(/[\s:_.\-]/g, '');
 }
 
 function sideOf(raw: string): 'L' | 'R' | null {
@@ -63,10 +64,6 @@ function sideOf(raw: string): 'L' | 'R' | null {
   if (/left|(^|[_.\-:\s])l($|[_.\-:\s])|\.l$|_l$|^l_/.test(n)) return 'L';
   if (/right|(^|[_.\-:\s])r($|[_.\-:\s])|\.r$|_r$|^r_/.test(n)) return 'R';
   return null;
-}
-
-function stripSide(n: string) {
-  return n.replace(/left|right/g, '').replace(/^(l|r)(?=[a-z])/, '').replace(/(l|r)$/, '');
 }
 
 export function mapBones(root: THREE.Object3D): Partial<Record<Key, THREE.Bone>> {
@@ -81,7 +78,7 @@ export function mapBones(root: THREE.Object3D): Partial<Record<Key, THREE.Bone>>
       const b = bones.find((bn) => {
         const s = sideOf(bn.name);
         if (side !== s) return false;
-        return stripSide(normalize(bn.name)) === c;
+        return baseName(bn.name) === c;
       });
       if (b) {
         out[key] = b;

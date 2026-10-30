@@ -3,6 +3,7 @@ import {
   CalibrationSchema,
   CoachingRuleSchema,
   DrillSchema,
+  FormationTemplateSchema,
   PackageSchema,
   PlaylistSchema,
   TeamSettingsSchema,
@@ -10,6 +11,7 @@ import {
   type CoachingRule,
   type Drill,
   type FieldviewPackage,
+  type FormationTemplate,
   type Playlist,
   type TeamSettings,
 } from './schema';
@@ -58,6 +60,7 @@ export interface StoreData {
   activeCalibrationId: string;
   team: TeamSettings;
   rules: CoachingRule[];
+  formations: FormationTemplate[];
 }
 
 function readList<T>(kv: KvBackend, key: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>): T[] | null {
@@ -93,6 +96,7 @@ export class Store {
     const playlists = readList(kv, 'playlists', PlaylistSchema) ?? buildDemoPlaylists();
     const calibrations = readList(kv, 'calibrations', CalibrationSchema) ?? [DEFAULT_CALIBRATION];
     const rules = readList(kv, 'rules', CoachingRuleSchema) ?? DEMO_RULES;
+    const formations = readList(kv, 'formations', FormationTemplateSchema) ?? [];
     let team = DEFAULT_TEAM;
     try {
       const t = kv.getItem(PREFIX + 'team');
@@ -108,6 +112,7 @@ export class Store {
       activeCalibrationId,
       team,
       rules,
+      formations,
     };
   }
 
@@ -121,6 +126,7 @@ export class Store {
       kv.setItem(PREFIX + 'activeCalibration', d.activeCalibrationId);
       kv.setItem(PREFIX + 'team', JSON.stringify(d.team));
       kv.setItem(PREFIX + 'rules', JSON.stringify(d.rules));
+      kv.setItem(PREFIX + 'formations', JSON.stringify(d.formations));
     } catch (e) {
       console.error('[fieldview] could not save', e);
     }
@@ -165,6 +171,17 @@ export class Store {
     const plIds = new Set(pls.map((p) => p.id));
     const rules = [...this.data.rules.filter((r) => !DEMO_RULES.some((d) => d.id === r.id)), ...DEMO_RULES];
     this.data = { ...this.data, drills: [...demos, ...others], playlists: [...pls, ...this.data.playlists.filter((p) => !plIds.has(p.id))], rules };
+    this.persist();
+  }
+
+  // --- saved formations ----------------------------------------------------------
+  saveFormation(f: FormationTemplate) {
+    const parsed = FormationTemplateSchema.parse(f);
+    this.data = { ...this.data, formations: [...this.data.formations.filter((x) => x.id !== f.id), parsed] };
+    this.persist();
+  }
+  deleteFormation(id: string) {
+    this.data = { ...this.data, formations: this.data.formations.filter((x) => x.id !== id) };
     this.persist();
   }
 
@@ -223,6 +240,7 @@ export class Store {
       playlists: this.data.playlists.filter((p) => p.drillIds.every((id) => ids.has(id))),
       calibrations: opts.includeCalibrations === false ? [] : this.data.calibrations,
       rules: this.data.rules,
+      formations: this.data.formations,
       team: opts.includeTeam === false ? undefined : this.data.team,
     };
   }
@@ -253,12 +271,13 @@ export class Store {
       playlists: merge(this.data.playlists, pkg.playlists),
       calibrations: merge(this.data.calibrations, pkg.calibrations),
       rules: merge(this.data.rules, pkg.rules),
+      formations: merge(this.data.formations, pkg.formations),
       team: pkg.team ?? this.data.team,
     };
     this.persist();
     return {
       ok: true,
-      summary: `Imported ${pkg.drills.length} drills, ${pkg.playlists.length} playlists, ${pkg.calibrations.length} calibration profiles, ${pkg.rules.length} rules${pkg.team ? ', team colors' : ''}.`,
+      summary: `Imported ${pkg.drills.length} drills, ${pkg.playlists.length} playlists, ${pkg.calibrations.length} calibration profiles, ${pkg.rules.length} rules, ${pkg.formations.length} formations${pkg.team ? ', team colors' : ''}.`,
     };
   }
 

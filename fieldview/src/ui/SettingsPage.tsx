@@ -5,19 +5,15 @@ import { ACTIONS, ACTION_LABELS, DEFAULT_KEYMAP, prettyKey, type Action } from '
 import { clearGlb, getGlbInfo, loadGlb, onGlbChange } from '../render/glbPlayer';
 import { putAsset } from '../data/assetDb';
 import type { SessionRecord } from '../assess/session';
-import type { Stage } from '../render/stage';
-import { runBenchmark, type BenchResult } from './benchmark';
 
 const UNIFORM_FIELDS: (keyof Omit<Uniform, 'name'>)[] = ['helmet', 'facemask', 'jersey', 'numbers', 'pants', 'socks', 'cleats'];
 
-export function SettingsPage({ stage }: { stage: Stage | null }) {
+export function SettingsPage() {
   const ctl = useCtl();
   const team = ctl.store.get().team;
   const [capture, setCapture] = useState<Action | null>(null);
   const [glbMsg, setGlbMsg] = useState<string | null>(null);
   const [, bump] = useState(0);
-  const [bench, setBench] = useState<BenchResult | null>(null);
-  const [benchRunning, setBenchRunning] = useState(false);
   useEffect(() => {
     const off = onGlbChange(() => bump((x) => x + 1));
     return () => void off();
@@ -84,24 +80,7 @@ export function SettingsPage({ stage }: { stage: Stage | null }) {
             <label className="inline">
               <input type="checkbox" checked={ctl.state.overlays.showDefense} onChange={(e) => ctl.update({ overlays: { ...ctl.state.overlays, showDefense: e.target.checked } })} /> Render defensive teammates
             </label>
-            <div className="row" style={{ marginTop: 8 }}>
-              <button
-                disabled={!stage || benchRunning}
-                onClick={async () => {
-                  if (!stage) return;
-                  setBenchRunning(true);
-                  setBench(await runBenchmark(ctl, stage, 12));
-                  setBenchRunning(false);
-                }}
-              >
-                {benchRunning ? 'Measuring…' : 'Measure performance (12 reps)'}
-              </button>
-            </div>
-            {bench && (
-              <div className="hint" style={{ marginTop: 6 }}>
-                {bench.frames} frames over {bench.reps} reps at {bench.width}×{bench.height}: avg {bench.avgFps.toFixed(1)} fps, 1% low {bench.lowFps.toFixed(1)} fps, avg frame {bench.avgMs.toFixed(1)} ms, {bench.drawCalls} draw calls. {bench.renderer}
-              </div>
-            )}
+            <p className="hint">To measure frame rate on this computer, use “Measure performance” at the bottom of the Coach tab.</p>
           </div>
         </div>
 

@@ -142,9 +142,10 @@ export function AthleteOverlay({ a }: { a: AO }) {
   if (a.kind === 'none') return null;
   const remaining = a.countdownTo ? Math.max(0, (a.countdownTo - wallNow()) / 1000) : null;
   const centered = a.kind === 'countdown' || a.kind === 'summary' || a.kind === 'message' || a.kind === 'rest';
+  // prompts and feedback sit in the (empty) sky so the formation and the snap stay visible
   const tone = a.tone === 'good' ? 'good' : a.tone === 'bad' ? 'bad' : '';
   return (
-    <div className={`ath ${centered ? 'center' : ''}`}>
+    <div className={`ath ${centered ? 'center' : 'top'}`}>
       <div className={`ath-card ${tone}`}>
         {a.title && <div className={`ath-title ${tone}`}>{a.title}</div>}
         {a.subtitle && <div className="ath-sub">{a.subtitle}</div>}
