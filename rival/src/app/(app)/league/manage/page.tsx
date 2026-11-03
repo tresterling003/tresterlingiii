@@ -160,7 +160,7 @@ function MembersAdmin({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void }
       <ul className="divide-y divide-ink-700">
         {s.members.filter((m) => m.active).map((m) => (
           <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-6">
-            <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} size="sm" />
+            <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{m.teamName}</p>
               <p className="truncate text-xs text-fg-muted">{m.displayName}{m.role === "commissioner" && " · Commissioner"}</p>

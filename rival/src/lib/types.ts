@@ -41,6 +41,7 @@ export type Member = {
   teamName: string;
   teamAbbr: string;
   teamColor: string;
+  avatarUrl: string | null;
   role: "commissioner" | "member";
   active: boolean;
   joinedAt: string;
@@ -175,6 +176,7 @@ export type Account = {
   timezone: string;
   share_details: boolean;
   created_at: string;
+  avatar_updated_at: string | null;
 };
 
 export type MeResponse = {

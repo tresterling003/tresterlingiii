@@ -7,6 +7,7 @@ import { PageError, PageHeader, PageSkeleton } from "@/components/page";
 import { MatchupRow, Scoreboard } from "@/components/scoreboard";
 import { CategoryComparison, DayBars } from "@/components/breakdown";
 import { IconButton } from "@/components/ui/button";
+import { rivalColor } from "@/components/team-avatar";
 import { EmptyState, SectionHeader } from "@/components/ui/states";
 import { useLeague } from "@/lib/hooks";
 import { fmtPts } from "@/lib/client";
@@ -32,7 +33,7 @@ function Opportunities({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
           const reachable = need <= daysLeft;
           return (
             <li key={id} className="flex items-start gap-3 text-sm">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${id === s.me ? "bg-lime" : "bg-fg-muted"}`} />
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: id === s.me ? "#C8FF3D" : rivalColor(mem.teamColor) }} />
               <p className="text-fg-muted">
                 <span className="font-semibold text-fg">{id === s.me ? "You" : mem.teamName}</span>{" "}
                 {t.bonus > 0
@@ -63,6 +64,8 @@ function MatchupDetail({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
   const left = members.get(o.leftId)!;
   const right = o.rightId ? members.get(o.rightId) : null;
   const started = s.week && s.week.start <= s.league.today;
+  const leftColor = o.leftId === s.me ? "#C8FF3D" : left.teamColor;
+  const rightColor = rivalColor(right?.teamColor);
   return (
     <div className="flex flex-col gap-6">
       <Scoreboard s={s} m={m} />
@@ -73,7 +76,8 @@ function MatchupDetail({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
             <CategoryComparison
               left={categorySums(leftDays)} right={rightDays ? categorySums(rightDays) : null}
               leftBonus={s.totals[o.leftId]?.bonus ?? 0} rightBonus={o.rightId ? s.totals[o.rightId]?.bonus ?? 0 : 0}
-              leftLabel={left.teamAbbr} rightLabel={right?.teamAbbr ?? ""} scoring={s.league.scoring} />
+              leftLabel={left.teamAbbr} rightLabel={right?.teamAbbr ?? ""} scoring={s.league.scoring}
+              leftColor={leftColor} rightColor={rightColor} />
             {m.final && (
               <p className="mt-4 text-xs text-fg-faint">
                 Final scores were locked at {fmtPts(m.homeScore)}–{fmtPts(m.awayScore)}. The breakdown reflects current records.
@@ -84,7 +88,7 @@ function MatchupDetail({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
             <section className="panel p-4 sm:p-6">
               <SectionHeader title="By day" />
               <DayBars start={s.week!.start} today={s.league.today} left={leftDays} right={rightDays}
-                leftLabel={left.teamName} rightLabel={right?.teamName} />
+                leftLabel={left.teamName} rightLabel={right?.teamName} leftColor={leftColor} rightColor={rightColor} />
             </section>
             <Opportunities s={s} m={m} />
           </div>

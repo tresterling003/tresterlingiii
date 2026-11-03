@@ -10,9 +10,10 @@ type Sums = ReturnType<typeof categorySums>;
 
 /** Mirrored category comparison: where each side's points came from. */
 export function CategoryComparison({
-  left, right, leftBonus, rightBonus, leftLabel, rightLabel, scoring,
+  left, right, leftBonus, rightBonus, leftLabel, rightLabel, scoring, leftColor = "#C8FF3D", rightColor = "#A2A7B1",
 }: {
   left: Sums; right: Sums | null; leftBonus: number; rightBonus: number; leftLabel: string; rightLabel: string; scoring: Scoring;
+  leftColor?: string; rightColor?: string;
 }) {
   const rows: { key: string; label: string; l: number; r: number; note: string }[] = [
     { key: "steps", label: "Steps", l: left.steps, r: right?.steps ?? 0, note: `${scoring.steps.points} per ${scoring.steps.per.toLocaleString()}` },
@@ -38,7 +39,7 @@ export function CategoryComparison({
             <div className="flex items-center gap-3">
               <span className={clsx("tnum w-12 shrink-0 font-display text-lg font-bold", r.l === 0 && "text-fg-faint", r.l < 0 && "text-warn")}>{fmtPts(r.l)}</span>
               <div className="flex h-1.5 flex-1 justify-end overflow-hidden rounded-full bg-ink-750">
-                <div className="h-full rounded-full bg-lime" style={{ width: `${(Math.max(0, r.l) / max) * 100}%` }} />
+                <div className="h-full rounded-full" style={{ width: `${(Math.max(0, r.l) / max) * 100}%`, background: leftColor }} />
               </div>
             </div>
             <div className="w-24 text-center sm:w-32">
@@ -48,7 +49,7 @@ export function CategoryComparison({
             {right ? (
               <div className="flex items-center gap-3">
                 <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-ink-750">
-                  <div className="h-full rounded-full bg-fg-muted" style={{ width: `${(Math.max(0, r.r) / max) * 100}%` }} />
+                  <div className="h-full rounded-full" style={{ width: `${(Math.max(0, r.r) / max) * 100}%`, background: rightColor }} />
                 </div>
                 <span className={clsx("tnum w-12 shrink-0 text-right font-display text-lg font-bold", r.r === 0 && "text-fg-faint", r.r < 0 && "text-warn")}>{fmtPts(r.r)}</span>
               </div>
@@ -62,9 +63,10 @@ export function CategoryComparison({
 
 /** Mon–Sun paired bars. Future days are outlined. */
 export function DayBars({
-  start, today, left, right, leftLabel = "You", rightLabel,
+  start, today, left, right, leftLabel = "You", rightLabel, leftColor = "#C8FF3D", rightColor = "#A2A7B1",
 }: {
   start: string; today: string; left: DayScore[]; right?: DayScore[] | null; leftLabel?: string; rightLabel?: string;
+  leftColor?: string; rightColor?: string;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const L = new Map(left.map((d) => [d.day, d]));
@@ -80,11 +82,14 @@ export function DayBars({
           const rv = R.get(d)?.total ?? 0;
           return (
             <div key={d} className="flex h-full items-end justify-center gap-1">
-              {[{ v: lv, c: "bg-lime" }, ...(right ? [{ v: rv, c: "bg-fg-muted" }] : [])].map((b, i) => (
+              {[{ v: lv, c: leftColor }, ...(right ? [{ v: rv, c: rightColor }] : [])].map((b, i) => (
                 <div key={i}
                   className={clsx("w-full max-w-[14px] rounded-t-sm transition-[height] duration-500",
-                    future ? "border border-dashed border-ink-600 bg-transparent" : b.c, !future && b.v === 0 && "bg-ink-700")}
-                  style={{ height: future ? "12%" : `${Math.max(3, (b.v / max) * 100)}%` }} />
+                    future && "border border-dashed border-ink-600 bg-transparent")}
+                  style={{
+                    height: future ? "12%" : `${Math.max(3, (b.v / max) * 100)}%`,
+                    background: future ? undefined : b.v === 0 ? "#262931" : b.c,
+                  }} />
               ))}
             </div>
           );
@@ -100,8 +105,8 @@ export function DayBars({
       </div>
       {right && (
         <figcaption className="mt-4 flex gap-4 text-xs text-fg-muted">
-          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-lime" />{leftLabel}</span>
-          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-fg-muted" />{rightLabel}</span>
+          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: leftColor }} />{leftLabel}</span>
+          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: rightColor }} />{rightLabel}</span>
         </figcaption>
       )}
     </figure>
