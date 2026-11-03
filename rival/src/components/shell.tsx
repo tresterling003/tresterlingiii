@@ -120,8 +120,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="min-w-0 flex-1">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-ink-700 bg-ink-900/95 px-4 backdrop-blur lg:hidden"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        {/* Height grows by the notch inset so the bar never sits under the status bar when installed. */}
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-ink-700 bg-ink-900/95 px-4 backdrop-blur lg:hidden"
+          style={{ paddingTop: "env(safe-area-inset-top)", height: "calc(56px + env(safe-area-inset-top))" }}>
           <Link href="/home" aria-label="RIVAL home" className="focus-ring rounded-md"><RivalMark size={28} /></Link>
           <LeagueSwitcher className="min-w-0 flex-1" />
           <SyncIndicator compact />

@@ -680,3 +680,39 @@ describe("the RIVAL Pledge", () => {
     await expectFail(db.as(u, "update users set pledged_at = null"), "permission denied");
   });
 });
+
+// ---------------------------------------------------------------------------
+describe("commissioner reset links and feedback", () => {
+  const h = (c: string) => c.repeat(64);
+  it("only the commissioner can issue; links work once, expire, and end sessions", async () => {
+    const a = await db.signup(); const b = await db.signup(); const outsider = await db.signup();
+    const L = await league(a);
+    await join(b, L.code);
+    await expectFail(db.as(b, "select create_reset_link($1, $2, $3)", [L.id, a, h("a")]), "forbidden");
+    await expectFail(db.as(a, "select create_reset_link($1, $2, $3)", [L.id, outsider, h("b")]), "not_found");
+    await db.as(a, "select create_reset_link($1, $2, $3)", [L.id, b, h("c")]);
+    await db.as(null, "select auth_create_session($1, $2, 'test')", [b, h("d")]);
+    const [info] = await db.as(null, "select * from auth_reset_info($1)", [h("c")]);
+    expect(info.display_name).toBeTruthy();
+    expect(Object.keys(info)).not.toContain("email");
+    const [{ uid }] = await db.as(null, "select auth_use_reset($1, 'newhash') as uid", [h("c")]);
+    expect(uid).toBe(b);
+    const [{ s }] = await db.as(null, "select auth_session_user($1) as s", [h("d")]);
+    expect(s).toBeNull();                                            // old sessions ended
+    await expectFail(db.as(null, "select auth_use_reset($1, 'again')", [h("c")]), "invalid_link");   // single use
+    // A newer link supersedes an older one.
+    await db.as(a, "select create_reset_link($1, $2, $3)", [L.id, b, h("e")]);
+    await db.as(a, "select create_reset_link($1, $2, $3)", [L.id, b, h("f")]);
+    await expectFail(db.as(null, "select auth_use_reset($1, 'x')", [h("e")]), "invalid_link");
+    await expectFail(db.as(b, "select * from password_resets"), "permission denied");
+  });
+
+  it("feedback is write-only for players", async () => {
+    const u = await db.signup();
+    await db.as(u, "select submit_feedback('idea', 'Add a rowing type', '/activity', 'test')");
+    await expectFail(db.as(u, "select submit_feedback('bug', '   ', null, null)"), "Write a little");
+    await expectFail(db.as(u, "select * from feedback"), "permission denied");
+    const rows = await db.owner.query("select kind, body from feedback where user_id = $1", [u]);
+    expect(rows.rows).toEqual([{ kind: "idea", body: "Add a rowing type" }]);
+  });
+});

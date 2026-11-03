@@ -70,6 +70,7 @@ export const leagueActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("leave") }),
   z.object({ action: z.literal("remove"), userId: z.string().uuid() }),
   z.object({ action: z.literal("transfer"), userId: z.string().uuid() }),
+  z.object({ action: z.literal("reset_link"), userId: z.string().uuid() }),
 ]);
 
 export const profileSchema = z

@@ -47,6 +47,7 @@ export function SignInForm() {
       </Field>
       {error && <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
       <Button type="submit" size="lg" block loading={busy}>Sign in</Button>
+      <p className="-mt-2 text-center text-xs text-fg-faint">Forgot your password? Ask your league commissioner to send you a reset link (League → Manage).</p>
       <p className="text-center text-sm text-fg-muted">
         New to RIVAL? <Link className="font-semibold text-lime hover:underline" href={`/sign-up${params.get("next") ? `?next=${encodeURIComponent(params.get("next")!)}` : ""}`}>Create an account</Link>
       </p>
