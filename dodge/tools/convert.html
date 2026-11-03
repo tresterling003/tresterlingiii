@@ -1,0 +1,74 @@
+<!doctype html><html><body>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
+const mgr=new THREE.LoadingManager();mgr.setURLModifier(u=>/\.(tga|png|jpg)$/i.test(u)?'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==':u);
+const L=new FBXLoader(mgr);
+function b64(u8){let s='';for(let i=0;i<u8.length;i+=32768)s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));return btoa(s);}
+class W{constructor(){this.parts=[];this.len=0}add(arr){const u=new Uint8Array(arr.buffer,arr.byteOffset,arr.byteLength);const off=this.len;this.parts.push(u);this.len+=u.length;const pad=(4-this.len%4)%4;if(pad){this.parts.push(new Uint8Array(pad));this.len+=pad}return off}
+ finish(json){const j=new TextEncoder().encode(JSON.stringify(json));const jl=j.length+((4-j.length%4)%4);const out=new Uint8Array(8+jl+this.len);const dv=new DataView(out.buffer);dv.setUint32(0,0x31414e44,true);dv.setUint32(4,jl,true);out.set(j,8);for(let i=j.length;i<jl;i++)out[8+i]=32;let o=8+jl;for(const p of this.parts){out.set(p,o);o+=p.length}return out}}
+async function packAvatar(name){
+  const o=await L.loadAsync('https://assets.local/fbx/'+name+'.fbx');o.updateMatrixWorld(true);
+  let mesh;o.traverse(c=>{if(c.isSkinnedMesh)mesh=c});
+  const skb=mesh.skeleton.bones;const bones=[];o.traverse(c=>{if(c.isBone)bones.push(c)});const bi=new Map(bones.map((b,i)=>[b,i]));
+  let g=mesh.geometry.clone();
+  for(const k of Object.keys(g.attributes)) if(!['position','normal','uv','skinIndex','skinWeight'].includes(k)) g.deleteAttribute(k);
+  const groups=g.groups.map(x=>[x.start,x.count,x.materialIndex]);
+  const gi=mergeVertices(g,1e-4);
+  const vc=gi.attributes.position.count, idx=gi.index.array;
+  const w=new W();const P=gi.attributes.position.array,N=gi.attributes.normal.array,U=gi.attributes.uv.array,SI=gi.attributes.skinIndex.array,SW=gi.attributes.skinWeight.array;
+  const bb=new THREE.Box3().setFromBufferAttribute(gi.attributes.position);const mn=bb.min.toArray(),mx=bb.max.toArray();
+  const pq=new Uint16Array(vc*3);for(let i=0;i<vc;i++)for(let k=0;k<3;k++)pq[i*3+k]=Math.round((P[i*3+k]-mn[k])/(mx[k]-mn[k])*65535);
+  const nq=new Int8Array(vc*4);for(let i=0;i<vc;i++){for(let k=0;k<3;k++)nq[i*4+k]=Math.round(N[i*3+k]*127)}
+  let umn=[1e9,1e9],umx=[-1e9,-1e9];for(let i=0;i<vc;i++)for(let k=0;k<2;k++){umn[k]=Math.min(umn[k],U[i*2+k]);umx[k]=Math.max(umx[k],U[i*2+k])}
+  const uq=new Uint16Array(vc*2);for(let i=0;i<vc;i++)for(let k=0;k<2;k++)uq[i*2+k]=Math.round((U[i*2+k]-umn[k])/(umx[k]-umn[k])*65535);
+  const sq=new Uint8Array(vc*4),wq=new Uint8Array(vc*4);
+  for(let i=0;i<vc;i++){let s=0;const ws=[];for(let k=0;k<4;k++){sq[i*4+k]=SI[i*4+k];ws.push(Math.round(SW[i*4+k]*255));s+=ws[k]}
+    let mk=0;for(let k=1;k<4;k++)if(ws[k]>ws[mk])mk=k;ws[mk]+=255-s;for(let k=0;k<4;k++)wq[i*4+k]=ws[k]}
+  const iq=vc<65536?new Uint16Array(idx):new Uint32Array(idx);
+  const inv=new Float32Array(skb.length*16);mesh.skeleton.boneInverses.forEach((m,i)=>inv.set(m.elements,i*16));
+  const json={vc,ic:idx.length,i32:vc>=65536,groups,mats:mesh.material.map(m=>m.name),pmin:mn,pmax:mx,umin:umn,umax:umx,
+    meshMatrix:mesh.matrix.elements.slice(),bindMatrix:mesh.bindMatrix.elements.slice(),
+    bones:bones.map(b=>({n:b.name,p:bi.has(b.parent)?bi.get(b.parent):-1,t:b.position.toArray().map(v=>+v.toFixed(4)),q:b.quaternion.toArray().map(v=>+v.toFixed(6)),s:b.scale.toArray().map(v=>+v.toFixed(5))})),
+    sk:skb.map(b=>bi.get(b)),rootParentMatrix:bones[0].parent.matrixWorld.elements.slice()};
+  json.pos=w.add(pq);json.nrm=w.add(nq);json.uv=w.add(uq);json.si=w.add(sq);json.sw=w.add(wq);json.idx=w.add(iq);json.inv=w.add(inv);
+  const out=w.finish(json);
+  return {b64:b64(out),bytes:out.length,vc,tris:idx.length/3,groups:groups.length,mats:json.mats,rootParent:bones[0].name+'<'+bones[0].parent.type+':'+bones[0].parent.name+' nb '+bones.length+' sk '+skb.length+' meshM '+mesh.matrixWorld.elements.map(v=>+v.toFixed(2)).join(','),meshParent:mesh.parent.type};
+}
+const CLIPS=[['idle','m_idle_neutral_01'],['idle2','m_idle_neutral_02'],['run','m_run_neutral'],['sprint','m_run_fast_01'],['jog','m_run_slow_01'],['walk','m_walk_neutral_01'],['crouch','m_crouch_idle'],['cheer','m_cheer_01'],['cheer2','m_cheer_03'],['cheer3','m_cheer_04'],['clap','m_claphands_01'],['sit','m_sit_chair_idle_neutral_01'],['frun','f_run_neutral'],['fsprint','f_run_fast_01']];
+async function packAnims(maxDur){
+  const w=new W();const json={fps:30,clips:[]};const rep=[];
+  for(const [nm,file] of CLIPS){
+    const o=await L.loadAsync('https://assets.local/anim/'+file+'.max.fbx');const c=o.animations[0];
+    const dur=Math.min(c.duration,maxDur[nm]||c.duration);const F=Math.max(2,Math.round(dur*30)+1);
+    const tracks=[];
+    for(const t of c.tracks){
+      const [bn,prop]=t.name.split('.');
+      if(bn.includes('Footsteps')||prop==='scale')continue;
+      if(prop==='position'&&bn!=='Bip01')continue;
+      const it=t.createInterpolant();const st=prop==='quaternion'?4:3;const vals=new Float32Array(F*st);
+      for(let f=0;f<F;f++){const v=it.evaluate(Math.min(f/30,c.duration));vals.set(v,f*st)}
+      if(prop==='quaternion')for(let f=1;f<F;f++){let d=0;for(let k=0;k<4;k++)d+=vals[f*4+k]*vals[(f-1)*4+k];if(d<0)for(let k=0;k<4;k++)vals[f*4+k]*=-1}
+      let dev=0;for(let f=1;f<F;f++)for(let k=0;k<st;k++)dev=Math.max(dev,Math.abs(vals[f*st+k]-vals[k]));
+      const constant=dev<(prop==='quaternion'?2e-4:0.02);
+      const n=constant?1:F;
+      let q;if(prop==='quaternion'){q=new Int16Array(n*4);for(let i=0;i<n*4;i++)q[i]=Math.round(vals[i]*32767)}
+      else{q=new Int16Array(n*3);for(let i=0;i<n*3;i++)q[i]=Math.round(vals[i]*100)}
+      tracks.push({b:bn,t:prop==='quaternion'?'q':'p',n,off:w.add(q)});
+      if(prop==='position')rep.push(nm+' pos f0 '+Array.from(vals.slice(0,3)).map(v=>v.toFixed(1))+' fL '+Array.from(vals.slice((F-1)*3,F*3)).map(v=>v.toFixed(1)));
+    }
+    json.clips.push({name:nm,dur:(F-1)/30,frames:F,tracks});
+    rep.push(nm+' '+dur.toFixed(2)+'s tracks '+tracks.length+' anim '+tracks.filter(t=>t.n>1).length);
+  }
+  const out=w.finish(json);return {b64:b64(out),bytes:out.length,rep};
+}
+window.convert=async()=>{
+  const res={};
+  for(const n of ['Sports_Male_02','Sports_Male_03','Sports_Male_04','Sports_Female_02'])res[n]=await packAvatar(n);
+  res.anims=await packAnims({idle:9,idle2:8,sit:8,crouch:4,cheer:5,clap:4});
+  return res;
+};
+window.READY=true;
+</script></body></html>

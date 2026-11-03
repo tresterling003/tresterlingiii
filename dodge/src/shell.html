@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#05070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dodge Nation</title>
+<!--
+  DODGE NATION — pro dodgeball simulation.
+  Player avatars and motion capture: Microsoft Rocketbox Avatar Library
+  (https://github.com/microsoft/Microsoft-Rocketbox), used under the MIT License:
+
+@@ROCKETBOX_LICENSE@@
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
+<style>
+/*@@CSS@@*/
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="ui">
+  <!-- loading -->
+  <section id="scr-loading" class="screen show">
+    <div class="load-wrap">
+      <div class="brand big"><span class="b1">DODGE</span><span class="b2">NATION</span></div>
+      <div class="load-bar"><i id="load-fill"></i></div>
+      <div id="load-text" class="load-text">Warming up the arena…</div>
+    </div>
+  </section>
+
+  <!-- title -->
+  <section id="scr-title" class="screen">
+    <div class="title-left">
+      <div class="brand huge"><span class="b1">DODGE</span><span class="b2">NATION</span></div>
+      <div class="tagline">PRO DODGEBALL · LIVE FROM THE ARENA</div>
+      <nav class="menu" id="title-menu">
+        <button class="mi primary" data-act="play"><span>PLAY NOW</span><small>Quick match · Best of 3</small></button>
+        <button class="mi" data-act="controls"><span>HOW TO PLAY</span><small>Controls &amp; rules</small></button>
+        <button class="mi" data-act="settings"><span>SETTINGS</span><small>Graphics · Audio · Difficulty</small></button>
+        <button class="mi" data-act="credits"><span>CREDITS</span><small>Avatars &amp; motion capture</small></button>
+      </nav>
+    </div>
+    <div class="title-ticker"><div class="tick-inner" id="title-ticker"></div></div>
+  </section>
+
+  <!-- team select -->
+  <section id="scr-select" class="screen">
+    <header class="scr-head"><button class="back" data-act="back">‹</button><h2>SELECT MATCHUP</h2></header>
+    <div class="select-wrap">
+      <div class="team-pick" id="pick-0"></div>
+      <div class="vs-col"><div class="vs">VS</div>
+        <div class="diff"><label>DIFFICULTY</label><div class="seg" id="diff-seg"></div></div>
+        <button class="cta" data-act="to-matchup">CONTINUE ›</button>
+      </div>
+      <div class="team-pick" id="pick-1"></div>
+    </div>
+  </section>
+
+  <!-- matchup intro -->
+  <section id="scr-matchup" class="screen">
+    <div class="mu-bg" id="mu-bg"></div>
+    <div class="mu-top"><span class="live-dot"></span> TONIGHT · DNL REGULAR SEASON · <b>BEST OF 3</b></div>
+    <div class="mu-teams" id="mu-teams"></div>
+    <div class="mu-keys" id="mu-keys"></div>
+    <div class="mu-foot"><button class="cta" data-act="start-match">TIP OFF ›</button></div>
+  </section>
+
+  <!-- hud -->
+  <section id="scr-hud" class="screen hud">
+    <div id="scorebug"></div>
+    <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
+    <div id="live-tag"><span class="live-dot"></span>LIVE</div>
+    <div id="pcard"></div>
+    <div id="meter"><div class="mbar"><i class="perfect"></i><i class="fill" id="meter-fill"></i></div><div class="mlabel" id="meter-label">POWER</div></div>
+    <div id="callout"></div>
+    <div id="cline"></div>
+    <div id="center-banner"></div>
+    <div id="replay-ui"><div class="lb top"></div><div class="lb bot"></div><div class="rtag"><b>INSTANT REPLAY</b><span id="replay-sub"></span></div><div class="rskip">TAP / PRESS ANY KEY TO SKIP</div></div>
+    <div id="hint"></div>
+    <div id="touch">
+      <div id="stick"><div id="stick-knob"></div></div>
+      <div id="tbtns">
+        <button class="tb tb-throw" data-b="throw">THROW</button>
+        <button class="tb tb-catch" data-b="catch">CATCH<small>/BLOCK</small></button>
+        <button class="tb tb-juke" data-b="juke">JUKE</button>
+        <button class="tb tb-jump" data-b="jump">JUMP</button>
+        <button class="tb tb-duck" data-b="duck">DUCK</button>
+        <button class="tb tb-fake" data-b="fake">FAKE</button>
+        <button class="tb tb-switch" data-b="switch">SWITCH</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- pause -->
+  <section id="scr-pause" class="screen modal">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <nav class="menu">
+        <button class="mi primary" data-act="resume"><span>RESUME</span></button>
+        <button class="mi" data-act="controls"><span>CONTROLS</span></button>
+        <button class="mi" data-act="settings"><span>SETTINGS</span></button>
+        <button class="mi" data-act="quit"><span>QUIT TO MENU</span></button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- results -->
+  <section id="scr-results" class="screen">
+    <div class="res-wrap" id="res-wrap"></div>
+  </section>
+
+  <!-- controls / settings / credits (modal) -->
+  <section id="scr-info" class="screen modal">
+    <div class="panel wide" id="info-panel"></div>
+  </section>
+
+  <div id="wipe"><i></i><i></i><i></i></div>
+  <div id="rotate-hint">Rotate your phone to landscape for the full broadcast view</div>
+</div>
+<!--@@ASSETS@@-->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+/*@@JS@@*/
+</script>
+</body>
+</html>
