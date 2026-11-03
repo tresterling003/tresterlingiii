@@ -664,3 +664,19 @@ describe("trash talk", () => {
     await expectFail(db.as(b, "select post_message($1, 'one more')", [L.id]), "rate_limited");
   });
 });
+
+// ---------------------------------------------------------------------------
+describe("the RIVAL Pledge", () => {
+  it("is required before logging, enforced by the server, and recorded once", async () => {
+    const u = await db.signup({ noPledge: true });
+    await expectFail(db.log(u, "run", TODAY, { min: 20 }), "pledge_required");
+    const [{ ts }] = await db.as(u, "select take_pledge() as ts");
+    expect(ts).toBeTruthy();
+    const [{ ts: again }] = await db.as(u, "select take_pledge() as ts");
+    expect(new Date(again).getTime()).toBe(new Date(ts).getTime());    // first pledge date is kept
+    await db.log(u, "run", TODAY, { min: 20 });
+    const [me] = await db.as(u, "select pledged_at from my_account()");
+    expect(me.pledged_at).not.toBeNull();
+    await expectFail(db.as(u, "update users set pledged_at = null"), "permission denied");
+  });
+});

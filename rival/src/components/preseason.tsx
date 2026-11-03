@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
-import { CalendarDays, Users } from "lucide-react";
+import { CalendarDays, ShieldCheck, Users } from "lucide-react";
 import { Button } from "./ui/button";
 import { Segmented } from "./ui/form";
 import { useToast } from "./ui/toast";
@@ -51,7 +51,7 @@ export function PreseasonPanel({ s }: { s: LeagueSnapshot }) {
             <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-6">
               <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="md" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{m.teamName}{m.id === s.me && <span className="ml-2 text-2xs font-bold uppercase text-lime">You</span>}</p>
+                <p className="truncate font-semibold">{m.teamName}{m.id === s.me && <span className="ml-2 text-2xs font-bold uppercase text-lime">You</span>}{m.pledged && <span className="ml-2 inline-flex items-center gap-1 align-middle text-2xs font-bold uppercase text-fg-faint" title="Took the RIVAL Pledge"><ShieldCheck className="h-3.5 w-3.5 text-lime" />Pledged</span>}</p>
                 <p className="truncate text-xs text-fg-muted">{m.displayName}{m.role === "commissioner" && " · Commissioner"}</p>
               </div>
             </li>

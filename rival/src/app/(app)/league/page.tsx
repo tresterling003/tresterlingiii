@@ -2,7 +2,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
-import { Crown, Settings2, Trophy } from "lucide-react";
+import { Crown, Settings2, ShieldCheck, Trophy } from "lucide-react";
 import { useApp } from "@/components/league-context";
 import { PageError, PageHeader, PageSkeleton } from "@/components/page";
 import { StandingsTable } from "@/components/standings";
@@ -78,7 +78,7 @@ function Members({ s }: { s: LeagueSnapshot }) {
         <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-6">
           <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="md" />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{m.teamName}</p>
+            <p className="truncate font-semibold">{m.teamName}{m.pledged && <span className="ml-2 inline-flex items-center gap-1 align-middle text-2xs font-bold uppercase text-fg-faint" title="Took the RIVAL Pledge"><ShieldCheck className="h-3.5 w-3.5 text-lime" />Pledged</span>}</p>
             <p className="truncate text-xs text-fg-muted">{m.displayName} · joined {new Date(m.joinedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
           </div>
           {m.role === "commissioner" && <Badge tone="lime">Commish</Badge>}
