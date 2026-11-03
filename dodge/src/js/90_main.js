@@ -35,6 +35,7 @@ function wireButtons() {
   $('#scr-select [data-act="to-matchup"]').onclick = () => UI.go('matchup', () => UI.renderMatchup());
   $('#scr-matchup [data-act="start-match"]').onclick = () => UI.go('hud', () => startMatchFlow());
   $('#pause-btn').onclick = () => UI.togglePause(true);
+  $('#cam-btn').onclick = () => cycleCamera();
   for (const b of $$('#scr-pause [data-act]')) b.onclick = () => {
     const a = b.dataset.act;
     if (a === 'resume') UI.togglePause(false);
@@ -61,6 +62,7 @@ let lastT = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
+  if (UI.inGame() && !REPLAY.on && pressed('camera')) cycleCamera();
   if (!UI.paused) {
     FX.update(dtReal);
     if (REPLAY.on) updateReplay(dtReal);
@@ -102,7 +104,7 @@ async function boot() {
     requestAnimationFrame(frame);
     await new Promise(r => setTimeout(r, 250));
     UI.wipe(() => UI.show('title'));
-    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp };
+    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, scene, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp, updateCamera, SETTINGS };
   } catch (e) {
     console.error(e);
     setLoad(1, 'Could not start: ' + (e && e.message ? e.message : e) + ' — check your connection and reload.');

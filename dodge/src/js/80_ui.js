@@ -3,7 +3,7 @@ const INPUT = { keys: new Set(), pressed: new Set(), released: new Set(), stick:
 const KEYMAP = {
   throw: ['KeyJ', 'Mouse0', 'Numpad1', 'Touch_throw'], catch: ['KeyK', 'Mouse2', 'Numpad2', 'Touch_catch'], juke: ['KeyL', 'KeyE', 'Touch_juke'],
   jump: ['Space', 'Touch_jump'], duck: ['KeyC', 'ControlLeft', 'Touch_duck'], fake: ['KeyF', 'Touch_fake'], switch: ['KeyQ', 'Tab', 'Touch_switch'],
-  target: ['KeyR'], sprint: ['ShiftLeft', 'ShiftRight'],
+  target: ['KeyR'], sprint: ['ShiftLeft', 'ShiftRight'], dive: ['KeyX', 'Touch_dive'], camera: ['KeyV', 'Touch_cam'],
 };
 const held = (a) => KEYMAP[a].some(k => INPUT.keys.has(k));
 const pressed = (a) => KEYMAP[a].some(k => INPUT.pressed.has(k));
@@ -58,7 +58,11 @@ function humanIntent(p, dt) {
   if (INPUT.keys.has('KeyS') || INPUT.keys.has('ArrowDown')) my += 1;
   if (INPUT.stick.active) { mx = INPUT.stick.x; my = INPUT.stick.y; }
   const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
-  if (camera.aspect < 1) { /* portrait: camera is still behind the near sideline; same mapping */ }
+  // camera-relative movement (works for every camera angle)
+  const fx = CAMS.look.x - CAMS.pos.x, fz = CAMS.look.z - CAMS.pos.z; const fl = Math.hypot(fx, fz) || 1;
+  const Fx = fx / fl, Fz = fz / fl, Rx = -Fz, Rz = Fx;
+  const wx = Rx * mx - Fx * my, wz = Rz * mx - Fz * my;
+  mx = wx; my = wz;
   I.move = { x: mx, y: my };
   I.sprint = held('sprint') || (INPUT.stick.active && Math.hypot(INPUT.stick.x, INPUT.stick.y) > 0.92);
   // targeting
@@ -82,6 +86,7 @@ function humanIntent(p, dt) {
   I.block = held('catch') && !!p.ball;
   if (pressed('juke')) I.juke = true;
   if (pressed('jump')) I.jump = true;
+  if (pressed('dive')) I.dive = true;
   I.duck = held('duck');
   if (pressed('fake')) I.fake = true;
   if (pressed('switch')) { setTimeout(() => G.switchPlayer(), 0); }
@@ -243,16 +248,19 @@ const UI = {
         <div>Juke <span><kbd>L</kbd> / <kbd>E</kbd></span></div><div>Jump <kbd>Space</kbd></div>
         <div>Duck (hold) <span><kbd>C</kbd> / <kbd>Ctrl</kbd></span></div><div>Fake throw <kbd>F</kbd></div>
         <div>Switch player <span><kbd>Q</kbd> / <kbd>Tab</kbd></span></div><div>Cycle target <kbd>R</kbd></div>
+        <div>Dive <kbd>X</kbd></div><div>Camera angle <kbd>V</kbd></div>
         <div>Pause <span><kbd>Esc</kbd> / <kbd>P</kbd></span></div><div>Skip replay <kbd>Any key</kbd></div>
       </div>
       <h3>TOUCH</h3>
-      <p>Left stick moves (push to the edge to sprint). THROW: hold and release. CATCH: tap just before impact; hold it while carrying a ball to block. JUKE, JUMP, DUCK, FAKE and SWITCH have their own buttons.</p>
+      <p>Left stick moves (push to the edge to sprint). THROW: hold and release. CATCH: tap just before impact; hold it while carrying a ball to block. JUKE, DIVE, JUMP, DUCK, FAKE and SWITCH have their own buttons; CAM (top right) cycles camera angles.</p>
       <h3>THE FINE PRINT</h3>
       <ul>
         <li><b>Power meter:</b> it fills, then falls back. Release inside the gold zone for a PERFECT throw: faster and far more accurate.</li>
         <li><b>Catching:</b> your catch window size comes from the CATCH rating. Hard throws and perfect releases are tougher to hang on to.</li>
         <li><b>Blocking:</b> a held ball deflects throws, but a fumble on the block is an out.</li>
         <li><b>Juking:</b> high-DODGE players can "ghost" a throw mid-juke. Ducking beats high throws, jumping beats low ones.</li>
+        <li><b>Dive:</b> lay out to the side and most throws sail over you — but you're on the floor for a moment getting up.</li>
+        <li><b>Sky shots:</b> start charging, jump, and release in the gold zone while airborne for a faster, laser-accurate SKY SHOT. Miss the zone in the air and your aim gets sloppy.</li>
         <li><b>Fakes:</b> low-awareness opponents bite — then they're wide open.</li>
         <li><b>Clutch &amp; Captains:</b> CLUTCH swings ratings when your team is down to its last two. A CAPTAIN left standing alone triggers a team-wide rally.</li>
       </ul>
@@ -261,6 +269,7 @@ const UI = {
       const seg = (key, opts) => `<div class="seg" data-k="${key}">${opts.map(([v, l]) => `<button class="${String(SETTINGS[key]) === String(v) ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`;
       p.innerHTML = `<h2>SETTINGS</h2>
         <div class="set-row">GRAPHICS ${seg('quality', [['auto', 'AUTO'], ['high', 'HIGH'], ['medium', 'MEDIUM'], ['low', 'LOW']])}</div>
+        <div class="set-row">CAMERA ${seg('camera', CAM_MODES.map((m, i) => [i, m]))}</div>
         <div class="set-row">SOUND ${seg('sound', [[true, 'ON'], [false, 'OFF']])}</div>
         <div class="set-row">INSTANT REPLAYS ${seg('replays', [[true, 'ON'], [false, 'OFF']])}</div>
         <div class="set-row">CAMERA SHAKE ${seg('shake', [[true, 'ON'], [false, 'OFF']])}</div>
@@ -270,7 +279,7 @@ const UI = {
         <button class="cta close">DONE</button>`;
       if (SETTINGS.autoSwitch === undefined) SETTINGS.autoSwitch = true;
       for (const s of $$('.seg[data-k]', p)) for (const b of $$('button', s)) b.onclick = () => {
-        const k = s.dataset.k; let v = b.dataset.v; v = v === 'true' ? true : v === 'false' ? false : (k === 'difficulty' ? +v : v);
+        const k = s.dataset.k; let v = b.dataset.v; v = v === 'true' ? true : v === 'false' ? false : ((k === 'difficulty' || k === 'camera') ? +v : v);
         SETTINGS[k] = v; saveSettings(); AUDIO.ui();
         for (const x of $$('button', s)) x.classList.toggle('on', x === b);
         if (k === 'sound') AUDIO.setEnabled(v);

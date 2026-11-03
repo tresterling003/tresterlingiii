@@ -49,6 +49,7 @@ function planRelease(ai, pr) {
   const perfectPlan = Math.random() < pr;
   ai.releaseAt = perfectPlan ? rand(0.885, 0.945) : (Math.random() < 0.6 ? rand(0.55, 0.82) : rand(0.98, 1.0));
   ai.overshoot = !perfectPlan && Math.random() < 0.12; if (ai.overshoot) ai.releaseAt = rand(0.5, 0.8);
+  ai.jumpShot = !ai.overshoot && Math.random() < (perfectPlan ? 0.3 : 0.08);
 }
 function aiIntent(p, dt) {
   const I = { move: { x: 0, y: 0 } };
@@ -80,7 +81,8 @@ function aiIntent(p, dt) {
       }
       if (R.kind === 'jump') R.jumpAt = G.time + Math.max(0, threat.tc - 0.22);
       if (R.kind === 'duck') R.duckUntil = G.time + threat.tc + 0.3;
-      if (R.kind === 'juke') {
+      if (R.kind === 'juke' && !p.ball && threat.y > 0.7 && Math.random() < 0.08 + r01(p.r('dodge')) * 0.3) R.kind = 'dive';
+      if (R.kind === 'juke' || R.kind === 'dive') {
         const px = -b.vel.z, pz = b.vel.x; const l = Math.hypot(px, pz) || 1;
         let s = Math.random() < 0.5 ? 1 : -1;
         const nz = p.pos.z + s * pz / l * 1.2; if (Math.abs(nz) > COURT.HZ - 0.5) s = -s;
@@ -93,6 +95,7 @@ function aiIntent(p, dt) {
       if (R.kind === 'jump' && G.time >= R.jumpAt) I.jump = true;
       if (R.kind === 'duck' && G.time < R.duckUntil) I.duck = true;
       if (R.kind === 'juke') { I.juke = true; I.jukeDir = R.jukeDir; }
+      if (R.kind === 'dive') { I.dive = true; I.diveDir = R.jukeDir; }
     }
   }
   if (ai.biteUntil && G.time < ai.biteUntil) { if (ai.biteKind === 'duck') I.duck = true; else if (ai.biteKind === 'jump') I.jump = true; else { I.juke = true; I.jukeDir = ai.biteDir; } }
@@ -129,6 +132,7 @@ function aiIntent(p, dt) {
       ai.fakePlan = !ai.fakeDone && Math.random() < 0.08 + r01(p.r('awr')) * 0.2;
     }
     if (charging) {
+      if (ai.jumpShot && !p.airborne && (p.chargePhase % 2) <= 1 && p.charge > 0.32 && p.charge < ai.releaseAt - 0.3) { I.jump = true; ai.jumpShot = false; }
       if (ai.fakePlan && p.charge > 0.45 && !ai.fakeDone) { I.fake = true; ai.fakeDone = true; ai.fakePlan = false; }
       else {
         const ph = p.chargePhase; const rising = (ph % 2) <= 1;

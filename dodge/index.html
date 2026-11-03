@@ -189,6 +189,7 @@ button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer
 .sb-flash{animation:sbflash .6s}
 @keyframes sbflash{30%{filter:brightness(2)}}
 #pause-btn{position:absolute;top:calc(12px + var(--safe-t));left:calc(12px + var(--safe-l));pointer-events:auto;font-size:15px;width:42px;height:42px;background:rgba(0,0,0,.45);border:1px solid var(--line);letter-spacing:-2px}
+#cam-btn{position:absolute;top:calc(12px + var(--safe-t));left:calc(60px + var(--safe-l));pointer-events:auto;font-weight:800;font-size:12px;letter-spacing:.1em;height:42px;padding:0 10px;background:rgba(0,0,0,.45);border:1px solid var(--line)}
 #live-tag{position:absolute;top:calc(18px + var(--safe-t));right:calc(16px + var(--safe-r));font-weight:800;letter-spacing:.2em;font-size:13px;background:rgba(0,0,0,.5);padding:4px 10px}
 #pcard{position:absolute;left:calc(12px + var(--safe-l));bottom:calc(12px + var(--safe-b));display:flex;align-items:stretch;filter:drop-shadow(0 6px 14px rgba(0,0,0,.6))}
 #pcard .pn{font-family:var(--disp);font-size:30px;padding:2px 10px;display:grid;place-items:center}
@@ -243,7 +244,7 @@ body.touch #touch{display:block}
 #stick{position:absolute;left:calc(22px + var(--safe-l));bottom:calc(22px + var(--safe-b));width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),rgba(255,255,255,.03));border:2px solid rgba(255,255,255,.18);pointer-events:auto;touch-action:none}
 #stick-knob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.18));border:2px solid rgba(255,255,255,.5)}
 #stick.sprint #stick-knob{background:radial-gradient(circle at 35% 30%,#ffe08a,#ff7a2f);border-color:#ffd36a}
-#tbtns{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(14px + var(--safe-b));width:280px;height:230px;pointer-events:none}
+#tbtns{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(14px + var(--safe-b));width:280px;height:262px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;display:grid;place-items:center;font-weight:800;letter-spacing:.06em;font-size:13px;line-height:1;
   background:rgba(10,14,24,.55);border:2px solid rgba(255,255,255,.35);text-align:center;color:#fff;backdrop-filter:blur(2px)}
 .tb small{display:block;font-size:9px;opacity:.8}
@@ -252,6 +253,7 @@ body.touch #touch{display:block}
 .tb-catch{right:112px;bottom:4px;width:78px;height:78px;background:radial-gradient(circle at 40% 35%,rgba(70,170,255,.75),rgba(20,70,170,.7));border-color:#9fd2ff}
 .tb-juke{right:6px;bottom:116px;width:72px;height:72px;background:radial-gradient(circle at 40% 35%,rgba(120,240,160,.7),rgba(20,120,60,.65));border-color:#b6ffd0}
 .tb-jump{right:92px;bottom:96px;width:64px;height:64px}
+.tb-dive{right:0;bottom:198px;width:62px;height:62px;background:radial-gradient(circle at 40% 35%,rgba(200,140,255,.7),rgba(90,30,160,.65));border-color:#dcb8ff}
 .tb-duck{right:184px;bottom:82px;width:58px;height:58px}
 .tb-fake{right:166px;bottom:150px;width:52px;height:52px;font-size:11px}
 .tb-switch{right:76px;bottom:172px;width:56px;height:56px;font-size:10px}
@@ -427,6 +429,7 @@ body.touch #touch{display:block}
   <section id="scr-hud" class="screen hud">
     <div id="scorebug"></div>
     <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
+    <button id="cam-btn" class="icon-btn" aria-label="Change camera">CAM</button>
     <div id="live-tag"><span class="live-dot"></span>LIVE</div>
     <div id="pcard"></div>
     <div id="meter"><div class="mbar"><i class="perfect"></i><i class="fill" id="meter-fill"></i></div><div class="mlabel" id="meter-label">POWER</div></div>
@@ -441,6 +444,7 @@ body.touch #touch{display:block}
         <button class="tb tb-throw" data-b="throw">THROW</button>
         <button class="tb tb-catch" data-b="catch">CATCH<small>/BLOCK</small></button>
         <button class="tb tb-juke" data-b="juke">JUKE</button>
+        <button class="tb tb-dive" data-b="dive">DIVE</button>
         <button class="tb tb-jump" data-b="jump">JUMP</button>
         <button class="tb tb-duck" data-b="duck">DUCK</button>
         <button class="tb tb-fake" data-b="fake">FAKE</button>
@@ -965,6 +969,7 @@ const POSE = {
   block: { r: [[-0.28, -0.3, 0.92], [0.35, 0.55, 0.8]], l: [[0.28, -0.3, 0.92], [-0.35, 0.55, 0.8]], spine: [0.08, 0, 0] },
   hit: { r: [[-0.85, 0.35, -0.3], [-0.3, 0.5, -0.4]], l: [[0.85, 0.35, -0.3], [0.3, 0.5, -0.4]], spine: [-0.42, 0, 0] },
   jump: { r: [[-0.6, 0.45, 0.35], [-0.2, 0.8, 0.3]], l: [[0.6, 0.45, 0.35], [0.2, 0.8, 0.3]] },
+  dive: { r: [[-0.25, 1, 0.25], [-0.1, 1, 0.2]], l: [[0.25, 1, 0.25], [0.1, 1, 0.2]], spine: [-0.1, 0, 0] },
   celebrate: { r: [[-0.35, 1, 0.1], [-0.1, 1, 0.1]], l: [[0.35, 1, 0.1], [0.1, 1, 0.1]], spine: [-0.15, 0, 0] },
 };
 const LEGS_TUCK = [[-0.15, -0.35, 0.95], [-0.05, -0.95, -0.35], [0.15, -0.35, 0.95], [0.05, -0.95, -0.35]];
@@ -1430,6 +1435,8 @@ const LINES = {
   rush: ['And we are underway! Here comes the opening rush!', 'The whistle blows — everybody to the line!'],
   gameWin: ['That\'s the game! The {team} take it!', 'Game over — the {team} close it out!'],
   matchWin: ['THE {team} WIN THE MATCH!', 'Ballgame! The {team} take the series!'],
+  skyshot: ['{t} elevates and FIRES — a sky shot!', 'Look at the hang time on {t}! Perfect release from the air!'],
+  dive: ['{d} lays out and it sails over!', 'Full extension dive from {d}!'],
   fake: ['{t} with the pump fake — got {v} to bite!'],
 };
 const COMM = {
@@ -1490,7 +1497,7 @@ class Player {
     this.state = 'active'; this.ball = null; this.action = null; this.duck = false; this.jumpY = 0; this.jumpV = 0; this.airborne = false;
     this.stamina = 1; this.catchT = 0; this.catchLen = 0; this.catchCD = 0; this.blocking = false; this.jukeT = 0; this.jukeCD = 0; this.jukeDir = 0;
     this.hitT = 0; this.flash = 0; this.secureT = 0; this.celebrate = null; this.target = null; this.evaded = new Set(); this.returnT = 0;
-    this.vel.set(0, 0, 0); this.charge = 0; this.chargePhase = 0; this.chargeT = 0; this.fakeT = 0; this.bit = 0; this.recover = 0;
+    this.vel.set(0, 0, 0); this.charge = 0; this.chargePhase = 0; this.chargeT = 0; this.fakeT = 0; this.bit = 0; this.recover = 0; this.dive = null; this.pitch = 0;
     this.ai = { think: 0, goal: null, react: new Map(), holdT: 0, plan: null, fakeDone: false, lane: 0, strafe: 0, strafeT: 0 };
     this.ring.material.opacity = 0;
   }
@@ -1505,6 +1512,10 @@ class Player {
   }
   isActive() { return this.state === 'active'; }
   hitbox() { // capsule segment (world) + radius
+    if (this.dive && this.pitch > 0.7) { // laid out horizontally along the dive
+      const d = this.dive.dir, y = this.jumpY + 0.24;
+      return { a: _v1.set(this.pos.x + d.x * 0.25, y, this.pos.z + d.z * 0.25), b: _v2.set(this.pos.x + d.x * 1.45, y + 0.05, this.pos.z + d.z * 1.45), r: 0.24 };
+    }
     const H = this.height; const top = this.duck ? H * 0.58 : H;
     const y0 = this.jumpY + 0.25, y1 = this.jumpY + top - 0.2;
     return { a: _v1.set(this.pos.x, y0, this.pos.z), b: _v2.set(this.pos.x, y1, this.pos.z), r: CAPSULE_R * this.data.build };
@@ -1530,6 +1541,19 @@ class Player {
     this.catchCD = Math.max(0, this.catchCD - dt); this.jukeCD = Math.max(0, this.jukeCD - dt); this.recover = Math.max(0, this.recover - dt);
     this.secureT = Math.max(0, this.secureT - dt); this.bit = Math.max(0, this.bit - dt);
     if (this.catchT > 0) { this.catchT -= dt; if (this.catchT <= 0) { this.catchT = 0; this.catchCD = 0.45; this.recover = 0.3; } }
+    if (this.dive) return this.updateDive(dt);
+    // dive (lunge dodge)
+    if (I.dive && !this.airborne && !this.duck && this.stamina > 0.15 && this.catchT <= 0 && !(this.action && this.action.type === 'throw')) {
+      let dx = I.diveDir ? I.diveDir.x : (I.move ? I.move.x : 0), dz = I.diveDir ? I.diveDir.y : (I.move ? I.move.y : 0);
+      if (Math.hypot(dx, dz) < 0.2) { dx = 0; dz = this.pos.z > 0 ? -1 : 1; }
+      const l = Math.hypot(dx, dz); dx /= l; dz /= l;
+      const imp = 6.4 + r01(this.r('dodge')) * 2.6;
+      this.vel.x = dx * imp; this.vel.z = dz * imp; this.jumpV = 2.3; this.airborne = true;
+      this.yaw = this.targetYaw = Math.atan2(dx, dz); this.action = null; this.blocking = false;
+      this.dive = { t: 0, dir: { x: dx, z: dz }, landed: false, landT: 0 }; this.stamina -= 0.16; this.evaded.clear();
+      FX.dustPuff(this.pos, 6, 0.9); AUDIO.squeak(); AUDIO.noiseHit({ freq: 900, sweepTo: 300, q: 1, peak: 0.08, d: 0.2 });
+      return;
+    }
     // duck
     this.duck = !!I.duck && !this.airborne && !(this.action && this.action.type === 'throw');
     // block stance
@@ -1553,7 +1577,7 @@ class Player {
       if (this.action && this.action.type === 'charge') this.action = null;
     }
     // jump
-    if (I.jump && !this.airborne && !this.duck) { this.jumpV = 3.7 + r01(this.r('dodge')) * 0.6; this.airborne = true; this.stamina -= 0.05; if (this.action && this.action.type === 'charge') this.action = null; }
+    if (I.jump && !this.airborne && !this.duck) { this.jumpV = 3.7 + r01(this.r('dodge')) * 0.6; this.airborne = true; this.stamina -= 0.05; }
     if (this.airborne) { this.jumpV -= 11.5 * dt; this.jumpY += this.jumpV * dt; if (this.jumpY <= 0) { this.jumpY = 0; this.airborne = false; this.jumpV = 0; FX.dustPuff(this.pos, 6, 0.6); AUDIO.step(); } }
     // throwing
     this.updateThrow(dt, I);
@@ -1607,7 +1631,9 @@ class Player {
     const pow = this.r('pow'), acc = this.r('acc');
     let speed = (11.5 + r01(pow) * 12.5) * (0.55 + 0.45 * A.charge);
     if (A.perfect) speed *= 1.12;
-    let err = lerp(0.12, 0.024, r01(acc)) * (A.perfect ? 0.3 : 1) * (sprinting ? 1.5 : 1) * (A.charge < 0.45 ? 1.25 : 1) * (this.team.isHuman ? 1 : 1 / G.diffFor(this).acc) * (this.airborne ? 1.3 : 1);
+    const sky = this.airborne && this.jumpY > 0.25;
+    if (sky && A.perfect) speed *= 1.1;
+    let err = lerp(0.12, 0.024, r01(acc)) * (A.perfect ? 0.3 : 1) * (sprinting ? 1.5 : 1) * (A.charge < 0.45 ? 1.25 : 1) * (this.team.isHuman ? 1 : 1 / G.diffFor(this).acc) * (this.airborne ? (sky && A.perfect ? 0.55 : 1.3) : 1);
     // origin
     const f = this.forward.clone();
     const o = this.char.handPos('R', new THREE.Vector3());
@@ -1633,11 +1659,29 @@ class Player {
     const c = Math.cos(yawE), s = Math.sin(yawE);
     const vx = (dx * c - dz * s) / t, vz = (dx * s + dz * c) / t;
     const v = new THREE.Vector3(vx, vy + pitchE * speed, vz);
-    b.launch(this, o, v, { perfect: A.perfect, target: tgt, power: clamp((v.length() - 12) / 18, 0, 1) });
+    b.launch(this, o, v, { perfect: A.perfect, target: tgt, power: clamp((v.length() - 12) / 18, 0, 1), sky: sky && A.perfect });
     this.ball = null; this.stats.throws++; if (A.perfect) this.stats.perfect++;
     AUDIO.throw(b.power);
-    if (A.perfect && this.team.isHuman && this === G.human) COMM.callout('PERFECT', 'RELEASE', '#ffcc33', 0.9);
+    if (sky && A.perfect) { this.stats.skyShots = (this.stats.skyShots || 0) + 1; COMM.callout('SKY SHOT!', this.name + ' FROM THE AIR', '#ffcc33', 1.1); COMM.say('skyshot', { t: this.name }); AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.6); }
+    else if (A.perfect && this.team.isHuman && this === G.human) COMM.callout('PERFECT', 'RELEASE', '#ffcc33', 0.9);
     G.onThrow(this, b);
+  }
+  updateDive(dt) {
+    const D = this.dive; D.t += dt;
+    if (!D.landed) {
+      this.jumpV -= 11.5 * dt; this.jumpY += this.jumpV * dt;
+      this.pitch = Math.min(1.42, D.t / 0.16 * 1.42);
+      if (this.jumpY <= 0 && D.t > 0.12) { this.jumpY = 0; this.airborne = false; this.jumpV = 0; D.landed = true; D.landT = 0; FX.dustPuff(_v1.set(this.pos.x + D.dir.x, 0, this.pos.z + D.dir.z), 10, 1.2); AUDIO.bounce(6); FX.shake(this === G.human ? 0.08 : 0.03); }
+    } else {
+      D.landT += dt;
+      this.vel.multiplyScalar(Math.exp(-6 * dt));
+      const getUp = D.landT - (0.32 - r01(this.r('dodge')) * 0.12);
+      if (getUp > 0) { const k = clamp(getUp / 0.42, 0, 1); this.pitch = 1.42 * (1 - smooth(k)); this.vel.multiplyScalar(0.8); if (k >= 1) { this.dive = null; this.pitch = 0; this.recover = 0.15; } }
+    }
+    this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt;
+    const [bx0, bx1] = this.bounds();
+    this.pos.x = clamp(this.pos.x, bx0, bx1); this.pos.z = clamp(this.pos.z, -COURT.HZ + 0.3, COURT.HZ - 0.3);
+    this.stamina = clamp(this.stamina + dt * 0.05, 0, 1);
   }
   updateHit(dt) {
     this.hitT += dt; this.vel.multiplyScalar(Math.exp(-4 * dt)); this.pos.addScaledVector(this.vel, dt);
@@ -1662,7 +1706,7 @@ class Player {
   // ---------- being hit / outcomes ----------
   knockOut(by, ball, cause) {
     if (this.state !== 'active') return;
-    this.state = 'hit'; this.hitT = 0; this.action = null; this.duck = false; this.blocking = false; this.catchT = 0;
+    this.state = 'hit'; this.hitT = 0; this.action = null; this.duck = false; this.blocking = false; this.catchT = 0; this.dive = null; this.pitch = 0;
     if (this.ball) { const b = this.ball; this.ball = null; b.drop(this, new THREE.Vector3(gauss(), 2, gauss())); }
     if (ball) { this.vel.set(ball.vel.x * 0.09, 0, ball.vel.z * 0.09); }
     this.flash = 1; this.stats.outs++;
@@ -1675,10 +1719,12 @@ class Player {
     const speed = Math.hypot(this.vel.x, this.vel.z);
     let full = null;
     if (this.state === 'bench') full = 'sit';
+    else if (this.dive) full = 'idle';
     else if (this.state === 'celebrate') full = this.celebrate || 'cheer';
     else if (this.duck) full = 'crouch';
     c.root.position.set(this.pos.x, this.jumpY, this.pos.z);
-    c.root.rotation.y = this.yaw;
+    c.root.rotation.order = 'YXZ'; c.root.rotation.y = this.yaw; c.root.rotation.x = this.pitch || 0;
+    if (this.pitch) c.root.position.y += 0.16 * Math.sin(this.pitch);
     if (this.state === 'bench') c.root.position.y = -0.04;
     c.animate(dt, this.state === 'bench' || this.state === 'celebrate' ? 0 : speed, full);
     // procedural layer
@@ -1712,8 +1758,9 @@ class Player {
       } else if (this.ball) {
         Object.assign(P, POSE.hold, { armW: 1, lw: speed > 2.5 ? 0.25 : 0.7 });
       }
-      if (this.airborne && P.armW < 0.5) { Object.assign(P, POSE.jump, { armW: 0.7 }); }
-      if (this.airborne) { P.legW = 0.75 * smooth(clamp(this.jumpY / 0.35, 0, 1)); P.legs = LEGS_TUCK; }
+      if (this.dive) { Object.assign(P, POSE.dive, { armW: 1 }); if (this.ball) P.rw = 0.6; }
+      else if (this.airborne && P.armW < 0.5) { Object.assign(P, POSE.jump, { armW: 0.7 }); }
+      if (this.airborne && !this.dive) { P.legW = 0.75 * smooth(clamp(this.jumpY / 0.35, 0, 1)); P.legs = LEGS_TUCK; }
       if (this.jukeT > 0) { const k = this.jukeT / 0.3; P.spine = P.spine || [0, 0, 0]; P.spine = [P.spine[0] + 0.12 * k, P.spine[1], P.spine[2] + this.jukeDir * 0.42 * k]; }
       // head tracking
       const look = G.lookTargetFor(this);
@@ -1947,6 +1994,7 @@ function planRelease(ai, pr) {
   const perfectPlan = Math.random() < pr;
   ai.releaseAt = perfectPlan ? rand(0.885, 0.945) : (Math.random() < 0.6 ? rand(0.55, 0.82) : rand(0.98, 1.0));
   ai.overshoot = !perfectPlan && Math.random() < 0.12; if (ai.overshoot) ai.releaseAt = rand(0.5, 0.8);
+  ai.jumpShot = !ai.overshoot && Math.random() < (perfectPlan ? 0.3 : 0.08);
 }
 function aiIntent(p, dt) {
   const I = { move: { x: 0, y: 0 } };
@@ -1978,7 +2026,8 @@ function aiIntent(p, dt) {
       }
       if (R.kind === 'jump') R.jumpAt = G.time + Math.max(0, threat.tc - 0.22);
       if (R.kind === 'duck') R.duckUntil = G.time + threat.tc + 0.3;
-      if (R.kind === 'juke') {
+      if (R.kind === 'juke' && !p.ball && threat.y > 0.7 && Math.random() < 0.08 + r01(p.r('dodge')) * 0.3) R.kind = 'dive';
+      if (R.kind === 'juke' || R.kind === 'dive') {
         const px = -b.vel.z, pz = b.vel.x; const l = Math.hypot(px, pz) || 1;
         let s = Math.random() < 0.5 ? 1 : -1;
         const nz = p.pos.z + s * pz / l * 1.2; if (Math.abs(nz) > COURT.HZ - 0.5) s = -s;
@@ -1991,6 +2040,7 @@ function aiIntent(p, dt) {
       if (R.kind === 'jump' && G.time >= R.jumpAt) I.jump = true;
       if (R.kind === 'duck' && G.time < R.duckUntil) I.duck = true;
       if (R.kind === 'juke') { I.juke = true; I.jukeDir = R.jukeDir; }
+      if (R.kind === 'dive') { I.dive = true; I.diveDir = R.jukeDir; }
     }
   }
   if (ai.biteUntil && G.time < ai.biteUntil) { if (ai.biteKind === 'duck') I.duck = true; else if (ai.biteKind === 'jump') I.jump = true; else { I.juke = true; I.jukeDir = ai.biteDir; } }
@@ -2027,6 +2077,7 @@ function aiIntent(p, dt) {
       ai.fakePlan = !ai.fakeDone && Math.random() < 0.08 + r01(p.r('awr')) * 0.2;
     }
     if (charging) {
+      if (ai.jumpShot && !p.airborne && (p.chargePhase % 2) <= 1 && p.charge > 0.32 && p.charge < ai.releaseAt - 0.3) { I.jump = true; ai.jumpShot = false; }
       if (ai.fakePlan && p.charge > 0.45 && !ai.fakeDone) { I.fake = true; ai.fakeDone = true; ai.fakePlan = false; }
       else {
         const ph = p.chargePhase; const rising = (ph % 2) <= 1;
@@ -2106,7 +2157,8 @@ G.onPickup = (p, b) => {
   }
 };
 G.onDodge = (p, b, d) => {
-  if (d < 0.75 && (p === G.human || Math.random() < 0.35)) { COMM.say('dodge', { d: p.name }); if (p === G.human) COMM.callout('DODGE', '', '#9fffc4', 0.8); }
+  if (p.dive && d < 1.1) { COMM.say('dive', { d: p.name }, true); COMM.callout('LAID OUT!', p.name, '#9fffc4', 0.9); AUDIO.cheer(0.6); }
+  else if (d < 0.75 && (p === G.human || Math.random() < 0.35)) { COMM.say('dodge', { d: p.name }); if (p === G.human) COMM.callout('DODGE', '', '#9fffc4', 0.8); }
   AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.35);
 };
 
@@ -2235,7 +2287,7 @@ function recInit() { REC.stride = G.players.length * (6 + REC_STRIDE_CHAR) + G.b
 function recCapture() {
   const a = new Float32Array(REC.stride); let o = 0;
   for (const p of G.players) {
-    const r = p.char.root; a[o++] = r.position.x; a[o++] = r.position.y; a[o++] = r.position.z; a[o++] = r.rotation.y; a[o++] = p.flash; a[o++] = p.state === 'bench' ? 0 : 1;
+    const r = p.char.root; a[o++] = r.position.x; a[o++] = r.position.y; a[o++] = r.position.z; a[o++] = r.rotation.y; a[o++] = p.flash; a[o++] = p.pitch || 0;
     o = p.char.capture(a, o);
   }
   for (const b of G.balls) { a[o++] = b.pos.x; a[o++] = b.pos.y; a[o++] = b.pos.z; a[o++] = b.mesh.rotation.x; a[o++] = b.mesh.rotation.z; a[o++] = b.state === 'flying' && b.live ? 1 : 0; a[o++] = b.perfect ? 1 : 0; }
@@ -2248,7 +2300,7 @@ function recApply(t) {
   let o = 0;
   for (const p of G.players) {
     const r = p.char.root; r.position.set(lerp(A.a[o], B.a[o], k), lerp(A.a[o + 1], B.a[o + 1], k), lerp(A.a[o + 2], B.a[o + 2], k));
-    r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; p.char.setFlash(A.a[o + 4] * 0.45); o += 6;
+    r.rotation.order = 'YXZ'; r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; r.rotation.x = lerp(A.a[o + 5], B.a[o + 5], k); p.char.setFlash(A.a[o + 4] * 0.45); o += 6;
     o = p.char.restore(A.a, B.a, k, o);
     p.blob.position.set(r.position.x, 0.008, r.position.z); p.ring.material.opacity = 0;
   }
@@ -2295,6 +2347,9 @@ function updateReplay(dtReal) {
 }
 
 // ---------- camera ----------
+const CAM_MODES = ['BROADCAST', 'COURTSIDE', 'OVERHEAD', 'PLAYER'];
+const CAM_LABEL = { BROADCAST: 'BROADCAST CAM', COURTSIDE: 'COURTSIDE CAM', OVERHEAD: 'OVERHEAD CAM', PLAYER: 'PLAYER CAM' };
+function cycleCamera() { SETTINGS.camera = ((SETTINGS.camera || 0) + 1) % CAM_MODES.length; saveSettings(); UI.hint(CAM_LABEL[CAM_MODES[SETTINGS.camera]] + (isTouch ? '' : ' · V TO CHANGE'), 'cam' + Math.random()); AUDIO.ui(); }
 const CAMS = { pos: new THREE.Vector3(0, 8, 16), look: new THREE.Vector3(0, 1, 0), fov: 36, intro: null };
 function updateCamera(dtReal) {
   const portrait = camera.aspect < 1;
@@ -2328,8 +2383,17 @@ function updateCamera(dtReal) {
     wantPos = _v1.set(cx * 0.88, lerp(8.8, 7.6, tension), dist);
     wantLook = _v2.set(cx, 0.4, 0.15);
     if (portrait) { wantPos.set(cx * 0.5, 12.5, 15.5); wantLook.set(cx * 0.6, 0, -0.3); }
+    const mode = CAM_MODES[SETTINGS.camera || 0];
+    if (mode === 'COURTSIDE') { wantPos.set(cx * 0.9, 3.1, portrait ? 14 : 11.4); wantLook.set(cx, 1.0, -0.8); fov = portrait ? 64 : camera.aspect < 1.45 ? 54 : 46; }
+    else if (mode === 'OVERHEAD') { wantPos.set(cx * 0.35, portrait ? 26 : 19.5, portrait ? 4 : 7.2); wantLook.set(cx * 0.35, 0, 0.2); fov = portrait ? 56 : 40; }
+    else if (mode === 'PLAYER') {
+      const f = h || G.teams[0].players.find(p => p.state === 'active');
+      const fx2 = f ? f.pos.x : -5, fz = f ? f.pos.z : 0;
+      wantPos.set(Math.max(fx2 - 6.4, -14.5), 3.5, fz * 0.7); wantLook.set(fx2 + 5.5, 0.7, fz * 0.35); fov = portrait ? 66 : 52; k = 4.5;
+    }
     if (G.phase === 'gameover' && G.winnerTeam) { const w = G.winnerTeam.players.filter(p => p.state !== 'bench'); if (w.length) { const c = w.reduce((s, p) => s.add(p.pos), new THREE.Vector3()).multiplyScalar(1 / w.length); wantPos.set(c.x * 0.7, 3.2, c.z + 8.5); wantLook.set(c.x, 1.2, c.z); k = 1.6; fov = portrait ? 55 : 34; } }
   }
+  if (ARENA.jumbo) ARENA.jumbo.visible = !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
   CAMS.pos.lerp(wantPos, 1 - Math.exp(-k * dtReal)); CAMS.look.lerp(wantLook, 1 - Math.exp(-k * 1.2 * dtReal));
   CAMS.fov = damp(CAMS.fov, fov, 4, dtReal);
   camera.position.copy(CAMS.pos);
@@ -2499,7 +2563,7 @@ const INPUT = { keys: new Set(), pressed: new Set(), released: new Set(), stick:
 const KEYMAP = {
   throw: ['KeyJ', 'Mouse0', 'Numpad1', 'Touch_throw'], catch: ['KeyK', 'Mouse2', 'Numpad2', 'Touch_catch'], juke: ['KeyL', 'KeyE', 'Touch_juke'],
   jump: ['Space', 'Touch_jump'], duck: ['KeyC', 'ControlLeft', 'Touch_duck'], fake: ['KeyF', 'Touch_fake'], switch: ['KeyQ', 'Tab', 'Touch_switch'],
-  target: ['KeyR'], sprint: ['ShiftLeft', 'ShiftRight'],
+  target: ['KeyR'], sprint: ['ShiftLeft', 'ShiftRight'], dive: ['KeyX', 'Touch_dive'], camera: ['KeyV', 'Touch_cam'],
 };
 const held = (a) => KEYMAP[a].some(k => INPUT.keys.has(k));
 const pressed = (a) => KEYMAP[a].some(k => INPUT.pressed.has(k));
@@ -2554,7 +2618,11 @@ function humanIntent(p, dt) {
   if (INPUT.keys.has('KeyS') || INPUT.keys.has('ArrowDown')) my += 1;
   if (INPUT.stick.active) { mx = INPUT.stick.x; my = INPUT.stick.y; }
   const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
-  if (camera.aspect < 1) { /* portrait: camera is still behind the near sideline; same mapping */ }
+  // camera-relative movement (works for every camera angle)
+  const fx = CAMS.look.x - CAMS.pos.x, fz = CAMS.look.z - CAMS.pos.z; const fl = Math.hypot(fx, fz) || 1;
+  const Fx = fx / fl, Fz = fz / fl, Rx = -Fz, Rz = Fx;
+  const wx = Rx * mx - Fx * my, wz = Rz * mx - Fz * my;
+  mx = wx; my = wz;
   I.move = { x: mx, y: my };
   I.sprint = held('sprint') || (INPUT.stick.active && Math.hypot(INPUT.stick.x, INPUT.stick.y) > 0.92);
   // targeting
@@ -2578,6 +2646,7 @@ function humanIntent(p, dt) {
   I.block = held('catch') && !!p.ball;
   if (pressed('juke')) I.juke = true;
   if (pressed('jump')) I.jump = true;
+  if (pressed('dive')) I.dive = true;
   I.duck = held('duck');
   if (pressed('fake')) I.fake = true;
   if (pressed('switch')) { setTimeout(() => G.switchPlayer(), 0); }
@@ -2739,16 +2808,19 @@ const UI = {
         <div>Juke <span><kbd>L</kbd> / <kbd>E</kbd></span></div><div>Jump <kbd>Space</kbd></div>
         <div>Duck (hold) <span><kbd>C</kbd> / <kbd>Ctrl</kbd></span></div><div>Fake throw <kbd>F</kbd></div>
         <div>Switch player <span><kbd>Q</kbd> / <kbd>Tab</kbd></span></div><div>Cycle target <kbd>R</kbd></div>
+        <div>Dive <kbd>X</kbd></div><div>Camera angle <kbd>V</kbd></div>
         <div>Pause <span><kbd>Esc</kbd> / <kbd>P</kbd></span></div><div>Skip replay <kbd>Any key</kbd></div>
       </div>
       <h3>TOUCH</h3>
-      <p>Left stick moves (push to the edge to sprint). THROW: hold and release. CATCH: tap just before impact; hold it while carrying a ball to block. JUKE, JUMP, DUCK, FAKE and SWITCH have their own buttons.</p>
+      <p>Left stick moves (push to the edge to sprint). THROW: hold and release. CATCH: tap just before impact; hold it while carrying a ball to block. JUKE, DIVE, JUMP, DUCK, FAKE and SWITCH have their own buttons; CAM (top right) cycles camera angles.</p>
       <h3>THE FINE PRINT</h3>
       <ul>
         <li><b>Power meter:</b> it fills, then falls back. Release inside the gold zone for a PERFECT throw: faster and far more accurate.</li>
         <li><b>Catching:</b> your catch window size comes from the CATCH rating. Hard throws and perfect releases are tougher to hang on to.</li>
         <li><b>Blocking:</b> a held ball deflects throws, but a fumble on the block is an out.</li>
         <li><b>Juking:</b> high-DODGE players can "ghost" a throw mid-juke. Ducking beats high throws, jumping beats low ones.</li>
+        <li><b>Dive:</b> lay out to the side and most throws sail over you — but you're on the floor for a moment getting up.</li>
+        <li><b>Sky shots:</b> start charging, jump, and release in the gold zone while airborne for a faster, laser-accurate SKY SHOT. Miss the zone in the air and your aim gets sloppy.</li>
         <li><b>Fakes:</b> low-awareness opponents bite — then they're wide open.</li>
         <li><b>Clutch &amp; Captains:</b> CLUTCH swings ratings when your team is down to its last two. A CAPTAIN left standing alone triggers a team-wide rally.</li>
       </ul>
@@ -2757,6 +2829,7 @@ const UI = {
       const seg = (key, opts) => `<div class="seg" data-k="${key}">${opts.map(([v, l]) => `<button class="${String(SETTINGS[key]) === String(v) ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`;
       p.innerHTML = `<h2>SETTINGS</h2>
         <div class="set-row">GRAPHICS ${seg('quality', [['auto', 'AUTO'], ['high', 'HIGH'], ['medium', 'MEDIUM'], ['low', 'LOW']])}</div>
+        <div class="set-row">CAMERA ${seg('camera', CAM_MODES.map((m, i) => [i, m]))}</div>
         <div class="set-row">SOUND ${seg('sound', [[true, 'ON'], [false, 'OFF']])}</div>
         <div class="set-row">INSTANT REPLAYS ${seg('replays', [[true, 'ON'], [false, 'OFF']])}</div>
         <div class="set-row">CAMERA SHAKE ${seg('shake', [[true, 'ON'], [false, 'OFF']])}</div>
@@ -2766,7 +2839,7 @@ const UI = {
         <button class="cta close">DONE</button>`;
       if (SETTINGS.autoSwitch === undefined) SETTINGS.autoSwitch = true;
       for (const s of $$('.seg[data-k]', p)) for (const b of $$('button', s)) b.onclick = () => {
-        const k = s.dataset.k; let v = b.dataset.v; v = v === 'true' ? true : v === 'false' ? false : (k === 'difficulty' ? +v : v);
+        const k = s.dataset.k; let v = b.dataset.v; v = v === 'true' ? true : v === 'false' ? false : ((k === 'difficulty' || k === 'camera') ? +v : v);
         SETTINGS[k] = v; saveSettings(); AUDIO.ui();
         for (const x of $$('button', s)) x.classList.toggle('on', x === b);
         if (k === 'sound') AUDIO.setEnabled(v);
@@ -2857,6 +2930,7 @@ function wireButtons() {
   $('#scr-select [data-act="to-matchup"]').onclick = () => UI.go('matchup', () => UI.renderMatchup());
   $('#scr-matchup [data-act="start-match"]').onclick = () => UI.go('hud', () => startMatchFlow());
   $('#pause-btn').onclick = () => UI.togglePause(true);
+  $('#cam-btn').onclick = () => cycleCamera();
   for (const b of $$('#scr-pause [data-act]')) b.onclick = () => {
     const a = b.dataset.act;
     if (a === 'resume') UI.togglePause(false);
@@ -2883,6 +2957,7 @@ let lastT = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
+  if (UI.inGame() && !REPLAY.on && pressed('camera')) cycleCamera();
   if (!UI.paused) {
     FX.update(dtReal);
     if (REPLAY.on) updateReplay(dtReal);
@@ -2924,7 +2999,7 @@ async function boot() {
     requestAnimationFrame(frame);
     await new Promise(r => setTimeout(r, 250));
     UI.wipe(() => UI.show('title'));
-    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp };
+    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, scene, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp, updateCamera, SETTINGS };
   } catch (e) {
     console.error(e);
     setLoad(1, 'Could not start: ' + (e && e.message ? e.message : e) + ' — check your connection and reload.');

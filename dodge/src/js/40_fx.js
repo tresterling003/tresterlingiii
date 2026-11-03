@@ -112,6 +112,8 @@ const LINES = {
   rush: ['And we are underway! Here comes the opening rush!', 'The whistle blows — everybody to the line!'],
   gameWin: ['That\'s the game! The {team} take it!', 'Game over — the {team} close it out!'],
   matchWin: ['THE {team} WIN THE MATCH!', 'Ballgame! The {team} take the series!'],
+  skyshot: ['{t} elevates and FIRES — a sky shot!', 'Look at the hang time on {t}! Perfect release from the air!'],
+  dive: ['{d} lays out and it sails over!', 'Full extension dive from {d}!'],
   fake: ['{t} with the pump fake — got {v} to bite!'],
 };
 const COMM = {

@@ -23,7 +23,8 @@ G.onPickup = (p, b) => {
   }
 };
 G.onDodge = (p, b, d) => {
-  if (d < 0.75 && (p === G.human || Math.random() < 0.35)) { COMM.say('dodge', { d: p.name }); if (p === G.human) COMM.callout('DODGE', '', '#9fffc4', 0.8); }
+  if (p.dive && d < 1.1) { COMM.say('dive', { d: p.name }, true); COMM.callout('LAID OUT!', p.name, '#9fffc4', 0.9); AUDIO.cheer(0.6); }
+  else if (d < 0.75 && (p === G.human || Math.random() < 0.35)) { COMM.say('dodge', { d: p.name }); if (p === G.human) COMM.callout('DODGE', '', '#9fffc4', 0.8); }
   AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.35);
 };
 
@@ -152,7 +153,7 @@ function recInit() { REC.stride = G.players.length * (6 + REC_STRIDE_CHAR) + G.b
 function recCapture() {
   const a = new Float32Array(REC.stride); let o = 0;
   for (const p of G.players) {
-    const r = p.char.root; a[o++] = r.position.x; a[o++] = r.position.y; a[o++] = r.position.z; a[o++] = r.rotation.y; a[o++] = p.flash; a[o++] = p.state === 'bench' ? 0 : 1;
+    const r = p.char.root; a[o++] = r.position.x; a[o++] = r.position.y; a[o++] = r.position.z; a[o++] = r.rotation.y; a[o++] = p.flash; a[o++] = p.pitch || 0;
     o = p.char.capture(a, o);
   }
   for (const b of G.balls) { a[o++] = b.pos.x; a[o++] = b.pos.y; a[o++] = b.pos.z; a[o++] = b.mesh.rotation.x; a[o++] = b.mesh.rotation.z; a[o++] = b.state === 'flying' && b.live ? 1 : 0; a[o++] = b.perfect ? 1 : 0; }
@@ -165,7 +166,7 @@ function recApply(t) {
   let o = 0;
   for (const p of G.players) {
     const r = p.char.root; r.position.set(lerp(A.a[o], B.a[o], k), lerp(A.a[o + 1], B.a[o + 1], k), lerp(A.a[o + 2], B.a[o + 2], k));
-    r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; p.char.setFlash(A.a[o + 4] * 0.45); o += 6;
+    r.rotation.order = 'YXZ'; r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; r.rotation.x = lerp(A.a[o + 5], B.a[o + 5], k); p.char.setFlash(A.a[o + 4] * 0.45); o += 6;
     o = p.char.restore(A.a, B.a, k, o);
     p.blob.position.set(r.position.x, 0.008, r.position.z); p.ring.material.opacity = 0;
   }
@@ -212,6 +213,9 @@ function updateReplay(dtReal) {
 }
 
 // ---------- camera ----------
+const CAM_MODES = ['BROADCAST', 'COURTSIDE', 'OVERHEAD', 'PLAYER'];
+const CAM_LABEL = { BROADCAST: 'BROADCAST CAM', COURTSIDE: 'COURTSIDE CAM', OVERHEAD: 'OVERHEAD CAM', PLAYER: 'PLAYER CAM' };
+function cycleCamera() { SETTINGS.camera = ((SETTINGS.camera || 0) + 1) % CAM_MODES.length; saveSettings(); UI.hint(CAM_LABEL[CAM_MODES[SETTINGS.camera]] + (isTouch ? '' : ' · V TO CHANGE'), 'cam' + Math.random()); AUDIO.ui(); }
 const CAMS = { pos: new THREE.Vector3(0, 8, 16), look: new THREE.Vector3(0, 1, 0), fov: 36, intro: null };
 function updateCamera(dtReal) {
   const portrait = camera.aspect < 1;
@@ -245,8 +249,17 @@ function updateCamera(dtReal) {
     wantPos = _v1.set(cx * 0.88, lerp(8.8, 7.6, tension), dist);
     wantLook = _v2.set(cx, 0.4, 0.15);
     if (portrait) { wantPos.set(cx * 0.5, 12.5, 15.5); wantLook.set(cx * 0.6, 0, -0.3); }
+    const mode = CAM_MODES[SETTINGS.camera || 0];
+    if (mode === 'COURTSIDE') { wantPos.set(cx * 0.9, 3.1, portrait ? 14 : 11.4); wantLook.set(cx, 1.0, -0.8); fov = portrait ? 64 : camera.aspect < 1.45 ? 54 : 46; }
+    else if (mode === 'OVERHEAD') { wantPos.set(cx * 0.35, portrait ? 26 : 19.5, portrait ? 4 : 7.2); wantLook.set(cx * 0.35, 0, 0.2); fov = portrait ? 56 : 40; }
+    else if (mode === 'PLAYER') {
+      const f = h || G.teams[0].players.find(p => p.state === 'active');
+      const fx2 = f ? f.pos.x : -5, fz = f ? f.pos.z : 0;
+      wantPos.set(Math.max(fx2 - 6.4, -14.5), 3.5, fz * 0.7); wantLook.set(fx2 + 5.5, 0.7, fz * 0.35); fov = portrait ? 66 : 52; k = 4.5;
+    }
     if (G.phase === 'gameover' && G.winnerTeam) { const w = G.winnerTeam.players.filter(p => p.state !== 'bench'); if (w.length) { const c = w.reduce((s, p) => s.add(p.pos), new THREE.Vector3()).multiplyScalar(1 / w.length); wantPos.set(c.x * 0.7, 3.2, c.z + 8.5); wantLook.set(c.x, 1.2, c.z); k = 1.6; fov = portrait ? 55 : 34; } }
   }
+  if (ARENA.jumbo) ARENA.jumbo.visible = !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
   CAMS.pos.lerp(wantPos, 1 - Math.exp(-k * dtReal)); CAMS.look.lerp(wantLook, 1 - Math.exp(-k * 1.2 * dtReal));
   CAMS.fov = damp(CAMS.fov, fov, 4, dtReal);
   camera.position.copy(CAMS.pos);
