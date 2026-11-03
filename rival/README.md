@@ -60,6 +60,7 @@ rival/
 
 - **Partial increments.** Points accrue per minute and per step, rounded *down* to 0.1, so 25 min of cardio = 10.0.
 - **No double counting.** Steps count once per day: the daily total or the sum of logged walks, whichever is higher. Walk minutes aren't also scored as cardio. One daily step total per day.
+- **The RIVAL Pledge.** Before logging anything, every player signs a short honor pledge (log honestly, take care of yourself, keep it fun, fix mistakes). It's enforced server-side, and league-mates see a *Pledged* mark.
 - **Abuse limits.** Entries can be dated today or yesterday only (in the user's time zone). Max 240 min per entry, 8 h and 20 entries per day, 100k steps per entry. Duplicates are rejected (idempotency key plus a 10-minute identical-entry check, serialised per user). Entries are labelled self-reported.
 - **Fair across abilities.** Personal goals (active minutes *or* steps) earn the same bonus for everyone. Goal changes take effect the next day. Plans must be made at least a day ahead.
 - **Recalculation.** Scores are computed from current records, so edits, deletes and commissioner rule changes recalculate all non-final weeks instantly. Weeks lock at **12:00 AM Tuesday** (league time zone) and their scores are snapshotted.

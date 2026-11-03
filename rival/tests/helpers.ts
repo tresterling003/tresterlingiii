@@ -47,7 +47,7 @@ export async function setupDb(name: string) {
   }
 
   let n = 0;
-  async function signup(opts: { name?: string; tz?: string } = {}) {
+  async function signup(opts: { name?: string; tz?: string; noPledge?: boolean } = {}) {
     n += 1;
     const name = opts.name ?? `Player ${n}`;
     const [row] = await as<{ id: string }>(
@@ -55,6 +55,7 @@ export async function setupDb(name: string) {
       "select auth_signup($1, $2, $3, $4, $5, $6, $7) as id",
       [`p${n}-${randomUUID().slice(0, 6)}@test.dev`, "x", name, `Team ${name}`, `T${n}`.slice(0, 4).toUpperCase().padEnd(2, "X"), "#C6FF3D", opts.tz ?? "America/Chicago"],
     );
+    if (!opts.noPledge) await as(row.id, "select take_pledge()");
     return row.id;
   }
 

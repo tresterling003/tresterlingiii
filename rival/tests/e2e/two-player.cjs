@@ -54,6 +54,12 @@ async function signUp(p, { name, team, abbr, email }) {
   await p.page.fill("#password", "correct-horse-42");
   await p.page.click("button[type=submit]");
   await p.page.waitForURL(/\/onboarding/);
+  // The RIVAL Pledge appears before anything else and must be taken to play.
+  await p.page.getByText("The RIVAL Pledge").first().waitFor();
+  if (p.label === "A") await p.page.screenshot({ path: path.join(OUT, "00-pledge.png"), fullPage: true });
+  await p.page.click("[data-testid=pledge-agree]");
+  await p.page.click("[data-testid=pledge-submit]");
+  await p.page.getByText("The RIVAL Pledge").first().waitFor({ state: "detached" });
 }
 
 async function signIn(p, email) {

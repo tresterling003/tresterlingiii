@@ -10,6 +10,7 @@ import { Sheet } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { LiveDot, Skeleton } from "./ui/states";
 import { LogWorkoutSheet } from "./log-workout";
+import { PledgeGate } from "./pledge";
 
 const NAV = [
   { href: "/home", label: "Home", icon: Home },
@@ -155,6 +156,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       <LogWorkoutSheet open={logOpen} onClose={closeLog} />
+      {me && !me.account.pledged_at && <PledgeGate me={me} />}
     </div>
   );
 }

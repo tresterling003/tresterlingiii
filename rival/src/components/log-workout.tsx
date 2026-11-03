@@ -193,7 +193,7 @@ export function LogWorkoutSheet({
           </div>
           <p className="mt-6 flex items-start gap-2 text-xs text-fg-faint">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Entries are self-reported and visible to your league as points only. RIVAL calculates every point from these details.
+            Honor system: log only what you actually did — you took the RIVAL Pledge. Your league sees points only; RIVAL calculates every point from these details.
           </p>
         </div>
       ) : (
