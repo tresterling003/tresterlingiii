@@ -76,7 +76,7 @@ function Members({ s }: { s: LeagueSnapshot }) {
     <ul className="divide-y divide-ink-700">
       {active.map((m) => (
         <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-6">
-          <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} size="md" />
+          <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="md" />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{m.teamName}</p>
             <p className="truncate text-xs text-fg-muted">{m.displayName} · joined {new Date(m.joinedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>

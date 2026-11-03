@@ -8,7 +8,7 @@ import { MatchupRow, StatusBadge, WinProbBar } from "@/components/scoreboard";
 import { ActiveDays } from "@/components/breakdown";
 import { LeagueFeed } from "@/components/feed";
 import { StandingsTable } from "@/components/standings";
-import { TeamAvatar } from "@/components/team-avatar";
+import { TeamAvatar, rivalColor } from "@/components/team-avatar";
 import { Button } from "@/components/ui/button";
 import { Badge, ProgressBar, Ring, SectionHeader } from "@/components/ui/states";
 import { useLeague } from "@/lib/hooks";
@@ -46,7 +46,7 @@ function MatchupHero({ s }: { s: LeagueSnapshot }) {
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-6 sm:px-6">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <TeamAvatar abbr={me.teamAbbr} color={me.teamColor} size="md" ring />
+            <TeamAvatar abbr={me.teamAbbr} color={me.teamColor} src={me.avatarUrl} size="md" ring />
             <div className="min-w-0">
               <p className="truncate font-display text-lg font-bold uppercase italic leading-5">{me.teamName}</p>
               <p className="text-xs text-fg-muted">{recordOf(s, me.id)}</p>
@@ -63,7 +63,7 @@ function MatchupHero({ s }: { s: LeagueSnapshot }) {
                   <p className="truncate font-display text-lg font-bold uppercase italic leading-5">{opp.teamName}</p>
                   <p className="text-xs text-fg-muted">{recordOf(s, opp.id)}</p>
                 </div>
-                <TeamAvatar abbr={opp.teamAbbr} color={opp.teamColor} size="md" />
+                <TeamAvatar abbr={opp.teamAbbr} color={opp.teamColor} src={opp.avatarUrl} size="md" />
               </div>
               <p className={`tnum mt-4 font-display text-score font-bold ${!winning ? "text-fg" : "text-fg-muted"}`} data-testid="home-opp-score">{fmtPts(o.rightScore)}</p>
             </>
@@ -75,7 +75,7 @@ function MatchupHero({ s }: { s: LeagueSnapshot }) {
       <div className="flex items-center gap-4 border-t border-ink-700 px-4 py-4 sm:px-6">
         <div className="flex-1">
           {o.leftWin !== null && opp ? (
-            <WinProbBar left={o.leftWin} leftLabel={me.teamAbbr} rightLabel={opp.teamAbbr} />
+            <WinProbBar left={o.leftWin} leftLabel={me.teamAbbr} rightLabel={opp.teamAbbr} rightColor={rivalColor(opp.teamColor)} />
           ) : m.status === "final" ? (
             <p className="text-sm font-semibold">{m.isTie ? "Tie." : m.winnerId === s.me ? "You won this week." : m.winnerId ? `${members.get(m.winnerId)?.teamName} won.` : "Bye week."}</p>
           ) : (
@@ -164,7 +164,7 @@ function NextOpponent({ s }: { s: LeagueSnapshot }) {
       <SectionHeader title={`Next · Week ${next.week}`} />
       {opp ? (
         <div className="flex items-center gap-3">
-          <TeamAvatar abbr={opp.teamAbbr} color={opp.teamColor} size="md" />
+          <TeamAvatar abbr={opp.teamAbbr} color={opp.teamColor} src={opp.avatarUrl} size="md" />
           <div className="min-w-0">
             <p className="truncate font-semibold">{opp.teamName}</p>
             <p className="text-xs text-fg-muted">{recordOf(s, opp.id)} · {opp.displayName}</p>

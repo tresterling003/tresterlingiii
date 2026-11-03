@@ -206,6 +206,29 @@ async function waitForText(p, testid, expected, timeout = 15000) {
     return `scores ${ma.homeScore} – ${ma.awayScore} identical on both devices`;
   });
 
+  await step("Profile photo upload shows for the league-mate", async () => {
+    // Build a real JPEG in the browser, then upload it through the Profile screen.
+    await A.page.goto("/profile");
+    const jpeg = await A.page.evaluate(async () => {
+      const c = document.createElement("canvas"); c.width = 400; c.height = 300;
+      const g = c.getContext("2d"); g.fillStyle = "#3355ff"; g.fillRect(0, 0, 400, 300);
+      g.fillStyle = "#ffcc00"; g.beginPath(); g.arc(200, 150, 90, 0, 7); g.fill();
+      const b = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9));
+      return Array.from(new Uint8Array(await b.arrayBuffer()));
+    });
+    await A.page.setInputFiles("[data-testid=photo-input]", { name: "me.jpg", mimeType: "image/jpeg", buffer: Buffer.from(jpeg) });
+    await A.page.getByText("Photo updated").waitFor();
+    const sb = await apiCall(B, "GET", `/api/leagues/${leagueId}`);
+    const aMember = sb.data.members.find((m) => m.teamName === "Team Iron");
+    assert(aMember.avatarUrl, "league-mate doesn't see avatar url");
+    const img = await B.page.evaluate(async (u) => { const r = await fetch(u); return { s: r.status, t: r.headers.get("content-type") }; }, aMember.avatarUrl);
+    assert(img.s === 200 && img.t === "image/jpeg", `B fetch avatar → ${img.s} ${img.t}`);
+    await B.page.goto("/matchup");
+    await B.page.waitForSelector(`img[src="${aMember.avatarUrl}"]`);
+    await B.page.screenshot({ path: path.join(OUT, "07-b-sees-photo-and-colors.png"), fullPage: true });
+    return "uploaded via Profile; B sees it on the scoreboard";
+  });
+
   await step("Duplicate submissions are rejected", async () => {
     const req = crypto.randomUUID();
     const body = { requestId: req, type: "yoga", date: (await apiCall(B, "GET", "/api/me")).data.today, durationMin: 15 };

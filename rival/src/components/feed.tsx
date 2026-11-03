@@ -21,7 +21,7 @@ export function LeagueFeed({ s, limit = 8 }: { s: LeagueSnapshot; limit?: number
         const Icon = A?.icon;
         return (
           <li key={f.id} className="flex items-center gap-3 px-4 py-3">
-            <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} size="sm" />
+            <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm">
                 <span className="font-semibold">{f.userId === s.me ? "You" : m.teamName}</span>

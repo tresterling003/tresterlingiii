@@ -619,3 +619,25 @@ describe("weekly processing, standings and playoffs", () => {
     expect(await v()).toBeGreaterThan(v2);
   });
 });
+
+// ---------------------------------------------------------------------------
+describe("profile photos", () => {
+  it("are visible to the owner and league-mates only, and validated", async () => {
+    const a = await db.signup(); const b = await db.signup(); const outsider = await db.signup();
+    const L = await league(a);
+    await join(b, L.code);
+    const img = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(500, 7)]);
+    const [{ ts }] = await db.as(a, "select set_avatar($1, 'image/jpeg') as ts", [img]);
+    expect(ts).toBeTruthy();
+    expect(await db.as(a, "select image from get_avatar($1)", [a])).toHaveLength(1);
+    expect(await db.as(b, "select image from get_avatar($1)", [a])).toHaveLength(1);
+    expect(await db.as(outsider, "select image from get_avatar($1)", [a])).toHaveLength(0);
+    await expectFail(db.as(b, "select * from user_avatars"), "permission denied");
+    await expectFail(db.as(a, "select set_avatar($1, 'image/gif')", [img]), "JPEG, PNG or WebP");
+    await expectFail(db.as(a, "select set_avatar($1, 'image/jpeg')", [Buffer.alloc(400000, 1)]), "too large");
+    const [{ avatar_updated_at }] = await db.as(b, "select avatar_updated_at from users where id = $1", [a]);
+    expect(avatar_updated_at).not.toBeNull();
+    await db.as(a, "select delete_avatar()");
+    expect(await db.as(b, "select image from get_avatar($1)", [a])).toHaveLength(0);
+  });
+});

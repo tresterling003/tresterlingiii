@@ -2,7 +2,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { ChevronRight, Crown } from "lucide-react";
-import { TeamAvatar } from "./team-avatar";
+import { TeamAvatar, rivalColor } from "./team-avatar";
 import { Badge, LiveDot } from "./ui/states";
 import { fmtPts } from "@/lib/client";
 import { rangeLabel } from "@/lib/dates";
@@ -44,7 +44,7 @@ function Side({
   return (
     <div className={clsx("flex min-w-0 flex-1 flex-col gap-4", right && "items-end text-right")}>
       <div className={clsx("flex items-center gap-3", right && "flex-row-reverse")}>
-        <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} size="lg" ring={isMe} />
+        <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="lg" ring={isMe} />
         {winner && <Crown className="h-5 w-5 text-lime" aria-label="Winner" />}
       </div>
       <div className="min-w-0 max-w-full">
@@ -68,18 +68,22 @@ function Side({
   );
 }
 
-export function WinProbBar({ left, leftLabel, rightLabel }: { left: number; leftLabel: string; rightLabel: string }) {
+export function WinProbBar({
+  left, leftLabel, rightLabel, leftColor = "#C8FF3D", rightColor = "#A2A7B1",
+}: {
+  left: number; leftLabel: string; rightLabel: string; leftColor?: string; rightColor?: string;
+}) {
   const pct = Math.round(left * 100);
   return (
     <div>
       <div className="mb-2 flex justify-between text-xs">
-        <span className="tnum font-semibold">{leftLabel} {pct}%</span>
+        <span className="tnum inline-flex items-center gap-2 font-semibold"><span className="h-2 w-2 rounded-full" style={{ background: leftColor }} />{leftLabel} {pct}%</span>
         <span className="eyebrow">Win probability</span>
-        <span className="tnum font-semibold text-fg-muted">{100 - pct}% {rightLabel}</span>
+        <span className="tnum inline-flex items-center gap-2 font-semibold">{100 - pct}% {rightLabel}<span className="h-2 w-2 rounded-full" style={{ background: rightColor }} /></span>
       </div>
       <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={`${leftLabel} ${pct}% to win`}>
-        <div className="h-full rounded-l-full bg-lime transition-[width] duration-700" style={{ width: `${pct}%` }} />
-        <div className="h-full flex-1 rounded-r-full bg-ink-600" />
+        <div className="h-full rounded-l-full transition-[width] duration-700" style={{ width: `${pct}%`, background: leftColor }} />
+        <div className="h-full flex-1 rounded-r-full transition-colors" style={{ background: rightColor }} />
       </div>
     </div>
   );
@@ -113,7 +117,8 @@ export function Scoreboard({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
               {m.isTie ? "Tie game." : m.winnerId ? `${members.get(m.winnerId)?.teamName} win${m.awayId ? ` by ${fmtPts(Math.abs((m.homeScore ?? 0) - (m.awayScore ?? 0)))}` : " (bye)"}.` : "Bye week complete."}
             </p>
           ) : o.leftWin !== null && left && right ? (
-            <WinProbBar left={o.leftWin} leftLabel={left.teamAbbr} rightLabel={right.teamAbbr} />
+            <WinProbBar left={o.leftWin} leftLabel={left.teamAbbr} rightLabel={right.teamAbbr}
+              leftColor={o.leftId === s.me ? "#C8FF3D" : left.teamColor} rightColor={rivalColor(right.teamColor)} />
           ) : (
             <p className="text-xs text-fg-faint">Projections and win probability appear after 3 days of league activity.</p>
           )}
@@ -140,7 +145,7 @@ export function MatchupRow({ s, m, href }: { s: LeagueSnapshot; m: MatchupView; 
           const won = m.status === "final" && m.winnerId === r.id && !!r.id;
           return (
             <div key={i} className="flex items-center gap-3">
-              {mem ? <TeamAvatar abbr={mem.teamAbbr} color={mem.teamColor} size="sm" />
+              {mem ? <TeamAvatar abbr={mem.teamAbbr} color={mem.teamColor} src={mem.avatarUrl} size="sm" />
                 : <span className="flex h-8 w-8 items-center justify-center rounded-sm border border-dashed border-ink-600 text-[10px] font-bold text-fg-faint">BYE</span>}
               <span className={clsx("min-w-0 flex-1 truncate text-sm", r.id === s.me ? "font-bold" : "font-medium", !mem && "text-fg-faint")}>
                 {r.seed ? <span className="mr-1 text-fg-faint">{r.seed}</span> : null}

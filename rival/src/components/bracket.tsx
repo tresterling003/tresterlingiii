@@ -25,7 +25,7 @@ export function Bracket({ s }: { s: LeagueSnapshot }) {
             return (
               <li key={r.userId} className="flex items-center gap-3">
                 <span className="tnum w-6 font-display font-bold text-fg-faint">{r.rank}</span>
-                <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} size="xs" />
+                <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="xs" />
                 <span className="text-sm">{m.teamName}</span>
                 <span className="ml-auto text-xs text-fg-faint">projected seed</span>
               </li>
@@ -41,7 +41,7 @@ export function Bracket({ s }: { s: LeagueSnapshot }) {
     return (
       <div className={clsx("flex h-10 items-center gap-2 px-3", win && "bg-lime-soft/50")}>
         <span className="tnum w-4 text-xs font-bold text-fg-faint">{seed ?? ""}</span>
-        {mem ? <TeamAvatar abbr={mem.teamAbbr} color={mem.teamColor} size="xs" /> : null}
+        {mem ? <TeamAvatar abbr={mem.teamAbbr} color={mem.teamColor} src={mem.avatarUrl} size="xs" /> : null}
         <span className={clsx("min-w-0 flex-1 truncate text-xs", mem ? "font-semibold" : "text-fg-faint", id === s.me && "text-lime")}>
           {mem?.teamName ?? "Bye"}
         </span>

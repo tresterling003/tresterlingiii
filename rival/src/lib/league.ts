@@ -2,6 +2,7 @@ import "server-only";
 import { withUser, type Tx } from "./db";
 import { AppError } from "./errors";
 import { addDays, diffDays, minDate } from "./dates";
+import { avatarUrl } from "./avatar";
 import { MIN_SAMPLES, pace, projectTeam, remainingDays, winProbability } from "./projections";
 import type {
   DayScore, FeedItem, HistoryRow, LeagueSnapshot, Matchup, MatchupView, Member, Scoring,
@@ -71,16 +72,16 @@ export async function buildSnapshot(uid: string, leagueId: string, requestedWeek
     const members = (
       await tx.query<{
         user_id: string; role: Member["role"]; active: boolean; joined_at: string;
-        display_name: string; team_name: string; team_abbr: string; team_color: string;
+        display_name: string; team_name: string; team_abbr: string; team_color: string; avatar_updated_at: string | null;
       }>(
-        `select m.user_id, m.role, m.active, m.joined_at, u.display_name, u.team_name, u.team_abbr, u.team_color
+        `select m.user_id, m.role, m.active, m.joined_at, u.display_name, u.team_name, u.team_abbr, u.team_color, u.avatar_updated_at
          from league_members m join users u on u.id = m.user_id
          where m.league_id = $1 order by m.joined_at`,
         [leagueId],
       )
     ).map<Member>((m) => ({
       id: m.user_id, displayName: m.display_name, teamName: m.team_name, teamAbbr: m.team_abbr,
-      teamColor: m.team_color, role: m.role, active: m.active, joinedAt: m.joined_at,
+      teamColor: m.team_color, avatarUrl: avatarUrl(m.user_id, m.avatar_updated_at), role: m.role, active: m.active, joinedAt: m.joined_at,
     }));
 
     const schedule = (

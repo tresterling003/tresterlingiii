@@ -33,7 +33,7 @@ export function StandingsTable({ s, compact }: { s: LeagueSnapshot; compact?: bo
                 <td className={clsx("tnum border-l-2 py-3 pl-4 font-display text-base font-bold", me ? "border-lime text-lime" : "border-transparent text-fg-muted")}>{r.rank}</td>
                 <td className="py-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} size="sm" />
+                    <TeamAvatar abbr={m.teamAbbr} color={m.teamColor} src={m.avatarUrl} size="sm" />
                     <div className="min-w-0">
                       <p className={clsx("truncate", me ? "font-bold" : "font-semibold")}>{m.teamName}</p>
                       {!compact && <p className="truncate text-xs text-fg-faint">{m.displayName}</p>}

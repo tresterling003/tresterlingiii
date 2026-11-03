@@ -1,9 +1,9 @@
 "use client";
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
-import { Check, LogOut, Plus, Smartphone, Watch } from "lucide-react";
+import { Camera, Check, LogOut, Plus, Smartphone, Watch } from "lucide-react";
 import { useApp } from "@/components/league-context";
 import { PageHeader, PageSkeleton } from "@/components/page";
 import { TeamAvatar, TEAM_COLORS } from "@/components/team-avatar";
@@ -13,6 +13,8 @@ import { Badge, SectionHeader } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/client";
 import { shortDate } from "@/lib/dates";
+import { avatarUrl } from "@/lib/avatar";
+import { squareJpeg } from "@/lib/image";
 
 function TeamIdentity() {
   const { me } = useApp();
@@ -21,6 +23,36 @@ function TeamIdentity() {
   const a = me!.account;
   const [f, setF] = useState({ display_name: a.display_name, team_name: a.team_name, team_abbr: a.team_abbr, team_color: a.team_color });
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const photo = avatarUrl(a.id, a.avatar_updated_at);
+  const refreshAll = () => mutate((k) => typeof k === "string" && (k === "/api/me" || k.startsWith("/api/leagues/")));
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      const blob = await squareJpeg(file);
+      const res = await fetch("/api/me/avatar", { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error?.message ?? "Upload failed.");
+      await refreshAll();
+      toast({ kind: "success", title: "Photo updated", body: "Your league sees it right away." });
+    } catch (e) {
+      toast({ kind: "error", title: "Couldn't upload photo", body: (e as Error).message });
+    } finally {
+      setPhotoBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+  async function removePhoto() {
+    setPhotoBusy(true);
+    try {
+      await api("DELETE", "/api/me/avatar");
+      await refreshAll();
+      toast({ kind: "success", title: "Photo removed" });
+    } catch (e) {
+      toast({ kind: "error", title: "Couldn't remove photo", body: e instanceof ApiError ? e.message : undefined });
+    } finally { setPhotoBusy(false); }
+  }
   const dirty = f.display_name !== a.display_name || f.team_name !== a.team_name || f.team_abbr !== a.team_abbr || f.team_color !== a.team_color;
   async function save() {
     setBusy(true);
@@ -36,11 +68,25 @@ function TeamIdentity() {
     <section className="panel p-4 sm:p-6">
       <SectionHeader title="Team identity" />
       <div className="mb-6 flex items-center gap-4">
-        <TeamAvatar abbr={f.team_abbr || "?"} color={f.team_color} size="xl" />
-        <div className="min-w-0">
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={photoBusy}
+          className="focus-ring group relative shrink-0 rounded-md" aria-label={photo ? "Change photo" : "Upload photo"}>
+          <TeamAvatar abbr={f.team_abbr || "?"} color={f.team_color} size="xl" src={photo} />
+          <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink-850 bg-lime text-lime-ink transition-transform group-active:scale-90">
+            <Camera className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </span>
+        </button>
+        <div className="min-w-0 flex-1">
           <p className="truncate font-display text-2xl font-bold uppercase italic">{f.team_name || "Your team"}</p>
           <p className="truncate text-sm text-fg-muted">{f.display_name}</p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" variant="secondary" loading={photoBusy} onClick={() => fileRef.current?.click()} data-testid="upload-photo">
+              {photo ? "Change photo" : "Upload photo"}
+            </Button>
+            {photo && <Button size="sm" variant="ghost" disabled={photoBusy} onClick={removePhoto}>Remove</Button>}
+          </div>
         </div>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" data-testid="photo-input"
+          onChange={(e) => upload(e.target.files?.[0])} />
       </div>
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-[1fr_96px] gap-4">
