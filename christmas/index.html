@@ -107,6 +107,8 @@ textarea{min-height:220px;font-family:var(--mono);font-size:13px;line-height:1.5
 .banner{border-radius:6px;padding:14px 18px;font-weight:600;font-size:18px;border:2px solid var(--line);background:var(--paper)}
 .banner.good{border-color:var(--ok)}.banner.bad{border-color:var(--hit)}
 
+.lvl{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;border:1.5px solid currentColor}
+.lvl.easy{color:var(--ok)}.lvl.medium{color:var(--warn)}.lvl.hard{color:var(--hit)}
 /* boards */
 .board-wrap{display:flex;flex-direction:column;gap:8px;min-width:0;align-items:flex-start}
 .board-title{display:flex;align-items:center;gap:8px;font-weight:700}
@@ -253,7 +255,7 @@ const FLAG_NAMES = ["Red", "Blue", "Gold", "Green"];
 const BOT_NAMES = ["Admiral Bot", "Captain Bot", "Ensign Bot"];
 const SAMPLE = {
   id: "sample", src: "sample", title: "Christmas Trivia", askBy: "def",
-  text: "In which country did the Christmas tree tradition begin? | Germany | England | United States | Norway\nWhich reindeer has a red nose? | Rudolph | Dasher | Comet | Blitzen\nIn \"The Twelve Days of Christmas,\" what is given on the first day? | A partridge in a pear tree | Two turtle doves | Five golden rings | Three French hens\nWhat do people hang by the fireplace for Santa to fill? | Stockings | Wreaths | Mittens | Ornaments\nWhat color are mistletoe berries? | White | Red | Green | Blue\nIn \"Home Alone,\" where is Kevin's family flying to? | Paris | London | Rome | Florida\nWho wrote \"A Christmas Carol\"? | Charles Dickens | Mark Twain | Dr. Seuss | Jane Austen\nWhat is the name of the grumpy main character in \"A Christmas Carol\"? | Ebenezer Scrooge | Bob Cratchit | Jacob Marley | Tiny Tim\nWhat is the name of the Grinch's dog? | Max | Buddy | Rex | Spot\nWhich movie is about Buddy, a human raised by elves? | Elf | The Polar Express | Jingle All the Way | Home Alone\nWhat brought Frosty the Snowman to life? | An old silk hat | A red scarf | A magic carrot | A Santa hat\nHow many reindeer pull Santa's sleigh, counting Rudolph? | 9 | 8 | 7 | 12\nWhere does Santa live? | The North Pole | The South Pole | Greenland | Iceland\nIn \"Jingle Bells,\" what kind of sleigh is it? | A one-horse open sleigh | A two-horse sleigh | A reindeer sleigh | A golden sleigh\nWhich plant with red leaves is popular at Christmas? | Poinsettia | Rose | Tulip | Sunflower\nWhich Christmas candy is shaped like a shepherd's hook? | Candy cane | Lollipop | Gumdrop | Licorice\nWhat is the main character's name in \"It's a Wonderful Life\"? | George Bailey | Clark Griswold | Ralphie Parker | Kris Kringle\nIn \"A Christmas Story,\" what does Ralphie want for Christmas? | A Red Ryder BB gun | A bicycle | A puppy | A train set\nWhat do kids traditionally leave out for Santa? | Milk and cookies | Hot cocoa and pie | Juice and cake | Tea and toast\nWhich Christmas decoration was first made from real strands of silver? | Tinsel | Garland | String lights | Glass ornaments\nWhich country sends London a giant Christmas tree every year? | Norway | Sweden | Germany | Canada\nWhat is the family's last name in \"National Lampoon's Christmas Vacation\"? | Griswold | McCallister | Parker | Bailey\nWho sings \"All I Want for Christmas Is You\"? | Mariah Carey | Whitney Houston | Celine Dion | Taylor Swift\nWhich of these is NOT one of Santa's reindeer? | Rover | Prancer | Vixen | Cupid\nIn \"The Polar Express,\" what is the first gift of Christmas? | A sleigh bell | A golden ticket | A toy train | A snow globe\nWhat date is Boxing Day? | December 26 | December 24 | December 31 | January 1\nWhat color is the Grinch? | Green | Red | Blue | Purple\nIn \"Frosty the Snowman,\" what is Frosty's nose made of? | A button | A carrot | A coal lump | A pinecone\nWhat is the name of the Christmas song that starts \"Dashing through the snow\"? | Jingle Bells | Deck the Halls | Silent Night | Let It Snow\nIn \"Elf,\" what are the four main food groups for elves? | Candy, candy canes, candy corn and syrup | Cookies, milk, cake and pie | Fruit, nuts, bread and cheese | Gingerbread, cocoa, fudge and toffee"
+  text: "[easy] Which reindeer has a red nose? | Rudolph | Dasher | Comet | Blitzen\n[easy] Where does Santa live? | The North Pole | The South Pole | Greenland | Iceland\n[easy] What do kids traditionally leave out for Santa? | Milk and cookies | Hot cocoa and pie | Juice and cake | Tea and toast\n[easy] What do people hang by the fireplace for Santa to fill? | Stockings | Wreaths | Mittens | Ornaments\n[easy] What color is the Grinch? | Green | Red | Blue | Purple\n[easy] Which Christmas candy is shaped like a shepherd's hook? | Candy cane | Lollipop | Gumdrop | Licorice\n[easy] Which movie is about Buddy, a human raised by elves? | Elf | The Polar Express | Jingle All the Way | Home Alone\n[easy] Which song starts with \"Dashing through the snow\"? | Jingle Bells | Deck the Halls | Silent Night | Let It Snow\n[easy] What is Frosty the Snowman made of? | Snow | Ice cream | Cotton | Clouds\n[easy] What usually goes on the very top of a Christmas tree? | A star or an angel | A stocking | A wreath | A candy cane\n[easy] Which plant with bright red leaves is popular at Christmas? | Poinsettia | Rose | Tulip | Sunflower\n[medium] In \"Home Alone,\" where is Kevin's family flying to? | Paris | London | Rome | Florida\n[medium] Who wrote \"A Christmas Carol\"? | Charles Dickens | Mark Twain | Dr. Seuss | Jane Austen\n[medium] What is the name of the grumpy main character in \"A Christmas Carol\"? | Ebenezer Scrooge | Bob Cratchit | Jacob Marley | Tiny Tim\n[medium] What is the name of the Grinch's dog? | Max | Buddy | Rex | Spot\n[medium] What brought Frosty the Snowman to life? | An old silk hat | A red scarf | A magic carrot | A Santa hat\n[medium] In \"The Twelve Days of Christmas,\" what is given on the first day? | A partridge in a pear tree | Two turtle doves | Five golden rings | Three French hens\n[medium] In \"A Christmas Story,\" what does Ralphie want for Christmas? | A Red Ryder BB gun | A bicycle | A puppy | A train set\n[medium] What is the family's last name in \"National Lampoon's Christmas Vacation\"? | Griswold | McCallister | Parker | Bailey\n[medium] Who sings \"All I Want for Christmas Is You\"? | Mariah Carey | Whitney Houston | Celine Dion | Taylor Swift\n[medium] Which of these is NOT one of Santa's reindeer? | Rover | Prancer | Vixen | Cupid\n[medium] What date is Boxing Day? | December 26 | December 24 | December 31 | January 1\n[medium] What color are mistletoe berries? | White | Red | Green | Blue\n[medium] How many ghosts visit Scrooge after Jacob Marley? | 3 | 2 | 4 | 5\n[hard] In \"The Polar Express,\" what is the first gift of Christmas? | A sleigh bell | A golden ticket | A toy train | A snow globe\n[hard] In which country did the Christmas tree tradition begin? | Germany | England | United States | Norway\n[hard] Which country sends London a giant Christmas tree every year as a thank-you gift? | Norway | Sweden | Germany | Canada\n[hard] Tinsel was first made from thin strands of what? | Silver | Gold | Glass | Paper\n[hard] If you add up every gift in every verse of \"The Twelve Days of Christmas,\" how many gifts are there? | 364 | 78 | 144 | 12\n[hard] What is the name of the angel in \"It's a Wonderful Life\"? | Clarence | Gabriel | Michael | Henry\n[hard] In \"Elf,\" what are the four main food groups for elves? | Candy, candy canes, candy corn and syrup | Cookies, milk, cake and pie | Fruit, nuts, bread and cheese | Gingerbread, cocoa, fudge and toffee\n[hard] The word \"Noel\" comes from a Latin word meaning | Birth | Snow | Star | Gift\n[hard] Rudolph the Red-Nosed Reindeer was first created to promote which store? | Montgomery Ward | Macy's | Sears | Woolworth\n[hard] In \"Miracle on 34th Street,\" which store does Kris Kringle work at? | Macy's | Gimbels | Bloomingdale's | Sears\n[hard] \"Silent Night\" was first sung in 1818 in which country? | Austria | Germany | England | France\n[hard] What was the name of Scrooge's dead business partner? | Jacob Marley | Fred Holywell | Bob Cratchit | Mr. Fezziwig"
 };
 
 const $ = s => document.querySelector(s);
@@ -272,14 +274,17 @@ const flag = c => `var(${FLAG_VARS[c % 4]})`;
 function parseSet(text, askBy) {
   const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const cards = [], qs = [], bad = [];
-  lines.forEach((line, i) => {
+  lines.forEach((raw, i) => {
+    const dm = raw.match(/^\[(easy|medium|hard)\]\s*/i);
+    const d = dm ? dm[1].toLowerCase() : null;
+    const line = dm ? raw.slice(dm[0].length) : raw;
     let parts = null;
     if (line.includes("\t")) parts = line.split("\t");
     else if (line.includes("|")) parts = line.split("|");
     else { const k = line.indexOf(" - "); if (k > 0) parts = [line.slice(0, k), line.slice(k + 3)]; }
     parts = parts ? parts.map(s => s.trim()).filter(Boolean) : [];
-    if (parts.length === 2) cards.push({ term: parts[0], def: parts[1] });
-    else if (parts.length >= 3) qs.push({ q: parts[0], a: parts[1], w: parts.slice(2, 5) });
+    if (parts.length === 2) cards.push({ term: parts[0], def: parts[1], d });
+    else if (parts.length >= 3) qs.push({ q: parts[0], a: parts[1], w: parts.slice(2, 5), d });
     else bad.push(i + 1);
   });
   const prompt = c => askBy === "term" ? c.term : c.def;
@@ -289,7 +294,7 @@ function parseSet(text, askBy) {
   cards.forEach(c => {
     const a = answer(c);
     const w = shuffle(pool.filter(x => x !== a)).slice(0, 3);
-    if (w.length) qs.push({ q: prompt(c), a, w }); else lonely++;
+    if (w.length) qs.push({ q: prompt(c), a, w, d: c.d }); else lonely++;
   });
   return { qs, bad, cards: cards.length, lonely };
 }
@@ -552,7 +557,10 @@ function hostStart() {
   H.seats = seats;
   H.gid = Math.random().toString(36).slice(2, 8);
   const n = H.rounds === 0 ? H.all.length : Math.min(H.rounds, H.all.length);
-  H.questions = shuffle(H.all).slice(0, n);
+  const pools = ["easy", "medium", "hard", null].map(d => shuffle(H.all.filter(q => (q.d || null) === d)));
+  const picked = [];
+  while (picked.length < n && pools.some(p => p.length)) pools.forEach(p => { if (p.length && picked.length < n) picked.push(p.pop()); });
+  H.questions = shuffle(picked);
   H.qi = -1; H.q = null; H.ansIdx = null; H.ammo = {}; H.targets = []; H.shooters = []; H.res = {}; H.fast = null;
   H.ba = {}; H.bb = {}; H.bs = []; H.correct = {}; H.rank = null; H.bots = {};
   seats.forEach((s, i) => { if (s.bot) { H.bots[i] = { ships: randomFleet(), js: "" }; H.bb[i] = boardFrom(H.bots[i].ships, new Set()); } H.correct[i] = 0; });
@@ -564,7 +572,7 @@ function hostQuestion() {
   const q = H.questions[H.qi];
   const ch = shuffle([q.a, ...q.w]);
   H.ansIdx = ch.indexOf(q.a);
-  H.q = { t: q.q.slice(0, 300), ch: ch.map(c => String(c).slice(0, 140)) };
+  H.q = { t: q.q.slice(0, 300), ch: ch.map(c => String(c).slice(0, 140)), d: q.d || null };
   H.ba = {}; H.res = {}; H.ammo = {}; H.targets = []; H.shooters = []; H.fast = null;
   H.botPlan = {};
   H.seats.forEach((s, i) => {
@@ -910,6 +918,7 @@ function editHTML() {
       <p class="sub">One question per line. Two ways to write them, and you can mix them:</p>
       <p class="sub"><b>Flashcards (Quizlet):</b> term, then a tab, then the definition. In Quizlet open your set, choose <b>⋯ → Export</b>, keep <b>Tab</b> between term and definition and <b>New line</b> between rows, copy, and paste here. Wrong answers come from your other cards.</p>
       <p class="sub"><b>Multiple choice:</b> <code>Question | right answer | wrong | wrong | wrong</code></p>
+      <p class="sub"><b>Difficulty (optional):</b> start a line with <code>[easy]</code>, <code>[medium]</code> or <code>[hard]</code>. Each game then deals a mix of all three in random order.</p>
       <textarea id="sx" spellcheck="false" placeholder="Mitochondria&#9;Makes energy for the cell&#10;Nucleus&#9;Holds the cell's DNA&#10;What is 7 × 8? | 56 | 54 | 64 | 48">${esc(e.text)}</textarea>
     </div>
     <label class="field" for="sa">For flashcard lines, show
@@ -1174,7 +1183,7 @@ function questionHTML(G, seat) {
     foot = `<div class="banner ${cls}">${msg}</div><div class="tags">${who}</div>`;
   }
   return `<div class="qlayout"><div class="stack" style="gap:16px">
-    <div class="qcard"><div class="eyebrow">Question ${G.qi + 1} of ${G.n}</div><h2 class="qtext">${esc(q.t)}</h2></div>
+    <div class="qcard"><div class="row" style="justify-content:space-between"><div class="eyebrow">Question ${G.qi + 1} of ${G.n}</div>${q.d ? `<span class="lvl ${q.d}">${q.d === "easy" ? "Easy" : q.d === "medium" ? "Medium" : "Hard"}</span>` : ""}</div><h2 class="qtext">${esc(q.t)}</h2></div>
     <div class="choices">${choices}</div>${foot}</div>
     <aside class="minifleet"><div class="eyebrow">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "sm", key: G.gid + ":" + seat })}</aside></div>`;
 }
