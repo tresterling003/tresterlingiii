@@ -126,6 +126,11 @@ ul.fmt{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;fon
 ul.fmt code{font-size:12.5px;overflow-wrap:anywhere}
 .pq .sub{display:block}
 @media (max-width:600px){.match{grid-template-columns:1fr}}
+.sinkmsg{font-size:clamp(17px,2vw,22px)}
+.sinkmsg.good{background:color-mix(in srgb,var(--ok) 14%,var(--paper))}
+.sinkmsg.bad{background:color-mix(in srgb,var(--hit) 12%,var(--paper))}
+@media (prefers-reduced-motion:no-preference){.sinkmsg{animation:sinkpop .5s cubic-bezier(.2,1.5,.4,1) both}}
+@keyframes sinkpop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
 /* boards */
 .board-wrap{display:flex;flex-direction:column;gap:8px;min-width:0;align-items:flex-start}
 .board-title{display:flex;align-items:center;gap:8px;font-weight:700}
@@ -347,13 +352,26 @@ function shipCells(anchor, len, hz) {
   const a = y * N + x;
   return Array.from({ length: len }, (_, k) => hz ? a + k : a + k * N);
 }
+// Every square a ship sits on plus the ring of squares around it (diagonals too).
+function zoneOf(cells) {
+  const z = new Set();
+  for (const c of cells) {
+    const x = c % N, y = Math.floor(c / N);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < N && ny >= 0 && ny < N) z.add(ny * N + nx);
+    }
+  }
+  return z;
+}
+const touchesAny = (cells, otherShips) => { const z = zoneOf(otherShips.flat()); return cells.some(c => z.has(c)); };
 function randomFleet() {
   for (;;) {
-    const used = new Set(), ships = [];
+    const ships = [];
     for (const len of SHIPS) {
-      for (let t = 0; t < 200; t++) {
+      for (let t = 0; t < 300; t++) {
         const cells = shipCells(rand(N * N), len, Math.random() < .5);
-        if (cells.every(c => !used.has(c))) { cells.forEach(c => used.add(c)); ships.push(cells); break; }
+        if (!touchesAny(cells, ships)) { ships.push(cells); break; }
       }
     }
     if (ships.length === SHIPS.length) return ships;
@@ -824,8 +842,8 @@ function placeClick(c) {
   if (owner >= 0 && owner !== S.place.sel) { S.place.sel = owner; return scheduleRender(); }
   const sel = S.place.sel;
   const cells = shipCells(c, SHIPS[sel], S.place.horiz);
-  const others = new Set(S.ships.filter((sh, i) => sh && i !== sel).flat());
-  if (cells.some(x => others.has(x))) { S.note = "That spot overlaps another ship."; return scheduleRender(); }
+  const otherShips = S.ships.filter((sh, i) => sh && i !== sel);
+  if (touchesAny(cells, otherShips)) { S.note = "Ships can't touch each other, not even at the corners. Leave a gap."; return scheduleRender(); }
   S.note = "";
   S.ships[sel] = cells;
   const nextEmpty = S.ships.findIndex(sh => !sh);
@@ -837,8 +855,7 @@ function rotate() {
   const sel = S.place.sel, sh = S.ships[sel];
   if (sh) {
     const cells = shipCells(sh[0], SHIPS[sel], S.place.horiz);
-    const others = new Set(S.ships.filter((x, i) => x && i !== sel).flat());
-    if (!cells.some(x => others.has(x))) S.ships[sel] = cells; else S.note = "No room to turn that ship here. Move it first.";
+    if (!touchesAny(cells, S.ships.filter((x, i) => x && i !== sel))) S.ships[sel] = cells; else S.note = "Turning it here would touch another ship. Move it first.";
   }
   scheduleRender();
 }
@@ -917,7 +934,7 @@ function homeHTML() {
     <section class="panel">
       <h2>How a round works</h2>
       <ol class="rules">
-        <li>Hide your four ships on an 8×8 grid.</li>
+        <li>Hide your four ships on an 8×8 grid. Ships can't touch each other, not even at the corners.</li>
         <li>A question appears on every screen. Pick an answer before the timer runs out.</li>
         <li>Every right answer earns 1 shell. In a 4-player game, if you're the only one who gets it right, you earn 3 shells and can split them between boards however you like.</li>
         <li>Fire your shells at the fleets of players who got it wrong. If nobody misses, everyone is safe.</li>
@@ -1231,7 +1248,7 @@ function placeHTML(G, seat) {
     <div class="board-wrap"><div class="board-title">Place your fleet</div>
       ${boardHTML({ ships: S.ships, mode: "place", click: true, sel: S.place.sel, size: "lg" })}</div>
     <div class="stack">
-      <p class="muted">Pick a ship, then tap the grid where it should start. Tap a placed ship to pick it up again. Other players never see where your ships are.</p>
+      <p class="muted">Pick a ship, then tap the grid where it should start. Tap a placed ship to pick it up again. Ships can't touch, not even at the corners. Other players never see where your ships are.</p>
       ${SHIPS.map((len, i) => `<button class="shipbtn ${S.place.sel === i ? "on" : ""}" data-act="pick" data-i="${i}"><span class="pips">${"<i></i>".repeat(len)}</span>${SHIP_NAMES[i]} · ${len}${S.ships[i] ? "" : " <span class='tag bad'>not placed</span>"}</button>`).join("")}
       <div class="row">
         <button class="btn small" data-act="rotate">Turn ship (${S.place.horiz ? "across" : "down"})</button>
@@ -1330,6 +1347,27 @@ function watchBoards(G, idxs, opts = {}) {
       ${sunkList(b)}</div>`;
   }).join("")}</div>`;
 }
+// Ships that went down this round: the shot that landed on a sunk ship this round gets the credit.
+function sinksThisRound(G) {
+  const out = [], seen = new Set();
+  allShots(G).filter(s => s[0] === G.qi).forEach(([, t, c, sh]) => {
+    const b = seatBoard(G, t);
+    const ship = b && (b.s || []).find(x => x.includes(c));
+    if (!ship) return;
+    const k = t + ":" + Math.min(...ship);
+    if (seen.has(k)) return;
+    seen.add(k); out.push({ t, sh, len: ship.length });
+  });
+  return out;
+}
+function sinkBanner(G, seat) {
+  return sinksThisRound(G).map(({ t, sh, len }) => {
+    const nm = shipName(len).replace(" (", " (");
+    if (sh === seat) return `<div class="banner good sinkmsg">You sank ${plainName(G, t)}'s ${nm}!</div>`;
+    if (t === seat) return `<div class="banner bad sinkmsg">${plainName(G, sh)} sank your ${nm}.</div>`;
+    return `<div class="banner sinkmsg">${plainName(G, sh)} sank ${plainName(G, t)}'s ${nm}.</div>`;
+  }).join("");
+}
 function fireHTML(G, seat) {
   const ammo = (G.ammo && G.ammo[seat]) || 0;
   const mine = (ME.shots || []).filter(s => s[0] === G.qi);
@@ -1340,6 +1378,7 @@ function fireHTML(G, seat) {
     return `<section class="panel">
       <div class="row" style="justify-content:space-between"><h2>${left ? (ammo > 1 ? `Only one who got it right! ${left} shell${left === 1 ? "" : "s"} left` : "Fire! 1 shell") : "Shell away"}</h2>
       <span class="sub">${ammo > 1 && left ? "Pick a board for each shell. Spread them out or hit one player with all of them." : "Tap a square on a target's grid. A fireball is a hit, splash rings are a miss."}</span></div>
+      ${sinkBanner(G, seat)}
       ${watchBoards(G, targets, { click: left > 0, pend })}
     </section>`;
   }
@@ -1347,10 +1386,10 @@ function fireHTML(G, seat) {
     const shooters = (G.sh || []).map(i => plainName(G, i)).join(", ");
     return `<section class="panel"><div class="split">
       <div class="board-wrap"><div class="board-title">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "lg", key: G.gid + ":" + seat })}</div>
-      <div class="stack"><h2>Incoming fire!</h2><p class="muted">${shooters} ${(G.sh || []).length === 1 ? "is" : "are"} aiming at the players who missed. Watch your grid.</p></div>
+      <div class="stack"><h2>Incoming fire!</h2><p class="muted">${shooters} ${(G.sh || []).length === 1 ? "is" : "are"} aiming at the players who missed. Watch your grid.</p>${sinkBanner(G, seat)}</div>
     </div></section>`;
   }
-  return `<section class="panel"><h2>Shots are being fired</h2>${watchBoards(G, targets)}</section>`;
+  return `<section class="panel"><h2>Shots are being fired</h2>${sinkBanner(G, seat)}${watchBoards(G, targets)}</section>`;
 }
 function damageHTML(G, seat) {
   const shots = allShots(G).filter(s => s[0] === G.qi);
@@ -1358,10 +1397,11 @@ function damageHTML(G, seat) {
     const b = seatBoard(G, t);
     const hit = b && b.h.includes(c);
     const sunkShip = b && (b.s || []).find(x => x.includes(c));
-    return `<li><span class="flag" style="background:${flag(G.seats[sh] ? G.seats[sh].c : 0)}"></span>${plainName(G, sh)} → ${plainName(G, t)} at <span class="code">${cellName(c)}</span> <span class="tag ${hit ? "bad" : ""}">${sunkShip ? "Sunk a ship" : hit ? "Hit" : "Miss"}</span></li>`;
+    return `<li><span class="flag" style="background:${flag(G.seats[sh] ? G.seats[sh].c : 0)}"></span>${plainName(G, sh)} → ${plainName(G, t)} at <span class="code">${cellName(c)}</span> <span class="tag ${hit ? "bad" : ""}">${sunkShip ? "Hit · " + shipName(sunkShip.length) + " sunk" : hit ? "Hit" : "Miss"}</span></li>`;
   }).join("");
   const targets = G.tg || [];
   return `<section class="panel"><div class="eyebrow">Damage report</div>
+    ${sinkBanner(G, seat)}
     <ul class="report">${rows || `<li class="muted">No shells were fired.</li>`}</ul>
     ${targets.includes(seat) ? `<div class="board-wrap"><div class="board-title">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "lg", key: G.gid + ":" + seat })}</div>` : watchBoards(G, targets)}
   </section>`;
