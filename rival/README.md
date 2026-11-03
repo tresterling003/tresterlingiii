@@ -2,6 +2,8 @@
 
 **Every Move Counts. Every Week Matters.**
 
+**Live: https://tresterlingiii.vercel.app** — sign up, create a league, and send the invite link to friends and family.
+
 RIVAL runs private head-to-head fantasy leagues for friends and family. Each person is their own team. Real activity (steps, cardio, strength, mobility) turns into fantasy points. Every week you face a new opponent from a round-robin schedule. A season brings standings, playoffs and a champion.
 
 This folder is a self-contained app. It doesn't touch the gift registry at the repository root.
@@ -128,7 +130,8 @@ BASE_URL=http://localhost:3100 npm run test:e2e
 |---|---|---|
 | Database: scoring, caps, double counting, goals, plans, consistency, edits/deletes, rule changes, idempotency, concurrent double-taps, invalid entries, timezone boundaries, RLS/permissions, invite codes, rate limits, scheduling for 2/4/5/7/8/20 teams, mid-season joins, finalization, ties, standings, playoffs (2- and 6-team), multi-week catch-up, forfeits, live-sync counter | **42 / 42 pass** | `tests/db.test.ts` (real Postgres 16, run as `rival_app`) |
 | Projections / win probability | **5 / 5 pass** | `tests/projections.test.ts` |
-| Two-player E2E in two isolated browser sessions (separate cookie jars, mobile viewport) against the production build + Postgres | **16 / 16 pass** | `tests/e2e/two-player.cjs`, results + screenshots in `tests/e2e/results/` |
+| Two-player E2E in two isolated browser sessions (separate cookie jars, mobile viewport) against a local production build + Postgres | **16 / 16 pass** | `tests/e2e/results/localhost_3100/` |
+| **Same E2E against the live deployment** (tresterlingiii.vercel.app → Vercel + Neon), 2026-11-03 | **16 / 16 pass** — live update reached the other player in ~0.65 s | `tests/e2e/results/tresterlingiii.vercel.app/` |
 
 The E2E run covers the full user journey:
 - **Signup and joining.** Sign up as A, create a league, sign up B, join by code.
