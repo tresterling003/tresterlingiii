@@ -147,7 +147,7 @@ class Player {
     const b = this.ball; if (!b) return;
     const sprinting = Math.hypot(this.vel.x, this.vel.z) > 4.5;
     const pow = this.r('pow'), acc = this.r('acc');
-    let speed = (13.5 + r01(pow) * 13.5) * (0.55 + 0.45 * A.charge);
+    let speed = (11.5 + r01(pow) * 12.5) * (0.55 + 0.45 * A.charge);
     if (A.perfect) speed *= 1.12;
     let err = lerp(0.12, 0.024, r01(acc)) * (A.perfect ? 0.3 : 1) * (sprinting ? 1.5 : 1) * (A.charge < 0.45 ? 1.25 : 1) * (this.team.isHuman ? 1 : 1 / G.diffFor(this).acc) * (this.airborne ? 1.3 : 1);
     // origin
@@ -263,7 +263,7 @@ class Player {
     }
     c.applyPose(P);
     // flash
-    this.flash = Math.max(0, this.flash - dt * 3.5); c.setFlash(this.flash * 0.9);
+    this.flash = Math.max(0, this.flash - dt * 4.5); c.setFlash(this.flash * 0.45);
     // markers
     this.blob.position.set(this.pos.x, 0.008, this.pos.z); this.blob.visible = this.state !== 'bench';
     this.blob.scale.setScalar(1 - Math.min(0.4, this.jumpY));

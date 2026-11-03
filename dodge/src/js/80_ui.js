@@ -121,7 +121,7 @@ const UI = {
   // ---------- title ----------
   initTitle() {
     const ticks = [];
-    for (let i = 0; i < 8; i++) { const a = TEAMS[i], b = TEAMS[(i * 3 + 2) % 8]; if (a === b) continue; ticks.push(`<b>${a.abbr}</b> ${2 + (i % 2)} – ${i % 3} <b>${b.abbr}</b>`); }
+    for (let i = 0; i < 8; i++) { const a = TEAMS[i], b = TEAMS[(i * 3 + 2) % 8]; if (a === b) continue; ticks.push(`<b>${a.abbr}</b> 2 – ${i % 2} <b>${b.abbr}</b>`); }
     const lead = TEAMS.slice().sort((x, y) => y.rec[0] - x.rec[0]);
     ticks.push(`<b>STANDINGS</b> ${lead.slice(0, 4).map(t => `${t.name} ${t.rec[0]}-${t.rec[1]}`).join(' · ')}`);
     const star = TEAMS.flatMap(t => t.roster.map(p => [p, t])).sort((a, b) => b[0].ovr - a[0].ovr)[0];
@@ -227,8 +227,8 @@ const UI = {
   },
   resultAction(a) {
     if (a === 'rematch') this.go('hud', () => startMatchFlow(true));
-    if (a === 'newmatch') this.go('select', () => { G.phase = 'menu'; this.renderSelect(); });
-    if (a === 'menu') this.go('title', () => { G.phase = 'menu'; });
+    if (a === 'newmatch') this.go('select', () => { G.demoMode(); this.renderSelect(); });
+    if (a === 'menu') this.go('title', () => G.demoMode());
   },
   // ---------- info panels ----------
   info(kind) {

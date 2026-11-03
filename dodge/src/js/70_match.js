@@ -91,7 +91,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   COMM.callout(big ? pick(['BOOM!', 'DRILLED!', 'LIGHTS OUT!', 'ROCKET!']) : pick(['OUT!', 'TAGGED!', 'GOT HIM!']).replace('HIM', p.data.female ? 'HER' : 'HIM'), `${thrower.name} ▸ ${p.name}`, thrower.team.uni.p === '#ffffff' ? '#ffcc33' : '#ffffff', 1.1);
   COMM.say(big ? 'hitBig' : (b.perfect ? 'perfect' : 'hit'), { t: thrower.name, v: p.name });
   G.cheer = Math.max(G.cheer, 0.6 + power * 0.4); AUDIO.cheer(0.4 + power * 0.6);
-  G.markEvent('hit', contact, (b.perfect ? 2.6 : 1.4) + power + (last ? 5 : 0), p);
+  G.markEvent('hit', contact, (b.perfect ? 3.2 : 1.6) + power * 1.4 + (last ? 5 : 0), p);
   b.deaden();
 };
 G.caught = (b, p, thrower, contact) => {
@@ -128,7 +128,7 @@ G.onPlayerOut = (p) => {
   if (alive === 1 && oAlive === 1 && !G.oneOnOne) { G.oneOnOne = true; setTimeout(() => G.phase === 'play' && COMM.callout('ONE ON ONE', 'NEXT OUT LOSES', '#ff5a1f', 1.6), 900); }
   // comeback: the other team was trailing big and is now level or ahead
   const oDiff = alive - oAlive;
-  if (G.maxDeficit[opp.idx] >= 3 && oDiff <= 0 && !opp.comebackSaid) { opp.comebackSaid = true; COMM.say('comeback', { team: opp.data.name }, true); G.markEvent('comeback', p.pos.clone().setY(1), 2.5, p); }
+  if (G.maxDeficit[opp.idx] >= 3 && oDiff <= 0 && !opp.comebackSaid) { opp.comebackSaid = true; COMM.say('comeback', { team: opp.data.name }, true); G.markEvent('comeback', p.pos.clone().setY(1), 4.2, p); }
   if (alive > 1 && oAlive > 1) AUDIO.chant = false;
   G.checkEnd();
 };
@@ -143,7 +143,7 @@ G.markEvent = (kind, pos, score, who) => {
   if (!SETTINGS.replays) return;
   const gameEnding = G.teams.some(t => G.aliveCount(t) === 0);
   if (gameEnding) return; // the end-of-game replay is handled by endGame
-  if (score >= 3.8 && G.time - G.lastReplayAt > 14 && !G.pendingReplay) {
+  if (score >= 3.6 && G.time - G.lastReplayAt > 15 && !G.pendingReplay) {
     G.pendingReplay = { ev: G.events[G.events.length - 1], at: G.time + 1.1 };
   }
 };
@@ -165,7 +165,7 @@ function recApply(t) {
   let o = 0;
   for (const p of G.players) {
     const r = p.char.root; r.position.set(lerp(A.a[o], B.a[o], k), lerp(A.a[o + 1], B.a[o + 1], k), lerp(A.a[o + 2], B.a[o + 2], k));
-    r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; p.char.setFlash(A.a[o + 4] * 0.9); o += 6;
+    r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; p.char.setFlash(A.a[o + 4] * 0.45); o += 6;
     o = p.char.restore(A.a, B.a, k, o);
     p.blob.position.set(r.position.x, 0.008, r.position.z); p.ring.material.opacity = 0;
   }
@@ -193,7 +193,7 @@ function startReplay(ev, after) {
   REPLAY.dist = 4.6 + Math.random();
   $('#replay-ui').classList.add('on');
   $('#replay-sub').textContent = ({ catch: 'THE CATCH', hit: 'THE HIT', ghost: 'THE DODGE', comeback: 'THE COMEBACK', fumble: 'THE FUMBLE', bobble: 'THE BOBBLE', final: 'GAME POINT' })[ev.kind] || 'BIG MOMENT';
-  FX.clear(); COMM.clear(); $('#meter').classList.remove('on');
+  FX.clear(); COMM.clear(); $('#meter').classList.remove('on'); $('#center-banner').classList.remove('on'); UI.bannerT = 0;
   UI.wipe(); drawJumboReplay();
 }
 function endReplay() {

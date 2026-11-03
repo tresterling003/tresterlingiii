@@ -96,7 +96,7 @@ function buildArena() {
       for (let i = 0; i < n; i++) {
         const t = (i + 0.5) / n - 0.5; const along = t * (len + r * 1.6);
         const top = rowH * (r + 1) + 0.6;
-        if (axis === 'z' && sign > 0 && d > 12.5 && Math.abs(along) < 11) continue; // broadcast camera platform
+        if (axis === 'z' && sign > 0 && Math.abs(along) < 10.5) continue; // broadcast camera / press row
         crowdSpots.push(axis === 'z' ? [along, top, sign * d, sign > 0 ? Math.PI : 0, r] : [sign * d, top, along, sign > 0 ? -Math.PI / 2 : Math.PI / 2, r]);
       }
     }
@@ -117,6 +117,10 @@ function buildArena() {
   const table = new THREE.Mesh(new THREE.BoxGeometry(7, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x0b1022, roughness: 0.5 }));
   table.position.set(0, 0.4, 7.4); g.add(table);
   const tableFace = new THREE.Mesh(new THREE.PlaneGeometry(7, 0.7), boardMat); tableFace.position.set(0, 0.4, 7.81); tableFace.rotation.y = Math.PI; g.add(tableFace);
+  // press row riser (near side, behind the broadcast position)
+  const press = new THREE.Mesh(new THREE.BoxGeometry(21, 1.3, 2.2), new THREE.MeshStandardMaterial({ color: 0x0a0d18, roughness: 0.6 }));
+  press.position.set(0, 0.65, 10.6); g.add(press);
+  const pressFace = new THREE.Mesh(new THREE.PlaneGeometry(21, 0.9), boardMat); pressFace.position.set(0, 0.75, 9.49); pressFace.rotation.y = Math.PI; g.add(pressFace);
   // benches (far sideline)
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x1b2236, roughness: 0.6 });
   for (const s of [-1, 1]) {
@@ -157,11 +161,11 @@ function buildArena() {
 function crowdGeometry() {
   const parts = [];
   const add = (geo, part, tx, ty, tz) => { geo.translate(tx, ty, tz); const n = geo.attributes.position.count; geo.setAttribute('aPart', new THREE.BufferAttribute(new Float32Array(n).fill(part), 1)); parts.push(geo.toNonIndexed ? geo.toNonIndexed() : geo); };
-  const torso = new THREE.CapsuleGeometry(0.17, 0.3, 3, 8); torso.scale(1.15, 1, 0.72); add(torso, 0, 0, 0.36, 0);
+  const torso = new THREE.CapsuleGeometry(0.17, 0.3, 2, 7); torso.scale(1.15, 1, 0.72); add(torso, 0, 0, 0.36, 0);
   add(new THREE.CylinderGeometry(0.05, 0.06, 0.08, 6), 1, 0, 0.66, 0);
-  const head = new THREE.SphereGeometry(0.105, 10, 8); head.scale(0.92, 1.08, 1); add(head, 1, 0, 0.8, 0.01);
-  add(new THREE.CapsuleGeometry(0.045, 0.36, 2, 6), 2, -0.235, 0.36, 0);
-  add(new THREE.CapsuleGeometry(0.045, 0.36, 2, 6), 2, 0.235, 0.36, 0);
+  const head = new THREE.SphereGeometry(0.105, 8, 6); head.scale(0.92, 1.08, 1); add(head, 1, 0, 0.8, 0.01);
+  add(new THREE.CapsuleGeometry(0.045, 0.36, 1, 5), 2, -0.235, 0.36, 0);
+  add(new THREE.CapsuleGeometry(0.045, 0.36, 1, 5), 2, 0.235, 0.36, 0);
   // merge
   let total = 0; for (const p of parts) total += p.attributes.position.count;
   const pos = new Float32Array(total * 3), nrm = new Float32Array(total * 3), part = new Float32Array(total); let o = 0;

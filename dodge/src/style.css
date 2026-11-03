@@ -296,6 +296,34 @@ body.touch #touch{display:block}
   body.touch #pcard .pn{font-size:22px}
   body.touch #pcard .pi .l{font-size:16px}
 }
+@media (max-height:560px){
+  .brand.huge{font-size:min(12vw,19vh)}
+  .title-left{gap:6px;top:46%}
+  .tagline{font-size:11px;letter-spacing:.24em}
+  .menu{margin-top:8px;gap:5px}
+  .mi{padding:6px 14px;min-width:220px}
+  .mi span{font-size:19px}
+  .mi small{font-size:11px}
+  .title-ticker{height:26px}
+  .tick-inner{font-size:12px}
+  .tp-top{padding:8px 10px 4px;gap:10px}
+  .tp-logo{width:52px;height:52px}
+  .tp-name .city{font-size:11px}
+  .tp-name .nick{font-size:26px}
+  .tp-ovr{gap:6px;padding:2px 10px 6px}
+  .tp-ovr div{padding:1px 7px}
+  .tp-ovr b{font-size:17px}
+  .tp-ovr span{font-size:9px}
+  .tp-side{font-size:10px;top:6px}
+  .tp-nav{padding:4px 8px 6px}
+  .tp-nav button{font-size:16px;padding:3px}
+  .scr-head h2{font-size:24px}
+  .back{width:36px;height:36px;font-size:26px}
+  .select-wrap{inset:calc(52px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));gap:8px}
+  .cta{font-size:19px;padding:8px 20px}
+  .panel{padding:14px 16px}
+  .panel h2{font-size:26px}
+}
 @media (max-height:420px){
   .sb-team{min-width:96px}
   .sb-team svg{width:26px;height:26px}

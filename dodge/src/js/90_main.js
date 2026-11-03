@@ -67,8 +67,8 @@ function frame(now) {
     else if (G.teams.length) {
       const dt = dtReal * FX.timeScale();
       let rem = dt, first = true;
-      while (rem > 1e-6) { const h = Math.min(rem, 1 / 60); G.simulate(h); rem -= h; if (first) { INPUT.pressed.clear(); INPUT.released.clear(); first = false; } }
-      G.render(dt);
+      while (rem > 1e-6 && !REPLAY.on) { const h = Math.min(rem, 1 / 60); G.simulate(h); rem -= h; if (first) { INPUT.pressed.clear(); INPUT.released.clear(); first = false; } }
+      if (!REPLAY.on) G.render(dt);
     }
   }
   INPUT.pressed.clear(); INPUT.released.clear();
@@ -102,7 +102,7 @@ async function boot() {
     requestAnimationFrame(frame);
     await new Promise(r => setTimeout(r, 250));
     UI.wipe(() => UI.show('title'));
-    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, CAMS, REPLAY, startReplay, FX, COMM };
+    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp };
   } catch (e) {
     console.error(e);
     setLoad(1, 'Could not start: ' + (e && e.message ? e.message : e) + ' — check your connection and reload.');

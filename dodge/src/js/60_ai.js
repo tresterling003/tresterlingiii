@@ -103,7 +103,7 @@ function aiIntent(p, dt) {
     ai.holdT += dt;
     if (!p.target || !p.target.isActive() || Math.random() < dt * 0.4) p.target = chooseTarget(p);
     const tgt = p.target;
-    if (ai.attackX == null) { ai.attackX = side * rand(1.0, 3.4) * (G.rush ? 1.6 : 1); ai.attackZ = clamp((tgt ? tgt.pos.z * 0.5 : 0) + rand(-1.2, 1.2), -3.6, 3.6); }
+    if (ai.attackX == null) { ai.attackX = side * rand(1.6, 4.2) * (G.rush ? 1.4 : 1); ai.attackZ = clamp((tgt ? tgt.pos.z * 0.5 : 0) + rand(-1.2, 1.2), -3.6, 3.6); }
     const dx = ai.attackX - p.pos.x, dz = ai.attackZ - p.pos.z; const dd = Math.hypot(dx, dz);
     const A = p.action;
     const charging = A && A.type === 'charge';
@@ -120,7 +120,7 @@ function aiIntent(p, dt) {
       ready = G.time > team.volleyAt - 0.75;
     }
     const pace = 0.85 + D.aggression * 0.2;
-    if (ai.patience == null) ai.patience = rand(0.5, 1.9) / pace;
+    if (ai.patience == null) ai.patience = rand(0.8, 2.5) / pace;
     if (!A && ready && !p.blocking && p.catchT <= 0 && ai.holdT > (G.rush ? 0.3 : ai.patience) && tgt) {
       ai.patience = null;
       I.throwStart = true;

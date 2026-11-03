@@ -336,6 +336,34 @@ body.touch #touch{display:block}
   body.touch #pcard .pn{font-size:22px}
   body.touch #pcard .pi .l{font-size:16px}
 }
+@media (max-height:560px){
+  .brand.huge{font-size:min(12vw,19vh)}
+  .title-left{gap:6px;top:46%}
+  .tagline{font-size:11px;letter-spacing:.24em}
+  .menu{margin-top:8px;gap:5px}
+  .mi{padding:6px 14px;min-width:220px}
+  .mi span{font-size:19px}
+  .mi small{font-size:11px}
+  .title-ticker{height:26px}
+  .tick-inner{font-size:12px}
+  .tp-top{padding:8px 10px 4px;gap:10px}
+  .tp-logo{width:52px;height:52px}
+  .tp-name .city{font-size:11px}
+  .tp-name .nick{font-size:26px}
+  .tp-ovr{gap:6px;padding:2px 10px 6px}
+  .tp-ovr div{padding:1px 7px}
+  .tp-ovr b{font-size:17px}
+  .tp-ovr span{font-size:9px}
+  .tp-side{font-size:10px;top:6px}
+  .tp-nav{padding:4px 8px 6px}
+  .tp-nav button{font-size:16px;padding:3px}
+  .scr-head h2{font-size:24px}
+  .back{width:36px;height:36px;font-size:26px}
+  .select-wrap{inset:calc(52px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));gap:8px}
+  .cta{font-size:19px;padding:8px 20px}
+  .panel{padding:14px 16px}
+  .panel h2{font-size:26px}
+}
 @media (max-height:420px){
   .sb-team{min-width:96px}
   .sb-team svg{width:26px;height:26px}
@@ -872,7 +900,7 @@ class Character {
   }
   setFlash(v) {
     if (Math.abs(v - this.flash) < 0.01) return; this.flash = v;
-    for (const m of this.mats) m.emissive.setRGB(v, v * 0.95, v * 0.9);
+    for (const m of this.mats) m.emissive.setRGB(v, v * 0.82, v * 0.62);
   }
   // ---- pose layer ----
   charQ(obj, out) { obj.getWorldQuaternion(out); return out.premultiply(this._rootQi); }
@@ -1047,7 +1075,7 @@ function buildArena() {
       for (let i = 0; i < n; i++) {
         const t = (i + 0.5) / n - 0.5; const along = t * (len + r * 1.6);
         const top = rowH * (r + 1) + 0.6;
-        if (axis === 'z' && sign > 0 && d > 12.5 && Math.abs(along) < 11) continue; // broadcast camera platform
+        if (axis === 'z' && sign > 0 && Math.abs(along) < 10.5) continue; // broadcast camera / press row
         crowdSpots.push(axis === 'z' ? [along, top, sign * d, sign > 0 ? Math.PI : 0, r] : [sign * d, top, along, sign > 0 ? -Math.PI / 2 : Math.PI / 2, r]);
       }
     }
@@ -1068,6 +1096,10 @@ function buildArena() {
   const table = new THREE.Mesh(new THREE.BoxGeometry(7, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x0b1022, roughness: 0.5 }));
   table.position.set(0, 0.4, 7.4); g.add(table);
   const tableFace = new THREE.Mesh(new THREE.PlaneGeometry(7, 0.7), boardMat); tableFace.position.set(0, 0.4, 7.81); tableFace.rotation.y = Math.PI; g.add(tableFace);
+  // press row riser (near side, behind the broadcast position)
+  const press = new THREE.Mesh(new THREE.BoxGeometry(21, 1.3, 2.2), new THREE.MeshStandardMaterial({ color: 0x0a0d18, roughness: 0.6 }));
+  press.position.set(0, 0.65, 10.6); g.add(press);
+  const pressFace = new THREE.Mesh(new THREE.PlaneGeometry(21, 0.9), boardMat); pressFace.position.set(0, 0.75, 9.49); pressFace.rotation.y = Math.PI; g.add(pressFace);
   // benches (far sideline)
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x1b2236, roughness: 0.6 });
   for (const s of [-1, 1]) {
@@ -1108,11 +1140,11 @@ function buildArena() {
 function crowdGeometry() {
   const parts = [];
   const add = (geo, part, tx, ty, tz) => { geo.translate(tx, ty, tz); const n = geo.attributes.position.count; geo.setAttribute('aPart', new THREE.BufferAttribute(new Float32Array(n).fill(part), 1)); parts.push(geo.toNonIndexed ? geo.toNonIndexed() : geo); };
-  const torso = new THREE.CapsuleGeometry(0.17, 0.3, 3, 8); torso.scale(1.15, 1, 0.72); add(torso, 0, 0, 0.36, 0);
+  const torso = new THREE.CapsuleGeometry(0.17, 0.3, 2, 7); torso.scale(1.15, 1, 0.72); add(torso, 0, 0, 0.36, 0);
   add(new THREE.CylinderGeometry(0.05, 0.06, 0.08, 6), 1, 0, 0.66, 0);
-  const head = new THREE.SphereGeometry(0.105, 10, 8); head.scale(0.92, 1.08, 1); add(head, 1, 0, 0.8, 0.01);
-  add(new THREE.CapsuleGeometry(0.045, 0.36, 2, 6), 2, -0.235, 0.36, 0);
-  add(new THREE.CapsuleGeometry(0.045, 0.36, 2, 6), 2, 0.235, 0.36, 0);
+  const head = new THREE.SphereGeometry(0.105, 8, 6); head.scale(0.92, 1.08, 1); add(head, 1, 0, 0.8, 0.01);
+  add(new THREE.CapsuleGeometry(0.045, 0.36, 1, 5), 2, -0.235, 0.36, 0);
+  add(new THREE.CapsuleGeometry(0.045, 0.36, 1, 5), 2, 0.235, 0.36, 0);
   // merge
   let total = 0; for (const p of parts) total += p.attributes.position.count;
   const pos = new Float32Array(total * 3), nrm = new Float32Array(total * 3), part = new Float32Array(total); let o = 0;
@@ -1573,7 +1605,7 @@ class Player {
     const b = this.ball; if (!b) return;
     const sprinting = Math.hypot(this.vel.x, this.vel.z) > 4.5;
     const pow = this.r('pow'), acc = this.r('acc');
-    let speed = (13.5 + r01(pow) * 13.5) * (0.55 + 0.45 * A.charge);
+    let speed = (11.5 + r01(pow) * 12.5) * (0.55 + 0.45 * A.charge);
     if (A.perfect) speed *= 1.12;
     let err = lerp(0.12, 0.024, r01(acc)) * (A.perfect ? 0.3 : 1) * (sprinting ? 1.5 : 1) * (A.charge < 0.45 ? 1.25 : 1) * (this.team.isHuman ? 1 : 1 / G.diffFor(this).acc) * (this.airborne ? 1.3 : 1);
     // origin
@@ -1689,7 +1721,7 @@ class Player {
     }
     c.applyPose(P);
     // flash
-    this.flash = Math.max(0, this.flash - dt * 3.5); c.setFlash(this.flash * 0.9);
+    this.flash = Math.max(0, this.flash - dt * 4.5); c.setFlash(this.flash * 0.45);
     // markers
     this.blob.position.set(this.pos.x, 0.008, this.pos.z); this.blob.visible = this.state !== 'bench';
     this.blob.scale.setScalar(1 - Math.min(0.4, this.jumpY));
@@ -1969,7 +2001,7 @@ function aiIntent(p, dt) {
     ai.holdT += dt;
     if (!p.target || !p.target.isActive() || Math.random() < dt * 0.4) p.target = chooseTarget(p);
     const tgt = p.target;
-    if (ai.attackX == null) { ai.attackX = side * rand(1.0, 3.4) * (G.rush ? 1.6 : 1); ai.attackZ = clamp((tgt ? tgt.pos.z * 0.5 : 0) + rand(-1.2, 1.2), -3.6, 3.6); }
+    if (ai.attackX == null) { ai.attackX = side * rand(1.6, 4.2) * (G.rush ? 1.4 : 1); ai.attackZ = clamp((tgt ? tgt.pos.z * 0.5 : 0) + rand(-1.2, 1.2), -3.6, 3.6); }
     const dx = ai.attackX - p.pos.x, dz = ai.attackZ - p.pos.z; const dd = Math.hypot(dx, dz);
     const A = p.action;
     const charging = A && A.type === 'charge';
@@ -1986,7 +2018,7 @@ function aiIntent(p, dt) {
       ready = G.time > team.volleyAt - 0.75;
     }
     const pace = 0.85 + D.aggression * 0.2;
-    if (ai.patience == null) ai.patience = rand(0.5, 1.9) / pace;
+    if (ai.patience == null) ai.patience = rand(0.8, 2.5) / pace;
     if (!A && ready && !p.blocking && p.catchT <= 0 && ai.holdT > (G.rush ? 0.3 : ai.patience) && tgt) {
       ai.patience = null;
       I.throwStart = true;
@@ -2142,7 +2174,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   COMM.callout(big ? pick(['BOOM!', 'DRILLED!', 'LIGHTS OUT!', 'ROCKET!']) : pick(['OUT!', 'TAGGED!', 'GOT HIM!']).replace('HIM', p.data.female ? 'HER' : 'HIM'), `${thrower.name} ▸ ${p.name}`, thrower.team.uni.p === '#ffffff' ? '#ffcc33' : '#ffffff', 1.1);
   COMM.say(big ? 'hitBig' : (b.perfect ? 'perfect' : 'hit'), { t: thrower.name, v: p.name });
   G.cheer = Math.max(G.cheer, 0.6 + power * 0.4); AUDIO.cheer(0.4 + power * 0.6);
-  G.markEvent('hit', contact, (b.perfect ? 2.6 : 1.4) + power + (last ? 5 : 0), p);
+  G.markEvent('hit', contact, (b.perfect ? 3.2 : 1.6) + power * 1.4 + (last ? 5 : 0), p);
   b.deaden();
 };
 G.caught = (b, p, thrower, contact) => {
@@ -2179,7 +2211,7 @@ G.onPlayerOut = (p) => {
   if (alive === 1 && oAlive === 1 && !G.oneOnOne) { G.oneOnOne = true; setTimeout(() => G.phase === 'play' && COMM.callout('ONE ON ONE', 'NEXT OUT LOSES', '#ff5a1f', 1.6), 900); }
   // comeback: the other team was trailing big and is now level or ahead
   const oDiff = alive - oAlive;
-  if (G.maxDeficit[opp.idx] >= 3 && oDiff <= 0 && !opp.comebackSaid) { opp.comebackSaid = true; COMM.say('comeback', { team: opp.data.name }, true); G.markEvent('comeback', p.pos.clone().setY(1), 2.5, p); }
+  if (G.maxDeficit[opp.idx] >= 3 && oDiff <= 0 && !opp.comebackSaid) { opp.comebackSaid = true; COMM.say('comeback', { team: opp.data.name }, true); G.markEvent('comeback', p.pos.clone().setY(1), 4.2, p); }
   if (alive > 1 && oAlive > 1) AUDIO.chant = false;
   G.checkEnd();
 };
@@ -2194,7 +2226,7 @@ G.markEvent = (kind, pos, score, who) => {
   if (!SETTINGS.replays) return;
   const gameEnding = G.teams.some(t => G.aliveCount(t) === 0);
   if (gameEnding) return; // the end-of-game replay is handled by endGame
-  if (score >= 3.8 && G.time - G.lastReplayAt > 14 && !G.pendingReplay) {
+  if (score >= 3.6 && G.time - G.lastReplayAt > 15 && !G.pendingReplay) {
     G.pendingReplay = { ev: G.events[G.events.length - 1], at: G.time + 1.1 };
   }
 };
@@ -2216,7 +2248,7 @@ function recApply(t) {
   let o = 0;
   for (const p of G.players) {
     const r = p.char.root; r.position.set(lerp(A.a[o], B.a[o], k), lerp(A.a[o + 1], B.a[o + 1], k), lerp(A.a[o + 2], B.a[o + 2], k));
-    r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; p.char.setFlash(A.a[o + 4] * 0.9); o += 6;
+    r.rotation.y = A.a[o + 3] + angDiff(A.a[o + 3], B.a[o + 3]) * k; p.char.setFlash(A.a[o + 4] * 0.45); o += 6;
     o = p.char.restore(A.a, B.a, k, o);
     p.blob.position.set(r.position.x, 0.008, r.position.z); p.ring.material.opacity = 0;
   }
@@ -2244,7 +2276,7 @@ function startReplay(ev, after) {
   REPLAY.dist = 4.6 + Math.random();
   $('#replay-ui').classList.add('on');
   $('#replay-sub').textContent = ({ catch: 'THE CATCH', hit: 'THE HIT', ghost: 'THE DODGE', comeback: 'THE COMEBACK', fumble: 'THE FUMBLE', bobble: 'THE BOBBLE', final: 'GAME POINT' })[ev.kind] || 'BIG MOMENT';
-  FX.clear(); COMM.clear(); $('#meter').classList.remove('on');
+  FX.clear(); COMM.clear(); $('#meter').classList.remove('on'); $('#center-banner').classList.remove('on'); UI.bannerT = 0;
   UI.wipe(); drawJumboReplay();
 }
 function endReplay() {
@@ -2585,7 +2617,7 @@ const UI = {
   // ---------- title ----------
   initTitle() {
     const ticks = [];
-    for (let i = 0; i < 8; i++) { const a = TEAMS[i], b = TEAMS[(i * 3 + 2) % 8]; if (a === b) continue; ticks.push(`<b>${a.abbr}</b> ${2 + (i % 2)} – ${i % 3} <b>${b.abbr}</b>`); }
+    for (let i = 0; i < 8; i++) { const a = TEAMS[i], b = TEAMS[(i * 3 + 2) % 8]; if (a === b) continue; ticks.push(`<b>${a.abbr}</b> 2 – ${i % 2} <b>${b.abbr}</b>`); }
     const lead = TEAMS.slice().sort((x, y) => y.rec[0] - x.rec[0]);
     ticks.push(`<b>STANDINGS</b> ${lead.slice(0, 4).map(t => `${t.name} ${t.rec[0]}-${t.rec[1]}`).join(' · ')}`);
     const star = TEAMS.flatMap(t => t.roster.map(p => [p, t])).sort((a, b) => b[0].ovr - a[0].ovr)[0];
@@ -2691,8 +2723,8 @@ const UI = {
   },
   resultAction(a) {
     if (a === 'rematch') this.go('hud', () => startMatchFlow(true));
-    if (a === 'newmatch') this.go('select', () => { G.phase = 'menu'; this.renderSelect(); });
-    if (a === 'menu') this.go('title', () => { G.phase = 'menu'; });
+    if (a === 'newmatch') this.go('select', () => { G.demoMode(); this.renderSelect(); });
+    if (a === 'menu') this.go('title', () => G.demoMode());
   },
   // ---------- info panels ----------
   info(kind) {
@@ -2857,8 +2889,8 @@ function frame(now) {
     else if (G.teams.length) {
       const dt = dtReal * FX.timeScale();
       let rem = dt, first = true;
-      while (rem > 1e-6) { const h = Math.min(rem, 1 / 60); G.simulate(h); rem -= h; if (first) { INPUT.pressed.clear(); INPUT.released.clear(); first = false; } }
-      G.render(dt);
+      while (rem > 1e-6 && !REPLAY.on) { const h = Math.min(rem, 1 / 60); G.simulate(h); rem -= h; if (first) { INPUT.pressed.clear(); INPUT.released.clear(); first = false; } }
+      if (!REPLAY.on) G.render(dt);
     }
   }
   INPUT.pressed.clear(); INPUT.released.clear();
@@ -2892,7 +2924,7 @@ async function boot() {
     requestAnimationFrame(frame);
     await new Promise(r => setTimeout(r, 250));
     UI.wipe(() => UI.show('title'));
-    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, CAMS, REPLAY, startReplay, FX, COMM };
+    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp };
   } catch (e) {
     console.error(e);
     setLoad(1, 'Could not start: ' + (e && e.message ? e.message : e) + ' — check your connection and reload.');

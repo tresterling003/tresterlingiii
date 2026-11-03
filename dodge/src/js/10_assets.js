@@ -245,7 +245,7 @@ class Character {
   }
   setFlash(v) {
     if (Math.abs(v - this.flash) < 0.01) return; this.flash = v;
-    for (const m of this.mats) m.emissive.setRGB(v, v * 0.95, v * 0.9);
+    for (const m of this.mats) m.emissive.setRGB(v, v * 0.82, v * 0.62);
   }
   // ---- pose layer ----
   charQ(obj, out) { obj.getWorldQuaternion(out); return out.premultiply(this._rootQi); }
