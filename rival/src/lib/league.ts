@@ -3,9 +3,9 @@ import { withUser, type Tx } from "./db";
 import { AppError } from "./errors";
 import { addDays, diffDays, minDate } from "./dates";
 import { avatarUrl } from "./avatar";
-import { MIN_SAMPLES, pace, projectTeam, remainingDays, winProbability } from "./projections";
+import { MIN_SAMPLES, leaguePrior, pace, projectTeam, remainingDays, winProbability } from "./projections";
 import type {
-  DayScore, FeedItem, HistoryRow, LeagueSnapshot, Matchup, MatchupView, Member, Scoring,
+  ChatMessage, DayScore, FeedItem, HistoryRow, LeagueSnapshot, Matchup, MatchupView, Member, Scoring,
   Standing, WeekStatus, WeekTotal,
 } from "./types";
 
@@ -134,29 +134,29 @@ export async function buildSnapshot(uid: string, leagueId: string, requestedWeek
         }
       }
 
+      // Only days since the season began count as evidence for a projection.
+      const inSeason = (xs: DayScore[] = []) => xs.filter((d) => d.day >= l.season_start!);
+      const prior = leaguePrior(Object.values(days).flatMap((xs) => inSeason(xs)), today);
+
       matchups = weekRows.map((m) => {
-        const view: MatchupView = { ...m, status, winProbHome: null, projectedHome: null, projectedAway: null };
+        const view: MatchupView = { ...m, status, winProbHome: null, projectedHome: null, projectedAway: null, projectionEarly: false };
         if (!m.final) {
           view.homeScore = totals[m.homeId]?.points ?? 0;
           view.awayScore = m.awayId ? totals[m.awayId]?.points ?? 0 : null;
         }
         if (status === "live" && m.awayId) {
-          // Only days since the season began count as evidence for a projection.
-          const inSeason = (xs: DayScore[] = []) => xs.filter((d) => d.day >= l.season_start!);
-          const hp = pace(inSeason(days[m.homeId]), today);
-          const ap = pace(inSeason(days[m.awayId]), today);
-          const enough = hp.samples >= MIN_SAMPLES && ap.samples >= MIN_SAMPLES;
+          const hp = pace(inSeason(days[m.homeId]), today, prior);
+          const ap = pace(inSeason(days[m.awayId]), today, prior);
           const ht = totals[m.homeId] ?? { points: 0, activeDays: 0, bonus: 0 };
           const at = totals[m.awayId] ?? { points: 0, activeDays: 0, bonus: 0 };
           const daysLeft = week!.daysLeft;
-          if (enough) {
-            view.projectedHome = projectTeam({ current: ht.points, activeDays: ht.activeDays, bonusEarned: ht.bonus, pace: hp, daysLeft, scoring: l.scoring });
-            view.projectedAway = projectTeam({ current: at.points, activeDays: at.activeDays, bonusEarned: at.bonus, pace: ap, daysLeft, scoring: l.scoring });
-            view.winProbHome = winProbability({
-              homeProjected: view.projectedHome, awayProjected: view.projectedAway,
-              homePace: hp, awayPace: ap, daysLeft,
-            });
-          }
+          view.projectionEarly = hp.samples < MIN_SAMPLES || ap.samples < MIN_SAMPLES;
+          view.projectedHome = projectTeam({ current: ht.points, activeDays: ht.activeDays, bonusEarned: ht.bonus, pace: hp, daysLeft, scoring: l.scoring });
+          view.projectedAway = projectTeam({ current: at.points, activeDays: at.activeDays, bonusEarned: at.bonus, pace: ap, daysLeft, scoring: l.scoring });
+          view.winProbHome = winProbability({
+            homeProjected: view.projectedHome, awayProjected: view.projectedAway,
+            homePace: hp, awayPace: ap, daysLeft,
+          });
         }
         return view;
       });
@@ -193,6 +193,29 @@ export async function buildSnapshot(uid: string, leagueId: string, requestedWeek
       durationMin: f.duration_min, createdAt: f.created_at,
     }));
 
+    const messages = (
+      await tx.query<{ id: string; user_id: string; body: string; created_at: string }>(
+        "select id, user_id, body, created_at from league_messages where league_id = $1 order by created_at desc limit 40",
+        [leagueId],
+      )
+    ).reverse().map<ChatMessage>((m) => ({ id: m.id, userId: m.user_id, body: m.body, createdAt: m.created_at }));
+
+    // All-time record (every season, regular + playoffs) vs this week's opponent.
+    let series: LeagueSnapshot["series"] = null;
+    const mine = matchups.find((m) => m.homeId === uid || m.awayId === uid);
+    const oppId = mine ? (mine.homeId === uid ? mine.awayId : mine.homeId) : null;
+    if (oppId) {
+      const r = await tx.one<{ w: number; l: number; t: number }>(
+        `select count(*) filter (where winner_id = $2)::int as w,
+                count(*) filter (where winner_id = $3)::int as l,
+                count(*) filter (where is_tie)::int as t
+         from matchups where league_id = $1 and finalized_at is not null
+           and ((home_id = $2 and away_id = $3) or (home_id = $3 and away_id = $2))`,
+        [leagueId, uid, oppId],
+      );
+      series = { opponentId: oppId, wins: r?.w ?? 0, losses: r?.l ?? 0, ties: r?.t ?? 0 };
+    }
+
     return {
       me: uid,
       league: {
@@ -200,7 +223,7 @@ export async function buildSnapshot(uid: string, leagueId: string, requestedWeek
         seasonWeeks: l.season_weeks, playoffTeams: l.playoff_teams, maxMembers: l.max_members, timezone: l.timezone,
         scoring: l.scoring, commissionerId: l.commissioner_id, version: Number(l.version), today, currentWeek, totalWeeks,
       },
-      members, week, matchups, totals, days, standings, schedule, history, feed,
+      members, week, matchups, totals, days, standings, schedule, history, feed, messages, series,
     };
   });
 }

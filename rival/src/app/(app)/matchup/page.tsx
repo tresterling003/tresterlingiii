@@ -8,6 +8,7 @@ import { MatchupRow, Scoreboard } from "@/components/scoreboard";
 import { CategoryComparison, DayBars } from "@/components/breakdown";
 import { IconButton } from "@/components/ui/button";
 import { rivalColor } from "@/components/team-avatar";
+import { TrashTalk } from "@/components/trash-talk";
 import { EmptyState, SectionHeader } from "@/components/ui/states";
 import { useLeague } from "@/lib/hooks";
 import { fmtPts } from "@/lib/client";
@@ -139,6 +140,10 @@ function MatchupPage() {
         <EmptyState className="panel" icon={<Swords className="h-5 w-5" />} title="No matchups this week"
           body={s.league.status === "playoffs" ? "Playoff matchups are set at 12:00 AM Tuesday after the regular season ends." : undefined} />
       )}
+      <section className="panel mt-6 overflow-hidden" id="chat">
+        <div className="px-4 pt-4 sm:px-6"><h2 className="eyebrow">Trash talk</h2></div>
+        <TrashTalk s={s} />
+      </section>
       {others.length > 0 && (
         <section className="panel mt-6 overflow-hidden">
           <div className="px-4 pt-4 sm:px-6"><h2 className="eyebrow">Other matchups</h2></div>

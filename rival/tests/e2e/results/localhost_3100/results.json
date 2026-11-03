@@ -1,109 +1,121 @@
 {
   "base": "http://localhost:3100",
-  "ranAt": "2026-11-03T04:07:19.420Z",
-  "passed": 17,
+  "ranAt": "2026-11-03T04:31:40.115Z",
+  "passed": 19,
   "failed": 0,
   "results": [
     {
       "step": "1. User A creates an account",
       "ok": true,
-      "ms": 785,
+      "ms": 845,
       "detail": null
     },
     {
       "step": "1b. User A creates a league",
       "ok": true,
-      "ms": 1006,
-      "detail": "code PG2VABY2"
+      "ms": 930,
+      "detail": "code ESGJ9KS5"
     },
     {
       "step": "2. User B creates an account in a separate browser session",
       "ok": true,
-      "ms": 586,
+      "ms": 600,
       "detail": null
     },
     {
       "step": "3. User B joins with the invitation code",
       "ok": true,
-      "ms": 308,
+      "ms": 351,
       "detail": null
     },
     {
       "step": "4. Both users appear in the same league",
       "ok": true,
-      "ms": 506,
+      "ms": 515,
       "detail": "Team Iron,The Grinders"
     },
     {
       "step": "4b. Commissioner starts the season; weekly opponents assigned automatically",
       "ok": true,
-      "ms": 175,
+      "ms": 188,
       "detail": "8 weeks scheduled, Week 1"
     },
     {
       "step": "5. User A logs a workout (Run, 30 min)",
       "ok": true,
-      "ms": 740,
+      "ms": 778,
       "detail": null
     },
     {
       "step": "6. Both users see the updated score (B's screen updates live, no reload)",
       "ok": true,
-      "ms": 1607,
-      "detail": "B saw 17.0 ~902ms after A's save returned"
+      "ms": 1801,
+      "detail": "B saw 17.0 ~876ms after A's save returned"
     },
     {
       "step": "7. User B logs a workout (Strength, 20 min)",
       "ok": true,
-      "ms": 615,
+      "ms": 647,
       "detail": null
     },
     {
       "step": "8. Matchup totals and standings update correctly for both",
       "ok": true,
-      "ms": 1831,
+      "ms": 2148,
       "detail": "scores 17 – 8 identical on both devices"
     },
     {
       "step": "Profile photo upload shows for the league-mate",
       "ok": true,
-      "ms": 648,
+      "ms": 915,
       "detail": "uploaded via Profile; B sees it on the scoreboard"
+    },
+    {
+      "step": "Trash talk reaches the other player live",
+      "ok": true,
+      "ms": 1852,
+      "detail": "B → A and A → B delivered without reload"
+    },
+    {
+      "step": "One-tap repeat logging",
+      "ok": true,
+      "ms": 557,
+      "detail": "recent workouts offered; identical repeat within 10 min correctly blocked as duplicate"
     },
     {
       "step": "Duplicate submissions are rejected",
       "ok": true,
-      "ms": 44,
+      "ms": 40,
       "detail": "replay → same record; rapid re-submit → 400 duplicate"
     },
     {
       "step": "Invalid activity entries are rejected",
       "ok": true,
-      "ms": 59,
+      "ms": 55,
       "detail": "6 invalid entries rejected"
     },
     {
       "step": "12. Unauthorized users cannot modify another participant's workouts or scores",
       "ok": true,
-      "ms": 183,
+      "ms": 233,
       "detail": "B edit/delete A's workout → 404/404; forged points ignored (B's day total 20.5); anon → 401; A still 17.0"
     },
     {
       "step": "A third user outside the league cannot see it",
       "ok": true,
-      "ms": 651,
+      "ms": 658,
       "detail": "outsider → 404"
     },
     {
       "step": "Cross-origin (CSRF) writes are blocked",
       "ok": true,
-      "ms": 29,
+      "ms": 36,
       "detail": "403"
     },
     {
       "step": "9–10. Both users close the app, sign in again on a new device, data is restored",
       "ok": true,
-      "ms": 2388,
+      "ms": 2544,
       "detail": "A sees 17.0, B has 3 workouts, league intact; sign-out invalidates session"
     }
   ]

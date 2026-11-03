@@ -69,24 +69,33 @@ function Side({
 }
 
 export function WinProbBar({
-  left, leftLabel, rightLabel, leftColor = "#C8FF3D", rightColor = "#A2A7B1",
+  left, leftLabel, rightLabel, leftColor = "#C8FF3D", rightColor = "#A2A7B1", early,
 }: {
-  left: number; leftLabel: string; rightLabel: string; leftColor?: string; rightColor?: string;
+  left: number; leftLabel: string; rightLabel: string; leftColor?: string; rightColor?: string; early?: boolean;
 }) {
   const pct = Math.round(left * 100);
   return (
     <div>
       <div className="mb-2 flex justify-between text-xs">
         <span className="tnum inline-flex items-center gap-2 font-semibold"><span className="h-2 w-2 rounded-full" style={{ background: leftColor }} />{leftLabel} {pct}%</span>
-        <span className="eyebrow">Win probability</span>
+        <span className="eyebrow">{early ? "Early odds" : "Win probability"}</span>
         <span className="tnum inline-flex items-center gap-2 font-semibold">{100 - pct}% {rightLabel}<span className="h-2 w-2 rounded-full" style={{ background: rightColor }} /></span>
       </div>
       <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={`${leftLabel} ${pct}% to win`}>
         <div className="h-full rounded-l-full transition-[width] duration-700" style={{ width: `${pct}%`, background: leftColor }} />
         <div className="h-full flex-1 rounded-r-full transition-colors" style={{ background: rightColor }} />
       </div>
+      {early && <p className="mt-2 text-[11px] text-fg-faint">Early estimate — sharpens after 3 days of activity.</p>}
     </div>
   );
+}
+
+function seriesText(r: { wins: number; losses: number; ties: number }, abbr: string) {
+  const rec = `${r.wins}–${r.losses}${r.ties ? `–${r.ties}` : ""}`;
+  if (r.wins + r.losses + r.ties === 0) return `First meeting with ${abbr}.`;
+  if (r.wins > r.losses) return `All-time vs ${abbr}: you lead ${rec}`;
+  if (r.losses > r.wins) return `All-time vs ${abbr}: you trail ${rec}`;
+  return `All-time vs ${abbr}: tied ${rec}`;
 }
 
 /** Full-size matchup scoreboard. */
@@ -110,7 +119,7 @@ export function Scoreboard({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
         <Side s={s} uid={o.rightId} score={o.rightId ? rScore : null} proj={o.rightProj} align="right"
           leading={rScore >= lScore} isMe={o.rightId === s.me} seed={o.rightSeed} winner={final && !!o.rightId && m.winnerId === o.rightId} />
       </div>
-      {(o.leftWin !== null || final || (m.status === "live" && o.rightId)) && (
+      {(o.leftWin !== null || final || (s.series && o.rightId)) && (
         <div className="border-t border-ink-700 px-4 py-4 sm:px-6">
           {final ? (
             <p className="text-sm font-semibold">
@@ -118,9 +127,12 @@ export function Scoreboard({ s, m }: { s: LeagueSnapshot; m: MatchupView }) {
             </p>
           ) : o.leftWin !== null && left && right ? (
             <WinProbBar left={o.leftWin} leftLabel={left.teamAbbr} rightLabel={right.teamAbbr}
-              leftColor={o.leftId === s.me ? "#C8FF3D" : left.teamColor} rightColor={rivalColor(right.teamColor)} />
-          ) : (
-            <p className="text-xs text-fg-faint">Projections and win probability appear after 3 days of league activity.</p>
+              leftColor={o.leftId === s.me ? "#C8FF3D" : left.teamColor} rightColor={rivalColor(right.teamColor)} early={m.projectionEarly} />
+          ) : null}
+          {s.series && right && (o.leftId === s.me || o.rightId === s.me) && (
+            <p className="mt-3 text-xs text-fg-muted" data-testid="series">
+              {seriesText(s.series, members.get(s.series.opponentId)?.teamAbbr ?? "")}
+            </p>
           )}
         </div>
       )}

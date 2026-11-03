@@ -17,16 +17,41 @@ export function normalCdf(x: number): number {
 }
 
 export type Pace = { rate: number; sd: number; activeRate: number; samples: number };
+export type Prior = { rate: number; sd: number; activeRate: number };
 
-/** Daily scoring pace from completed days (most recent 14). */
-export function pace(history: DayScore[], beforeDay: string): Pace {
+export const DEFAULT_PRIOR: Prior = { rate: 20, sd: 10, activeRate: 0.6 };
+
+/**
+ * Daily scoring pace from completed days (most recent 14), shrunk toward a
+ * prior worth `k` pseudo-days. With no data the pace equals the prior; as
+ * real days accumulate they dominate. This lets odds appear from day one
+ * without overreacting to a single big (or empty) day.
+ */
+export function pace(history: DayScore[], beforeDay: string, prior: Prior = DEFAULT_PRIOR, k = 3): Pace {
   const past = history.filter((d) => d.day < beforeDay).slice(-14);
-  if (past.length === 0) return { rate: 0, sd: 0, activeRate: 0, samples: 0 };
+  const n = past.length;
   const totals = past.map((d) => d.total);
-  const rate = totals.reduce((a, b) => a + b, 0) / totals.length;
-  const variance = totals.reduce((a, b) => a + (b - rate) ** 2, 0) / Math.max(1, totals.length - 1);
-  const activeRate = past.filter((d) => d.is_active).length / past.length;
-  return { rate, sd: Math.sqrt(variance), activeRate, samples: past.length };
+  const sum = totals.reduce((a, b) => a + b, 0);
+  const rate = (sum + prior.rate * k) / (n + k);
+  const sq = totals.reduce((a, b) => a + (b - rate) ** 2, 0);
+  const sd = Math.sqrt((sq + k * prior.sd ** 2) / (n + k));
+  const activeRate = (past.filter((d) => d.is_active).length + prior.activeRate * k) / (n + k);
+  return { rate, sd, activeRate, samples: n };
+}
+
+/** League-wide prior from every member's in-season days so far. */
+export function leaguePrior(allDays: DayScore[], beforeDay: string): Prior {
+  const past = allDays.filter((d) => d.day < beforeDay);
+  if (past.length < 3) return DEFAULT_PRIOR;
+  const mean = past.reduce((a, d) => a + d.total, 0) / past.length;
+  const sd = Math.sqrt(past.reduce((a, d) => a + (d.total - mean) ** 2, 0) / Math.max(1, past.length - 1));
+  // Blend with the default so a tiny sample can't set an extreme prior.
+  const w = Math.min(1, past.length / 14);
+  return {
+    rate: w * mean + (1 - w) * DEFAULT_PRIOR.rate,
+    sd: Math.max(6, w * sd + (1 - w) * DEFAULT_PRIOR.sd),
+    activeRate: w * (past.filter((d) => d.is_active).length / past.length) + (1 - w) * DEFAULT_PRIOR.activeRate,
+  };
 }
 
 export const MIN_SAMPLES = 3;
