@@ -96,7 +96,7 @@ textarea{min-height:220px;font-family:var(--mono);font-size:13px;line-height:1.5
 .choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:560px){.choices{grid-template-columns:1fr}}
 .ch{display:flex;align-items:center;gap:14px;text-align:left;border:0;border-radius:6px;padding:16px;min-height:clamp(76px,13vh,150px);font-size:clamp(18px,1.9vw,27px);font-weight:600;color:#fff;overflow-wrap:anywhere;transition:transform .1s,opacity .2s}
-.ch:not(:disabled):hover{transform:translateY(-2px)}
+@media (hover:hover){.ch:not(:disabled):hover{transform:translateY(-2px)}}
 .ch .k{font-family:var(--mono);font-size:15px;width:32px;height:32px;flex:none;display:grid;place-items:center;border-radius:3px;background:rgba(255,255,255,.22)}
 .ch0{background:#b8352b}.ch1{background:#2559a8}.ch2{background:#c08a05;color:#1a1300}.ch3{background:#2a7d4f}
 .ch2 .k{background:rgba(0,0,0,.12)}
@@ -146,7 +146,14 @@ button.cl:disabled{cursor:default}
 .shipsvg .wake{fill:none;stroke:var(--splash);stroke-width:4;opacity:.35}
 .ship.sel .hl{fill:var(--accent)}
 .ship.sel{filter:drop-shadow(0 0 calc(var(--cell)*.12) var(--accent))}
-.ship.sunk{filter:grayscale(.7) brightness(.5)}
+.ship.sunk{filter:drop-shadow(0 0 calc(var(--cell)*.08) rgba(0,0,0,.6))}
+.ship.sunk .hl{fill:#8e2a1a;stroke:#ffd6c9;stroke-width:5}.ship.sunk .dk{fill:#c4563e}.ship.sunk .br,.ship.sunk .tu{fill:#5a160c}
+.mk.wreck{background:none}.mk.wreck svg{width:46%;height:46%}.mk.wreck .burst{animation:none}
+.sunklist{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sunklist .tag{color:var(--hit);border-color:var(--hit)}
+.shipcount{display:flex;gap:4px;align-items:center}
+.shipcount i{display:block;height:7px;border-radius:2px;background:var(--ok)}
+.shipcount i.x{background:var(--hit);opacity:.45}
 .ship.sunk .wake{display:none}
 .mk{pointer-events:none;z-index:3;position:relative;display:grid;place-items:center;color:var(--splash)}
 .mk svg{width:86%;height:86%;overflow:visible}
@@ -245,6 +252,7 @@ button,.cl{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 <div id="app"></div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/morphdom@2.7.4/dist/morphdom-umd.min.js"></script>
 <script>
 (() => {
 "use strict";
@@ -344,7 +352,7 @@ const validCell = c => Number.isInteger(c) && c >= 0 && c < N * N;
 const S = {
   screen: "home", name: store.get("xb.name", ""), localSets: store.get("xb.sets", []), shared: [],
   dbState: "loading", canEdit: false, roomState: "loading",
-  hostCfg: Object.assign({ setId: "sample", rounds: 15, secs: 20 }, store.get("xb.cfg", {})),
+  hostCfg: Object.assign({ setId: "sample", rounds: 0, secs: 20 }, store.get("xb.cfg2", {})),
   code: "", joinCode: "", isHost: false, solo: false, note: "", joinErr: "", myPeer: null,
   ships: randomFleet(), place: { sel: 0, horiz: true }, brdJs: "", seenSeq: null, seenAt: 0,
   hadHost: false, editing: null, confirmDel: null, busy: false
@@ -522,7 +530,7 @@ function onChange() {
 function buildG() {
   const showAns = ["reveal", "fire", "damage", "over"].includes(H.phase);
   const g = {
-    v: 1, gid: H.gid, ph: H.phase, seq: H.seq, dur: H.dur, qi: H.qi, n: H.questions.length, title: H.title.slice(0, 80),
+    v: 1, gid: H.gid, ph: H.phase, seq: H.seq, dur: H.dur, qi: H.qi, n: H.rounds || 0, title: H.title.slice(0, 80),
     q: H.q, ai: showAns ? H.ansIdx : null, seats: H.seats, ammo: H.ammo, tg: H.targets, sh: H.shooters,
     res: H.res, fast: H.fast, lone: !!H.lone, ba: H.ba, bb: H.bb, bs: encShots(H.bs), tally: H.correct, rank: H.rank, bots: H.botCount
   };
@@ -556,16 +564,22 @@ function hostStart() {
   if (seats.length < 2) return;
   H.seats = seats;
   H.gid = Math.random().toString(36).slice(2, 8);
-  const n = H.rounds === 0 ? H.all.length : Math.min(H.rounds, H.all.length);
-  const pools = ["easy", "medium", "hard", null].map(d => shuffle(H.all.filter(q => (q.d || null) === d)));
-  const picked = [];
-  while (picked.length < n && pools.some(p => p.length)) pools.forEach(p => { if (p.length && picked.length < n) picked.push(p.pop()); });
-  H.questions = shuffle(picked);
+  H.questions = [];
+  H.questions = dealBatch();
   H.qi = -1; H.q = null; H.ansIdx = null; H.ammo = {}; H.targets = []; H.shooters = []; H.res = {}; H.fast = null;
   H.ba = {}; H.bb = {}; H.bs = []; H.correct = {}; H.rank = null; H.bots = {};
   seats.forEach((s, i) => { if (s.bot) { H.bots[i] = { ships: randomFleet(), js: "" }; H.bb[i] = boardFrom(H.bots[i].ships, new Set()); } H.correct[i] = 0; });
   newPhase("place", 75);
   pushG();
+}
+// Deals every question once, in groups of three that each mix easy, medium and hard.
+function dealBatch() {
+  const pools = ["easy", "medium", "hard", null].map(d => shuffle(H.all.filter(q => (q.d || null) === d)));
+  const out = [];
+  while (pools.some(p => p.length)) out.push(...shuffle(pools.filter(p => p.length).map(p => p.pop())));
+  const last = H.questions[H.questions.length - 1];
+  if (last && out.length > 1 && out[0] === last) out.push(out.shift());
+  return out;
 }
 function hostQuestion() {
   H.qi++;
@@ -606,7 +620,8 @@ function hostReveal() {
 function hostNext() {
   const G = H.g;
   const alive = H.seats.map((_, i) => i).filter(i => present(G, i) && isAlive(G, i));
-  if (alive.length <= 1 || H.qi + 1 >= H.questions.length) return hostOver();
+  if (alive.length <= 1 || (H.rounds && H.qi + 1 >= H.rounds)) return hostOver();
+  if (H.qi + 1 >= H.questions.length) H.questions = H.questions.concat(dealBatch());
   hostQuestion();
 }
 function hostOver() {
@@ -796,7 +811,16 @@ function fire(t, c) {
 let rq = false;
 function scheduleRender() { if (rq) return; rq = true; requestAnimationFrame(() => { rq = false; if (S.screen === "game") renderGame(); }); }
 let lastHTML = "";
-function renderGame() { app.classList.add("playing"); const h = gameHTML(); if (h !== lastHTML) { app.innerHTML = h; lastHTML = h; } }
+function renderGame() {
+  app.classList.add("playing");
+  const h = gameHTML();
+  if (h === lastHTML) return;
+  if (typeof window.morphdom === "function" && lastHTML) {
+    const next = document.createElement("div"); next.innerHTML = h;
+    window.morphdom(app, next, { childrenOnly: true, onBeforeElUpdated: (a, b) => !a.isEqualNode(b) });
+  } else app.innerHTML = h;
+  lastHTML = h;
+}
 function rerenderStatic(force) {
   if (S.screen === "game") return scheduleRender();
   if (S.screen === "edit" && !force) return; // keep the editor's text untouched
@@ -868,7 +892,7 @@ function hostHTML() {
     <p class="muted">You'll get a 4-letter code. Up to 3 friends join from their own computers by opening this page and typing the code.</p>
     <div class="stack"><div class="eyebrow">Question set</div><div>${setPickList()}</div></div>
     <div class="row">
-      <label class="field" for="rounds" style="flex:1;min-width:150px">Questions${sel("rounds", [[10, "10"], [15, "15"], [20, "20"], [30, "30"], [0, "All of them"]], S.hostCfg.rounds)}</label>
+      <label class="field" for="rounds" style="flex:1;min-width:150px">Game length${sel("rounds", [[0, "Until one fleet is left"], [15, "15 questions"], [20, "20 questions"], [30, "30 questions"]], S.hostCfg.rounds)}</label>
       <label class="field" for="secs" style="flex:1;min-width:150px">Time per question${sel("secs", [[10, "10 seconds"], [15, "15 seconds"], [20, "20 seconds"], [30, "30 seconds"], [45, "45 seconds"]], S.hostCfg.secs)}</label>
     </div>
     ${S.note ? `<p class="err">${esc(S.note)}</p>` : ""}
@@ -965,7 +989,7 @@ async function saveSet() {
     store.set("xb.sets", S.localSets);
     S.hostCfg.setId = id;
   }
-  store.set("xb.cfg", S.hostCfg);
+  store.set("xb.cfg2", S.hostCfg);
   S.note = ""; S.editing = null; go("sets");
 }
 async function deleteSet(id) {
@@ -998,11 +1022,11 @@ function plainName(G, i) { const st = G.seats[i]; return st ? esc(st.nm) + (st.p
 
 function gameHTML() {
   const G = getG();
-  const qLabel = G && G.qi >= 0 && G.ph !== "over" ? `<span class="chip">Question ${G.qi + 1} of ${G.n}</span>` : "";
+  const qLabel = G && G.qi >= 0 && G.ph !== "over" ? `<span class="chip">Question ${G.qi + 1}${G.n ? " of " + G.n : ""}</span>` : "";
   const codeChip = S.solo ? `<span class="chip">Solo game</span>` : `<span class="chip">Game code <span class="code">${esc(S.code)}</span></span>`;
   const top = `<div class="topbar">
     <div class="row"><span class="mini">BROADSIDE</span>${codeChip}${qLabel}</div>
-    <div class="row">${G ? timerHTML(G) : ""}${fsButton()}<button class="btn small" data-act="leave">Leave</button></div>
+    <div class="row">${G ? timerHTML(G) : ""}${fsButton()}${S.isHost && G && !["lobby", "over"].includes(G.ph) ? `<button class="btn small" data-act="end">End game</button>` : ""}<button class="btn small" data-act="leave">Leave</button></div>
   </div>`;
   if (!G) {
     const waitedLong = Date.now() - (S.joinedAt || 0) > 4000;
@@ -1058,7 +1082,7 @@ function lobbyHTML(G) {
     <div class="eyebrow">Lobby</div>
     ${!S.solo ? `<h2>Share code <span class="code" style="font-size:1.3em">${esc(S.code)}</span></h2>
     <p class="muted">Friends open this same page, type their name, enter the code and press Join game.</p>` : ""}
-    <p class="sub">Question set: <b>${esc(G.title)}</b>${H ? " · " + Math.min(H.rounds || H.all.length, H.all.length) + " questions" : ""}</p>
+    <p class="sub">Question set: <b>${esc(G.title)}</b>${H ? (H.rounds ? " · " + H.rounds + " questions" : " · plays until one fleet is left") : ""}</p>
     <ul class="list">${list}</ul>
     ${hostCtl}
   </section>`;
@@ -1111,7 +1135,8 @@ function boardHTML({ ships = [], brd = null, mode = "own", t = null, click = fal
     }
     marks += `<div class="mk ${kind}${extra}" style="${style}">${svg}</div>`;
   };
-  h.forEach(c => mk(c, "hit", HIT_SVG));
+  const wreckCells = new Set(brd ? (brd.s || []).flat() : []);
+  h.forEach(c => mk(c, wreckCells.has(c) ? "hit wreck" : "hit", HIT_SVG));
   m.forEach(c => mk(c, "miss", MISS_SVG));
   pendS.forEach(c => { if (!h.has(c) && !m.has(c)) mk(c, "pend", PEND_SVG); });
   const shake = mode === "own" && newestHit < 500 ? ` shake" style="--d:-${newestHit}ms` : "";
@@ -1183,17 +1208,23 @@ function questionHTML(G, seat) {
     foot = `<div class="banner ${cls}">${msg}</div><div class="tags">${who}</div>`;
   }
   return `<div class="qlayout"><div class="stack" style="gap:16px">
-    <div class="qcard"><div class="row" style="justify-content:space-between"><div class="eyebrow">Question ${G.qi + 1} of ${G.n}</div>${q.d ? `<span class="lvl ${q.d}">${q.d === "easy" ? "Easy" : q.d === "medium" ? "Medium" : "Hard"}</span>` : ""}</div><h2 class="qtext">${esc(q.t)}</h2></div>
+    <div class="qcard"><div class="row" style="justify-content:space-between"><div class="eyebrow">Question ${G.qi + 1}${G.n ? " of " + G.n : ""}</div>${q.d ? `<span class="lvl ${q.d}">${q.d === "easy" ? "Easy" : q.d === "medium" ? "Medium" : "Hard"}</span>` : ""}</div><h2 class="qtext">${esc(q.t)}</h2></div>
     <div class="choices">${choices}</div>${foot}</div>
     <aside class="minifleet"><div class="eyebrow">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "sm", key: G.gid + ":" + seat })}</aside></div>`;
 }
 
+const shipName = len => len === 4 ? "Battleship (4)" : len === 2 ? "Destroyer (2)" : "3-long ship";
+function sunkList(b) {
+  const sunk = b && b.s ? b.s : [];
+  return `<div class="sunklist">${sunk.length ? "Sunk: " + sunk.map(x => `<span class="tag">${shipName(x.length)}</span>`).join("") : "No ships sunk yet"} · ${SHIPS.length - sunk.length} of ${SHIPS.length} ships left</div>`;
+}
 function watchBoards(G, idxs, opts = {}) {
   return `<div class="boards">${idxs.map(i => {
     const b = seatBoard(G, i);
     const dead = b && b.alive === false;
     return `<div class="board-wrap"><div class="board-title">${nameTag(G, i)}${dead ? ` <span class="tag bad">Sunk</span>` : ""}</div>
-      ${boardHTML({ brd: b, mode: "enemy", t: i, click: !!opts.click && !dead, pend: opts.pend ? opts.pend(i) : [], size: opts.size || (idxs.length > 2 ? "md3" : idxs.length > 1 ? "md" : "lg"), key: G.gid + ":" + i })}</div>`;
+      ${boardHTML({ brd: b, mode: "enemy", t: i, click: !!opts.click && !dead, pend: opts.pend ? opts.pend(i) : [], size: opts.size || (idxs.length > 2 ? "md3" : idxs.length > 1 ? "md" : "lg"), key: G.gid + ":" + i })}
+      ${sunkList(b)}</div>`;
   }).join("")}</div>`;
 }
 function fireHTML(G, seat) {
@@ -1248,6 +1279,10 @@ function overHTML(G, seat) {
     <button class="btn" data-act="leave">Leave</button></div>
   </section>`;
 }
+function shipPips(b) {
+  const sunk = (b && b.s ? b.s : []).map(x => x.length);
+  return [...SHIPS].sort((x, y) => y - x).map(len => { const k = sunk.indexOf(len); if (k >= 0) sunk.splice(k, 1); return `<i class="${k >= 0 ? "x" : ""}" style="width:${len * 9}px"></i>`; }).join("");
+}
 function fleetHTML(G) {
   return `<div class="fleet">${G.seats.map((st, i) => {
     const b = seatBoard(G, i);
@@ -1262,6 +1297,7 @@ function fleetHTML(G) {
     if (!present(G, i)) tags.push(`<span class="tag">Left</span>`);
     return `<div class="fcard ${dead ? "dead" : ""}">
       <div class="fname">${nameTag(G, i)}</div>
+      <div class="shipcount" aria-label="${SHIPS.length - (b && b.s ? b.s.length : 0)} of ${SHIPS.length} ships left">${shipPips(b)}</div>
       <div class="hull" aria-label="${left} of ${TOTAL} ship squares left">${Array.from({ length: TOTAL }, (_, k) => `<i class="${k < left ? "" : "x"}"></i>`).join("")}</div>
       <div class="tags"><span class="sub">${(G.tally && G.tally[i]) || 0} right</span>${tags.join("")}</div>
     </div>`;
@@ -1292,6 +1328,7 @@ app.addEventListener("click", e => {
     case "bot+": if (H) { H.botCount = Math.min(3, H.botCount + 1); pushG(); } break;
     case "bot-": if (H) { H.botCount = Math.max(0, H.botCount - 1); pushG(); } break;
     case "start": if (H) hostStart(); break;
+    case "end": if (H && !["lobby", "over"].includes(H.phase)) hostOver(); break;
     case "again": if (H) { if (S.solo) hostStart(); else { H.phase = "lobby"; H.seq++; H.dur = 0; pushG(); } } break;
     case "place": placeClick(+b.dataset.c); break;
     case "pick": S.place.sel = +b.dataset.i; S.note = ""; scheduleRender(); break;
@@ -1310,9 +1347,9 @@ app.addEventListener("input", e => {
 });
 app.addEventListener("change", e => {
   const t = e.target;
-  if (t.name === "setpick") { S.hostCfg.setId = t.value; store.set("xb.cfg", S.hostCfg); }
-  else if (t.id === "rounds") { S.hostCfg.rounds = +t.value; store.set("xb.cfg", S.hostCfg); }
-  else if (t.id === "secs") { S.hostCfg.secs = +t.value; store.set("xb.cfg", S.hostCfg); }
+  if (t.name === "setpick") { S.hostCfg.setId = t.value; store.set("xb.cfg2", S.hostCfg); }
+  else if (t.id === "rounds") { S.hostCfg.rounds = +t.value; store.set("xb.cfg2", S.hostCfg); }
+  else if (t.id === "secs") { S.hostCfg.secs = +t.value; store.set("xb.cfg2", S.hostCfg); }
   else if (t.id === "sa") updatePreview();
 });
 app.addEventListener("keydown", e => {

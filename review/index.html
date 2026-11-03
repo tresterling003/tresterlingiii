@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Broadside Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Saira+Stencil+One&display=swap">
+<style>
+/* Layout: a nautical plotting chart. One working column, a header strip, the game board in the middle, fleet status along the bottom. */
+:root{
+  --bg:#e6ecee; --paper:#f7f9f8; --ink:#13263a; --muted:#56687a; --line:#c2cfd6;
+  --sea:#cfe1e8; --sea-2:#bcd5df; --accent:#1d5d8c; --accent-ink:#ffffff;
+  --hit:#cf3e2a; --miss:#7f95a3; --ok:#23804f; --warn:#b5740a;
+  --f1:#c8372d; --f2:#2763b8; --f3:#c98f00; --f4:#2e8b57;
+  --display:"Saira Stencil One","Impact","Arial Narrow",sans-serif;
+  --body:"Barlow","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --sea-hi:#79b3cd; --sea-lo:#2f6f8f; --wave:rgba(255,255,255,.10); --gridline:rgba(255,255,255,.24);
+  --snow:#ffffff; --frame:#13263a; --frame-2:#b8963f; --hull:#5f6e7b; --hull-2:#39454f; --deck:#94a2ad; --aim-bg:rgba(255,255,255,.2); --splash:#ffffff;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1620; --paper:#13212e; --ink:#e2ebef; --muted:#93a5b2; --line:#2a3c4b;
+  --sea:#16324a; --sea-2:#1c3c57; --accent:#6db1e0; --accent-ink:#06121c;
+  --hit:#ff6a50; --miss:#6b8293; --ok:#4cc488; --warn:#e6a93a;
+  --f1:#ec5a4e; --f2:#5a93e6; --f3:#e8b52e; --f4:#4cbf82; --sea-hi:#1d5577; --sea-lo:#0a2539; --wave:rgba(255,255,255,.05); --gridline:rgba(255,255,255,.13);
+  --snow:#dfeaf2; --frame:#33495c; --frame-2:#8a7444; --hull:#8d9ca8; --hull-2:#5c6b77; --deck:#b9c5cd; --aim-bg:rgba(255,255,255,.13); --splash:#e2f4ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1620; --paper:#13212e; --ink:#e2ebef; --muted:#93a5b2; --line:#2a3c4b;
+  --sea:#16324a; --sea-2:#1c3c57; --accent:#6db1e0; --accent-ink:#06121c;
+  --hit:#ff6a50; --miss:#6b8293; --ok:#4cc488; --warn:#e6a93a;
+  --f1:#ec5a4e; --f2:#5a93e6; --f3:#e8b52e; --f4:#4cbf82; --sea-hi:#1d5577; --sea-lo:#0a2539; --wave:rgba(255,255,255,.05); --gridline:rgba(255,255,255,.13);
+  --snow:#dfeaf2; --frame:#33495c; --frame-2:#8a7444; --hull:#8d9ca8; --hull-2:#5c6b77; --deck:#b9c5cd; --aim-bg:rgba(255,255,255,.13); --splash:#e2f4ff; color-scheme:dark}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:56px 56px;background-position:-1px -1px;background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;background:var(--bg);opacity:.82;z-index:-1}
+#app{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{margin:0;text-wrap:balance;line-height:1.15}
+p{margin:0}
+#app.playing{max-width:1500px;min-height:100vh;padding-block:12px 20px}
+@supports (min-height:100dvh){#app.playing{min-height:100dvh}}
+.stage{flex:1;display:flex;flex-direction:column;gap:16px;justify-content:center;min-width:0}
+:fullscreen body,:fullscreen{background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.stack{display:flex;flex-direction:column;gap:10px}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:4px;padding:10px 16px;font-weight:600;min-height:44px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--hit);border-color:var(--hit)}
+.btn.small{padding:6px 10px;min-height:34px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+input[type=text],select,textarea{border:1px solid var(--line);background:var(--bg);border-radius:4px;padding:10px 12px;min-height:44px;width:100%}
+textarea{min-height:220px;font-family:var(--mono);font-size:13px;line-height:1.5;resize:vertical}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:var(--bg);font-size:14px}
+.err{color:var(--hit);font-weight:600;font-size:14px}
+
+/* masthead */
+.mast{display:flex;flex-direction:column;gap:6px;padding-top:8px}
+.brand{font-family:var(--display);font-size:clamp(48px,11vw,96px);line-height:.9;letter-spacing:.01em;color:var(--ink)}
+.brand span{color:var(--hit)}
+.tagline{font-size:18px;max-width:56ch;color:var(--muted)}
+.home-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+@media (max-width:760px){.home-grid{grid-template-columns:1fr}}
+.rules{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.rules li::marker{font-family:var(--mono);color:var(--accent)}
+.code-input{font-family:var(--mono);text-transform:uppercase;letter-spacing:.3em;font-size:20px;max-width:9.5em}
+
+/* top bar */
+.topbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:2px solid var(--ink)}
+.topbar .mini{font-family:var(--display);font-size:28px;line-height:1}
+.chip{font-family:var(--mono);font-size:13px;border:1px solid var(--line);background:var(--paper);border-radius:3px;padding:4px 8px;white-space:nowrap}
+.code{font-family:var(--mono);font-weight:600;letter-spacing:.2em}
+.timer{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-weight:600;font-size:18px;font-variant-numeric:tabular-nums}
+.timer .bar{width:120px;height:8px;background:var(--sea);border-radius:4px;overflow:hidden}
+.timer .bar i{display:block;height:100%;background:var(--accent);transition:width .2s linear}
+.timer.low .bar i{background:var(--hit)}.timer.low{color:var(--hit)}
+
+/* question */
+.qcard{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:22px 20px;display:flex;flex-direction:column;gap:8px}
+.qtext{font-size:clamp(22px,3.2vw,44px);font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.choices{grid-template-columns:1fr}}
+.ch{display:flex;align-items:center;gap:14px;text-align:left;border:0;border-radius:6px;padding:16px;min-height:clamp(76px,13vh,150px);font-size:clamp(18px,1.9vw,27px);font-weight:600;color:#fff;overflow-wrap:anywhere;transition:transform .1s,opacity .2s}
+@media (hover:hover){.ch:not(:disabled):hover{transform:translateY(-2px)}}
+.ch .k{font-family:var(--mono);font-size:15px;width:32px;height:32px;flex:none;display:grid;place-items:center;border-radius:3px;background:rgba(255,255,255,.22)}
+.ch0{background:#b8352b}.ch1{background:#2559a8}.ch2{background:#c08a05;color:#1a1300}.ch3{background:#2a7d4f}
+.ch2 .k{background:rgba(0,0,0,.12)}
+.ch:disabled{cursor:default}
+.ch.dim{opacity:.35}
+.ch.picked{outline:4px solid var(--ink);outline-offset:2px}
+.ch.right{opacity:1;box-shadow:0 0 0 4px var(--ok)}
+.banner{border-radius:6px;padding:14px 18px;font-weight:600;font-size:18px;border:2px solid var(--line);background:var(--paper)}
+.banner.good{border-color:var(--ok)}.banner.bad{border-color:var(--hit)}
+
+.lvl{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;border:1.5px solid currentColor}
+.lvl.easy{color:var(--ok)}.lvl.medium{color:var(--warn)}.lvl.hard{color:var(--hit)}
+.choices.tf .ch{justify-content:center;text-align:center;font-size:clamp(20px,2.4vw,30px)}
+@media (max-width:560px){.choices.tf{grid-template-columns:1fr 1fr}}
+.fillbox{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;font-size:18px;overflow-wrap:anywhere}
+.fillbox input{font-size:20px}
+.okc{color:var(--ok)}.noc{color:var(--hit)}
+.match{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px 16px}
+.mcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mt{display:flex;align-items:center;gap:10px;text-align:left;border:2px solid var(--line);background:var(--paper);border-radius:6px;padding:10px 12px;min-height:54px;font-weight:600;font-size:16px;overflow-wrap:anywhere;color:var(--ink)}
+.mt:disabled{cursor:default}
+.mt.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.mt.ok{border-color:var(--ok)}.mt.no{border-color:var(--hit)}
+.badge{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:13px;font-weight:600;color:#fff;border:2px dashed var(--line)}
+.badge.p0{background:#b8352b;border:0}.badge.p1{background:#2559a8;border:0}.badge.p2{background:#c08a05;border:0}.badge.p3{background:#2a7d4f;border:0}.badge.p4{background:#6b4bb0;border:0}
+ul.fmt{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted)}
+ul.fmt code{font-size:12.5px;overflow-wrap:anywhere}
+.pq .sub{display:block}
+@media (max-width:600px){.match{grid-template-columns:1fr}}
+/* boards */
+.board-wrap{display:flex;flex-direction:column;gap:8px;min-width:0;align-items:flex-start}
+.board-title{display:flex;align-items:center;gap:8px;font-weight:700}
+.bd{--cell:36px;display:grid;grid-template-columns:calc(var(--cell)*.55) auto;grid-template-rows:calc(var(--cell)*.55) auto;width:max-content;max-width:100%;padding:0 calc(var(--cell)*.16) calc(var(--cell)*.16) 0}
+.bd.lg{--cell:clamp(34px,min(calc((100vh - 200px)/8.8),calc((100vw - 64px)/8.8)),92px)}
+.bd.md{--cell:clamp(28px,min(calc((100vh - 300px)/8.8),calc((100vw - 140px)/17.6)),66px)}
+.bd.sm{--cell:clamp(18px,2.3vw,30px)}
+@supports (height:100dvh){
+  .bd.lg{--cell:clamp(34px,min(calc((100dvh - 200px)/8.8),calc((100vw - 64px)/8.8)),92px)}
+  .bd.md{--cell:clamp(28px,min(calc((100dvh - 300px)/8.8),calc((100vw - 140px)/17.6)),66px)}}
+.bd.md3{--cell:clamp(24px,min(calc((100vh - 300px)/8.8),calc((100vw - 170px)/26.4)),60px)}
+@supports (height:100dvh){.bd.md3{--cell:clamp(24px,min(calc((100dvh - 300px)/8.8),calc((100vw - 170px)/26.4)),60px)}}
+@media (max-width:700px){.bd.md,.bd.md3{--cell:clamp(26px,calc((100vw - 64px)/8.8),50px)}}
+.bd-cols,.bd-rows{display:grid;font-family:var(--mono);font-weight:600;font-size:max(10px,calc(var(--cell)*.3));color:var(--muted)}
+.bd-cols{grid-column:2;grid-row:1;grid-template-columns:repeat(8,var(--cell))}
+.bd-rows{grid-column:1;grid-row:2;grid-template-rows:repeat(8,var(--cell))}
+.bd-cols span,.bd-rows span{display:grid;place-items:center}
+.sea{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(8,var(--cell));grid-template-rows:repeat(8,var(--cell));position:relative;border-radius:calc(var(--cell)*.14);overflow:hidden;isolation:isolate;
+  background:radial-gradient(130% 100% at 25% 15%,var(--sea-hi),var(--sea-lo));
+  box-shadow:0 0 0 2px var(--frame),0 0 0 calc(2px + var(--cell)*.09) var(--frame-2),0 0 0 calc(3px + var(--cell)*.09) var(--frame),0 14px 34px -14px rgba(0,0,0,.55)}
+.sea::before{content:"";position:absolute;inset:-60%;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(115deg,transparent 0 calc(var(--cell)*.42),var(--wave) calc(var(--cell)*.42) calc(var(--cell)*.5));animation:drift 16s linear infinite}
+@keyframes drift{to{transform:translate(calc(var(--cell)*1.06),calc(var(--cell)*.5))}}
+.cl{position:relative;z-index:1;border:0;padding:0;margin:0;background:transparent;box-shadow:inset 0 0 0 .5px var(--gridline);border-radius:0;min-width:0}
+button.cl{cursor:pointer}
+button.cl:disabled{cursor:default}
+.bd.aim{cursor:crosshair}
+.bd.aim button.cl:not(:disabled):hover,.bd.place button.cl:hover{background:var(--aim-bg)}
+.bd.aim button.cl:not(:disabled):hover::after{content:"";position:absolute;inset:16%;border:2px solid var(--splash);border-radius:50%;
+  background:linear-gradient(var(--splash),var(--splash)) center/2px 70% no-repeat,linear-gradient(var(--splash),var(--splash)) center/70% 2px no-repeat}
+.bd.aim button.cl:focus-visible{outline:3px solid var(--splash);outline-offset:-3px}
+.ship{pointer-events:none;z-index:2;position:relative;padding:calc(var(--cell)*.05);filter:drop-shadow(0 calc(var(--cell)*.06) calc(var(--cell)*.05) rgba(0,0,0,.4))}
+.shipsvg{width:100%;height:100%;display:block}
+.shipsvg .hl{fill:var(--hull)}.shipsvg .dk{fill:var(--deck)}.shipsvg .br,.shipsvg .tu{fill:var(--hull-2)}
+.shipsvg .wake{fill:none;stroke:var(--splash);stroke-width:4;opacity:.35}
+.ship.sel .hl{fill:var(--accent)}
+.ship.sel{filter:drop-shadow(0 0 calc(var(--cell)*.12) var(--accent))}
+.ship.sunk{filter:drop-shadow(0 0 calc(var(--cell)*.08) rgba(0,0,0,.6))}
+.ship.sunk .hl{fill:#8e2a1a;stroke:#ffd6c9;stroke-width:5}.ship.sunk .dk{fill:#c4563e}.ship.sunk .br,.ship.sunk .tu{fill:#5a160c}
+.mk.wreck{background:none}.mk.wreck svg{width:46%;height:46%}.mk.wreck .burst{animation:none}
+.sunklist{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sunklist .tag{color:var(--hit);border-color:var(--hit)}
+.shipcount{display:flex;gap:4px;align-items:center}
+.shipcount i{display:block;height:7px;border-radius:2px;background:var(--ok)}
+.shipcount i.x{background:var(--hit);opacity:.45}
+.ship.sunk .wake{display:none}
+.mk{pointer-events:none;z-index:3;position:relative;display:grid;place-items:center;color:var(--splash)}
+.mk svg{width:86%;height:86%;overflow:visible}
+.mk.hit{color:#ff9a3c;background:radial-gradient(circle,rgba(255,110,30,.55),transparent 68%)}
+.mk.hit .burst{transform-origin:0 0;animation:flicker 1.8s ease-in-out infinite}
+@keyframes flicker{50%{transform:scale(.88) rotate(10deg)}}
+.mk .b1{fill:#e8461f}.mk .b2{fill:#ffb02e}.mk .b3{fill:#fff3c4}
+.mk .sp{fill:none;stroke:var(--splash)}.mk .sp0{fill:var(--splash);stroke:none;opacity:.95}
+.mk.pend svg{animation:spin 1.4s linear infinite}
+.mk .ret{fill:none;stroke:var(--splash);stroke-width:5;stroke-dasharray:14 10}
+.mk.fresh svg{animation:boom .6s cubic-bezier(.2,1.6,.4,1) both;animation-delay:var(--d,0ms)}
+.mk.fresh::before{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid currentColor;animation:ring .9s ease-out both;animation-delay:var(--d,0ms)}
+@keyframes boom{from{transform:scale(0)}to{transform:scale(1)}}
+@keyframes ring{from{transform:scale(.2);opacity:1}to{transform:scale(1.9);opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bd.shake .sea{animation:shake .45s ease-out both;animation-delay:var(--d,0ms)}
+@keyframes shake{20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,0)}}
+@media (prefers-reduced-motion:reduce){.sea::before,.mk *,.mk svg,.bd.shake .sea{animation:none!important}.mk.fresh::before{display:none}.ch{transition:none}}
+.boards{display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+.split{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:center}
+@media (max-width:820px){.split{grid-template-columns:1fr}}
+.qlayout{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start}
+@media (max-width:900px){.qlayout{grid-template-columns:1fr}}
+.minifleet{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+
+/* ships picker */
+.shipbtn{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--paper);border-radius:4px;padding:8px 12px;min-height:44px;font-weight:600;text-align:left}
+.shipbtn.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.pips{display:flex;gap:3px}.pips i{width:12px;height:12px;background:var(--muted);border-radius:2px}
+.shipbtn.on .pips i{background:var(--accent)}
+
+/* fleet strip */
+.fleet{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.fcard{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.fcard.dead{opacity:.6}
+.fname{display:flex;align-items:center;gap:8px;font-weight:700;min-width:0}
+.fname b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flag{width:16px;height:12px;flex:none;border-radius:1px}
+.hull{display:flex;gap:2px}.hull i{flex:1;height:8px;background:var(--ok);border-radius:1px}.hull i.x{background:var(--hit);opacity:.5}
+.tags{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:2px;border:1px solid var(--line);color:var(--muted)}
+.tag.ok{color:var(--ok);border-color:var(--ok)}.tag.bad{color:var(--hit);border-color:var(--hit)}.tag.acc{color:var(--accent);border-color:var(--accent)}
+
+.list{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.list>li,.list>div{list-style:none;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+ul.list{margin:0;padding:0}
+.setpick{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.setpick input{margin-top:4px;width:18px;height:18px;accent-color:var(--accent)}
+.preview{display:flex;flex-direction:column;gap:8px;font-size:14px}
+.preview .pq{border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg)}
+.preview .pq b{display:block}
+.report{display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+.report li{list-style:none;display:flex;gap:10px;align-items:center;font-size:15px}
+.big-num{font-family:var(--display);font-size:44px;line-height:1}
+.rank{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rank .pos{font-family:var(--display);font-size:34px;width:40px;text-align:center}
+.rank .who{flex:1;min-width:0;display:flex;flex-direction:column}
+.sub{font-size:14px;color:var(--muted)}
+
+/* snowfall + phone layout */
+.snow{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.55;
+  background-image:radial-gradient(circle,var(--snow) 1.4px,transparent 2px),radial-gradient(circle,var(--snow) 1px,transparent 1.6px);
+  background-size:90px 90px,55px 55px;background-position:0 0,20px 35px;animation:snowfall 22s linear infinite}
+@keyframes snowfall{to{background-position:30px 900px,60px 935px}}
+#app{position:relative;z-index:1}
+button,.cl{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media (prefers-reduced-motion:reduce){.snow{animation:none}}
+@media (max-width:600px){
+  #app{gap:12px}
+  #app.playing{padding-block:8px 16px}
+  .topbar{gap:8px;padding-bottom:8px}
+  .topbar .mini{display:none}
+  .timer{font-size:16px}.timer .bar{width:64px}
+  .chip{font-size:12px;padding:3px 6px}
+  .panel{padding:14px;gap:12px}
+  .qcard{padding:14px 14px 16px}
+  .qtext{font-size:21px}
+  .choices{gap:8px}
+  .ch{min-height:58px;font-size:17px;padding:10px 12px}
+  .ch .k{width:28px;height:28px}
+  .minifleet{display:none}
+  .fleet{grid-template-columns:1fr 1fr;gap:8px}
+  .fcard{padding:8px}
+  .boards{gap:18px}
+  .bd.lg,.bd.md,.bd.md3{--cell:clamp(28px,calc((100vw - 72px)/9),46px)}
+  .brand{font-size:58px}
+  .banner{font-size:16px;padding:12px 14px}
+  .split{gap:16px}
+  .stage h2{font-size:20px}
+}
+</style>
+
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/morphdom@2.7.4/dist/morphdom-umd.min.js"></script>
+<script>
+(() => {
+"use strict";
+const N = 8, SHIPS = [4, 3, 3, 2], SHIP_NAMES = ["Battleship", "Cruiser", "Submarine", "Destroyer"], COLS = "ABCDEFGH";
+const TOTAL = SHIPS.reduce((a, b) => a + b, 0);
+const FLAG_VARS = ["--f1", "--f2", "--f3", "--f4"];
+const FLAG_NAMES = ["Red", "Blue", "Gold", "Green"];
+const BOT_NAMES = ["Admiral Bot", "Captain Bot", "Ensign Bot"];
+const SAMPLE = {
+  id: "sample", src: "sample", title: "Economics: Supply & Demand", askBy: "def",
+  text: "[easy] What does the law of demand say? | As price goes up, quantity demanded goes down | As price goes up, quantity demanded goes up | Price has no effect on what buyers want | As supply goes up, demand goes up\n[easy] What does the law of supply say? | As price goes up, quantity supplied goes up | As price goes up, quantity supplied goes down | Sellers never change how much they offer | As demand goes down, supply goes up\n[easy] What is a shortage? | Quantity demanded is greater than quantity supplied | Quantity supplied is greater than quantity demanded | The price is at equilibrium | A product is no longer made\n[easy] What is a surplus? | Quantity supplied is greater than quantity demanded | Quantity demanded is greater than quantity supplied | Prices are rising quickly | The government sets the price\n[easy] Concert tickets sell out in minutes and many fans can't get one. This is a | Shortage | Surplus | Equilibrium | Circular flow\n[easy] A store has piles of unsold winter coats in the spring. This is a | Surplus | Shortage | Equilibrium | Opportunity cost\n[easy] TF: At the equilibrium price there is no shortage and no surplus. | true\n[easy] TF: A surplus happens when buyers want more than sellers have. | false\n[easy] FILL: When quantity demanded is greater than quantity supplied, there is a ____. | shortage\n[easy] FILL: When quantity supplied is greater than quantity demanded, there is a ____. | surplus\n[easy] Demand\tThe willingness and ability of buyers to purchase a good at different prices\n[easy] Supply\tThe willingness and ability of sellers to produce and sell a good at different prices\n[medium] Equilibrium\tThe point where quantity supplied equals quantity demanded\n[medium] Product market\tWhere businesses sell goods and services to households\n[medium] Factor market\tWhere households sell land, labor and capital to businesses\n[medium] Equilibrium is the point where | Quantity supplied equals quantity demanded | Supply is at its highest | Demand is at its highest | The government sets the price\n[medium] A price set BELOW equilibrium usually causes a | Shortage | Surplus | New equilibrium | Drop in what buyers want\n[medium] A price set ABOVE equilibrium usually causes a | Surplus | Shortage | Rise in what buyers want | New equilibrium\n[medium] When a market has a surplus, sellers usually | Lower prices to sell the extra goods | Raise prices | Make even more goods | Stop selling completely\n[medium] When a market has a shortage, prices usually | Rise | Fall | Stay exactly the same | Drop to zero\n[medium] In the circular flow model, what do households get in return for their labor? | Wages and income | Goods and services | Taxes | Business profits\n[medium] Quantity demanded means | How much buyers want at one specific price | The total money spent in a year | The number of sellers | The price a store sets\n[medium] TF: The law of supply says sellers offer more of a good when its price is higher. | true\n[medium] TF: In the circular flow model, households sell goods and services in the product market. | false\n[medium] FILL: The price where quantity supplied equals quantity demanded is called the ____ price. | equilibrium\n[medium] FILL: The law of ____ says that as price goes up, quantity supplied goes up. | supply\n[medium] FILL: The law of ____ says that as price goes up, quantity demanded goes down. | demand\n[medium] FILL: In the circular flow model, the two main groups are households and ____. | businesses/business/firms/companies\n[medium] MATCH: Shortage = Quantity demanded is greater than quantity supplied ; Surplus = Quantity supplied is greater than quantity demanded ; Equilibrium = Quantity supplied equals quantity demanded\n[medium] MATCH: Law of demand = Price goes up, quantity demanded goes down ; Law of supply = Price goes up, quantity supplied goes up ; Equilibrium price = Where quantity supplied equals quantity demanded\n[medium] Scarcity means | Wants are unlimited but resources are limited | There is more than enough of everything | Prices are always low | Only the government makes choices\n[hard] At $5, buyers want 100 shirts but sellers offer only 60. What is happening? | A shortage of 40 shirts | A surplus of 40 shirts | Equilibrium | A surplus of 160 shirts\n[hard] At $8, sellers offer 120 pizzas but buyers want only 70. What is happening? | A surplus of 50 pizzas | A shortage of 50 pizzas | Equilibrium | A shortage of 190 pizzas\n[hard] A new video game is priced so low that every store sells out on day one. What will most likely happen to its price? | It will rise toward equilibrium | It will fall even lower | It will stay the same forever | It will drop to zero\n[hard] A bakery has 50 loaves left over every night. The best way to clear this surplus is to | Lower the price | Raise the price | Bake even more bread | Stop advertising\n[hard] In the circular flow model, what do businesses get from the product market? | Revenue from sales | Wages | Land and labor | Taxes\n[hard] In the circular flow model, money flows from households to businesses through | Spending in the product market | Wages in the factor market | Taxes only | Bank loans only\n[hard] Opportunity cost is | The value of the next best choice you give up | The price on the price tag | Money saved in a bank | The cost of starting a business\n[hard] TF: If the price is set above equilibrium, a shortage will happen. | false\n[hard] TF: In the circular flow model, money flows from businesses to households as wages and income. | true\n[hard] FILL: In the circular flow model, households sell land, labor and capital in the ____ market. | factor/resource/resources/factor resource\n[hard] FILL: In the circular flow model, businesses sell goods and services in the ____ market. | product/products/goods and services\n[hard] MATCH: Product market = Where businesses sell goods and services ; Factor market = Where households sell land, labor and capital ; Households = Buy goods and services and earn wages ; Businesses = Hire workers and earn revenue"
+};
+
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const rand = n => Math.floor(Math.random() * n);
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const cellName = i => COLS[i % N] + (Math.floor(i / N) + 1);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const flag = c => `var(${FLAG_VARS[c % 4]})`;
+
+/* ---------- question parsing ---------- */
+const KIND_LABEL = { mc: "Multiple choice", def: "Definition", term: "Vocabulary", tf: "True or false", fill: "Fill in the blank", match: "Matching" };
+function parseSet(text, askBy) {
+  const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const cards = [], qs = [], bad = [];
+  lines.forEach((raw, i) => {
+    const dm = raw.match(/^\[(easy|medium|hard)\]\s*/i);
+    const d = dm ? dm[1].toLowerCase() : null;
+    const line = dm ? raw.slice(dm[0].length) : raw;
+    const tm = line.match(/^(true or false|true\/false|t\/f|tf|fill in the blank|fill|blank|matching|match)\s*:\s*(.+)$/i);
+    if (tm) {
+      const tag = tm[1].toLowerCase(), rest = tm[2];
+      if (/^t/.test(tag)) {
+        const [st, v] = rest.split("|").map(x => x.trim());
+        if (st && v) { qs.push({ k: "tf", q: st, a: /^(t|true|yes|right|correct)$/i.test(v) ? 0 : 1, d }); return; }
+      } else if (/^(f|b)/.test(tag)) {
+        const [st, v] = rest.split("|").map(x => x.trim());
+        const acc = (v || "").split("/").map(x => x.trim()).filter(Boolean);
+        if (st && acc.length) { qs.push({ k: "fill", q: st, a: acc[0], acc, d }); return; }
+      } else {
+        const pairs = rest.split(";").map(p => { const k = p.indexOf("="); return k > 0 ? [p.slice(0, k).trim(), p.slice(k + 1).trim()] : null; }).filter(p => p && p[0] && p[1]);
+        if (pairs.length >= 2) { qs.push({ k: "match", q: "Match each term to its meaning", pairs: pairs.slice(0, 5), d }); return; }
+      }
+      bad.push(i + 1); return;
+    }
+    let parts = null;
+    if (line.includes("\t")) parts = line.split("\t");
+    else if (line.includes("|")) parts = line.split("|");
+    else { const k = line.indexOf(" - "); if (k > 0) parts = [line.slice(0, k), line.slice(k + 3)]; }
+    parts = parts ? parts.map(x => x.trim()).filter(Boolean) : [];
+    if (parts.length === 2) cards.push({ term: parts[0], def: parts[1], d });
+    else if (parts.length >= 3) qs.push({ k: "mc", q: parts[0], a: parts[1], w: parts.slice(2, 5), d });
+    else bad.push(i + 1);
+  });
+  const prompt = c => askBy === "term" ? c.term : c.def;
+  const ans = c => askBy === "term" ? c.def : c.term;
+  const pool = [...new Set(cards.map(ans))];
+  let lonely = 0;
+  cards.forEach(c => {
+    const a = ans(c);
+    const w = shuffle(pool.filter(x => x !== a)).slice(0, 3);
+    if (w.length) qs.push({ k: askBy === "term" ? "term" : "def", q: prompt(c), a, w, d: c.d }); else lonely++;
+  });
+  return { qs, bad, cards: cards.length, lonely };
+}
+
+/* ---------- fleet helpers ---------- */
+function shipCells(anchor, len, hz) {
+  let x = anchor % N, y = Math.floor(anchor / N);
+  if (hz) x = Math.min(x, N - len); else y = Math.min(y, N - len);
+  const a = y * N + x;
+  return Array.from({ length: len }, (_, k) => hz ? a + k : a + k * N);
+}
+function randomFleet() {
+  for (;;) {
+    const used = new Set(), ships = [];
+    for (const len of SHIPS) {
+      for (let t = 0; t < 200; t++) {
+        const cells = shipCells(rand(N * N), len, Math.random() < .5);
+        if (cells.every(c => !used.has(c))) { cells.forEach(c => used.add(c)); ships.push(cells); break; }
+      }
+    }
+    if (ships.length === SHIPS.length) return ships;
+  }
+}
+function boardFrom(ships, shotSet) {
+  const shipSet = new Set(ships.flat()), h = [], m = [];
+  shotSet.forEach(c => (shipSet.has(c) ? h : m).push(c));
+  const hs = new Set(h);
+  const s = ships.filter(sh => sh.every(c => hs.has(c)));
+  const left = ships.flat().filter(c => !hs.has(c)).length;
+  return { h: h.sort((a, b) => a - b), m: m.sort((a, b) => a - b), s, left, alive: left > 0 };
+}
+function encShots(arr) { return arr.map(([q, t, c, s]) => q.toString(36).padStart(2, "0") + t + c.toString(36).padStart(2, "0") + s).join(""); }
+let decCache = { k: null, v: [] };
+function decShots(str) {
+  if (typeof str !== "string") return [];
+  if (decCache.k === str) return decCache.v;
+  const out = [];
+  for (let i = 0; i + 6 <= str.length; i += 6) {
+    out.push([parseInt(str.slice(i, i + 2), 36), +str[i + 2], parseInt(str.slice(i + 3, i + 5), 36), +str[i + 5]]);
+  }
+  decCache = { k: str, v: out };
+  return out;
+}
+const validCell = c => Number.isInteger(c) && c >= 0 && c < N * N;
+
+/* ---------- state ---------- */
+const S = {
+  screen: "home", name: store.get("rb.name", ""), localSets: store.get("rb.sets", []), shared: [],
+  dbState: "loading", canEdit: false, roomState: "loading",
+  hostCfg: Object.assign({ setId: "sample", rounds: 0, secs: 20 }, store.get("rb.cfg2", {})),
+  code: "", joinCode: "", isHost: false, solo: false, note: "", joinErr: "", myPeer: null,
+  ships: randomFleet(), place: { sel: 0, horiz: true }, brdJs: "", seenSeq: null, seenAt: 0,
+  hadHost: false, editing: null, confirmDel: null, busy: false
+};
+S.fill = { qi: -1, v: "" }; S.match = { qi: -1, sel: 0, pairs: {} };
+let net = null, ME = {}, H = null, hostTimer = null, db = null, roomNS = null;
+
+/* ---------- connection (PeerJS: the host's browser is the hub) ---------- */
+const PEER_PREFIX = "reviewbroadside-";
+roomNS = typeof window.Peer === "function" ? {} : null;
+S.roomState = roomNS ? "ok" : "none";
+S.dbState = "none";
+
+const allSets = () => [SAMPLE, ...S.shared, ...S.localSets.map(s => ({ ...s, src: "local" }))];
+const findSet = id => allSets().find(s => s.id === id) || SAMPLE;
+
+/* ---------- networking ---------- */
+function makeLocalNet() {
+  let pres = {};
+  return {
+    local: true,
+    peers() { return [{ peer: "local", isMe: true, sameTab: true, kind: "viewer", presence: pres }]; },
+    presence(patch) { const n = { ...pres }; for (const k in patch) { if (patch[k] === null) delete n[k]; else n[k] = patch[k]; } pres = n; queueMicrotask(onChange); return Promise.resolve(); },
+    leave() {}
+  };
+}
+function peerOpen(peer) {
+  return new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error("The connection service didn't answer. Check your internet and try again.")), 12000);
+    peer.on("open", id => { clearTimeout(t); res(id); });
+    peer.on("error", e => { clearTimeout(t); rej(e); });
+  });
+}
+async function makeRoomNet(code, asHost) {
+  const roomId = PEER_PREFIX + code.toLowerCase();
+  let mine = {}, snapshot = [];
+  const others = new Map(), conns = new Map();
+  let peer, myId, hostConn = null, closed = false;
+  const rebuild = () => {
+    const me = { peer: myId, isMe: true, sameTab: true, kind: "viewer", presence: mine };
+    if (asHost) snapshot = [me, ...[...others].map(([id, pr]) => ({ peer: id, isMe: false, sameTab: false, kind: "viewer", presence: pr || {} }))];
+    else snapshot = [me, ...snapshot.filter(p => !p.sameTab)];
+  };
+  let bq = false;
+  const broadcast = () => {
+    if (bq) return; bq = true;
+    setTimeout(() => {
+      bq = false;
+      const all = [[myId, mine], ...others];
+      conns.forEach(c => { try { if (c.open) c.send({ t: "all", all }); } catch {} });
+    }, 30);
+  };
+  if (asHost) {
+    peer = new Peer(roomId, { debug: 0 });
+    myId = await peerOpen(peer);
+    peer.on("connection", conn => {
+      conn.on("open", () => { conns.set(conn.peer, conn); if (!others.has(conn.peer)) others.set(conn.peer, {}); rebuild(); broadcast(); onChange(); });
+      conn.on("data", msg => { if (msg && msg.t === "p" && msg.p && typeof msg.p === "object") { others.set(conn.peer, msg.p); rebuild(); broadcast(); onChange(); } });
+      const drop = () => { conns.delete(conn.peer); others.delete(conn.peer); rebuild(); broadcast(); onChange(); };
+      conn.on("close", drop); conn.on("error", drop);
+    });
+  } else {
+    peer = new Peer(undefined, { debug: 0 });
+    myId = await peerOpen(peer);
+    hostConn = await new Promise((res, rej) => {
+      const c = peer.connect(roomId, { reliable: true });
+      const t = setTimeout(() => rej(new Error("No game found with that code. Check it with the host.")), 12000);
+      c.on("open", () => { clearTimeout(t); res(c); });
+      peer.on("error", e => { clearTimeout(t); rej(e && e.type === "peer-unavailable" ? new Error("No game found with that code. Check it with the host.") : e); });
+    });
+    hostConn.on("data", msg => {
+      if (!msg || msg.t !== "all" || !Array.isArray(msg.all)) return;
+      snapshot = msg.all.filter(x => Array.isArray(x) && x[0] !== myId).map(([id, pr]) => ({ peer: id, isMe: false, sameTab: false, kind: "viewer", presence: pr || {} }));
+      rebuild(); onChange();
+    });
+    const gone = () => { if (closed) return; snapshot = []; rebuild(); S.note = "Lost the connection to the host."; onChange(); };
+    hostConn.on("close", gone); hostConn.on("error", gone);
+  }
+  rebuild();
+  let sq = false;
+  const sendMine = () => { if (sq) return; sq = true; setTimeout(() => { sq = false; try { if (hostConn && hostConn.open) hostConn.send({ t: "p", p: mine }); } catch {} }, 30); };
+  return {
+    local: false,
+    peers: () => snapshot,
+    presence(patch) {
+      const n = { ...mine }; for (const k in patch) { if (patch[k] === null) delete n[k]; else n[k] = patch[k]; }
+      mine = n; rebuild();
+      if (asHost) broadcast(); else sendMine();
+      queueMicrotask(onChange);
+      return Promise.resolve();
+    },
+    leave() { closed = true; try { peer.destroy(); } catch {} }
+  };
+}
+async function waitForMe() {
+  for (let i = 0; i < 80; i++) {
+    const me = net.peers().find(p => p.sameTab);
+    if (me) return me.peer;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  throw new Error("The game room did not answer. Check your connection and try again.");
+}
+function setMe(patch) {
+  for (const k in patch) { if (patch[k] === null) delete ME[k]; else ME[k] = patch[k]; }
+  return net && net.presence(patch);
+}
+function getG() {
+  if (!net) return null;
+  if (S.isHost) return H ? H.g : null;
+  const hostPeer = net.peers().find(p => !p.sameTab && p.presence && p.presence.g && typeof p.presence.g === "object");
+  return hostPeer ? hostPeer.presence.g : null;
+}
+const mySeat = G => G && Array.isArray(G.seats) ? G.seats.findIndex(s => s.p === S.myPeer) : -1;
+function seatPres(G, i) {
+  const st = G.seats[i];
+  if (!st || st.bot) return null;
+  if (st.p === S.myPeer) return ME.gid === G.gid ? ME : null;
+  const p = net.peers().find(x => x.peer === st.p);
+  const pr = p && p.presence;
+  return pr && pr.gid === G.gid ? pr : null;
+}
+const present = (G, i) => { const st = G.seats[i]; return !!st && (st.bot || st.p === S.myPeer || net.peers().some(x => x.peer === st.p)); };
+function seatBoard(G, i) {
+  const st = G.seats[i];
+  if (!st) return null;
+  if (st.bot) return G.bb ? cleanBrd(G.bb[i]) : null;
+  const pr = seatPres(G, i);
+  return pr ? cleanBrd(pr.brd) : null;
+}
+const isAlive = (G, i) => { const b = seatBoard(G, i); return !b || b.alive !== false; };
+function humanShots(G, i) {
+  const pr = seatPres(G, i);
+  return pr && Array.isArray(pr.shots) ? pr.shots.filter(s => Array.isArray(s) && Number.isInteger(s[0]) && Number.isInteger(s[1]) && validCell(s[2])) : [];
+}
+function allShots(G) { // [qi, target, cell, shooter]
+  const out = [];
+  G.seats.forEach((st, i) => { if (!st.bot) humanShots(G, i).forEach(s => out.push([s[0], s[1], s[2], i])); });
+  decShots(G.bs).forEach(s => out.push(s));
+  return out;
+}
+function incoming(G, seat) { const set = new Set(); allShots(G).forEach(s => { if (s[1] === seat) set.add(s[2]); }); return set; }
+function answerOf(G, i) {
+  const st = G.seats[i];
+  if (st.bot) return G.ba && G.ba[i];
+  const pr = seatPres(G, i);
+  return pr && Array.isArray(pr.ans) ? pr.ans : null;
+}
+const firedCount = (G, i, qi) => allShots(G).filter(s => s[3] === i && s[0] === qi).length;
+
+/* ---------- client loop ---------- */
+function onChange() {
+  if (!net) return scheduleRender();
+  const G = getG();
+  if (G) S.hadHost = true;
+  if (G && G.seq !== S.seenSeq) { S.seenSeq = G.seq; S.seenAt = Date.now(); }
+  const seat = mySeat(G);
+  if (G && seat >= 0 && G.gid && G.gid !== ME.gid) {
+    S.ships = randomFleet(); S.place = { sel: 0, horiz: true }; S.brdJs = "";
+    setMe({ gid: G.gid, rdy: false, ans: null, shots: [], brd: null });
+  }
+  if (G && seat >= 0 && G.gid === ME.gid) {
+    if (!["lobby", "place"].includes(G.ph) && !ME.rdy) {
+      if (!S.ships.every(Boolean)) S.ships = randomFleet();
+      setMe({ rdy: true });
+    }
+    if (ME.rdy) {
+      const brd = boardFrom(S.ships, incoming(G, seat));
+      const js = JSON.stringify(brd);
+      if (js !== S.brdJs) { S.brdJs = js; setMe({ brd }); }
+    }
+  }
+  scheduleRender();
+}
+
+/* ---------- host engine ---------- */
+function buildG() {
+  const showAns = ["reveal", "fire", "damage", "over"].includes(H.phase);
+  const g = {
+    v: 1, gid: H.gid, ph: H.phase, seq: H.seq, dur: H.dur, qi: H.qi, n: H.rounds || 0, title: H.title.slice(0, 80),
+    q: H.q, ai: showAns ? H.ansShow : null, seats: H.seats, ammo: H.ammo, tg: H.targets, sh: H.shooters,
+    res: H.res, fast: H.fast, lone: !!H.lone, ba: H.ba, bb: H.bb, bs: encShots(H.bs), tally: H.correct, rank: H.rank, bots: H.botCount
+  };
+  return g;
+}
+function pushG() {
+  if (!H) return;
+  H.g = buildG();
+  let g = H.g;
+  if (JSON.stringify(g).length > 2900 && g.q) { g = { ...g, q: { ...g.q, t: g.q.t.slice(0, 160), ch: g.q.ch && g.q.ch.map(c => c.slice(0, 60)), r: g.q.r && g.q.r.map(c => c.slice(0, 70)) } }; H.g = g; }
+  setMe({ g });
+  onChange();
+}
+function newPhase(ph, dur) { H.phase = ph; H.dur = dur; H.seq++; H.t0 = Date.now(); }
+function hostElapsed() { return (Date.now() - H.t0) / 1000; }
+
+function hostOpen(set, solo) {
+  const parsed = parseSet(set.text, set.askBy);
+  H = {
+    title: set.title, all: parsed.qs, rounds: S.hostCfg.rounds, secs: S.hostCfg.secs,
+    phase: "lobby", seq: 1, t0: Date.now(), dur: 0, gid: null, qi: -1, questions: [], q: null, ansIdx: null,
+    seats: [], ammo: {}, targets: [], shooters: [], res: {}, fast: null, ba: {}, bb: {}, bs: [], correct: {}, rank: null,
+    botCount: solo ? 1 : 0, bots: {}, botPlan: {}, g: null
+  };
+}
+function hostStart() {
+  const others = net.peers().filter(p => !p.sameTab && p.presence && typeof p.presence.nm === "string" && !p.presence.g);
+  const humans = [{ peer: S.myPeer, nm: S.name }, ...others.map(p => ({ peer: p.peer, nm: p.presence.nm }))].slice(0, 4);
+  const seats = humans.map((h, i) => ({ p: h.peer, nm: String(h.nm || "Player").slice(0, 24), c: i }));
+  for (let k = 0; seats.length < 4 && k < H.botCount; k++) seats.push({ p: "bot" + k, nm: BOT_NAMES[k], c: seats.length, bot: 1 });
+  if (seats.length < 2) return;
+  H.seats = seats;
+  H.gid = Math.random().toString(36).slice(2, 8);
+  H.questions = [];
+  H.questions = dealBatch();
+  H.qi = -1; H.q = null; H.ansIdx = null; H.ammo = {}; H.targets = []; H.shooters = []; H.res = {}; H.fast = null;
+  H.ba = {}; H.bb = {}; H.bs = []; H.correct = {}; H.rank = null; H.bots = {};
+  seats.forEach((s, i) => { if (s.bot) { H.bots[i] = { ships: randomFleet(), js: "" }; H.bb[i] = boardFrom(H.bots[i].ships, new Set()); } H.correct[i] = 0; });
+  newPhase("place", 75);
+  pushG();
+}
+// Deals every question once, in groups of three that each mix easy, medium and hard.
+function dealBatch() {
+  const pools = ["easy", "medium", "hard", null].map(d => shuffle(H.all.filter(q => (q.d || null) === d)));
+  const out = [];
+  while (pools.some(p => p.length)) out.push(...shuffle(pools.filter(p => p.length).map(p => p.pop())));
+  const last = H.questions[H.questions.length - 1];
+  if (last && out.length > 1 && out[0] === last) out.push(out.shift());
+  return out;
+}
+const normAns = v => String(v || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim().replace(/^(a|an|the) /, "");
+function hostQuestion() {
+  H.qi++;
+  const q = H.questions[H.qi];
+  const k = q.k || "mc";
+  let extra = 0;
+  if (k === "tf") { H.q = { k, t: q.q.slice(0, 300), ch: ["True", "False"] }; H.key = q.a; H.ansShow = q.a; }
+  else if (k === "fill") { H.q = { k, t: q.q.slice(0, 300) }; H.key = q.acc.map(normAns); H.ansShow = String(q.a).slice(0, 80); extra = 10; }
+  else if (k === "match") {
+    const pairs = q.pairs.slice(0, 5), order = shuffle(pairs.map((_, i) => i));
+    H.q = { k, t: q.q.slice(0, 120), l: pairs.map(p => p[0].slice(0, 60)), r: order.map(i => pairs[i][1].slice(0, 110)) };
+    H.key = pairs.map((_, i) => order.indexOf(i)); H.ansShow = H.key; extra = 20;
+  } else {
+    const ch = shuffle([q.a, ...q.w]);
+    H.q = { k, t: q.q.slice(0, 300), ch: ch.map(c => String(c).slice(0, 140)) };
+    H.key = ch.indexOf(q.a); H.ansShow = H.key;
+  }
+  H.q.d = q.d || null;
+  H.ba = {}; H.res = {}; H.ammo = {}; H.targets = []; H.shooters = []; H.fast = null;
+  H.botPlan = {};
+  const dur = H.secs + extra;
+  H.seats.forEach((s, i) => { if (s.bot) H.botPlan[i] = { at: 2.5 + Math.random() * Math.max(3, dur - 6), c: botAnswer(k, Math.random() < 0.6) }; });
+  newPhase("question", dur);
+  pushG();
+}
+function botAnswer(k, right) {
+  if (k === "fill") return right ? H.ansShow : "not sure";
+  if (k === "match") { const w = H.key.slice(); if (!right && w.length > 1) [w[0], w[1]] = [w[1], w[0]]; return w; }
+  if (right) return H.key;
+  const opts = H.q.ch.map((_, i) => i).filter(i => i !== H.key);
+  return opts[rand(opts.length)];
+}
+function checkAns(v) {
+  const k = H.q.k;
+  if (k === "fill") return typeof v === "string" && H.key.includes(normAns(v));
+  if (k === "match") return Array.isArray(v) && v.length === H.key.length && v.every((x, i) => x === H.key[i]);
+  return v === H.key;
+}
+function hostReveal() {
+  const G = H.g;
+  let fast = null, fastMs = Infinity;
+  H.seats.forEach((s, i) => {
+    const a = answerOf(G, i);
+    const r = a && a[0] === H.qi ? (checkAns(a[1]) ? 1 : 0) : -1;
+    H.res[i] = r;
+    if (r === 1) { H.correct[i] = (H.correct[i] || 0) + 1; const ms = Number(a[2]) || 99999; if (ms < fastMs) { fastMs = ms; fast = i; } }
+  });
+  H.fast = fast;
+  H.targets = H.seats.map((_, i) => i).filter(i => H.res[i] !== 1 && present(G, i) && isAlive(G, i));
+  H.shooters = H.seats.map((_, i) => i).filter(i => H.res[i] === 1 && present(G, i));
+  H.ammo = {};
+  H.lone = H.seats.length === 4 && H.shooters.length === 1;
+  if (H.targets.length) H.shooters.forEach(i => { H.ammo[i] = H.lone ? 3 : 1; });
+  newPhase("reveal", H.q.k === "match" ? 8 : H.q.k === "fill" ? 6 : 5);
+  pushG();
+}
+function hostNext() {
+  const G = H.g;
+  const alive = H.seats.map((_, i) => i).filter(i => present(G, i) && isAlive(G, i));
+  if (alive.length <= 1 || (H.rounds && H.qi + 1 >= H.rounds)) return hostOver();
+  if (H.qi + 1 >= H.questions.length) H.questions = H.questions.concat(dealBatch());
+  hostQuestion();
+}
+function hostOver() {
+  const G = H.g;
+  const score = i => { const b = seatBoard(G, i); return [isAlive(G, i) ? 1 : 0, b ? b.left : TOTAL, H.correct[i] || 0]; };
+  H.rank = H.seats.map((_, i) => i).sort((a, b) => { const A = score(a), B = score(b); for (let k = 0; k < 3; k++) if (A[k] !== B[k]) return B[k] - A[k]; return 0; });
+  newPhase("over", 0);
+  pushG();
+}
+function botPick(G, target) {
+  const b = seatBoard(G, target) || { h: [], m: [], s: [] };
+  const known = new Set([...(b.h || []), ...(b.m || []), ...[...incoming(G, target)]]);
+  const sunk = new Set((b.s || []).flat());
+  const open = [];
+  for (const h of b.h || []) {
+    if (sunk.has(h)) continue;
+    for (const d of [-1, 1, -N, N]) {
+      const c = h + d;
+      if (!validCell(c) || known.has(c)) continue;
+      if ((d === -1 && h % N === 0) || (d === 1 && h % N === N - 1)) continue;
+      open.push(c);
+    }
+  }
+  if (open.length && Math.random() < 0.8) return open[rand(open.length)];
+  const all = [];
+  for (let c = 0; c < N * N; c++) if (!known.has(c)) all.push(c);
+  return all.length ? all[rand(all.length)] : null;
+}
+function hostTick() {
+  if (!H || !net) return;
+  let G = H.g; if (!G) return;
+  const el = hostElapsed();
+  let dirty = false;
+  // bot fleets: resolve incoming shots
+  for (const k in H.bots) {
+    const i = +k, bot = H.bots[k];
+    const brd = boardFrom(bot.ships, incoming(G, i));
+    const js = JSON.stringify(brd);
+    if (js !== bot.js) { bot.js = js; H.bb[i] = brd; dirty = true; }
+  }
+  if (dirty) { pushG(); G = H.g; }
+  const seatsIdx = H.seats.map((_, i) => i);
+  switch (H.phase) {
+    case "place":
+      if (el >= H.dur || seatsIdx.every(i => H.seats[i].bot || !present(G, i) || (seatPres(G, i) && seatPres(G, i).rdy))) hostQuestion();
+      break;
+    case "question": {
+      let changed = false;
+      for (const k in H.botPlan) { const p = H.botPlan[k]; if (!H.ba[k] && el >= p.at) { H.ba[k] = [H.qi, p.c, Math.round(p.at * 1000)]; changed = true; } }
+      if (changed) { pushG(); G = H.g; }
+      const done = seatsIdx.every(i => !present(G, i) || (answerOf(G, i) && answerOf(G, i)[0] === H.qi));
+      if (done || el >= H.dur) hostReveal();
+      break;
+    }
+    case "reveal":
+      if (el >= H.dur) {
+        if (H.shooters.length && H.targets.length) { newPhase("fire", 20); pushG(); }
+        else hostNext();
+      }
+      break;
+    case "fire": {
+      let changed = false;
+      H.shooters.forEach((i, n) => {
+        if (!H.seats[i].bot) return;
+        const fired = H.bs.filter(s => s[0] === H.qi && s[3] === i).length;
+        if (fired < (H.ammo[i] || 0) && el >= 1.6 + fired * 1.4 + n * 0.5) {
+          const tg = H.targets.filter(t => isAlive(G, t));
+          if (!tg.length) return;
+          const t = tg[rand(tg.length)], c = botPick(G, t);
+          if (c !== null) { H.bs.push([H.qi, t, c, i]); changed = true; }
+        }
+      });
+      if (changed) { pushG(); G = H.g; }
+      const liveTargets = H.targets.filter(t => present(G, t) && isAlive(G, t));
+      const allFired = H.shooters.every(i => !present(G, i) || firedCount(G, i, H.qi) >= (H.ammo[i] || 0));
+      if (el >= H.dur || !liveTargets.length || (allFired && el > 1.2)) { newPhase("damage", 4); pushG(); }
+      break;
+    }
+    case "damage":
+      if (el >= H.dur) hostNext();
+      break;
+  }
+}
+
+/* ---------- actions ---------- */
+function genCode() { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let s = ""; for (let i = 0; i < 4; i++) s += A[rand(A.length)]; return s; }
+function needName() {
+  const nm = (S.name || "").trim();
+  if (!nm) { S.note = "Type your name first."; rerenderStatic(); const i = $("#nm"); if (i) i.focus(); return true; }
+  return false;
+}
+async function hostGame(solo) {
+  if (needName() || S.busy) return;
+  const set = findSet(S.hostCfg.setId);
+  const parsed = parseSet(set.text, set.askBy);
+  if (parsed.qs.length < 1) { S.note = "That set has no usable questions yet. Edit it and add at least two cards."; rerenderStatic(); return; }
+  S.busy = true; S.note = "";
+  try {
+    if (solo || !roomNS) { net = makeLocalNet(); S.code = "SOLO"; S.solo = true; }
+    else {
+      S.solo = false;
+      for (let tries = 0; ; tries++) {
+        S.code = genCode();
+        try { net = await makeRoomNet(S.code, true); break; }
+        catch (e) { if (!(e && e.type === "unavailable-id") || tries > 3) throw e; }
+      }
+    }
+    S.myPeer = await waitForMe();
+  } catch (e) {
+    S.busy = false; net = null;
+    S.note = "Could not open a game room: " + (e && (e.message || e.code) || "unknown error") + ". You can still play solo.";
+    return rerenderStatic();
+  }
+  S.busy = false; S.isHost = true; S.hadHost = true;
+  ME = {}; setMe({ nm: S.name.trim().slice(0, 24) });
+  hostOpen(set, solo || S.solo);
+  S.screen = "game";
+  pushG();
+  clearInterval(hostTimer); hostTimer = setInterval(hostTick, 250);
+  if (S.solo) hostStart();
+}
+async function joinGame() {
+  if (needName() || S.busy) return;
+  const code = (S.joinCode || "").trim().toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.joinErr = "Game codes are 4 letters."; return rerenderStatic(); }
+  if (!roomNS) { S.joinErr = "The game connection couldn't load. Check your internet and reload the page."; return rerenderStatic(); }
+  S.busy = true; S.joinErr = "";
+  try { net = await makeRoomNet(code, false); S.myPeer = await waitForMe(); }
+  catch (e) { S.busy = false; net = null; S.joinErr = "Could not join: " + (e && (e.message || e.code) || "unknown error"); return rerenderStatic(); }
+  S.busy = false; S.isHost = false; S.code = code; S.hadHost = false; S.joinedAt = Date.now();
+  ME = {}; setMe({ nm: S.name.trim().slice(0, 24) });
+  S.screen = "game";
+  onChange();
+  setTimeout(scheduleRender, 4500);
+}
+function leaveGame() {
+  clearInterval(hostTimer); hostTimer = null;
+  if (net) net.leave();
+  net = null; H = null; ME = {}; S.isHost = false; S.code = ""; S.seenSeq = null; S.note = "";
+  go("home");
+}
+function go(screen) { S.screen = screen; S.confirmDel = null; rerenderStatic(true); window.scrollTo(0, 0); }
+
+function placeClick(c) {
+  const owner = S.ships.findIndex(sh => sh && sh.includes(c));
+  if (owner >= 0 && owner !== S.place.sel) { S.place.sel = owner; return scheduleRender(); }
+  const sel = S.place.sel;
+  const cells = shipCells(c, SHIPS[sel], S.place.horiz);
+  const others = new Set(S.ships.filter((sh, i) => sh && i !== sel).flat());
+  if (cells.some(x => others.has(x))) { S.note = "That spot overlaps another ship."; return scheduleRender(); }
+  S.note = "";
+  S.ships[sel] = cells;
+  const nextEmpty = S.ships.findIndex(sh => !sh);
+  if (nextEmpty >= 0) S.place.sel = nextEmpty;
+  scheduleRender();
+}
+function rotate() {
+  S.place.horiz = !S.place.horiz;
+  const sel = S.place.sel, sh = S.ships[sel];
+  if (sh) {
+    const cells = shipCells(sh[0], SHIPS[sel], S.place.horiz);
+    const others = new Set(S.ships.filter((x, i) => x && i !== sel).flat());
+    if (!cells.some(x => others.has(x))) S.ships[sel] = cells; else S.note = "No room to turn that ship here. Move it first.";
+  }
+  scheduleRender();
+}
+function answer(v) {
+  const G = getG();
+  if (!G || G.ph !== "question" || mySeat(G) < 0) return;
+  if (ME.ans && ME.ans[0] === G.qi) return;
+  setMe({ ans: [G.qi, v, Date.now() - S.seenAt] });
+  onChange();
+}
+function fire(t, c) {
+  const G = getG(); const me = mySeat(G);
+  if (!G || G.ph !== "fire" || me < 0) return;
+  const ammo = (G.ammo && G.ammo[me]) || 0;
+  const mine = (ME.shots || []).filter(s => s[0] === G.qi);
+  if (mine.length >= ammo) return;
+  if (!(G.tg || []).includes(t) || !isAlive(G, t)) return;
+  if (incoming(G, t).has(c)) return;
+  setMe({ shots: [...(ME.shots || []), [G.qi, t, c]] });
+  onChange();
+}
+
+/* ---------- rendering ---------- */
+let rq = false;
+function scheduleRender() { if (rq) return; rq = true; requestAnimationFrame(() => { rq = false; if (S.screen === "game") renderGame(); }); }
+let lastHTML = "";
+function renderGame() {
+  app.classList.add("playing");
+  const h = gameHTML();
+  if (h === lastHTML) return;
+  if (typeof window.morphdom === "function" && lastHTML) {
+    const next = document.createElement("div"); next.innerHTML = h;
+    window.morphdom(app, next, { childrenOnly: true, onBeforeElUpdated: (a, b) => !a.isEqualNode(b) });
+  } else app.innerHTML = h;
+  lastHTML = h;
+}
+function rerenderStatic(force) {
+  if (S.screen === "game") return scheduleRender();
+  if (S.screen === "edit" && !force) return; // keep the editor's text untouched
+  lastHTML = "";
+  app.classList.remove("playing");
+  app.innerHTML = ({ home: homeHTML, host: hostHTML, sets: setsHTML, edit: editHTML }[S.screen] || homeHTML)();
+  if (S.screen === "edit") updatePreview();
+}
+
+function homeHTML() {
+  const roomNote = S.roomState === "none"
+    ? `<p class="note">The game connection couldn't load. Check your internet and reload the page. Solo games still work.</p>` : "";
+  return `
+  <header class="mast">
+    <div class="eyebrow">Review game · 1 to 4 players</div>
+    <h1 class="brand">BROAD<span>SIDE</span></h1>
+    <p class="tagline">Battleship for test review. Everyone gets the same question. Answer right and you earn a shell to fire at whoever got it wrong.</p>
+  </header>
+  <div class="home-grid">
+    <section class="panel">
+      <label class="field" for="nm">Your name
+        <input type="text" id="nm" maxlength="24" autocomplete="nickname" placeholder="e.g. Jordan" value="${esc(S.name)}">
+      </label>
+      ${S.note ? `<p class="err">${esc(S.note)}</p>` : ""}
+      <div class="row">
+        <button class="btn primary" data-act="to-host">Host a game</button>
+        <button class="btn" data-act="solo">Play solo vs. computer</button>
+      </div>
+      <div class="stack">
+        <label class="field" for="jc">Join with a code</label>
+        <div class="row">
+          <input type="text" id="jc" class="code-input" maxlength="4" placeholder="ABCD" value="${esc(S.joinCode)}" autocomplete="off">
+          <button class="btn" data-act="join" ${S.busy ? "disabled" : ""}>Join game</button>
+        </div>
+        ${S.joinErr ? `<p class="err">${esc(S.joinErr)}</p>` : ""}
+      </div>
+      ${S.imported ? `<p class="note">Added the question set "${esc(S.imported)}". It's picked for you when you host.</p>` : ""}
+      ${roomNote}
+    </section>
+    <section class="panel">
+      <h2>How a round works</h2>
+      <ol class="rules">
+        <li>Hide your four ships on an 8×8 grid.</li>
+        <li>A question appears on every screen. Pick an answer before the timer runs out.</li>
+        <li>Every right answer earns 1 shell. In a 4-player game, if you're the only one who gets it right, you earn 3 shells and can split them between boards however you like.</li>
+        <li>Fire your shells at the fleets of players who got it wrong. If nobody misses, everyone is safe.</li>
+        <li>Last fleet afloat wins. If questions run out first, the most ship left wins.</li>
+      </ol>
+      <div class="row">
+        <button class="btn" data-act="to-sets">Question sets (${allSets().length})</button>
+      </div>
+    </section>
+  </div>`;
+}
+
+function setPickList() {
+  return allSets().map(s => {
+    const p = parseSet(s.text, s.askBy);
+    const tag = s.src === "sample" ? "Built-in" : s.src === "shared" ? "Shared" : "This device";
+    return `<label class="setpick"><input type="radio" name="setpick" value="${esc(s.id)}" ${S.hostCfg.setId === s.id ? "checked" : ""}>
+      <span><b>${esc(s.title)}</b><br><span class="sub">${p.qs.length} questions · ${tag}</span></span></label>`;
+  }).join("");
+}
+function hostHTML() {
+  const sel = (id, opts, val) => `<select id="${id}">${opts.map(([v, l]) => `<option value="${v}" ${+val === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+  return `
+  <div class="topbar"><span class="mini">BROADSIDE</span><button class="btn small" data-act="home">Back</button></div>
+  <section class="panel">
+    <h2>Host a game</h2>
+    <p class="muted">You'll get a 4-letter code. Up to 3 friends join from their own computers by opening this page and typing the code.</p>
+    <div class="stack"><div class="eyebrow">Question set</div><div>${setPickList()}</div></div>
+    <div class="row">
+      <label class="field" for="rounds" style="flex:1;min-width:150px">Game length${sel("rounds", [[0, "Until one fleet is left"], [15, "15 questions"], [20, "20 questions"], [30, "30 questions"]], S.hostCfg.rounds)}</label>
+      <label class="field" for="secs" style="flex:1;min-width:150px">Time per question${sel("secs", [[10, "10 seconds"], [15, "15 seconds"], [20, "20 seconds"], [30, "30 seconds"], [45, "45 seconds"]], S.hostCfg.secs)}</label>
+    </div>
+    ${S.note ? `<p class="err">${esc(S.note)}</p>` : ""}
+    <div class="row">
+      <button class="btn primary" data-act="host" ${S.busy || S.roomState !== "ok" ? "disabled" : ""}>Open lobby</button>
+      <button class="btn" data-act="solo">Solo vs. computer instead</button>
+    </div>
+    ${S.roomState !== "ok" ? `<p class="note">${S.roomState === "loading" ? "Connecting to the live game service…" : "The game connection couldn't load, so only solo games work right now. Reload to try again."}</p>` : ""}
+  </section>`;
+}
+
+function setsHTML() {
+  const sets = allSets();
+  const dbNote = S.dbState === "ok" || S.dbState === "loading" ? "" :
+    "";
+  const saveWhere = S.canEdit && db ? "Sets you save go to the shared library, so every player can host with them." : "Sets you make are saved on this device. Whoever hosts picks the set, so only the host needs it.";
+  return `
+  <div class="topbar"><span class="mini">BROADSIDE</span><button class="btn small" data-act="home">Back</button></div>
+  <section class="panel">
+    <div class="row" style="justify-content:space-between"><h2>Question sets</h2><button class="btn primary" data-act="new-set">New set</button></div>
+    <p class="muted">${saveWhere}</p>
+    ${dbNote}
+    <ul class="list">
+      ${sets.map(s => {
+        const p = parseSet(s.text, s.askBy);
+        const tag = s.src === "sample" ? "Built-in" : s.src === "shared" ? "Shared" : "This device";
+        const editable = s.src === "local" || (s.src === "shared" && S.canEdit);
+        const del = S.confirmDel === s.id
+          ? `<button class="btn small danger" data-act="del-yes" data-id="${esc(s.id)}">Delete for good</button><button class="btn small" data-act="del-no">Keep</button>`
+          : editable ? `<button class="btn small" data-act="del" data-id="${esc(s.id)}">Delete</button>` : "";
+        return `<li><span style="min-width:0"><b>${esc(s.title)}</b><br><span class="sub">${p.qs.length} questions · ${tag}</span></span>
+          <span class="row"><button class="btn small" data-act="share" data-id="${esc(s.id)}">Share link</button>${editable ? `<button class="btn small" data-act="edit" data-id="${esc(s.id)}">Edit</button>` : `<button class="btn small" data-act="copy" data-id="${esc(s.id)}">Copy and edit</button>`}${del}</span></li>`;
+      }).join("")}
+    </ul>
+    ${S.shareUrl ? `<label class="field" for="share-url">Share link for "${esc(S.shareFor)}"<input type="text" id="share-url" readonly value="${esc(S.shareUrl)}"></label><p class="sub">${esc(S.shareMsg)}</p>` : ""}
+  </section>`;
+}
+
+function editHTML() {
+  const e = S.editing;
+  return `
+  <div class="topbar"><span class="mini">BROADSIDE</span><button class="btn small" data-act="to-sets">Cancel</button></div>
+  <section class="panel">
+    <h2>${e.id ? "Edit set" : "New set"}</h2>
+    <label class="field" for="st">Set name<input type="text" id="st" maxlength="80" value="${esc(e.title)}" placeholder="e.g. Unit 4: Cells"></label>
+    <div class="stack">
+      <div class="eyebrow">Paste your questions</div>
+      <p class="sub">One question per line. Mix any of these:</p>
+      <ul class="fmt">
+        <li><b>Multiple choice:</b> <code>Question | right answer | wrong | wrong | wrong</code></li>
+        <li><b>True or false:</b> <code>TF: Statement | true</code> (or <code>| false</code>)</li>
+        <li><b>Fill in the blank:</b> <code>FILL: A ____ happens when buyers want more than sellers have. | shortage</code>. Add other accepted answers with a slash, like <code>businesses/firms</code>.</li>
+        <li><b>Matching:</b> <code>MATCH: Term = meaning ; Term = meaning ; Term = meaning</code> (2 to 5 pairs)</li>
+        <li><b>Definition (Quizlet flashcards):</b> term, a tab, then the definition. In Quizlet choose <b>⋯ → Export</b>, keep <b>Tab</b> and <b>New line</b>, copy and paste. Wrong answers come from your other cards.</li>
+        <li><b>Difficulty (optional):</b> start a line with <code>[easy]</code>, <code>[medium]</code> or <code>[hard]</code>. Games mix all three in random order.</li>
+      </ul>
+      <textarea id="sx" spellcheck="false" placeholder="[easy] What is a shortage? | Demand is greater than supply | Supply is greater than demand | Equilibrium | A tax&#10;[medium] TF: At equilibrium there is no surplus. | true&#10;[hard] FILL: Households sell labor in the ____ market. | factor/resource">${esc(e.text)}</textarea>
+    </div>
+    <label class="field" for="sa">For flashcard lines, show
+      <select id="sa">
+        <option value="def" ${e.askBy !== "term" ? "selected" : ""}>The definition, answer with the term</option>
+        <option value="term" ${e.askBy === "term" ? "selected" : ""}>The term, answer with the definition</option>
+      </select>
+    </label>
+    <div id="pv" class="preview"></div>
+    ${S.note ? `<p class="err">${esc(S.note)}</p>` : ""}
+    <div class="row">
+      <button class="btn primary" data-act="save-set">${S.canEdit && db ? "Save to shared library" : "Save on this device"}</button>
+      <button class="btn" data-act="to-sets">Cancel</button>
+    </div>
+  </section>`;
+}
+function updatePreview() {
+  const pv = $("#pv"); if (!pv) return;
+  const text = $("#sx") ? $("#sx").value : "", askBy = $("#sa") ? $("#sa").value : "def";
+  const p = parseSet(text, askBy);
+  const msgs = [];
+  if (p.bad.length) msgs.push(`Skipped line${p.bad.length > 1 ? "s" : ""} ${p.bad.slice(0, 8).join(", ")}${p.bad.length > 8 ? "…" : ""}: no tab, " | " or " - " found.`);
+  if (p.lonely) msgs.push("Add at least two flashcards so wrong answers can be made from them.");
+  pv.innerHTML = `<div class="eyebrow">Preview · ${p.qs.length} question${p.qs.length === 1 ? "" : "s"} ready</div>
+    ${msgs.map(m => `<p class="err">${esc(m)}</p>`).join("")}
+    ${p.qs.slice(0, 4).map(q => `<div class="pq"><span class="sub">${KIND_LABEL[q.k] || "Question"}${q.d ? " · " + q.d : ""}</span><b>${esc(q.q)}</b>${
+      q.k === "tf" ? "✓ " + (q.a === 0 ? "True" : "False") :
+      q.k === "fill" ? "✓ " + q.acc.map(esc).join(" or ") :
+      q.k === "match" ? q.pairs.map(x => esc(x[0]) + " → " + esc(x[1])).join("<br>") :
+      `✓ ${esc(q.a)} <span class="muted">· ✗ ${q.w.map(esc).join(" · ✗ ")}</span>`}</div>`).join("")}
+    ${p.qs.length > 4 ? `<p class="sub">and ${p.qs.length - 4} more</p>` : ""}`;
+}
+async function saveSet() {
+  const title = ($("#st").value || "").trim() || "Untitled set";
+  const text = $("#sx").value || "", askBy = $("#sa").value === "term" ? "term" : "def";
+  const p = parseSet(text, askBy);
+  if (!p.qs.length) { S.editing = { ...S.editing, title, text, askBy }; S.note = "Add at least one question before saving."; return rerenderStatic(true); }
+  const e = S.editing;
+  if (S.canEdit && db && e.src !== "local") {
+    const id = e.id || ("s" + Date.now().toString(36) + rand(1e4).toString(36));
+    try { await db.doc("sets/" + id).set({ title, askBy, text, updatedAt: Date.now() }); }
+    catch (err) { S.editing = { ...e, title, text, askBy }; S.note = "Couldn't save to the shared library (" + (err.code || "error") + "). Try again."; return rerenderStatic(true); }
+    S.hostCfg.setId = id;
+  } else {
+    const id = e.id || ("l" + Date.now().toString(36));
+    const rest = S.localSets.filter(s => s.id !== id);
+    S.localSets = [...rest, { id, title, askBy, text }];
+    store.set("rb.sets", S.localSets);
+    S.hostCfg.setId = id;
+  }
+  store.set("rb.cfg2", S.hostCfg);
+  S.note = ""; S.editing = null; go("sets");
+}
+async function deleteSet(id) {
+  const s = allSets().find(x => x.id === id);
+  if (!s) return;
+  if (s.src === "local") { S.localSets = S.localSets.filter(x => x.id !== id); store.set("rb.sets", S.localSets); }
+  else if (s.src === "shared" && db) { try { await db.doc("sets/" + id).delete(); } catch (e) { S.note = "Couldn't delete (" + (e.code || "error") + ")."; } }
+  if (S.hostCfg.setId === id) S.hostCfg.setId = "sample";
+  S.confirmDel = null; rerenderStatic(true);
+}
+
+/* --- game screen --- */
+function timeLeft(G) {
+  if (!G || !G.dur) return null;
+  const started = S.isHost && H ? H.t0 : S.seenAt;
+  return Math.max(0, G.dur - (Date.now() - started) / 1000);
+}
+function timerHTML(G) {
+  const t = timeLeft(G);
+  if (t === null || !["question", "fire", "place"].includes(G.ph)) return "";
+  const pct = Math.max(0, Math.min(100, t / G.dur * 100));
+  return `<div class="timer ${t <= 5 ? "low" : ""}" id="timer"><span>${Math.ceil(t)}s</span><span class="bar"><i style="width:${pct}%"></i></span></div>`;
+}
+function nameTag(G, i) {
+  const st = G.seats[i]; if (!st) return "";
+  const you = st.p === S.myPeer ? " (you)" : "";
+  return `<span class="flag" style="background:${flag(st.c)}"></span><b>${esc(st.nm)}${you}</b>`;
+}
+function plainName(G, i) { const st = G.seats[i]; return st ? esc(st.nm) + (st.p === S.myPeer ? " (you)" : "") : "?"; }
+
+function gameHTML() {
+  const G = getG();
+  const qLabel = G && G.qi >= 0 && G.ph !== "over" ? `<span class="chip">Question ${G.qi + 1}${G.n ? " of " + G.n : ""}</span>` : "";
+  const codeChip = S.solo ? `<span class="chip">Solo game</span>` : `<span class="chip">Game code <span class="code">${esc(S.code)}</span></span>`;
+  const top = `<div class="topbar">
+    <div class="row"><span class="mini">BROADSIDE</span>${codeChip}${qLabel}</div>
+    <div class="row">${G ? timerHTML(G) : ""}${fsButton()}${S.isHost && G && !["lobby", "over"].includes(G.ph) ? `<button class="btn small" data-act="end">End game</button>` : ""}<button class="btn small" data-act="leave">Leave</button></div>
+  </div>`;
+  if (!G) {
+    const waitedLong = Date.now() - (S.joinedAt || 0) > 4000;
+    const msg = S.hadHost ? "The host left, so this game has ended." :
+      waitedLong ? `Nobody is hosting game ${esc(S.code)} right now. Check the code with your host.` : "Looking for the host…";
+    return top + `<section class="panel"><h2>${msg}</h2>${S.note ? `<p class="err">${esc(S.note)}</p>` : ""}<div class="row"><button class="btn" data-act="leave">Back to start</button></div></section>`;
+  }
+  const seat = mySeat(G);
+  let main = "";
+  if (G.ph === "lobby") main = lobbyHTML(G);
+  else if (seat < 0 && G.ph !== "over") main = `<section class="panel"><h2>This game already started</h2><p class="muted">You're watching. Ask the host to start a new game to get a seat.</p></section>` + watchBoards(G, G.seats.map((_, i) => i));
+  else if (G.ph === "place") main = placeHTML(G, seat);
+  else if (G.ph === "question" || G.ph === "reveal") main = questionHTML(G, seat);
+  else if (G.ph === "fire") main = fireHTML(G, seat);
+  else if (G.ph === "damage") main = damageHTML(G, seat);
+  else if (G.ph === "over") main = overHTML(G, seat);
+  const strip = G.ph !== "lobby" && G.ph !== "over" ? fleetHTML(G) : "";
+  return top + `<main class="stage">${main}</main>` + strip;
+}
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+const fsOK = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+function fsButton() { return fsOK() ? `<button class="btn small" data-act="fs">${fsEl() ? "Exit full screen" : "Full screen"}</button>` : ""; }
+function enterFS() {
+  if (!fsOK() || fsEl()) return;
+  const el = document.documentElement;
+  try { const r = el.requestFullscreen ? el.requestFullscreen({ navigationUI: "hide" }) : el.webkitRequestFullscreen && el.webkitRequestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch {}
+}
+function exitFS() { try { const r = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen && document.webkitExitFullscreen(); if (r && r.catch) r.catch(() => {}); } catch {} }
+document.addEventListener("fullscreenchange", () => scheduleRender());
+document.addEventListener("webkitfullscreenchange", () => scheduleRender());
+
+function lobbyHTML(G) {
+  const peers = net.peers().filter(p => p.presence && typeof p.presence.nm === "string");
+  const host = peers.find(p => p.presence.g) || null;
+  const others = peers.filter(p => !p.presence.g);
+  const humans = [host, ...others].filter(Boolean);
+  const bots = G.bots || 0;
+  const total = Math.min(4, humans.length + bots);
+  const list = humans.slice(0, 4).map((p, i) => `<li><span class="fname"><span class="flag" style="background:${flag(i)}"></span><b>${esc(p.presence.nm)}${p.sameTab ? " (you)" : ""}</b></span><span class="tag ${p.presence.g ? "acc" : ""}">${p.presence.g ? "Host" : "Ready to play"}</span></li>`).join("")
+    + Array.from({ length: Math.max(0, Math.min(bots, 4 - Math.min(4, humans.length))) }, (_, k) => `<li><span class="fname"><span class="flag" style="background:${flag(Math.min(4, humans.length) + k)}"></span><b>${BOT_NAMES[k]}</b></span><span class="tag">Computer</span></li>`).join("")
+    + (humans.length > 4 ? `<li><span class="sub">${humans.length - 4} more ${humans.length - 4 === 1 ? "person is" : "people are"} waiting. Only 4 can play at once.</span></li>` : "");
+  const hostCtl = S.isHost ? `
+    <div class="row">
+      <span class="muted">Computer players</span>
+      <button class="btn small" data-act="bot-" ${bots <= 0 ? "disabled" : ""} aria-label="Remove a computer player">−</button>
+      <span class="code">${bots}</span>
+      <button class="btn small" data-act="bot+" ${total >= 4 ? "disabled" : ""} aria-label="Add a computer player">+</button>
+    </div>
+    <div class="row"><button class="btn primary" data-act="start" ${total < 2 ? "disabled" : ""}>Start game</button>
+      ${total < 2 ? `<span class="sub">Waiting for at least one more player. Add a computer player to practice alone.</span>` : ""}</div>` :
+    `<p class="muted">You're in. Waiting for the host to start.</p>`;
+  return `<section class="panel">
+    <div class="eyebrow">Lobby</div>
+    ${!S.solo ? `<h2>Share code <span class="code" style="font-size:1.3em">${esc(S.code)}</span></h2>
+    <p class="muted">Friends open this same page, type their name, enter the code and press Join game.</p>` : ""}
+    <p class="sub">Question set: <b>${esc(G.title)}</b>${H ? (H.rounds ? " · " + H.rounds + " questions" : " · plays until one fleet is left") : ""}</p>
+    <ul class="list">${list}</ul>
+    ${hostCtl}
+  </section>`;
+}
+
+const STAR = (n, r1, r2, rot) => Array.from({ length: n * 2 }, (_, k) => { const r = k % 2 ? r2 : r1, a = rot + Math.PI * k / n; return (Math.cos(a) * r).toFixed(1) + "," + (Math.sin(a) * r).toFixed(1); }).join(" ");
+const HIT_SVG = `<svg viewBox="-50 -50 100 100" aria-hidden="true"><g class="burst"><polygon class="b1" points="${STAR(9, 48, 22, 0)}"/><polygon class="b2" points="${STAR(7, 32, 14, .4)}"/><circle class="b3" r="10"/></g></svg>`;
+const MISS_SVG = `<svg viewBox="-50 -50 100 100" aria-hidden="true"><circle class="sp0" r="11"/><circle class="sp" r="25" stroke-width="5" opacity=".7"/><circle class="sp" r="40" stroke-width="3" opacity=".35"/></svg>`;
+const PEND_SVG = `<svg viewBox="-50 -50 100 100" aria-hidden="true"><circle class="ret" r="34"/></svg>`;
+function shipSVG(len, hz) {
+  const W = len * 100;
+  let p = `<path class="wake" d="M4 30 Q-6 50 4 70"/>`;
+  p += `<path class="hl" d="M12 30 Q12 15 30 15 L${W - 78} 15 Q${W - 22} 18 ${W - 5} 50 Q${W - 22} 82 ${W - 78} 85 L30 85 Q12 85 12 70 Z"/>`;
+  p += `<path class="dk" d="M26 34 Q26 27 34 27 L${W - 86} 27 Q${W - 44} 31 ${W - 30} 50 Q${W - 44} 69 ${W - 86} 73 L34 73 Q26 73 26 66 Z"/>`;
+  p += `<rect class="br" x="34" y="37" width="40" height="26" rx="5"/>`;
+  for (let k = 1; k < len; k++) { const cx = k * 100 + 34; p += `<circle class="tu" cx="${cx}" cy="50" r="13"/><rect class="tu" x="${cx}" y="46" width="32" height="8" rx="3"/>`; }
+  const g = hz ? p : `<g transform="translate(100 0) rotate(90)">${p}</g>`;
+  return `<svg class="shipsvg" viewBox="${hz ? `0 0 ${W} 100` : `0 0 100 ${W}`}" preserveAspectRatio="none" aria-hidden="true">${g}</svg>`;
+}
+const marksSeen = new Map();
+function freshAge(k) { const now = Date.now(); if (!marksSeen.has(k)) marksSeen.set(k, now); return now - marksSeen.get(k); }
+function boardHTML({ ships = [], brd = null, mode = "own", t = null, click = false, sel = -1, pend = [], size = "lg", key = null }) {
+  const h = new Set(brd ? brd.h : []), m = new Set(brd ? brd.m : []), pendS = new Set(pend);
+  const sunkFirst = new Set(brd ? (brd.s || []).map(x => Math.min(...x)) : []);
+  const list = mode === "enemy"
+    ? (brd ? brd.s || [] : []).map(cells => ({ cells, cls: "sunk" }))
+    : ships.map((cells, i) => cells && ({ cells, cls: (mode === "place" && i === sel ? "sel" : "") + (sunkFirst.has(Math.min(...cells)) ? " sunk" : "") })).filter(Boolean);
+  let cells = "";
+  for (let c = 0; c < N * N; c++) {
+    const r = Math.floor(c / N) + 1, col = c % N + 1;
+    const label = `${cellName(c)}${h.has(c) ? ", hit" : m.has(c) ? ", miss" : ""}`;
+    if (click) {
+      const can = mode === "place" || (!h.has(c) && !m.has(c) && !pendS.has(c));
+      cells += `<button class="cl" style="grid-area:${r}/${col}" data-act="${mode === "place" ? "place" : "fire"}" data-c="${c}"${t !== null ? ` data-t="${t}"` : ""}${can ? "" : " disabled"} aria-label="${label}"></button>`;
+    } else cells += `<span class="cl" style="grid-area:${r}/${col}" aria-label="${label}"></span>`;
+  }
+  const shipEls = list.map(({ cells: sc, cls }) => {
+    const len = sc.length, c0 = Math.min(...sc), hz = len < 2 || Math.abs(sc[1] - sc[0]) === 1;
+    const r0 = Math.floor(c0 / N) + 1, k0 = c0 % N + 1;
+    const area = hz ? `${r0}/${k0}/span 1/span ${len}` : `${r0}/${k0}/span ${len}/span 1`;
+    return `<div class="ship ${cls}" style="grid-area:${area}">${shipSVG(len, hz)}</div>`;
+  }).join("");
+  let marks = "", newestHit = Infinity;
+  const mk = (c, kind, svg) => {
+    const r = Math.floor(c / N) + 1, col = c % N + 1;
+    let extra = "", style = `grid-area:${r}/${col}`;
+    if (key && kind !== "pend") {
+      const age = freshAge(key + ":" + c);
+      if (age < 1100) { extra = " fresh"; style += `;--d:-${age}ms`; if (kind === "hit") newestHit = Math.min(newestHit, age); }
+    }
+    marks += `<div class="mk ${kind}${extra}" style="${style}">${svg}</div>`;
+  };
+  const wreckCells = new Set(brd ? (brd.s || []).flat() : []);
+  h.forEach(c => mk(c, wreckCells.has(c) ? "hit wreck" : "hit", HIT_SVG));
+  m.forEach(c => mk(c, "miss", MISS_SVG));
+  pendS.forEach(c => { if (!h.has(c) && !m.has(c)) mk(c, "pend", PEND_SVG); });
+  const shake = mode === "own" && newestHit < 500 ? ` shake" style="--d:-${newestHit}ms` : "";
+  const cls = `bd ${size}${mode === "enemy" && click ? " aim" : ""}${mode === "place" ? " place" : ""}${shake}`;
+  return `<div class="${cls}" role="grid" aria-label="${N} by ${N} sea grid">
+    <div class="bd-cols">${[...COLS].map(x => `<span>${x}</span>`).join("")}</div>
+    <div class="bd-rows">${Array.from({ length: N }, (_, i) => `<span>${i + 1}</span>`).join("")}</div>
+    <div class="sea">${cells}${shipEls}${marks}</div></div>`;
+}
+function cleanBrd(b) {
+  if (!b || typeof b !== "object") return null;
+  const arr = a => Array.isArray(a) ? a.filter(validCell) : [];
+  return { h: arr(b.h), m: arr(b.m), s: Array.isArray(b.s) ? b.s.filter(Array.isArray).map(arr).filter(x => x.length) : [], left: Number.isFinite(b.left) ? b.left : TOTAL, alive: b.alive !== false };
+}
+
+function placeHTML(G, seat) {
+  if (ME.rdy) {
+    const waiting = G.seats.map((_, i) => i).filter(i => !G.seats[i].bot && present(G, i) && !(seatPres(G, i) && seatPres(G, i).rdy));
+    return `<section class="panel"><div class="split">
+      <div class="board-wrap"><div class="board-title">Your fleet is set</div>${boardHTML({ ships: S.ships, size: "lg" })}</div>
+      <div class="stack"><h2>Ready for battle</h2>
+      <p class="muted">${waiting.length ? "Waiting on " + waiting.map(i => plainName(G, i)).join(", ") + "." : "Everyone's ready. First question coming up."}</p></div>
+    </div></section>`;
+  }
+  const all = S.ships.every(Boolean);
+  return `<section class="panel"><div class="split">
+    <div class="board-wrap"><div class="board-title">Place your fleet</div>
+      ${boardHTML({ ships: S.ships, mode: "place", click: true, sel: S.place.sel, size: "lg" })}</div>
+    <div class="stack">
+      <p class="muted">Pick a ship, then tap the grid where it should start. Tap a placed ship to pick it up again. Other players never see where your ships are.</p>
+      ${SHIPS.map((len, i) => `<button class="shipbtn ${S.place.sel === i ? "on" : ""}" data-act="pick" data-i="${i}"><span class="pips">${"<i></i>".repeat(len)}</span>${SHIP_NAMES[i]} · ${len}${S.ships[i] ? "" : " <span class='tag bad'>not placed</span>"}</button>`).join("")}
+      <div class="row">
+        <button class="btn small" data-act="rotate">Turn ship (${S.place.horiz ? "across" : "down"})</button>
+        <button class="btn small" data-act="shuffle">Random spots</button>
+      </div>
+      ${S.note ? `<p class="err">${esc(S.note)}</p>` : ""}
+      <button class="btn primary" data-act="ready" ${all ? "" : "disabled"}>Lock in my fleet</button>
+      <p class="sub">If time runs out, your fleet locks as it is.</p>
+    </div>
+  </div></section>`;
+}
+
+function questionHTML(G, seat) {
+  const q = G.q || { k: "mc", t: "", ch: [] };
+  const k = q.k || "mc";
+  const reveal = G.ph === "reveal";
+  const my = ME.ans && ME.ans[0] === G.qi ? ME.ans[1] : null;
+  const r = G.res ? G.res[seat] : -1;
+  const body = k === "fill" ? fillHTML(G, q, reveal, my, r) : k === "match" ? matchHTML(G, q, reveal, my) : choicesHTML(G, q, reveal, my, k);
+  let foot = "";
+  if (!reveal) {
+    const answered = G.seats.filter((_, i) => { const a = answerOf(G, i); return a && a[0] === G.qi; }).length;
+    const dead = !isAlive(G, seat);
+    foot = `<p class="muted">${my !== null ? "Answer locked. " : ""}${answered} of ${G.seats.length} answered.${dead ? " Your fleet is sunk, but right answers still earn you shells." : ""}</p>`;
+  } else {
+    const ammo = G.ammo ? G.ammo[seat] || 0 : 0;
+    const anyWrong = (G.tg || []).length > 0, anyRight = (G.sh || []).length > 0;
+    let msg, cls;
+    if (!anyRight) { msg = "Nobody got it right. No shells this round."; cls = ""; }
+    else if (!anyWrong) { msg = r === 1 ? "Correct! Nobody else missed, so every fleet is safe." : "Every fleet still afloat is safe this round."; cls = r === 1 ? "good" : ""; }
+    else if (r === 1) { msg = G.lone && ammo > 1 ? `You're the only one who got it right! You earned ${ammo} shells. Fire them at any boards you like.` : "Correct! You earned 1 shell. Get ready to fire."; cls = "good"; }
+    else if (r === 0) { msg = isAlive(G, seat) ? "Not quite. You're a target this round." : "Not quite."; cls = "bad"; }
+    else { msg = isAlive(G, seat) ? "Time ran out. You're a target this round." : "Time ran out."; cls = "bad"; }
+    const who = G.seats.map((_, i) => `<span class="tag ${G.res[i] === 1 ? "ok" : "bad"}">${plainName(G, i)} ${G.res[i] === 1 ? "✓" : G.res[i] === 0 ? "✗" : "no answer"}</span>`).join("");
+    foot = `<div class="banner ${cls}">${msg}</div><div class="tags">${who}</div>`;
+  }
+  const lvl = q.d ? `<span class="lvl ${q.d}">${q.d === "easy" ? "Easy" : q.d === "medium" ? "Medium" : "Hard"}</span>` : "";
+  return `<div class="qlayout"><div class="stack" style="gap:16px">
+    <div class="qcard"><div class="row" style="justify-content:space-between"><div class="eyebrow">${KIND_LABEL[k] || "Question"} · Question ${G.qi + 1}${G.n ? " of " + G.n : ""}</div>${lvl}</div><h2 class="qtext">${esc(q.t)}</h2></div>
+    ${body}${foot}</div>
+    <aside class="minifleet"><div class="eyebrow">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "sm", key: G.gid + ":" + seat })}</aside></div>`;
+}
+function choicesHTML(G, q, reveal, my, k) {
+  const ch = Array.isArray(q.ch) ? q.ch : [];
+  const btns = ch.map((c, i) => {
+    const cls = ["ch", "ch" + (k === "tf" ? (i === 0 ? 3 : 0) : i % 4)];
+    if (reveal) { if (i === G.ai) cls.push("right"); else cls.push("dim"); if (i === my) cls.push("picked"); }
+    else if (my !== null) { if (i === my) cls.push("picked"); else cls.push("dim"); }
+    const keyCap = k === "tf" ? "" : `<span class="k">${"ABCD"[i]}</span>`;
+    return `<button class="${cls.join(" ")}" data-act="ans" data-i="${i}" ${reveal || my !== null ? "disabled" : ""}>${keyCap}<span>${esc(c)}</span></button>`;
+  }).join("");
+  return `<div class="choices${k === "tf" ? " tf" : ""}">${btns}</div>`;
+}
+function fillHTML(G, q, reveal, my, r) {
+  if (reveal) return `<div class="fillbox"><div>Answer: <b>${esc(G.ai)}</b></div>${my !== null ? `<div class="${r === 1 ? "okc" : "noc"}">You typed: <b>${esc(my)}</b> ${r === 1 ? "✓" : "✗"}</div>` : ""}</div>`;
+  if (my !== null) return `<div class="fillbox"><div>You typed: <b>${esc(my)}</b></div><p class="muted">Answer locked in.</p></div>`;
+  const v = S.fill.qi === G.qi ? S.fill.v : "";
+  return `<form class="fillbox" id="fill-form" autocomplete="off"><label class="field" for="fill-in">Type the missing word
+    <input type="text" id="fill-in" maxlength="60" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" value="${esc(v)}"></label>
+    <button class="btn primary" type="submit">Lock in answer</button></form>`;
+}
+function matchHTML(G, q, reveal, my) {
+  const L = Array.isArray(q.l) ? q.l : [], R = Array.isArray(q.r) ? q.r : [];
+  if (S.match.qi !== G.qi) S.match = { qi: G.qi, sel: 0, pairs: {} };
+  const locked = reveal || my !== null;
+  const pairs = Array.isArray(my) ? Object.fromEntries(my.map((j, i) => [i, j])) : S.match.pairs;
+  const key = reveal && Array.isArray(G.ai) ? G.ai : null;
+  const ownerOf = j => { for (const i in pairs) if (pairs[i] === j) return +i; return null; };
+  const left = L.map((t, i) => {
+    const has = pairs[i] != null;
+    const st = key ? (pairs[i] === key[i] ? " ok" : " no") : "";
+    return `<button class="mt${S.match.sel === i && !locked ? " on" : ""}${st}" data-act="m-l" data-i="${i}" ${locked ? "disabled" : ""}><span class="badge${has ? " p" + (i % 5) : ""}">${has ? i + 1 : ""}</span><span>${esc(t)}</span></button>`;
+  }).join("");
+  const right = R.map((t, j) => {
+    const o = ownerOf(j);
+    return `<button class="mt" data-act="m-r" data-j="${j}" ${locked ? "disabled" : ""}><span class="badge${o !== null ? " p" + (o % 5) : ""}">${o !== null ? o + 1 : ""}</span><span>${esc(t)}</span></button>`;
+  }).join("");
+  const done = L.length > 0 && L.every((_, i) => pairs[i] != null);
+  let extra;
+  if (key) extra = `<div class="fillbox"><div class="eyebrow">Correct matches</div>${L.map((t, i) => `<div><b>${esc(t)}</b> → ${esc(R[key[i]] || "")}</div>`).join("")}</div>`;
+  else if (!locked) extra = `<div class="row"><button class="btn primary" data-act="m-lock" ${done ? "" : "disabled"}>Lock in matches</button><span class="sub">${done ? "All matched. Tap a meaning again to change it." : "Tap a term, then tap its meaning."}</span></div>`;
+  else extra = `<p class="muted">Matches locked in.</p>`;
+  return `<div class="match"><div class="mcol"><div class="eyebrow">Terms</div>${left}</div><div class="mcol"><div class="eyebrow">Meanings</div>${right}</div></div>${extra}`;
+}
+const shipName = len => len === 4 ? "Battleship (4)" : len === 2 ? "Destroyer (2)" : "3-long ship";
+function sunkList(b) {
+  const sunk = b && b.s ? b.s : [];
+  return `<div class="sunklist">${sunk.length ? "Sunk: " + sunk.map(x => `<span class="tag">${shipName(x.length)}</span>`).join("") : "No ships sunk yet"} · ${SHIPS.length - sunk.length} of ${SHIPS.length} ships left</div>`;
+}
+function watchBoards(G, idxs, opts = {}) {
+  return `<div class="boards">${idxs.map(i => {
+    const b = seatBoard(G, i);
+    const dead = b && b.alive === false;
+    return `<div class="board-wrap"><div class="board-title">${nameTag(G, i)}${dead ? ` <span class="tag bad">Sunk</span>` : ""}</div>
+      ${boardHTML({ brd: b, mode: "enemy", t: i, click: !!opts.click && !dead, pend: opts.pend ? opts.pend(i) : [], size: opts.size || (idxs.length > 2 ? "md3" : idxs.length > 1 ? "md" : "lg"), key: G.gid + ":" + i })}
+      ${sunkList(b)}</div>`;
+  }).join("")}</div>`;
+}
+function fireHTML(G, seat) {
+  const ammo = (G.ammo && G.ammo[seat]) || 0;
+  const mine = (ME.shots || []).filter(s => s[0] === G.qi);
+  const left = Math.max(0, ammo - mine.length);
+  const targets = (G.tg || []);
+  const pend = t => mine.filter(s => s[1] === t).map(s => s[2]).filter(c => { const b = seatBoard(G, t); return !b || (!b.h.includes(c) && !b.m.includes(c)); });
+  if (ammo > 0) {
+    return `<section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>${left ? (ammo > 1 ? `Only one who got it right! ${left} shell${left === 1 ? "" : "s"} left` : "Fire! 1 shell") : "Shell away"}</h2>
+      <span class="sub">${ammo > 1 && left ? "Pick a board for each shell. Spread them out or hit one player with all of them." : "Tap a square on a target's grid. A fireball is a hit, splash rings are a miss."}</span></div>
+      ${watchBoards(G, targets, { click: left > 0, pend })}
+    </section>`;
+  }
+  if (targets.includes(seat)) {
+    const shooters = (G.sh || []).map(i => plainName(G, i)).join(", ");
+    return `<section class="panel"><div class="split">
+      <div class="board-wrap"><div class="board-title">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "lg", key: G.gid + ":" + seat })}</div>
+      <div class="stack"><h2>Incoming fire!</h2><p class="muted">${shooters} ${(G.sh || []).length === 1 ? "is" : "are"} aiming at the players who missed. Watch your grid.</p></div>
+    </div></section>`;
+  }
+  return `<section class="panel"><h2>Shots are being fired</h2>${watchBoards(G, targets)}</section>`;
+}
+function damageHTML(G, seat) {
+  const shots = allShots(G).filter(s => s[0] === G.qi);
+  const rows = shots.map(([, t, c, sh]) => {
+    const b = seatBoard(G, t);
+    const hit = b && b.h.includes(c);
+    const sunkShip = b && (b.s || []).find(x => x.includes(c));
+    return `<li><span class="flag" style="background:${flag(G.seats[sh] ? G.seats[sh].c : 0)}"></span>${plainName(G, sh)} → ${plainName(G, t)} at <span class="code">${cellName(c)}</span> <span class="tag ${hit ? "bad" : ""}">${sunkShip ? "Sunk a ship" : hit ? "Hit" : "Miss"}</span></li>`;
+  }).join("");
+  const targets = G.tg || [];
+  return `<section class="panel"><div class="eyebrow">Damage report</div>
+    <ul class="report">${rows || `<li class="muted">No shells were fired.</li>`}</ul>
+    ${targets.includes(seat) ? `<div class="board-wrap"><div class="board-title">Your fleet</div>${boardHTML({ ships: S.ships, brd: cleanBrd(ME.brd), size: "lg", key: G.gid + ":" + seat })}</div>` : watchBoards(G, targets)}
+  </section>`;
+}
+function overHTML(G, seat) {
+  const rank = G.rank || G.seats.map((_, i) => i);
+  const win = rank[0];
+  const rows = rank.map((i, k) => {
+    const b = seatBoard(G, i);
+    const left = b ? b.left : TOTAL;
+    return `<div class="rank"><span class="pos">${k + 1}</span><span class="fname" style="flex:1;min-width:0"><span class="flag" style="background:${flag(G.seats[i].c)}"></span><span class="who"><b>${plainName(G, i)}</b><span class="sub">${left} of ${TOTAL} ship squares left · ${(G.tally && G.tally[i]) || 0} right answers</span></span></span>${isAlive(G, i) ? `<span class="tag ok">Afloat</span>` : `<span class="tag bad">Sunk</span>`}</div>`;
+  }).join("");
+  return `<section class="panel">
+    <div class="eyebrow">Game over</div>
+    <h2 class="qtext">${win === seat ? "You win! Your fleet rules the sea." : `${plainName(G, win)} wins.`}</h2>
+    <div>${rows}</div>
+    <div class="row">${S.isHost ? `<button class="btn primary" data-act="again">Play again${S.solo ? "" : " with this group"}</button>` : `<span class="muted">The host can start another game.</span>`}
+    <button class="btn" data-act="leave">Leave</button></div>
+  </section>`;
+}
+function shipPips(b) {
+  const sunk = (b && b.s ? b.s : []).map(x => x.length);
+  return [...SHIPS].sort((x, y) => y - x).map(len => { const k = sunk.indexOf(len); if (k >= 0) sunk.splice(k, 1); return `<i class="${k >= 0 ? "x" : ""}" style="width:${len * 9}px"></i>`; }).join("");
+}
+function fleetHTML(G) {
+  return `<div class="fleet">${G.seats.map((st, i) => {
+    const b = seatBoard(G, i);
+    const left = b ? b.left : TOTAL;
+    const dead = b && b.alive === false;
+    const tags = [];
+    if (G.ph === "question") { const a = answerOf(G, i); tags.push(a && a[0] === G.qi ? `<span class="tag ok">Answered</span>` : `<span class="tag">Thinking</span>`); }
+    if ((G.ph === "fire" || G.ph === "damage" || G.ph === "reveal") && (G.tg || []).includes(i)) tags.push(`<span class="tag bad">Target</span>`);
+    if ((G.ph === "fire" || G.ph === "reveal") && G.ammo && G.ammo[i]) tags.push(`<span class="tag acc">${G.ammo[i]} shell${G.ammo[i] === 1 ? "" : "s"}</span>`);
+    if (dead) tags.push(`<span class="tag bad">Sunk</span>`);
+    if (st.bot) tags.push(`<span class="tag">Computer</span>`);
+    if (!present(G, i)) tags.push(`<span class="tag">Left</span>`);
+    return `<div class="fcard ${dead ? "dead" : ""}">
+      <div class="fname">${nameTag(G, i)}</div>
+      <div class="shipcount" aria-label="${SHIPS.length - (b && b.s ? b.s.length : 0)} of ${SHIPS.length} ships left">${shipPips(b)}</div>
+      <div class="hull" aria-label="${left} of ${TOTAL} ship squares left">${Array.from({ length: TOTAL }, (_, k) => `<i class="${k < left ? "" : "x"}"></i>`).join("")}</div>
+      <div class="tags"><span class="sub">${(G.tally && G.tally[i]) || 0} right</span>${tags.join("")}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+/* ---------- events ---------- */
+app.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b || b.disabled) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  switch (act) {
+    case "to-host": if (!needName()) { S.note = ""; go("host"); } break;
+    case "home": S.note = ""; go("home"); break;
+    case "to-sets": S.note = ""; S.editing = null; go("sets"); break;
+    case "solo": if ((S.name || "").trim()) enterFS(); hostGame(true); break;
+    case "host": enterFS(); hostGame(false); break;
+    case "join": if ((S.name || "").trim()) enterFS(); joinGame(); break;
+    case "leave": exitFS(); leaveGame(); break;
+    case "fs": fsEl() ? exitFS() : enterFS(); break;
+    case "new-set": S.editing = { id: null, title: "", text: "", askBy: "def", src: S.canEdit && db ? "shared" : "local" }; S.note = ""; go("edit"); break;
+    case "edit": { const s = findSet(id); S.editing = { ...s }; S.note = ""; go("edit"); break; }
+    case "copy": { const s = findSet(id); S.editing = { id: null, title: s.title.replace(/^Sample:\s*/, "") + " (copy)", text: s.text, askBy: s.askBy, src: S.canEdit && db ? "shared" : "local" }; S.note = ""; go("edit"); break; }
+    case "save-set": saveSet(); break;
+    case "del": S.confirmDel = id; rerenderStatic(true); break;
+    case "del-no": S.confirmDel = null; rerenderStatic(true); break;
+    case "del-yes": deleteSet(id); break;
+    case "bot+": if (H) { H.botCount = Math.min(3, H.botCount + 1); pushG(); } break;
+    case "bot-": if (H) { H.botCount = Math.max(0, H.botCount - 1); pushG(); } break;
+    case "start": if (H) hostStart(); break;
+    case "end": if (H && !["lobby", "over"].includes(H.phase)) hostOver(); break;
+    case "again": if (H) { if (S.solo) hostStart(); else { H.phase = "lobby"; H.seq++; H.dur = 0; pushG(); } } break;
+    case "place": placeClick(+b.dataset.c); break;
+    case "pick": S.place.sel = +b.dataset.i; S.note = ""; scheduleRender(); break;
+    case "rotate": S.note = ""; rotate(); break;
+    case "shuffle": S.ships = randomFleet(); S.note = ""; scheduleRender(); break;
+    case "ready": if (S.ships.every(Boolean)) { setMe({ rdy: true }); onChange(); } break;
+    case "ans": answer(+b.dataset.i); break;
+    case "m-l": { const i = +b.dataset.i; S.match.sel = S.match.sel === i ? null : i; scheduleRender(); break; }
+    case "m-r": {
+      const j = +b.dataset.j, P = S.match.pairs;
+      const owner = Object.keys(P).find(x => P[x] === j);
+      if (S.match.sel === null) { if (owner !== undefined) { delete P[owner]; S.match.sel = +owner; } scheduleRender(); break; }
+      if (owner !== undefined) delete P[owner];
+      P[S.match.sel] = j;
+      const G = getG(), n = G && G.q && Array.isArray(G.q.l) ? G.q.l.length : 0;
+      let nx = null; for (let x = 0; x < n; x++) if (P[x] == null) { nx = x; break; }
+      S.match.sel = nx; scheduleRender(); break;
+    }
+    case "m-lock": {
+      const G = getG(), n = G && G.q && Array.isArray(G.q.l) ? G.q.l.length : 0;
+      const arr = Array.from({ length: n }, (_, x) => S.match.pairs[x]);
+      if (n && arr.every(Number.isInteger)) answer(arr);
+      break;
+    }
+    case "share": {
+      const s0 = findSet(id);
+      const enc = btoa(unescape(encodeURIComponent(JSON.stringify({ t: s0.title, a: s0.askBy, x: s0.text }))));
+      S.shareUrl = location.href.split("#")[0] + "#set=" + enc;
+      S.shareFor = s0.title;
+      S.shareMsg = "Copied. Send this link to anyone who will host. Opening it adds the set to their device.";
+      try { navigator.clipboard.writeText(S.shareUrl).catch(() => { S.shareMsg = "Copy this link and send it to anyone who will host."; rerenderStatic(true); }); }
+      catch { S.shareMsg = "Copy this link and send it to anyone who will host."; }
+      rerenderStatic(true); break;
+    }
+    case "fire": fire(+b.dataset.t, +b.dataset.c); break;
+  }
+});
+app.addEventListener("submit", e => {
+  if (e.target.id !== "fill-form") return;
+  e.preventDefault();
+  const v = (S.fill.v || "").trim().slice(0, 60);
+  if (v) answer(v);
+});
+app.addEventListener("input", e => {
+  if (e.target.id === "fill-in") { const G = getG(); S.fill = { qi: G ? G.qi : -1, v: e.target.value }; return; }
+  const t = e.target;
+  if (t.id === "nm") { S.name = t.value; store.set("rb.name", t.value); }
+  else if (t.id === "jc") { S.joinCode = t.value.toUpperCase(); }
+  else if (t.id === "sx" || t.id === "st") updatePreview();
+});
+app.addEventListener("change", e => {
+  const t = e.target;
+  if (t.name === "setpick") { S.hostCfg.setId = t.value; store.set("rb.cfg2", S.hostCfg); }
+  else if (t.id === "rounds") { S.hostCfg.rounds = +t.value; store.set("rb.cfg2", S.hostCfg); }
+  else if (t.id === "secs") { S.hostCfg.secs = +t.value; store.set("rb.cfg2", S.hostCfg); }
+  else if (t.id === "sa") updatePreview();
+});
+app.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "jc") { if ((S.name || "").trim()) enterFS(); joinGame(); }
+  if (S.screen === "game" && (e.key === "r" || e.key === "R") && !e.target.closest("input,textarea")) { const G = getG(); if (G && G.ph === "place" && !ME.rdy) rotate(); }
+});
+// keep the countdown moving between updates
+setInterval(() => {
+  if (S.screen !== "game") return;
+  const G = getG(), el = $("#timer");
+  if (!G || !el) return;
+  const t = timeLeft(G); if (t === null) return;
+  el.querySelector("span").textContent = Math.ceil(t) + "s";
+  el.querySelector(".bar i").style.width = Math.max(0, Math.min(100, t / G.dur * 100)) + "%";
+  el.classList.toggle("low", t <= 5);
+}, 200);
+window.addEventListener("pagehide", () => { if (net) net.leave(); });
+
+(function importSharedSet() {
+  const m = location.hash.match(/^#set=(.+)$/);
+  if (!m) return;
+  try {
+    const p = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    const title = String(p.t || "Shared set").slice(0, 80), text = String(p.x || ""), askBy = p.a === "term" ? "term" : "def";
+    let ex = S.localSets.find(x => x.title === title && x.text === text);
+    if (!ex && text) { ex = { id: "l" + Date.now().toString(36), title, askBy, text }; S.localSets = [...S.localSets, ex]; store.set("rb.sets", S.localSets); }
+    if (ex) { S.hostCfg.setId = ex.id; store.set("rb.cfg2", S.hostCfg); S.imported = title; }
+  } catch {}
+  try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+})();
+rerenderStatic(true);
+})();
+</script>
+</body>
+</html>
