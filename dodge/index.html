@@ -2385,7 +2385,7 @@ function updateCamera(dtReal) {
     if (portrait) { wantPos.set(cx * 0.5, 12.5, 15.5); wantLook.set(cx * 0.6, 0, -0.3); }
     const mode = CAM_MODES[SETTINGS.camera || 0];
     if (mode === 'COURTSIDE') { wantPos.set(cx * 0.9, 3.1, portrait ? 14 : 11.4); wantLook.set(cx, 1.0, -0.8); fov = portrait ? 64 : camera.aspect < 1.45 ? 54 : 46; }
-    else if (mode === 'OVERHEAD') { wantPos.set(cx * 0.35, portrait ? 26 : 19.5, portrait ? 4 : 7.2); wantLook.set(cx * 0.35, 0, 0.2); fov = portrait ? 56 : 40; }
+    else if (mode === 'OVERHEAD') { wantPos.set(cx * 0.35, 15.2, portrait ? 3.5 : 6.6); wantLook.set(cx * 0.35, 0, 0.3); fov = portrait ? 72 : 50; }
     else if (mode === 'PLAYER') {
       const f = h || G.teams[0].players.find(p => p.state === 'active');
       const fx2 = f ? f.pos.x : -5, fz = f ? f.pos.z : 0;
