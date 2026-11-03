@@ -105,7 +105,9 @@ async function waitForText(p, testid, expected, timeout = 15000) {
 
 (async () => {
   console.log(`RIVAL two-player E2E against ${BASE}\n`);
-  const browser = await chromium.launch();
+  // In sandboxed CI, route the browser through the egress proxy when one is configured.
+  const proxy = process.env.HTTPS_PROXY && !/localhost|127\.0\.0\.1/.test(BASE) ? { server: process.env.HTTPS_PROXY } : undefined;
+  const browser = await chromium.launch(proxy ? { proxy } : {});
   const A = await newPlayer(browser, "A");
   const B = await newPlayer(browser, "B");
   const emails = { a: `ava.${stamp}@rival-e2e.dev`, b: `ben.${stamp}@rival-e2e.dev`, c: `cy.${stamp}@rival-e2e.dev` };
