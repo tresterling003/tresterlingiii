@@ -1,0 +1,104 @@
+{
+  "base": "http://localhost:3100",
+  "ranAt": "2026-11-03T03:12:40.331Z",
+  "passed": 16,
+  "failed": 0,
+  "results": [
+    {
+      "step": "1. User A creates an account",
+      "ok": true,
+      "ms": 746,
+      "detail": null
+    },
+    {
+      "step": "1b. User A creates a league",
+      "ok": true,
+      "ms": 712,
+      "detail": "code 8MJRVBEF"
+    },
+    {
+      "step": "2. User B creates an account in a separate browser session",
+      "ok": true,
+      "ms": 565,
+      "detail": null
+    },
+    {
+      "step": "3. User B joins with the invitation code",
+      "ok": true,
+      "ms": 422,
+      "detail": null
+    },
+    {
+      "step": "4. Both users appear in the same league",
+      "ok": true,
+      "ms": 387,
+      "detail": "Team Iron,The Grinders"
+    },
+    {
+      "step": "4b. Commissioner starts the season; weekly opponents assigned automatically",
+      "ok": true,
+      "ms": 192,
+      "detail": "8 weeks scheduled, Week 1"
+    },
+    {
+      "step": "5. User A logs a workout (Run, 30 min)",
+      "ok": true,
+      "ms": 791,
+      "detail": null
+    },
+    {
+      "step": "6. Both users see the updated score (B's screen updates live, no reload)",
+      "ok": true,
+      "ms": 1732,
+      "detail": "B saw 17.0 ~868ms after A's save returned"
+    },
+    {
+      "step": "7. User B logs a workout (Strength, 20 min)",
+      "ok": true,
+      "ms": 628,
+      "detail": null
+    },
+    {
+      "step": "8. Matchup totals and standings update correctly for both",
+      "ok": true,
+      "ms": 1789,
+      "detail": "scores 17 – 8 identical on both devices"
+    },
+    {
+      "step": "Duplicate submissions are rejected",
+      "ok": true,
+      "ms": 47,
+      "detail": "replay → same record; rapid re-submit → 400 duplicate"
+    },
+    {
+      "step": "Invalid activity entries are rejected",
+      "ok": true,
+      "ms": 54,
+      "detail": "6 invalid entries rejected"
+    },
+    {
+      "step": "12. Unauthorized users cannot modify another participant's workouts or scores",
+      "ok": true,
+      "ms": 204,
+      "detail": "B edit/delete A's workout → 404/404; forged points ignored (B's day total 20.5); anon → 401; A still 17.0"
+    },
+    {
+      "step": "A third user outside the league cannot see it",
+      "ok": true,
+      "ms": 615,
+      "detail": "outsider → 404"
+    },
+    {
+      "step": "Cross-origin (CSRF) writes are blocked",
+      "ok": true,
+      "ms": 25,
+      "detail": "403"
+    },
+    {
+      "step": "9–10. Both users close the app, sign in again on a new device, data is restored",
+      "ok": true,
+      "ms": 2417,
+      "detail": "A sees 17.0, B has 3 workouts, league intact; sign-out invalidates session"
+    }
+  ]
+}
