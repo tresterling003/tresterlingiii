@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, Crown, Plus, Target } from "lucide-react";
+import { ArrowRight, Crown, Flame, Plus, Target } from "lucide-react";
+import { TrashTalk } from "@/components/trash-talk";
 import { useApp } from "@/components/league-context";
 import { PageError, PageHeader, PageSkeleton } from "@/components/page";
 import { PreseasonPanel } from "@/components/preseason";
@@ -11,7 +12,8 @@ import { StandingsTable } from "@/components/standings";
 import { TeamAvatar, rivalColor } from "@/components/team-avatar";
 import { Button } from "@/components/ui/button";
 import { Badge, ProgressBar, Ring, SectionHeader } from "@/components/ui/states";
-import { useLeague } from "@/lib/hooks";
+import { useActivity, useLeague } from "@/lib/hooks";
+import { addDays } from "@/lib/dates";
 import { fmtPts } from "@/lib/client";
 import { memberMap, myMatchup, orient, recordOf, weekDays } from "@/lib/snapshot";
 import type { LeagueSnapshot } from "@/lib/types";
@@ -75,11 +77,11 @@ function MatchupHero({ s }: { s: LeagueSnapshot }) {
       <div className="flex items-center gap-4 border-t border-ink-700 px-4 py-4 sm:px-6">
         <div className="flex-1">
           {o.leftWin !== null && opp ? (
-            <WinProbBar left={o.leftWin} leftLabel={me.teamAbbr} rightLabel={opp.teamAbbr} rightColor={rivalColor(opp.teamColor)} />
+            <WinProbBar left={o.leftWin} leftLabel={me.teamAbbr} rightLabel={opp.teamAbbr} rightColor={rivalColor(opp.teamColor)} early={m.projectionEarly} />
           ) : m.status === "final" ? (
             <p className="text-sm font-semibold">{m.isTie ? "Tie." : m.winnerId === s.me ? "You won this week." : m.winnerId ? `${members.get(m.winnerId)?.teamName} won.` : "Bye week."}</p>
           ) : (
-            <p className="text-xs text-fg-faint">Win probability appears after 3 days of activity.</p>
+            <p className="text-xs text-fg-faint">Log activity to get on the board.</p>
           )}
         </div>
         <ArrowRight className="h-4 w-4 shrink-0 text-fg-faint transition-transform group-hover:translate-x-0.5" />
@@ -88,8 +90,20 @@ function MatchupHero({ s }: { s: LeagueSnapshot }) {
   );
 }
 
+/** Consecutive active days ending today (or yesterday, if today isn't active yet). */
+function useStreak(leagueId: string | null) {
+  const { data } = useActivity(leagueId);
+  if (!data) return null;
+  const active = new Set(data.days.filter((d) => d.is_active).map((d) => d.day));
+  let day = active.has(data.today) ? data.today : addDays(data.today, -1);
+  let n = 0;
+  while (active.has(day)) { n++; day = addDays(day, -1); }
+  return { n, capped: n >= data.days.length };
+}
+
 function TodayCard({ s }: { s: LeagueSnapshot }) {
-  const { me, openLog } = useApp();
+  const { me, openLog, leagueId } = useApp();
+  const streak = useStreak(leagueId);
   const today = s.league.today;
   const d = (s.days[s.me] ?? []).find((x) => x.day === today);
   const goalMin = me?.goal.active_minutes ?? 30;
@@ -103,7 +117,16 @@ function TodayCard({ s }: { s: LeagueSnapshot }) {
   ].filter(([, v]) => (v as number) > 0) : [];
   return (
     <section className="panel flex flex-col p-4 sm:p-6">
-      <SectionHeader title="Today" action={d?.goal_met ? <Badge tone="lime">Goal met</Badge> : undefined} />
+      <SectionHeader title="Today" action={
+        <div className="flex items-center gap-2">
+          {streak && streak.n > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-warn" data-testid="streak" title="Consecutive active days">
+              <Flame className="h-4 w-4" />{streak.n}{streak.capped ? "+" : ""}-day streak
+            </span>
+          )}
+          {d?.goal_met && <Badge tone="lime">Goal met</Badge>}
+        </div>
+      } />
       <div className="flex items-center gap-6">
         <Ring value={progress} max={1} size={88} stroke={8}>
           <Target className={`h-6 w-6 ${d?.goal_met ? "text-lime" : "text-fg-faint"}`} />
@@ -208,6 +231,13 @@ export default function HomePage() {
         <div className="flex flex-col gap-6">
           {s.league.status === "complete" && <ChampionBanner s={s} />}
           <MatchupHero s={s} />
+          <section className="panel overflow-hidden">
+            <div className="flex items-center justify-between px-4 pt-4 sm:px-6">
+              <h2 className="eyebrow">Trash talk</h2>
+              <Link href="/matchup#chat" className="text-xs font-semibold text-lime">Open</Link>
+            </div>
+            <TrashTalk s={s} compact />
+          </section>
           <div className="grid gap-6 md:grid-cols-2">
             <TodayCard s={s} />
             <WeekCard s={s} />

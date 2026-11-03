@@ -9,6 +9,7 @@ import { TeamAvatar } from "@/components/team-avatar";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Segmented, Select } from "@/components/ui/form";
 import { EmptyState, SectionHeader } from "@/components/ui/states";
+import { TimezoneSelect } from "@/components/ui/timezone-select";
 import { useToast } from "@/components/ui/toast";
 import { useLeague } from "@/lib/hooks";
 import { api, ApiError } from "@/lib/client";
@@ -129,7 +130,7 @@ function Settings({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void }) {
             options={[0, 2, 4, 6, 8].map((n) => ({ value: n, label: n ? String(n) : "None", disabled: !pre }))} />
         </Field>
         <Field label="Time zone" htmlFor="tz" hint={pre ? "Weeks run Monday–Sunday here." : "Locked after start"}>
-          <Input id="tz" disabled={!pre} value={f.timezone} onChange={(e) => setF({ ...f, timezone: e.target.value })} />
+          <TimezoneSelect id="tz" disabled={!pre} value={f.timezone} onChange={(v) => setF({ ...f, timezone: v })} />
         </Field>
         <Button onClick={save} loading={busy}>Save settings</Button>
       </div>

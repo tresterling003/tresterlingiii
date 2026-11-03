@@ -78,6 +78,8 @@ export type Projection = {
 export type MatchupView = Matchup & {
   status: WeekStatus;
   winProbHome: number | null;
+  /** True while either side has < 3 days of data (prior-weighted estimate). */
+  projectionEarly: boolean;
   projectedHome: number | null;
   projectedAway: number | null;
 };
@@ -150,7 +152,12 @@ export type LeagueSnapshot = {
   schedule: Matchup[];
   history: HistoryRow[];
   feed: FeedItem[];
+  messages: ChatMessage[];
+  /** All-time head-to-head record vs this week's opponent, from my point of view. */
+  series: { opponentId: string; wins: number; losses: number; ties: number } | null;
 };
+
+export type ChatMessage = { id: string; userId: string; body: string; createdAt: string };
 
 export type Workout = {
   id: string;

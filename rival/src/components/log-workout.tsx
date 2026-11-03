@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
-import { Info, Trash2 } from "lucide-react";
+import { Info, RotateCcw, Trash2 } from "lucide-react";
+import { useActivity } from "@/lib/hooks";
 import { Sheet } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Field, Input, Segmented, Stepper } from "./ui/form";
@@ -20,6 +21,20 @@ export function LogWorkoutSheet({
   const { me, leagueId } = useApp();
   const { mutate } = useSWRConfig();
   const toast = useToast();
+  const { data: activity } = useActivity(leagueId);
+  const recent = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Workout[] = [];
+    for (const w of activity?.workouts ?? []) {
+      if (w.activity_type === "steps") continue;
+      const key = `${w.activity_type}:${w.duration_min ?? ""}:${w.steps ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(w);
+      if (out.length === 3) break;
+    }
+    return out;
+  }, [activity?.workouts]);
   const today = me?.today ?? new Date().toISOString().slice(0, 10);
   const yesterday = addDays(today, -1);
 
@@ -93,6 +108,24 @@ export function LogWorkoutSheet({
     }
   }
 
+  async function quickLog(w: Workout) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ day: DayScore }>("POST", `/api/workouts${leagueId ? `?league=${leagueId}` : ""}`, {
+        requestId, type: w.activity_type, date: today, durationMin: w.duration_min, steps: w.steps,
+        distanceKm: w.distance_km, notes: null,
+      });
+      toast({ kind: "success", title: `${ACTIVITY[w.activity_type]?.label ?? "Workout"} logged`, body: `Today: ${fmtPts(r.day.total)} pts` });
+      await refresh();
+      onClose();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't save. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     if (!editing || !confirm("Delete this workout? Your points will be recalculated.")) return;
     setBusy(true);
@@ -123,6 +156,28 @@ export function LogWorkoutSheet({
       ) : undefined}>
       {!type ? (
         <div>
+          {recent.length > 0 && (
+            <div className="mb-6">
+              <p className="mb-2 text-xs font-semibold text-fg-muted">Log again for today</p>
+              <div className="flex flex-col gap-2">
+                {recent.map((w) => {
+                  const A = ACTIVITY[w.activity_type];
+                  return (
+                    <button key={w.id} onClick={() => quickLog(w)} disabled={busy} data-testid="quick-log"
+                      className="focus-ring flex h-12 items-center gap-3 rounded-md border border-ink-700 bg-ink-800 px-3 text-left transition-colors hover:border-lime active:scale-[0.98] disabled:opacity-50">
+                      {A && <A.icon className="h-5 w-5 shrink-0" strokeWidth={1.8} />}
+                      <span className="flex-1 truncate text-sm font-semibold">
+                        {A?.label ?? w.activity_type}
+                        <span className="font-normal text-fg-muted"> · {w.duration_min ? `${w.duration_min} min` : `${w.steps?.toLocaleString()} steps`}</span>
+                      </span>
+                      <RotateCcw className="h-4 w-4 shrink-0 text-fg-faint" />
+                    </button>
+                  );
+                })}
+              </div>
+              {error && <p role="alert" className="mt-2 rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
+            </div>
+          )}
           <p className="mb-4 text-sm text-fg-muted">What did you do?</p>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {ACTIVITY_ORDER.map((t) => {

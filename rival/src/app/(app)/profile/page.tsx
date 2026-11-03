@@ -10,6 +10,7 @@ import { TeamAvatar, TEAM_COLORS } from "@/components/team-avatar";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Stepper, Switch } from "@/components/ui/form";
 import { Badge, SectionHeader } from "@/components/ui/states";
+import { TimezoneSelect } from "@/components/ui/timezone-select";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/client";
 import { shortDate } from "@/lib/dates";
@@ -170,7 +171,7 @@ function Privacy() {
         onChange={(v) => update({ share_details: v }, v ? "Details shared with your leagues" : "Details are private")} />
       <div className="mt-6 flex items-end gap-2">
         <Field label="Your time zone" htmlFor="utz" className="flex-1" hint="Decides what “today” means when you log.">
-          <Input id="utz" value={tz} onChange={(e) => setTz(e.target.value)} />
+          <TimezoneSelect id="utz" value={tz} onChange={setTz} />
         </Field>
         <Button variant="secondary" className="mb-6 h-12" disabled={tz === me!.account.timezone} onClick={() => update({ timezone: tz }, "Time zone updated")}>Save</Button>
       </div>

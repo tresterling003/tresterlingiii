@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalCdf, pace, projectTeam, remainingDays, winProbability } from "@/lib/projections";
+import { DEFAULT_PRIOR, leaguePrior, normalCdf, pace, projectTeam, remainingDays, winProbability } from "@/lib/projections";
 import type { DayScore, Scoring } from "@/lib/types";
 
 const rules = { consistency: { days: 5, points: 10 } } as Scoring;
@@ -21,9 +21,32 @@ describe("projections", () => {
   });
 
   it("uses only completed days before today for pace", () => {
-    const p = pace([day("2026-11-02", 10), day("2026-11-03", 20), day("2026-11-04", 99)], "2026-11-04");
+    const p = pace([day("2026-11-02", 10), day("2026-11-03", 20), day("2026-11-04", 99)], "2026-11-04", DEFAULT_PRIOR, 0);
     expect(p.samples).toBe(2);
     expect(p.rate).toBe(15);
+  });
+
+  it("starts at the prior with no data and moves toward observed days", () => {
+    expect(pace([], "2026-11-02").rate).toBe(DEFAULT_PRIOR.rate);
+    const days = Array.from({ length: 10 }, (_, i) => day(`2026-10-${String(10 + i).padStart(2, "0")}`, 40));
+    const p = pace(days, "2026-11-01");
+    expect(p.rate).toBeGreaterThan(35);   // (400 + 60) / 13 ≈ 35.4
+    expect(p.rate).toBeLessThan(40);
+  });
+
+  it("league prior falls back to default with little data and is bounded", () => {
+    expect(leaguePrior([], "2026-11-02")).toEqual(DEFAULT_PRIOR);
+    const lots = Array.from({ length: 28 }, (_, i) => day(`2026-10-${String(1 + i).padStart(2, "0")}`, 50));
+    const pr = leaguePrior(lots, "2026-11-01");
+    expect(pr.rate).toBe(50);
+    expect(pr.sd).toBeGreaterThanOrEqual(6);
+  });
+
+  it("day-one odds favour whoever is ahead, but not decisively", () => {
+    const p = pace([], "2026-11-02");
+    const w = winProbability({ homeProjected: 17 + p.rate * 6.5, awayProjected: 8 + p.rate * 6.5, homePace: p, awayPace: p, daysLeft: 6.5 });
+    expect(w).toBeGreaterThan(0.5);
+    expect(w).toBeLessThan(0.8);
   });
 
   it("projects current + pace and adds a reachable consistency bonus", () => {

@@ -641,3 +641,26 @@ describe("profile photos", () => {
     expect(await db.as(b, "select image from get_avatar($1)", [a])).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+describe("trash talk", () => {
+  it("members post and read; outsiders can't; posting bumps live sync; rate-limited", async () => {
+    const a = await db.signup(); const b = await db.signup(); const outsider = await db.signup();
+    const L = await league(a);
+    await join(b, L.code);
+    const v0 = Number((await db.as(a, "select version from leagues where id = $1", [L.id]))[0].version);
+    const [{ id }] = await db.as(a, "select post_message($1, $2) as id", [L.id, "  Catch me if you can  "]);
+    expect(Number((await db.as(a, "select version from leagues where id = $1", [L.id]))[0].version)).toBeGreaterThan(v0);
+    const seen = await db.as(b, "select body from league_messages where league_id = $1", [L.id]);
+    expect(seen.map((r) => r.body)).toEqual(["Catch me if you can"]);
+    expect(await db.as(outsider, "select * from league_messages where league_id = $1", [L.id])).toHaveLength(0);
+    await expectFail(db.as(outsider, "select post_message($1, 'hi')", [L.id]), "not_found");
+    await expectFail(db.as(b, "select delete_message($1)", [id]), "not_found");     // not B's message
+    await expectFail(db.as(b, "insert into league_messages (league_id, user_id, body) values ($1, $2, 'x')", [L.id, b]), "permission denied");
+    await expectFail(db.as(a, "select post_message($1, '   ')", [L.id]), "Say something");
+    await expectFail(db.as(a, "select post_message($1, $2)", [L.id, "x".repeat(281)]), "280");
+    await db.as(a, "select delete_message($1)", [id]);
+    for (let i = 0; i < 10; i++) await db.as(b, "select post_message($1, $2)", [L.id, `msg ${i}`]);
+    await expectFail(db.as(b, "select post_message($1, 'one more')", [L.id]), "rate_limited");
+  });
+});

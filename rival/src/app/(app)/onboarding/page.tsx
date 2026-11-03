@@ -6,6 +6,7 @@ import { Ticket, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Segmented } from "@/components/ui/form";
 import { useApp } from "@/components/league-context";
+import { TimezoneSelect } from "@/components/ui/timezone-select";
 import { api, ApiError } from "@/lib/client";
 
 function Onboarding() {
@@ -102,7 +103,7 @@ function Onboarding() {
               options={[0, 2, 4, 6, 8].map((n) => ({ value: n, label: n === 0 ? "None" : String(n) }))} />
           </Field>
           <Field label="League time zone" htmlFor="tz" hint="Weeks run Monday–Sunday here. Scores lock at 12:00 AM Tuesday.">
-            <Input id="tz" value={tz} onChange={(e) => setTz(e.target.value)} />
+            <TimezoneSelect id="tz" value={tz} onChange={setTz} />
           </Field>
           {error && <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
           <Button type="submit" size="lg" block loading={busy} disabled={name.trim().length < 3}>Create league</Button>

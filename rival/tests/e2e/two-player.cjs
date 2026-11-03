@@ -229,6 +229,30 @@ async function waitForText(p, testid, expected, timeout = 15000) {
     return "uploaded via Profile; B sees it on the scoreboard";
   });
 
+  await step("Trash talk reaches the other player live", async () => {
+    await A.page.goto("/matchup");
+    await B.page.goto("/matchup");
+    await B.page.fill("[data-testid=chat-input]", "Is that all you've got?");
+    await B.page.click("[data-testid=chat-send]");
+    await A.page.getByText("Is that all you've got?").waitFor({ timeout: 15000 });
+    await A.page.getByRole("button", { name: "Just getting warmed up" }).click();
+    await B.page.getByText("Just getting warmed up").waitFor({ timeout: 15000 });
+    const series = await textOf(A, "series");
+    assert(/First meeting/.test(series || ""), `series text: ${series}`);
+    await A.page.locator("#chat").screenshot({ path: path.join(OUT, "08-trash-talk.png") });
+    return "B → A and A → B delivered without reload";
+  });
+
+  await step("One-tap repeat logging", async () => {
+    await A.page.goto("/home");
+    await A.page.getByRole("button", { name: "Log activity" }).first().click();
+    await A.page.locator("[data-testid=quick-log]").first().waitFor();
+    // Run · 30 min again → duplicate check blocks an identical entry inside 10 minutes.
+    await A.page.locator("[data-testid=quick-log]").first().click();
+    await A.page.getByText(/duplicate/i).first().waitFor();
+    return "recent workouts offered; identical repeat within 10 min correctly blocked as duplicate";
+  });
+
   await step("Duplicate submissions are rejected", async () => {
     const req = crypto.randomUUID();
     const body = { requestId: req, type: "yoga", date: (await apiCall(B, "GET", "/api/me")).data.today, durationMin: 15 };
