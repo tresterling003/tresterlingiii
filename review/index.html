@@ -273,6 +273,7 @@ button,.cl{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 <div id="app"></div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/morphdom@2.7.4/dist/morphdom-umd.min.js"></script>
 <script>
 (() => {
@@ -413,7 +414,7 @@ let net = null, ME = {}, H = null, hostTimer = null, db = null, roomNS = null;
 
 /* ---------- connection (PeerJS: the host's browser is the hub) ---------- */
 const PEER_PREFIX = "reviewbroadside-";
-roomNS = typeof window.Peer === "function" ? {} : null;
+roomNS = (typeof window.Peer === "function" || typeof window.mqtt !== "undefined") ? {} : null;
 S.roomState = roomNS ? "ok" : "none";
 S.dbState = "none";
 
@@ -437,65 +438,193 @@ function peerOpen(peer) {
     peer.on("error", e => { clearTimeout(t); rej(e); });
   });
 }
+/* Two ways to reach the host: a direct browser-to-browser link (PeerJS), and a
+   backup that passes messages through a public message server (MQTT over a
+   secure websocket) for networks that block direct links. The host listens on
+   both; a joiner tries both at once and keeps whichever answers first. */
+const RELAYS = Array.isArray(window.__RELAYS) ? window.__RELAYS : ["wss://broker.hivemq.com:8884/mqtt", "wss://broker.emqx.io:8084/mqtt", "wss://test.mosquitto.org:8081"];
+const NO_GAME = "No game found with that code. Check the code with the host, and make sure you're both on the same game page.";
+const BLOCKED = "Couldn't reach that game. If the code is right, a network is blocking the connection. Try a different Wi-Fi or a phone hotspot.";
+function relayConnect(url, ms) {
+  return new Promise((res, rej) => {
+    if (typeof window.mqtt === "undefined") return rej(new Error("relay unavailable"));
+    let c;
+    try { c = window.mqtt.connect(url, { connectTimeout: ms, reconnectPeriod: 3000, clean: true, clientId: "bs_" + Math.random().toString(36).slice(2, 12) }); }
+    catch (e) { return rej(e); }
+    const t = setTimeout(() => { try { c.end(true); } catch {} rej(new Error("relay timeout")); }, ms);
+    c.once("connect", () => { clearTimeout(t); res(c); });
+    c.on("error", () => {});
+  });
+}
+const parseMsg = buf => { try { return JSON.parse(typeof buf === "string" ? buf : new TextDecoder().decode(buf)); } catch { return null; } };
 async function makeRoomNet(code, asHost) {
   const roomId = PEER_PREFIX + code.toLowerCase();
-  let mine = {}, snapshot = [];
-  const others = new Map(), conns = new Map();
-  let peer, myId, hostConn = null, closed = false;
+  const topic = "broadside-v1/" + roomId;
+  let mine = {}, snapshot = [], myId = null, closed = false;
+  const others = new Map(), conns = new Map(), relayPeers = new Map(), timers = [];
+  let peer = null, relays = [], hostConn = null, relay = null, lastAll = Date.now(), settled = false;
   const rebuild = () => {
     const me = { peer: myId, isMe: true, sameTab: true, kind: "viewer", presence: mine };
     if (asHost) snapshot = [me, ...[...others].map(([id, pr]) => ({ peer: id, isMe: false, sameTab: false, kind: "viewer", presence: pr || {} }))];
     else snapshot = [me, ...snapshot.filter(p => !p.sameTab)];
   };
-  let bq = false;
-  const broadcast = () => {
-    if (bq) return; bq = true;
-    setTimeout(() => {
-      bq = false;
-      const all = [[myId, mine], ...others];
-      conns.forEach(c => { try { if (c.open) c.send({ t: "all", all }); } catch {} });
-    }, 30);
-  };
+  const pub = (c, t, obj) => { try { c.publish(t, JSON.stringify(obj)); } catch {} };
+
   if (asHost) {
-    peer = new Peer(roomId, { debug: 0 });
-    myId = await peerOpen(peer);
-    peer.on("connection", conn => {
+    let bq = false;
+    const broadcast = () => {
+      if (bq) return; bq = true;
+      setTimeout(() => {
+        bq = false;
+        const all = [[myId, mine], ...others];
+        conns.forEach(c => { try { if (c.open) c.send({ t: "all", all }); } catch {} });
+        if (relayPeers.size) relays.forEach(c => pub(c, topic + "/down", { t: "all", all }));
+      }, relayPeers.size ? 80 : 30);
+    };
+    const setupRelay = c => {
+      c.subscribe(topic + "/up");
+      c.on("message", (tp, buf) => {
+        if (tp !== topic + "/up") return;
+        const m = parseMsg(buf);
+        if (!m || typeof m.f !== "string" || m.f.length > 40) return;
+        if (m.t === "bye") { relayPeers.delete(m.f); others.delete(m.f); }
+        else { relayPeers.set(m.f, Date.now()); others.set(m.f, m.p && typeof m.p === "object" ? m.p : (others.get(m.f) || {})); }
+        rebuild(); broadcast(); onChange();
+      });
+    };
+    const relayTries = RELAYS.map(u => relayConnect(u, 8000).then(c => {
+      if (closed) { c.end(true); return c; }
+      relays.push(c); setupRelay(c); return c;
+    }));
+    const firstRelay = Promise.any(relayTries).catch(() => null);
+    if (typeof window.Peer === "function") {
+      try { peer = new Peer(roomId, { debug: 0 }); await peerOpen(peer); }
+      catch (e) {
+        try { peer && peer.destroy(); } catch {}
+        peer = null;
+        if (e && e.type === "unavailable-id") { closed = true; relays.forEach(c => { try { c.end(true); } catch {} }); throw e; }
+      }
+    }
+    if (!peer && !(await firstRelay)) throw new Error("The game connection service didn't answer. Check your internet and try again.");
+    myId = peer ? peer.id : "h" + Math.random().toString(36).slice(2, 10);
+    if (peer) peer.on("connection", conn => {
       conn.on("open", () => { conns.set(conn.peer, conn); if (!others.has(conn.peer)) others.set(conn.peer, {}); rebuild(); broadcast(); onChange(); });
       conn.on("data", msg => { if (msg && msg.t === "p" && msg.p && typeof msg.p === "object") { others.set(conn.peer, msg.p); rebuild(); broadcast(); onChange(); } });
       const drop = () => { conns.delete(conn.peer); others.delete(conn.peer); rebuild(); broadcast(); onChange(); };
       conn.on("close", drop); conn.on("error", drop);
     });
-  } else {
-    peer = new Peer(undefined, { debug: 0 });
-    myId = await peerOpen(peer);
-    hostConn = await new Promise((res, rej) => {
-      const c = peer.connect(roomId, { reliable: true });
-      const t = setTimeout(() => rej(new Error("No game found with that code. Check it with the host.")), 12000);
-      c.on("open", () => { clearTimeout(t); res(c); });
-      peer.on("error", e => { clearTimeout(t); rej(e && e.type === "peer-unavailable" ? new Error("No game found with that code. Check it with the host.") : e); });
-    });
-    hostConn.on("data", msg => {
-      if (!msg || msg.t !== "all" || !Array.isArray(msg.all)) return;
-      snapshot = msg.all.filter(x => Array.isArray(x) && x[0] !== myId).map(([id, pr]) => ({ peer: id, isMe: false, sameTab: false, kind: "viewer", presence: pr || {} }));
-      rebuild(); onChange();
-    });
-    const gone = () => { if (closed) return; snapshot = []; rebuild(); S.note = "Lost the connection to the host."; onChange(); };
+    timers.push(setInterval(() => {
+      const now = Date.now(); let ch = false;
+      relayPeers.forEach((t, id) => { if (now - t > 20000) { relayPeers.delete(id); others.delete(id); ch = true; } });
+      if (ch) { rebuild(); onChange(); }
+      if (relayPeers.size) broadcast();
+    }, 5000));
+    rebuild();
+    return {
+      local: false,
+      peers: () => snapshot,
+      presence(patch) {
+        const n = { ...mine }; for (const k in patch) { if (patch[k] === null) delete n[k]; else n[k] = patch[k]; }
+        mine = n; rebuild(); broadcast(); queueMicrotask(onChange); return Promise.resolve();
+      },
+      leave() { closed = true; timers.forEach(clearInterval); try { peer && peer.destroy(); } catch {} relays.forEach(c => { try { c.end(true); } catch {} }); }
+    };
+  }
+
+  // ---- joiner ----
+  const relayId = "r" + Math.random().toString(36).slice(2, 10);
+  let sawNoPeer = false;
+  const viaPeer = new Promise((res, rej) => {
+    if (typeof window.Peer !== "function") return rej(new Error("no direct link"));
+    try {
+      peer = new Peer(undefined, { debug: 0 });
+      peer.on("error", e => { if (e && e.type === "peer-unavailable") sawNoPeer = true; rej(e); });
+      peerOpen(peer).then(id => {
+        if (settled) return;
+        const c = peer.connect(roomId, { reliable: true });
+        c.on("open", () => res({ kind: "peer", c, id }));
+      }, rej);
+    } catch (e) { rej(e); }
+  });
+  const viaRelay = new Promise((res, rej) => {
+    let left = RELAYS.length, won = false;
+    if (!left) return rej(new Error("no relays"));
+    RELAYS.forEach(u => relayConnect(u, 8000).then(c => {
+      if (settled || won) { c.end(true); return; }
+      relays.push(c);
+      c.subscribe(topic + "/down");
+      const hello = () => pub(c, topic + "/up", { f: relayId, t: "hello", p: mine });
+      hello();
+      const hi = setInterval(hello, 1500); timers.push(hi);
+      setTimeout(() => clearInterval(hi), 16000);
+      c.on("message", (tp, buf) => {
+        if (tp !== topic + "/down" || won || settled) return;
+        const m = parseMsg(buf);
+        if (!m || m.t !== "all" || !Array.isArray(m.all)) return;
+        won = true; clearInterval(hi); res({ kind: "relay", c, id: relayId, first: m });
+      });
+    }, () => { if (--left === 0 && !won) rej(new Error("relays down")); }));
+  });
+  let winner;
+  try {
+    winner = await Promise.race([Promise.any([viaPeer, viaRelay]), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 16000))]);
+  } catch {
+    settled = true; closed = true; timers.forEach(clearInterval);
+    try { peer && peer.destroy(); } catch {}
+    relays.forEach(c => { pub(c, topic + "/up", { f: relayId, t: "bye" }); try { c.end(); } catch {} });
+    throw new Error(sawNoPeer ? NO_GAME : BLOCKED);
+  }
+  settled = true;
+  timers.forEach(clearInterval); timers.length = 0;
+  myId = winner.id;
+  const onAll = msg => {
+    if (!msg || msg.t !== "all" || !Array.isArray(msg.all)) return;
+    lastAll = Date.now();
+    snapshot = msg.all.filter(x => Array.isArray(x) && x[0] !== myId).map(([id, pr]) => ({ peer: id, isMe: false, sameTab: false, kind: "viewer", presence: pr || {} }));
+    rebuild(); onChange();
+  };
+  const gone = () => { if (closed) return; snapshot = []; rebuild(); S.note = "Lost the connection to the host."; onChange(); };
+  if (winner.kind === "peer") {
+    hostConn = winner.c;
+    relays.forEach(c => { pub(c, topic + "/up", { f: relayId, t: "bye" }); try { c.end(); } catch {} });
+    relays = [];
+    hostConn.on("data", onAll);
     hostConn.on("close", gone); hostConn.on("error", gone);
+  } else {
+    relay = winner.c;
+    relays.filter(c => c !== relay).forEach(c => { try { c.end(true); } catch {} });
+    relays = [relay];
+    try { peer && peer.destroy(); } catch {}
+    peer = null;
+    relay.on("message", (tp, buf) => { if (tp === topic + "/down") onAll(parseMsg(buf)); });
+    onAll(winner.first);
+    timers.push(setInterval(() => {
+      pub(relay, topic + "/up", { f: myId, t: "p", p: mine });
+      if (Date.now() - lastAll > 25000) gone();
+    }, 5000));
   }
   rebuild();
   let sq = false;
-  const sendMine = () => { if (sq) return; sq = true; setTimeout(() => { sq = false; try { if (hostConn && hostConn.open) hostConn.send({ t: "p", p: mine }); } catch {} }, 30); };
+  const sendMine = () => {
+    if (sq) return; sq = true;
+    setTimeout(() => {
+      sq = false;
+      if (hostConn) { try { if (hostConn.open) hostConn.send({ t: "p", p: mine }); } catch {} }
+      else if (relay) pub(relay, topic + "/up", { f: myId, t: "p", p: mine });
+    }, relay ? 80 : 30);
+  };
   return {
     local: false,
     peers: () => snapshot,
     presence(patch) {
       const n = { ...mine }; for (const k in patch) { if (patch[k] === null) delete n[k]; else n[k] = patch[k]; }
-      mine = n; rebuild();
-      if (asHost) broadcast(); else sendMine();
-      queueMicrotask(onChange);
-      return Promise.resolve();
+      mine = n; rebuild(); sendMine(); queueMicrotask(onChange); return Promise.resolve();
     },
-    leave() { closed = true; try { peer.destroy(); } catch {} }
+    leave() {
+      closed = true; timers.forEach(clearInterval);
+      if (relay) { pub(relay, topic + "/up", { f: myId, t: "bye" }); try { relay.end(); } catch {} }
+      try { peer && peer.destroy(); } catch {}
+    }
   };
 }
 async function waitForMe() {
