@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
-import { ChevronLeft, RefreshCw } from "lucide-react";
+import { ChevronLeft, Copy, KeyRound, RefreshCw, Share2 } from "lucide-react";
+import { Sheet } from "@/components/ui/sheet";
 import { useApp } from "@/components/league-context";
 import { PageError, PageHeader, PageSkeleton } from "@/components/page";
 import { TeamAvatar } from "@/components/team-avatar";
@@ -141,6 +142,16 @@ function Settings({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void }) {
 function MembersAdmin({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  const [reset, setReset] = useState<{ name: string; url: string } | null>(null);
+  async function resetLink(userId: string, name: string) {
+    setBusy(userId + "reset");
+    try {
+      const r = await api<{ result: { url: string } }>("POST", `/api/leagues/${s.league.id}/actions`, { action: "reset_link", userId });
+      setReset({ name, url: r.result.url });
+    } catch (e) {
+      toast({ kind: "error", title: "Couldn't create link", body: e instanceof ApiError ? e.message : undefined });
+    } finally { setBusy(null); }
+  }
   async function act(action: "remove" | "transfer", userId: string, name: string) {
     const msg = action === "remove"
       ? `Remove ${name}? Their current matchup becomes a forfeit and future weeks are rescheduled.`
@@ -167,7 +178,8 @@ function MembersAdmin({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void }
               <p className="truncate text-xs text-fg-muted">{m.displayName}{m.role === "commissioner" && " · Commissioner"}</p>
             </div>
             {m.id !== s.me && (
-              <div className="flex gap-1">
+              <div className="flex flex-wrap justify-end gap-1">
+                <Button size="sm" variant="ghost" icon={<KeyRound className="h-3.5 w-3.5" />} loading={busy === m.id + "reset"} onClick={() => resetLink(m.id, m.displayName)}>Reset link</Button>
                 <Button size="sm" variant="ghost" loading={busy === m.id + "transfer"} onClick={() => act("transfer", m.id, m.teamName)}>Make commish</Button>
                 <Button size="sm" variant="danger" loading={busy === m.id + "remove"} onClick={() => act("remove", m.id, m.teamName)}>Remove</Button>
               </div>
@@ -175,6 +187,22 @@ function MembersAdmin({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void }
           </li>
         ))}
       </ul>
+      <Sheet open={!!reset} onClose={() => setReset(null)} title="Password reset link">
+        {reset && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-fg-muted">
+              Send this to <span className="font-semibold text-fg">{reset.name}</span>. It works once, expires in 48 hours, and signs them out of other devices.
+            </p>
+            <p className="break-all rounded-md border border-ink-700 bg-ink-800 p-3 font-mono text-xs" data-testid="reset-url">{reset.url}</p>
+            <div className="flex gap-2">
+              <Button variant="secondary" block icon={<Copy className="h-4 w-4" />}
+                onClick={async () => { try { await navigator.clipboard.writeText(reset.url); toast({ kind: "success", title: "Link copied" }); } catch {} }}>Copy</Button>
+              <Button block icon={<Share2 className="h-4 w-4" />}
+                onClick={async () => { try { if (navigator.share) await navigator.share({ title: "Reset your RIVAL password", url: reset.url }); else await navigator.clipboard.writeText(reset.url); } catch {} }}>Send</Button>
+            </div>
+          </div>
+        )}
+      </Sheet>
     </section>
   );
 }

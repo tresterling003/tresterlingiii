@@ -259,6 +259,28 @@ async function waitForText(p, testid, expected, timeout = 15000) {
     return "recent workouts offered; identical repeat within 10 min correctly blocked as duplicate";
   });
 
+  await step("Installable as a home-screen app (manifest, icons, service worker)", async () => {
+    const m = await apiCall(A, "GET", "/manifest.webmanifest");
+    assert(m.status === 200 && m.data.display === "standalone", "manifest");
+    const sizes = m.data.icons.map((i) => i.sizes).join(",");
+    assert(sizes.includes("192x192") && sizes.includes("512x512"), `icons ${sizes}`);
+    const st = await A.page.evaluate(async () => {
+      const r = await Promise.all(["/apple-touch-icon.png", "/icon-512.png", "/sw.js", "/offline.html"].map((u) => fetch(u).then((x) => x.status)));
+      const apple = document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute("href");
+      return { r, apple };
+    });
+    assert(st.r.every((x) => x === 200), `assets ${st.r}`);
+    assert(st.apple, "apple-touch-icon link missing");
+    return `manifest ok, icons ${sizes}, apple icon ${st.apple}`;
+  });
+
+  await step("Feedback can be sent from Profile", async () => {
+    await A.page.goto("/profile");
+    await A.page.fill("[data-testid=feedback-body]", "E2E: love the trash talk");
+    await A.page.click("[data-testid=feedback-send]");
+    await A.page.getByText("feedback sent").waitFor();
+  });
+
   await step("Duplicate submissions are rejected", async () => {
     const req = crypto.randomUUID();
     const body = { requestId: req, type: "yoga", date: (await apiCall(B, "GET", "/api/me")).data.today, durationMin: 15 };
@@ -325,6 +347,34 @@ async function waitForText(p, testid, expected, timeout = 15000) {
     });
     assert(r.status === 403, `got ${r.status}`);
     return "403";
+  });
+
+  await step("Commissioner reset link lets a member back in", async () => {
+    const sa = await apiCall(A, "GET", `/api/leagues/${leagueId}`);
+    const bId = sa.data.members.find((m) => m.teamName === "The Grinders").id;
+    const r = await apiCall(A, "POST", `/api/leagues/${leagueId}/actions`, { action: "reset_link", userId: bId });
+    assert(r.status === 200 && r.data.result.url.includes("/reset/"), `reset link ${r.status}`);
+    const forbidden = await apiCall(B, "POST", `/api/leagues/${leagueId}/actions`, { action: "reset_link", userId: bId });
+    assert(forbidden.status === 403, `member issued link: ${forbidden.status}`);
+    const R = await newPlayer(browser, "R");
+    await R.page.goto(new URL(r.data.result.url).pathname);
+    await R.page.fill("#np", "brand-new-pass-1");
+    await R.page.fill("#np2", "brand-new-pass-1");
+    await R.page.click("button[type=submit]");
+    await R.page.waitForURL(/\/home/);
+    const me = await apiCall(R, "GET", "/api/me");
+    await R.ctx.close();
+    assert(me.data.account.team_name === "The Grinders", "signed in as wrong user");
+    // Change it back so later steps can sign in with the original password.
+    const R2 = await newPlayer(browser, "R2");
+    const r2 = await apiCall(A, "POST", `/api/leagues/${leagueId}/actions`, { action: "reset_link", userId: bId });
+    await R2.page.goto(new URL(r2.data.result.url).pathname);
+    await R2.page.fill("#np", "correct-horse-42");
+    await R2.page.fill("#np2", "correct-horse-42");
+    await R2.page.click("button[type=submit]");
+    await R2.page.waitForURL(/\/home/);
+    await R2.ctx.close();
+    return "commissioner issued link; member reset password and was signed in; non-commissioner → 403";
   });
 
   await step("9–10. Both users close the app, sign in again on a new device, data is restored", async () => {

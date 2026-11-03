@@ -1,25 +1,25 @@
 {
   "base": "http://localhost:3100",
-  "ranAt": "2026-11-03T10:13:04.519Z",
-  "passed": 19,
+  "ranAt": "2026-11-03T19:27:47.930Z",
+  "passed": 22,
   "failed": 0,
   "results": [
     {
       "step": "1. User A creates an account",
       "ok": true,
-      "ms": 1385,
+      "ms": 1409,
       "detail": null
     },
     {
       "step": "1b. User A creates a league",
       "ok": true,
-      "ms": 565,
-      "detail": "code CQ3E5HS7"
+      "ms": 553,
+      "detail": "code ZDVABF96"
     },
     {
       "step": "2. User B creates an account in a separate browser session",
       "ok": true,
-      "ms": 1019,
+      "ms": 1028,
       "detail": null
     },
     {
@@ -31,91 +31,109 @@
     {
       "step": "4. Both users appear in the same league",
       "ok": true,
-      "ms": 613,
+      "ms": 640,
       "detail": "Team Iron,The Grinders"
     },
     {
       "step": "4b. Commissioner starts the season; weekly opponents assigned automatically",
       "ok": true,
-      "ms": 192,
+      "ms": 201,
       "detail": "8 weeks scheduled, Week 1"
     },
     {
       "step": "5. User A logs a workout (Run, 30 min)",
       "ok": true,
-      "ms": 812,
+      "ms": 875,
       "detail": null
     },
     {
       "step": "6. Both users see the updated score (B's screen updates live, no reload)",
       "ok": true,
-      "ms": 1970,
-      "detail": "B saw 17.0 ~850ms after A's save returned"
+      "ms": 1841,
+      "detail": "B saw 17.0 ~803ms after A's save returned"
     },
     {
       "step": "7. User B logs a workout (Strength, 20 min)",
       "ok": true,
-      "ms": 655,
+      "ms": 727,
       "detail": null
     },
     {
       "step": "8. Matchup totals and standings update correctly for both",
       "ok": true,
-      "ms": 2418,
+      "ms": 2348,
       "detail": "scores 17 – 8 identical on both devices"
     },
     {
       "step": "Profile photo upload shows for the league-mate",
       "ok": true,
-      "ms": 1012,
+      "ms": 1503,
       "detail": "uploaded via Profile; B sees it on the scoreboard"
     },
     {
       "step": "Trash talk reaches the other player live",
       "ok": true,
-      "ms": 699,
+      "ms": 806,
       "detail": "B → A and A → B delivered without reload"
     },
     {
       "step": "One-tap repeat logging",
       "ok": true,
-      "ms": 570,
+      "ms": 638,
       "detail": "recent workouts offered; identical repeat within 10 min correctly blocked as duplicate"
+    },
+    {
+      "step": "Installable as a home-screen app (manifest, icons, service worker)",
+      "ok": true,
+      "ms": 29,
+      "detail": "manifest ok, icons 192x192,512x512,512x512, apple icon /apple-icon.png?e48795ed05588ba9"
+    },
+    {
+      "step": "Feedback can be sent from Profile",
+      "ok": true,
+      "ms": 1657,
+      "detail": null
     },
     {
       "step": "Duplicate submissions are rejected",
       "ok": true,
-      "ms": 45,
+      "ms": 44,
       "detail": "replay → same record; rapid re-submit → 400 duplicate"
     },
     {
       "step": "Invalid activity entries are rejected",
       "ok": true,
-      "ms": 81,
+      "ms": 82,
       "detail": "6 invalid entries rejected"
     },
     {
       "step": "12. Unauthorized users cannot modify another participant's workouts or scores",
       "ok": true,
-      "ms": 267,
+      "ms": 307,
       "detail": "B edit/delete A's workout → 404/404; forged points ignored (B's day total 20.5); anon → 401; A still 17.0"
     },
     {
       "step": "A third user outside the league cannot see it",
       "ok": true,
-      "ms": 1079,
+      "ms": 1159,
       "detail": "outsider → 404"
     },
     {
       "step": "Cross-origin (CSRF) writes are blocked",
       "ok": true,
-      "ms": 27,
+      "ms": 39,
       "detail": "403"
+    },
+    {
+      "step": "Commissioner reset link lets a member back in",
+      "ok": true,
+      "ms": 1761,
+      "detail": "commissioner issued link; member reset password and was signed in; non-commissioner → 403"
     },
     {
       "step": "9–10. Both users close the app, sign in again on a new device, data is restored",
       "ok": true,
-      "ms": 2797,
+      "ms": 2746,
       "detail": "A sees 17.0, B has 3 workouts, league intact; sign-out invalidates session"
     }
   ]

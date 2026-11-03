@@ -3,7 +3,9 @@ import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
-import { Camera, Check, LogOut, Plus, Smartphone, Watch } from "lucide-react";
+import { Bug, Camera, Check, Heart, Lightbulb, LogOut, Plus, ShieldCheck, Smartphone, Watch } from "lucide-react";
+import { InstallCard } from "@/components/pwa";
+import { Segmented } from "@/components/ui/form";
 import { useApp } from "@/components/league-context";
 import { PageHeader, PageSkeleton } from "@/components/page";
 import { TeamAvatar, TEAM_COLORS } from "@/components/team-avatar";
@@ -239,6 +241,39 @@ function Leagues() {
   );
 }
 
+function Feedback() {
+  const toast = useToast();
+  const [kind, setKind] = useState<"idea" | "bug" | "love">("idea");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function send() {
+    setBusy(true);
+    try {
+      await api("POST", "/api/feedback", { kind, body, page: typeof window !== "undefined" ? window.location.pathname : undefined });
+      setBody("");
+      toast({ kind: "success", title: "Thanks — feedback sent", body: "It goes straight into planning the next version." });
+    } catch (e) {
+      toast({ kind: "error", title: "Couldn't send", body: e instanceof ApiError ? e.message : undefined });
+    } finally { setBusy(false); }
+  }
+  return (
+    <section className="panel p-4 sm:p-6" id="feedback">
+      <SectionHeader title="Help shape version 2" />
+      <p className="mb-4 text-sm text-fg-muted">What&rsquo;s working, what&rsquo;s confusing, what would make you work out more? Every note is read.</p>
+      <Segmented className="w-full" value={kind} onChange={setKind} label="Feedback type"
+        options={[
+          { value: "idea", label: <span className="inline-flex items-center gap-1.5"><Lightbulb className="h-4 w-4" />Idea</span> },
+          { value: "bug", label: <span className="inline-flex items-center gap-1.5"><Bug className="h-4 w-4" />Bug</span> },
+          { value: "love", label: <span className="inline-flex items-center gap-1.5"><Heart className="h-4 w-4" />Love</span> },
+        ]} />
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} rows={4} data-testid="feedback-body"
+        placeholder={kind === "bug" ? "What happened, and what did you expect?" : kind === "love" ? "What do you like most?" : "I wish RIVAL could…"}
+        className="mt-4 w-full resize-y rounded-md border border-ink-700 bg-ink-800 px-4 py-3 text-base placeholder:text-fg-faint focus:border-lime focus:outline-none focus:ring-1 focus:ring-lime" />
+      <Button className="mt-4" block loading={busy} disabled={!body.trim()} onClick={send} data-testid="feedback-send">Send feedback</Button>
+    </section>
+  );
+}
+
 function Account() {
   const { me } = useApp();
   const toast = useToast();
@@ -273,6 +308,11 @@ function Account() {
     <section className="panel p-4 sm:p-6">
       <SectionHeader title="Account" />
       <p className="text-sm text-fg-muted">Signed in as <span className="font-semibold text-fg">{me!.account.email}</span></p>
+      {me!.account.pledged_at && (
+        <p className="mt-2 flex items-center gap-2 text-xs text-fg-faint">
+          <ShieldCheck className="h-4 w-4 text-lime" /> Took the RIVAL Pledge on {new Date(me!.account.pledged_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+        </p>
+      )}
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Field label="Current password" htmlFor="cp"><Input id="cp" type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} /></Field>
         <Field label="New password" htmlFor="np"><Input id="np" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} /></Field>
@@ -294,8 +334,9 @@ export default function ProfilePage() {
       <PageHeader eyebrow="Profile" title={me.account.team_name} />
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6"><TeamIdentity /><Goals /><Leagues /></div>
-        <div className="flex flex-col gap-6"><Privacy /><Devices /><Account /></div>
+        <div className="flex flex-col gap-6"><InstallCard /><Feedback /><Privacy /><Devices /><Account /></div>
       </div>
+      <p className="mt-8 text-center text-xs text-fg-faint">RIVAL v1.0 · Every Move Counts. Every Week Matters.</p>
     </div>
   );
 }

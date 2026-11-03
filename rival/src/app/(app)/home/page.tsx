@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ArrowRight, Crown, Flame, Plus, Target } from "lucide-react";
 import { TrashTalk } from "@/components/trash-talk";
+import { InstallCard } from "@/components/pwa";
 import { useApp } from "@/components/league-context";
 import { PageError, PageHeader, PageSkeleton } from "@/components/page";
 import { PreseasonPanel } from "@/components/preseason";
@@ -30,8 +31,8 @@ function MatchupHero({ s }: { s: LeagueSnapshot }) {
     return (
       <section className="panel p-6">
         <p className="eyebrow mb-2">{s.week?.label ?? "This week"}</p>
-        <p className="font-semibold">{s.league.status === "playoffs" ? "Your season is over — you didn't make (or were eliminated from) the playoffs." : "No matchup for you this week."}</p>
-        <p className="mt-1 text-sm text-fg-muted">Your activity still counts toward your stats. Follow the rest of the league below.</p>
+        <p className="font-semibold">{s.league.status === "playoffs" ? "Your season is over — you didn't make (or were eliminated from) the playoffs." : "Welcome in! Your first matchup starts Monday."}</p>
+        <p className="mt-1 text-sm text-fg-muted">{s.league.status === "playoffs" ? "Your activity still counts toward your stats. Follow the rest of the league below." : "Matchups for the rest of the season now include you. Log activity anytime and talk some trash below."}</p>
       </section>
     );
   }
@@ -225,6 +226,7 @@ export default function HomePage() {
   return (
     <div className="animate-fade-up">
       <PageHeader eyebrow={`${s.league.name}${s.week ? ` · ${s.week.label}` : ""}`} title={`${greeting()}, ${first}`} />
+      <div className="mb-6 empty:hidden"><InstallCard dismissible /></div>
       {s.league.status === "preseason" ? (
         <PreseasonPanel s={s} />
       ) : (
