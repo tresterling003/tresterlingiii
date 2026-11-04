@@ -57,6 +57,7 @@ function humanIntent(p, dt) {
   if (INPUT.keys.has('KeyW') || INPUT.keys.has('ArrowUp')) my -= 1;
   if (INPUT.keys.has('KeyS') || INPUT.keys.has('ArrowDown')) my += 1;
   if (INPUT.stick.active) { mx = INPUT.stick.x; my = INPUT.stick.y; }
+  if (INPUT.pad && INPUT.pad.active) { mx = INPUT.pad.x; my = INPUT.pad.y; }
   const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
   // camera-relative movement (works for every camera angle)
   const fx = CAMS.look.x - CAMS.pos.x, fz = CAMS.look.z - CAMS.pos.z; const fl = Math.hypot(fx, fz) || 1;
@@ -99,7 +100,10 @@ function humanIntent(p, dt) {
   if (I.block) { let best = null; for (const b of G.balls) if (b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team) best = b; if (best) I.face = Math.atan2(-best.vel.x, -best.vel.z); }
   // first-game coaching hints
   if (G.gameNo === 1) {
-    if (p.ball && !UI.hintShown.throw) UI.hint(isTouch ? 'HOLD THROW · RELEASE IN THE GOLD ZONE' : 'HOLD J / LEFT CLICK · RELEASE IN THE GOLD ZONE', 'throw');
+    if (PAD.connected) {
+      if (p.ball && !UI.hintShown.throw) UI.hint(`HOLD ${padName('throw')} · RELEASE IN THE GOLD ZONE`, 'throw');
+      else if (!p.ball && G.balls.some(b => b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team && threatTo(p, b)) && !UI.hintShown.catch) UI.hint(`${padName('catch')} WHEN THE RING TURNS GREEN · ${padName('juke')} JUKE · ${padName('dive')} DIVE`, 'catch');
+    } else if (p.ball && !UI.hintShown.throw) UI.hint(isTouch ? 'HOLD THROW · RELEASE IN THE GOLD ZONE' : 'HOLD J / LEFT CLICK · RELEASE IN THE GOLD ZONE', 'throw');
     else if (!p.ball && G.balls.some(b => b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team && threatTo(p, b)) && !UI.hintShown.catch) UI.hint(isTouch ? 'CATCH WHEN THE RING TURNS GREEN · OR JUKE / DIVE / JUMP' : 'K / RIGHT CLICK WHEN THE RING TURNS GREEN · L JUKE · X DIVE', 'catch');
   }
   return I;
@@ -253,6 +257,17 @@ const UI = {
         <div>Dive <kbd>X</kbd></div><div>Camera angle <kbd>V</kbd></div>
         <div>Pause <span><kbd>Esc</kbd> / <kbd>P</kbd></span></div><div>Skip replay <kbd>Any key</kbd></div>
       </div>
+      <h3>PLAYSTATION / XBOX CONTROLLER</h3>
+      <div class="keys">
+        <div>Move <span><kbd>Left stick</kbd> / <kbd>D-pad</kbd></span></div><div>Sprint <span><kbd>R1 · RB</kbd> / <kbd>L3</kbd></span></div>
+        <div>Throw (hold · release) <kbd>R2 · RT</kbd></div><div>Catch · Block (hold with ball) <kbd>L2 · LT</kbd></div>
+        <div>Juke <kbd>□ · X</kbd></div><div>Jump <kbd>✕ · A</kbd></div>
+        <div>Dive <kbd>○ · B</kbd></div><div>Duck (hold) <kbd>Right stick ↓</kbd></div>
+        <div>Fake throw <kbd>L1 · LB</kbd></div><div>Switch / fast-forward <kbd>△ · Y</kbd></div>
+        <div>Cycle target <kbd>R3</kbd></div><div>Camera <span><kbd>Touchpad</kbd> / <kbd>Share · View</kbd></span></div>
+        <div>Pause <kbd>Options · Menu</kbd></div><div>Menus <span><kbd>D-pad</kbd> <kbd>✕</kbd> select <kbd>○</kbd> back</span></div>
+      </div>
+      <p style="margin-top:6px">Connect the controller to your phone over Bluetooth, open the game, then press any button. Play from the game's own link (not inside the Claude page) — browsers block controllers inside embedded pages.</p>
       <h3>TOUCH</h3>
       <p>Left stick moves (push to the edge to sprint). THROW: hold and release. CATCH: tap just before impact; hold it while carrying a ball to block. JUKE, DIVE, JUMP, DUCK, FAKE and SWITCH have their own buttons; CAM (top right) cycles camera angles.</p>
       <h3>THE FINE PRINT</h3>

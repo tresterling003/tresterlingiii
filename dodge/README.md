@@ -54,6 +54,8 @@ textures are embedded in the file.
 | Fake · Switch · Cycle target | F · Q/Tab · R | FAKE · SWITCH |
 | Pause | Esc / P | ❚❚ |
 
+Controllers: PlayStation/Xbox via the Gamepad API: R2 throw, L2 catch/block, □ juke, ✕ jump, ○ dive, right stick ↓ duck, L1 fake, R1 sprint, △ switch/fast-forward, R3 target, touchpad camera, Options pause; D-pad + ✕/○ drive the menus. Rumble on browsers that support it.
+
 ## Project layout
 
 ```

@@ -201,7 +201,7 @@ class Player {
     b.launch(this, o, v, { perfect: A.perfect, target: tgt, power: clamp((v.length() - 12) / 18, 0, 1), sky: sky && A.perfect });
     this.ball = null; this.stats.throws++; if (A.perfect) this.stats.perfect++;
     AUDIO.throw(b.power);
-    if (this === G.human) { FX.shake(0.03 + b.power * 0.09); CAMS.kick = -(1 + b.power * 2.5); }
+    if (this === G.human) { FX.shake(0.03 + b.power * 0.09); CAMS.kick = -(1 + b.power * 2.5); rumble(0.2 + b.power * 0.5, 0.4, 90); }
     if (sky && A.perfect) { this.stats.skyShots = (this.stats.skyShots || 0) + 1; COMM.callout('SKY SHOT!', this.name + ' FROM THE AIR', '#ffcc33', 1.1); COMM.say('skyshot', { t: this.name }); AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.6); }
     else if (A.perfect && this.team.isHuman && this === G.human) COMM.callout('PERFECT', 'RELEASE', '#ffcc33', 0.9);
     G.onThrow(this, b);

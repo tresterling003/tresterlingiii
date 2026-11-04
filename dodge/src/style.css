@@ -456,3 +456,8 @@ body.is-fs .fs-btn{display:none}
   .fs-title{top:auto;bottom:calc(34px + var(--safe-b))}
 }
 @media (max-height:300px){ .mi small{display:none} .title-ticker{display:none} .fs-title{bottom:calc(8px + var(--safe-b))} }
+
+/* controller: hide touch controls, show focus for menu navigation */
+body.pad #touch{display:none}
+button:focus-visible,input:focus-visible,body.pad button:focus,body.pad input:focus{outline:3px solid var(--gold);outline-offset:3px}
+body.pad .cta:focus{filter:brightness(1.15);box-shadow:0 0 0 3px #fff,0 8px 30px rgba(255,90,31,.5)}

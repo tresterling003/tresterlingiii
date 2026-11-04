@@ -86,6 +86,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   if (cy > p.height * 0.5 && power > 0.5) { p.airborne = true; p.jumpV = 1.2; }
   thrower.stats.hits++;
   AUDIO.hit(power); FX.sweat(contact, inc, 0.6 + power); FX.impact(contact, b.perfect ? 0xffc040 : 0xffffff, 0.7 + power * 0.6); FX.shake(0.12 + power * 0.32);
+  if (p === G.human) rumble(1, 0.8, 320); else if (thrower === G.human) rumble(0.5, 0.6, 140);
   const last = G.aliveCount(p.team) === 0;
   FX.hitStop(0.05 + power * 0.05); b.squash = 1;
   if (last) FX.slowMo(0.18, 0.75); else if (b.perfect || power > 0.75) FX.slowMo(0.35, 0.22);
@@ -99,6 +100,7 @@ G.resolveContact = (b, p, nrm, cy) => {
 G.caught = (b, p, thrower, contact) => {
   b.state = 'held'; b.holder = p; p.ball = b; b.live = false; b.thrower = null; b.vel.set(0, 0, 0); b.trail.length = 0;
   p.catchT = 0; p.catchCD = 0.2; p.secureT = 0.5; p.stats.catches++; p.ai.holdT = 0; p.ai.fakeDone = false;
+  if (p === G.human) rumble(0.7, 1, 200); else if (thrower === G.human) rumble(1, 0.6, 300);
   AUDIO.catch(); AUDIO.cheer(1.2); FX.impact(contact, 0x7fd4ff, 1.1); FX.shake(0.22); FX.hitStop(0.08); FX.slowMo(0.25, 0.4);
   thrower.knockOut(p, null, 'caught');
   const ret = p.team.returnOne();

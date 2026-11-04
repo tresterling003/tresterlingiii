@@ -87,6 +87,7 @@ function dynamicResolution(dtReal) {
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
+  pollGamepad(dtReal);
   if (UI.inGame() && !REPLAY.on && pressed('camera')) cycleCamera();
   if (UI.inGame() && G.locked && G.locked.state !== 'active' && G.phase === 'play' && pressed('switch')) G.simSpeed = G.simSpeed > 1 ? 1 : 4;
   if (!UI.paused) {
