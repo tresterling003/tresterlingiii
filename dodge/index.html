@@ -479,6 +479,11 @@ input{user-select:text;-webkit-user-select:text;touch-action:auto}
 
 .cr-stand th:nth-child(2),.cr-stand td:nth-child(2){text-align:left}
 
+.fs-btn{pointer-events:auto}
+#fs-btn{position:absolute;top:calc(12px + var(--safe-t));left:calc(112px + var(--safe-l));font-size:20px;width:42px;height:42px;background:rgba(0,0,0,.45);border:1px solid var(--line)}
+.fs-title{position:absolute;top:calc(14px + var(--safe-t));right:calc(16px + var(--safe-r));font-weight:800;letter-spacing:.14em;font-size:13px;padding:8px 14px;background:rgba(0,0,0,.5);border:1px solid var(--line);transform:skewX(-10deg)}
+body.is-fs .fs-btn{display:none}
+
 </style>
 </head>
 <body>
@@ -506,6 +511,7 @@ input{user-select:text;-webkit-user-select:text;touch-action:auto}
         <button class="mi" data-act="credits"><span>CREDITS</span><small>Avatars &amp; motion capture</small></button>
       </nav>
     </div>
+    <button class="fs-btn fs-title" aria-label="Full screen">⛶ FULL SCREEN</button>
     <div class="title-ticker"><div class="tick-inner" id="title-ticker"></div></div>
   </section>
 
@@ -536,6 +542,7 @@ input{user-select:text;-webkit-user-select:text;touch-action:auto}
     <div id="scorebug"></div>
     <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
     <button id="cam-btn" class="icon-btn" aria-label="Change camera">CAM</button>
+    <button id="fs-btn" class="icon-btn fs-btn" aria-label="Full screen">⛶</button>
     <button id="sim-btn">FAST-FORWARD ››</button>
     <div id="live-tag"><span class="live-dot"></span>LIVE</div>
     <div id="pcard"></div>
@@ -3424,7 +3431,19 @@ async function startMatchFlow(custom) {
   CAMS.intro = { t: 0, dur: 3.8, done: () => { $('#scorebug').classList.remove('hide'); G.startGame(); } };
 }
 
+function goFullscreen() {
+  AUDIO.init();
+  const el = document.documentElement; const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) { UI.hint('ON IPHONE: SHARE ▸ ADD TO HOME SCREEN FOR FULL SCREEN', 'fs' + Math.random()); return; }
+  Promise.resolve(req.call(el, { navigationUI: 'hide' })).then(() => { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } })
+    .catch(() => UI.hint('FULL SCREEN BLOCKED HERE · OPEN THE GAME IN ITS OWN TAB', 'fs' + Math.random()));
+}
+function syncFs() { document.body.classList.toggle('is-fs', !!(document.fullscreenElement || document.webkitFullscreenElement) || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true); }
+document.addEventListener('fullscreenchange', () => { syncFs(); onResize(); });
+document.addEventListener('webkitfullscreenchange', () => { syncFs(); onResize(); });
 function wireButtons() {
+  for (const b of $$('.fs-btn')) b.onclick = goFullscreen;
+  syncFs();
   $('#scr-select [data-act="back"]').onclick = () => { AUDIO.uiBack(); UI.go('title'); };
   $('#scr-select [data-act="to-matchup"]').onclick = () => UI.go('matchup', () => UI.renderMatchup());
   $('#scr-matchup [data-act="start-match"]').onclick = () => UI.go('hud', () => startMatchFlow());

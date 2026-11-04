@@ -32,7 +32,19 @@ async function startMatchFlow(custom) {
   CAMS.intro = { t: 0, dur: 3.8, done: () => { $('#scorebug').classList.remove('hide'); G.startGame(); } };
 }
 
+function goFullscreen() {
+  AUDIO.init();
+  const el = document.documentElement; const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) { UI.hint('ON IPHONE: SHARE ▸ ADD TO HOME SCREEN FOR FULL SCREEN', 'fs' + Math.random()); return; }
+  Promise.resolve(req.call(el, { navigationUI: 'hide' })).then(() => { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } })
+    .catch(() => UI.hint('FULL SCREEN BLOCKED HERE · OPEN THE GAME IN ITS OWN TAB', 'fs' + Math.random()));
+}
+function syncFs() { document.body.classList.toggle('is-fs', !!(document.fullscreenElement || document.webkitFullscreenElement) || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true); }
+document.addEventListener('fullscreenchange', () => { syncFs(); onResize(); });
+document.addEventListener('webkitfullscreenchange', () => { syncFs(); onResize(); });
 function wireButtons() {
+  for (const b of $$('.fs-btn')) b.onclick = goFullscreen;
+  syncFs();
   $('#scr-select [data-act="back"]').onclick = () => { AUDIO.uiBack(); UI.go('title'); };
   $('#scr-select [data-act="to-matchup"]').onclick = () => UI.go('matchup', () => UI.renderMatchup());
   $('#scr-matchup [data-act="start-match"]').onclick = () => UI.go('hud', () => startMatchFlow());
