@@ -502,6 +502,15 @@ body.pad #touch{display:none}
 button:focus-visible,input:focus-visible,body.pad button:focus,body.pad input:focus{outline:3px solid var(--gold);outline-offset:3px}
 body.pad .cta:focus{filter:brightness(1.15);box-shadow:0 0 0 3px #fff,0 8px 30px rgba(255,90,31,.5)}
 
+.padtest{display:flex;flex-direction:column;gap:4px;min-width:min(560px,86vw)}
+.pt-row{display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:rgba(255,255,255,.04);font-weight:700}
+.pt-row b.ok{color:#39d98a}.pt-row b.bad{color:#ff6b6b}
+.pt-tip{padding:10px 12px;border-left:4px solid var(--gold);background:rgba(255,204,51,.1);font-weight:600;line-height:1.4;word-break:break-all}
+.pt-pad{margin-top:6px;border:1px solid var(--line);padding:6px}
+.pt-id{font-weight:800;color:var(--gold);padding:2px 4px 6px}
+.embed-note{position:absolute;right:calc(16px + var(--safe-r));top:calc(56px + var(--safe-t));max-width:320px;font-weight:700;font-size:12px;background:rgba(0,0,0,.6);padding:6px 10px;border-left:3px solid var(--gold);display:none}
+body.pad .embed-note{display:none}
+
 </style>
 </head>
 <body>
@@ -526,6 +535,7 @@ body.pad .cta:focus{filter:brightness(1.15);box-shadow:0 0 0 3px #fff,0 8px 30px
         <button class="mi" data-act="career"><span>ROAD TO GLORY</span><small>Create a player · Gym class → Rec league</small></button>
         <button class="mi" data-act="controls"><span>HOW TO PLAY</span><small>Controls &amp; rules</small></button>
         <button class="mi" data-act="settings"><span>SETTINGS</span><small>Graphics · Audio · Difficulty</small></button>
+        <button class="mi" data-act="padtest"><span>CONTROLLER</span><small>Test your PlayStation / Xbox pad</small></button>
         <button class="mi" data-act="credits"><span>CREDITS</span><small>Avatars &amp; motion capture</small></button>
       </nav>
     </div>
@@ -2932,6 +2942,7 @@ const UI = {
     if (a === 'controls') this.info('controls');
     if (a === 'settings') this.info('settings');
     if (a === 'credits') this.info('credits');
+    if (a === 'padtest') this.info('padtest');
   },
   // ---------- team select ----------
   renderSelect() {
@@ -3091,6 +3102,32 @@ const UI = {
         if (k === 'quality') $('#gfx-note').style.display = 'block';
       };
       p.querySelector('#reload-btn').onclick = () => location.reload();
+    } else if (kind === 'padtest') {
+      p.innerHTML = `<h2>CONTROLLER TEST</h2><div id="padtest-out" class="padtest"></div>
+        <p class="cr-note">Press buttons and move the sticks. If nothing shows up, check the tips that appear above.</p>
+        <button class="cta close">DONE</button>`;
+      clearInterval(this._padT);
+      const names = ['✕', '○', '□', '△', 'L1', 'R1', 'L2', 'R2', 'SHARE', 'OPTIONS', 'L3', 'R3', '↑', '↓', '←', '→', 'PS', 'PAD'];
+      const tick = () => {
+        const out = $('#padtest-out'); if (!out || !$('#scr-info').classList.contains('show')) { clearInterval(this._padT); return; }
+        const embedded = (() => { try { return window.top !== window.self; } catch (e) { return true; } })();
+        const api = !!navigator.getGamepads; let pads = [];
+        try { pads = api ? [...navigator.getGamepads()].filter(Boolean) : []; } catch (e) { pads = []; }
+        let html = `<div class="pt-row"><span>Gamepad support in this browser</span><b class="${api ? 'ok' : 'bad'}">${api ? 'YES' : 'NO'}</b></div>`;
+        html += `<div class="pt-row"><span>Running inside another page (Claude)</span><b class="${embedded ? 'bad' : 'ok'}">${embedded ? 'YES — controllers are blocked here' : 'NO'}</b></div>`;
+        html += `<div class="pt-row"><span>Controllers detected</span><b class="${pads.length ? 'ok' : 'bad'}">${pads.length}</b></div>`;
+        if (embedded) html += `<div class="pt-tip">You're playing inside the Claude page. Open the game's direct link in Safari or Chrome instead:<br><b>raw.githack.com/tresterling003/tresterlingiii/claude/dodge-nation-game-868cii/dodge/index.html</b></div>`;
+        else if (!pads.length) html += `<div class="pt-tip">No controller yet. 1) Make sure it shows <b>Connected</b> in your phone's Bluetooth settings. 2) Come back here and <b>press ✕ or any face button</b> — browsers only reveal a controller after a button press. 3) Still nothing? Close the game completely and reopen it with the controller already connected.</div>`;
+        for (const g of pads) {
+          const down = g.buttons.map((b, i) => (b.pressed || b.value > 0.45) ? (names[i] || 'B' + i) : null).filter(Boolean);
+          html += `<div class="pt-pad"><div class="pt-id">${g.id.replace(/</g, '')}</div><div class="pt-row"><span>Mapping</span><b>${g.mapping || 'non-standard'}</b></div>
+            <div class="pt-row"><span>Buttons held</span><b>${down.join(' ') || '—'}</b></div>
+            <div class="pt-row"><span>Left stick</span><b>${(g.axes[0] || 0).toFixed(2)}, ${(g.axes[1] || 0).toFixed(2)}</b></div>
+            <div class="pt-row"><span>Right stick</span><b>${(g.axes[2] || 0).toFixed(2)}, ${(g.axes[3] || 0).toFixed(2)}</b></div></div>`;
+        }
+        out.innerHTML = html;
+      };
+      this._padT = setInterval(tick, 100); setTimeout(tick, 0);
     } else if (kind === 'credits') {
       p.innerHTML = `<h2>CREDITS</h2>
         <p><b>DODGE NATION</b> — an original pro dodgeball simulation. All teams, players and the DNL league are fictional.</p>
@@ -3210,9 +3247,9 @@ function padMenu(cmd) {
 function pollGamepad(dtReal) {
   if (!navigator.getGamepads) return;
   const pads = navigator.getGamepads(); let g = PAD.idx != null ? pads[PAD.idx] : null;
-  if (!g) { for (const p of pads) if (p && p.connected) { g = p; PAD.idx = p.index; PAD.connected = true; document.body.classList.add('pad'); break; } }
+  if (!g || !g.connected) { g = null; for (const p of pads) if (p && p.connected !== false) { g = p; PAD.idx = p.index; if (!PAD.connected) { PAD.connected = true; document.body.classList.add('pad'); UI.hint((padLabel() === 'xbox' ? 'XBOX' : 'PLAYSTATION') + ' CONTROLLER CONNECTED', 'pad' + Math.random()); } break; } }
   if (!g) return;
-  const btn = (i) => { const b = g.buttons[i]; return !!b && (b.pressed || b.value > 0.45); };
+  const btn = (i) => { const b = g.buttons[i]; return !!b && (b.pressed || (typeof b === 'number' ? b > 0.45 : b.value > 0.45)); };
   const now = g.buttons.map((_, i) => btn(i));
   const edge = (i) => now[i] && !PAD.prev[i];
   const anyEdge = now.some((v, i) => v && !PAD.prev[i]);

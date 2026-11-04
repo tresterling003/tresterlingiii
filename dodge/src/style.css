@@ -461,3 +461,12 @@ body.is-fs .fs-btn{display:none}
 body.pad #touch{display:none}
 button:focus-visible,input:focus-visible,body.pad button:focus,body.pad input:focus{outline:3px solid var(--gold);outline-offset:3px}
 body.pad .cta:focus{filter:brightness(1.15);box-shadow:0 0 0 3px #fff,0 8px 30px rgba(255,90,31,.5)}
+
+.padtest{display:flex;flex-direction:column;gap:4px;min-width:min(560px,86vw)}
+.pt-row{display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:rgba(255,255,255,.04);font-weight:700}
+.pt-row b.ok{color:#39d98a}.pt-row b.bad{color:#ff6b6b}
+.pt-tip{padding:10px 12px;border-left:4px solid var(--gold);background:rgba(255,204,51,.1);font-weight:600;line-height:1.4;word-break:break-all}
+.pt-pad{margin-top:6px;border:1px solid var(--line);padding:6px}
+.pt-id{font-weight:800;color:var(--gold);padding:2px 4px 6px}
+.embed-note{position:absolute;right:calc(16px + var(--safe-r));top:calc(56px + var(--safe-t));max-width:320px;font-weight:700;font-size:12px;background:rgba(0,0,0,.6);padding:6px 10px;border-left:3px solid var(--gold);display:none}
+body.pad .embed-note{display:none}

@@ -145,6 +145,7 @@ const UI = {
     if (a === 'controls') this.info('controls');
     if (a === 'settings') this.info('settings');
     if (a === 'credits') this.info('credits');
+    if (a === 'padtest') this.info('padtest');
   },
   // ---------- team select ----------
   renderSelect() {
@@ -304,6 +305,32 @@ const UI = {
         if (k === 'quality') $('#gfx-note').style.display = 'block';
       };
       p.querySelector('#reload-btn').onclick = () => location.reload();
+    } else if (kind === 'padtest') {
+      p.innerHTML = `<h2>CONTROLLER TEST</h2><div id="padtest-out" class="padtest"></div>
+        <p class="cr-note">Press buttons and move the sticks. If nothing shows up, check the tips that appear above.</p>
+        <button class="cta close">DONE</button>`;
+      clearInterval(this._padT);
+      const names = ['✕', '○', '□', '△', 'L1', 'R1', 'L2', 'R2', 'SHARE', 'OPTIONS', 'L3', 'R3', '↑', '↓', '←', '→', 'PS', 'PAD'];
+      const tick = () => {
+        const out = $('#padtest-out'); if (!out || !$('#scr-info').classList.contains('show')) { clearInterval(this._padT); return; }
+        const embedded = (() => { try { return window.top !== window.self; } catch (e) { return true; } })();
+        const api = !!navigator.getGamepads; let pads = [];
+        try { pads = api ? [...navigator.getGamepads()].filter(Boolean) : []; } catch (e) { pads = []; }
+        let html = `<div class="pt-row"><span>Gamepad support in this browser</span><b class="${api ? 'ok' : 'bad'}">${api ? 'YES' : 'NO'}</b></div>`;
+        html += `<div class="pt-row"><span>Running inside another page (Claude)</span><b class="${embedded ? 'bad' : 'ok'}">${embedded ? 'YES — controllers are blocked here' : 'NO'}</b></div>`;
+        html += `<div class="pt-row"><span>Controllers detected</span><b class="${pads.length ? 'ok' : 'bad'}">${pads.length}</b></div>`;
+        if (embedded) html += `<div class="pt-tip">You're playing inside the Claude page. Open the game's direct link in Safari or Chrome instead:<br><b>raw.githack.com/tresterling003/tresterlingiii/claude/dodge-nation-game-868cii/dodge/index.html</b></div>`;
+        else if (!pads.length) html += `<div class="pt-tip">No controller yet. 1) Make sure it shows <b>Connected</b> in your phone's Bluetooth settings. 2) Come back here and <b>press ✕ or any face button</b> — browsers only reveal a controller after a button press. 3) Still nothing? Close the game completely and reopen it with the controller already connected.</div>`;
+        for (const g of pads) {
+          const down = g.buttons.map((b, i) => (b.pressed || b.value > 0.45) ? (names[i] || 'B' + i) : null).filter(Boolean);
+          html += `<div class="pt-pad"><div class="pt-id">${g.id.replace(/</g, '')}</div><div class="pt-row"><span>Mapping</span><b>${g.mapping || 'non-standard'}</b></div>
+            <div class="pt-row"><span>Buttons held</span><b>${down.join(' ') || '—'}</b></div>
+            <div class="pt-row"><span>Left stick</span><b>${(g.axes[0] || 0).toFixed(2)}, ${(g.axes[1] || 0).toFixed(2)}</b></div>
+            <div class="pt-row"><span>Right stick</span><b>${(g.axes[2] || 0).toFixed(2)}, ${(g.axes[3] || 0).toFixed(2)}</b></div></div>`;
+        }
+        out.innerHTML = html;
+      };
+      this._padT = setInterval(tick, 100); setTimeout(tick, 0);
     } else if (kind === 'credits') {
       p.innerHTML = `<h2>CREDITS</h2>
         <p><b>DODGE NATION</b> — an original pro dodgeball simulation. All teams, players and the DNL league are fictional.</p>

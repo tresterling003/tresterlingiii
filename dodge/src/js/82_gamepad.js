@@ -71,9 +71,9 @@ function padMenu(cmd) {
 function pollGamepad(dtReal) {
   if (!navigator.getGamepads) return;
   const pads = navigator.getGamepads(); let g = PAD.idx != null ? pads[PAD.idx] : null;
-  if (!g) { for (const p of pads) if (p && p.connected) { g = p; PAD.idx = p.index; PAD.connected = true; document.body.classList.add('pad'); break; } }
+  if (!g || !g.connected) { g = null; for (const p of pads) if (p && p.connected !== false) { g = p; PAD.idx = p.index; if (!PAD.connected) { PAD.connected = true; document.body.classList.add('pad'); UI.hint((padLabel() === 'xbox' ? 'XBOX' : 'PLAYSTATION') + ' CONTROLLER CONNECTED', 'pad' + Math.random()); } break; } }
   if (!g) return;
-  const btn = (i) => { const b = g.buttons[i]; return !!b && (b.pressed || b.value > 0.45); };
+  const btn = (i) => { const b = g.buttons[i]; return !!b && (b.pressed || (typeof b === 'number' ? b > 0.45 : b.value > 0.45)); };
   const now = g.buttons.map((_, i) => btn(i));
   const edge = (i) => now[i] && !PAD.prev[i];
   const anyEdge = now.some((v, i) => v && !PAD.prev[i]);
