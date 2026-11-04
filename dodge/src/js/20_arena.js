@@ -19,6 +19,11 @@ scene.fog = new THREE.Fog(0x04060b, 38, 85);
 const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 160);
 camera.position.set(0, 8, 16);
 
+const VENUES = {
+  pro: { id: 'pro', name: 'DNL ARENA', league: 'DODGE NATION LEAGUE', floor: 'pro', apron: '#0d1630', apronText: 'DODGE NATION LEAGUE', crowd: 99999, noise: 1, jumbo: true, banners: true, boards: ['DODGE NATION', '★', 'PRO DODGEBALL', '★', 'DNL LIVE', '★', 'THROW HARD', '★', 'CATCH EVERYTHING', '★'] },
+  gym: { id: 'gym', name: 'WESTBROOK HIGH GYM', league: 'PERIOD 3 GYM CLASS', floor: 'gym', apron: '#1d5c3a', apronText: 'WESTBROOK WOLVES', crowd: 70, noise: 0.35, jumbo: false, banners: false, booth: ['COACH REYNOLDS', 'PA ANNOUNCER'], logo: { primary: '#f2c14e', secondary: '#1d5c3a', accent: '#ffffff', shape: 'circle', glyph: 'fang' }, boards: ['WESTBROOK HIGH', '★', 'GO WOLVES', '★', 'NO GUM IN THE GYM', '★', 'PHYS ED · PERIOD 3', '★'] },
+  rec: { id: 'rec', name: 'EASTSIDE REC CENTER', league: 'EASTSIDE THURSDAY REC LEAGUE', floor: 'rec', apron: '#5a2a1a', apronText: 'EASTSIDE REC CENTER', crowd: 380, noise: 0.6, jumbo: false, banners: false, booth: ['RICH (LEAGUE COMMISSIONER)', 'TINA ON THE MIC'], logo: { primary: '#ff7a2f', secondary: '#2a1a14', accent: '#ffd29c', shape: 'hex', glyph: 'star' }, boards: ['EASTSIDE REC', '★', 'THURSDAY NIGHT LEAGUE', '★', 'PIZZA AFTER THE GAME', '★', 'SIGN UP AT THE FRONT DESK', '★'] },
+};
 const ARENA = { teamObjs: [], boardTex: null, jumboCtx: null, jumboTex: null, crowdMat: null, lights: {} };
 
 function canvasTex(w, h, draw, srgb = true) {
@@ -28,15 +33,15 @@ function canvasTex(w, h, draw, srgb = true) {
 
 // ---------- court floor ----------
 const FLOOR_W = 26, FLOOR_D = 15; // meters covered by the painted floor texture
-function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA) {
+function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA, venue = VENUES.pro) {
   const ppm = w / FLOOR_W; const cx = w / 2, cy = h / 2; const X = (m) => cx + m * ppm, Y = (m) => cy + m * ppm;
   // wood planks
-  x.fillStyle = '#c8955b'; x.fillRect(0, 0, w, h);
+  x.fillStyle = venue.floor === 'gym' ? '#d9ac70' : venue.floor === 'rec' ? '#b7834c' : '#c8955b'; x.fillRect(0, 0, w, h);
   const rnd = seeded(42); const plankH = 0.18 * ppm;
   for (let y = 0; y < h; y += plankH) {
     let px = -rnd() * 300;
     while (px < w) {
-      const len = (1.2 + rnd() * 2.6) * ppm; const l = 0.48 + rnd() * 0.14;
+      const len = (1.2 + rnd() * 2.6) * ppm; const l = (venue.floor === 'gym' ? 0.56 : venue.floor === 'rec' ? 0.42 : 0.48) + rnd() * 0.14;
       x.fillStyle = `hsl(${30 + rnd() * 6},${48 + rnd() * 12}%,${l * 100}%)`; x.fillRect(px, y, len, plankH);
       x.fillStyle = 'rgba(60,30,10,.35)'; x.fillRect(px, y, 1.5, plankH);
       for (let g = 0; g < 4; g++) { x.fillStyle = `rgba(90,50,20,${0.05 + rnd() * 0.07})`; x.fillRect(px, y + rnd() * plankH, len, 1); }
@@ -45,7 +50,7 @@ function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA) {
     x.fillStyle = 'rgba(70,35,10,.28)'; x.fillRect(0, y, w, 1.2);
   }
   // apron (out of bounds) in deep navy with gloss
-  x.fillStyle = '#0d1630';
+  x.fillStyle = venue.apron;
   x.fillRect(0, 0, w, Y(-COURT.HZ - 0.02)); x.fillRect(0, Y(COURT.HZ + 0.02), w, h); x.fillRect(0, 0, X(-COURT.HX - 0.02), h); x.fillRect(X(COURT.HX + 0.02), 0, w, h);
   // team halves tinted
   const tint = (col, x0, x1, a) => { x.fillStyle = col; x.globalAlpha = a; x.fillRect(X(x0), Y(-COURT.HZ), (x1 - x0) * ppm, COURT.W * ppm); x.globalAlpha = 1; };
@@ -68,8 +73,12 @@ function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA) {
   x.translate(X(COURT.HX - 1.1), Y(0)); x.rotate(Math.PI / 2); x.fillStyle = '#ffffff'; x.globalAlpha = 0.9; x.fillText(away.name, 0, 0); x.restore();
   // apron branding
   x.save(); x.font = `${0.62 * ppm}px Anton, Impact, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(255,255,255,.85)';
-  x.fillText('DODGE NATION LEAGUE', X(-5), Y(COURT.HZ + 1.1)); x.fillStyle = '#ffcc33'; x.fillText(home.city + ' ' + home.name, X(5), Y(COURT.HZ + 1.1));
-  x.fillStyle = 'rgba(255,255,255,.55)'; x.fillText('DNL', X(0), Y(-COURT.HZ - 1.0)); x.restore();
+  x.fillText(venue.apronText, X(-5), Y(COURT.HZ + 1.1)); x.fillStyle = '#ffcc33'; x.fillText(venue.id === 'pro' ? home.city + ' ' + home.name : venue.league, X(5), Y(COURT.HZ + 1.1));
+  x.fillStyle = 'rgba(255,255,255,.55)'; x.fillText(venue.id === 'pro' ? 'DNL' : venue.name, X(0), Y(-COURT.HZ - 1.0)); x.restore();
+  if (venue.floor === 'gym') { // basketball lines under the dodgeball court, like a real school gym
+    x.strokeStyle = 'rgba(29,92,58,.75)'; x.lineWidth = 0.05 * ppm;
+    for (const s of [-1, 1]) { x.beginPath(); x.arc(X(s * (COURT.HX + 1.2)), Y(0), 6.0 * ppm, s < 0 ? -Math.PI / 2 : Math.PI / 2, s < 0 ? Math.PI / 2 : Math.PI * 1.5); x.stroke(); x.strokeRect(s < 0 ? X(-COURT.HX - 1.2) : X(COURT.HX + 1.2 - 5.8), Y(-2.45), 5.8 * ppm, 4.9 * ppm); }
+  }
 }
 
 function buildArena() {
@@ -103,12 +112,8 @@ function buildArena() {
   };
   addStand(30, 'z', -1, 8.2); addStand(30, 'z', 1, 9.4); addStand(17, 'x', -1, 13.5); addStand(17, 'x', 1, 13.5);
   // dasher wall / LED boards
-  const boardTex = canvasTex(2048, 64, (x) => {
-    const grd = x.createLinearGradient(0, 0, 0, 64); grd.addColorStop(0, '#0b1124'); grd.addColorStop(1, '#05070e'); x.fillStyle = grd; x.fillRect(0, 0, 2048, 64);
-    x.font = '44px Anton, Impact, sans-serif'; x.textBaseline = 'middle';
-    const items = ['DODGE NATION', '★', 'PRO DODGEBALL', '★', 'DNL LIVE', '★', 'THROW HARD', '★', 'CATCH EVERYTHING', '★'];
-    let px = 20; let i = 0; while (px < 2048) { const s = items[i++ % items.length]; x.fillStyle = s === '★' ? '#ffcc33' : (i % 4 === 1 ? '#ff5a1f' : '#ffffff'); x.fillText(s, px, 34); px += x.measureText(s).width + 40; }
-  });
+  const boardTex = canvasTex(2048, 64, (x) => paintBoards(x, VENUES.pro.boards));
+  ARENA.boardCtx = boardTex.image.getContext('2d');
   boardTex.wrapS = THREE.RepeatWrapping; boardTex.repeat.set(3, 1); ARENA.boardTex = boardTex;
   const boardMat = new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false });
   const b1 = new THREE.Mesh(new THREE.PlaneGeometry(30, 0.85), boardMat); b1.position.set(0, 0.45, -7.6); g.add(b1);
@@ -157,6 +162,11 @@ function buildArena() {
   return g;
 }
 
+function paintBoards(x, items) {
+  const grd = x.createLinearGradient(0, 0, 0, 64); grd.addColorStop(0, '#0b1124'); grd.addColorStop(1, '#05070e'); x.fillStyle = grd; x.fillRect(0, 0, 2048, 64);
+  x.font = '44px Anton, Impact, sans-serif'; x.textBaseline = 'middle';
+  let px = 20; let i = 0; while (px < 2048) { const s = items[i++ % items.length]; x.fillStyle = s === '★' ? '#ffcc33' : (i % 4 === 1 ? '#ff5a1f' : '#ffffff'); x.fillText(s, px, 34); px += x.measureText(s).width + 40; }
+}
 // ---------- crowd (GPU animated instanced fans) ----------
 function crowdGeometry() {
   const parts = [];
@@ -176,6 +186,7 @@ function crowdGeometry() {
 function buildCrowd(spots, g) {
   const max = QUALITY.crowd; const step = Math.max(1, spots.length / max);
   const chosen = []; for (let i = 0; i < spots.length; i += step) chosen.push(spots[Math.floor(i)]);
+  for (let i = chosen.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [chosen[i], chosen[j]] = [chosen[j], chosen[i]]; }
   const geo = crowdGeometry();
   const mat = new THREE.MeshLambertMaterial({ vertexColors: false });
   const uniforms = { uTime: { value: 0 }, uHype: { value: 0.2 }, uWave: { value: -99 }, uCheer: { value: 0 } };
@@ -230,9 +241,13 @@ function paintCrowd(uniH, uniA) {
 
 // ---------- per-match dressing (floor paint, banners, jumbotron) ----------
 let banners = null;
-async function dressArena(home, away, uniH, uniA) {
-  const homeLogo = await svgToImage(logoSVG(home), 512);
-  const tex = canvasTex(2048, Math.round(2048 * FLOOR_D / FLOOR_W), (x, c) => drawCourt(x, c.width, c.height, home, away, homeLogo, uniH, uniA));
+async function dressArena(home, away, uniH, uniA, venue = VENUES.pro) {
+  const homeLogo = await svgToImage(logoSVG(venue.logo || home), 512);
+  const tex = canvasTex(2048, Math.round(2048 * FLOOR_D / FLOOR_W), (x, c) => drawCourt(x, c.width, c.height, home, away, homeLogo, uniH, uniA, venue));
+  paintBoards(ARENA.boardCtx, venue.boards); ARENA.boardTex.needsUpdate = true;
+  ARENA.crowd.mesh.count = Math.min(venue.crowd, ARENA.crowd.spots.length);
+  if (banners) banners.visible = venue.banners;
+  ARENA.lights.key.intensity = venue.floor === 'gym' ? 3.0 : 2.6;
   if (ARENA.floorMat.map) ARENA.floorMat.map.dispose();
   ARENA.floorMat.map = tex; ARENA.floorMat.needsUpdate = true;
   paintCrowd(uniH, uniA);
@@ -250,6 +265,7 @@ async function dressArena(home, away, uniH, uniA) {
       const b = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.2), new THREE.MeshStandardMaterial({ map: bt, roughness: 0.9, side: THREE.DoubleSide }));
       b.position.set(-12.6 + i * 3.6, 17.5, -16.5); banners.add(b);
     }
+    banners.visible = venue.banners;
   }
 }
 function drawJumbo(lines) {

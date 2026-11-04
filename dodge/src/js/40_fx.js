@@ -126,7 +126,8 @@ const COMM = {
     let s = pool.filter(l => !this.recent.includes(l)); if (!s.length) s = pool;
     const line = pick(s); this.recent.push(line); if (this.recent.length > 8) this.recent.shift();
     const txt = line.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
-    const el = $('#cline'); el.innerHTML = `<div class="who">${BOOTH[(Math.random() * 2) | 0]}</div><div class="txt">${txt}</div>`;
+    const booth = (G.match && G.match.venue && G.match.venue.booth) || BOOTH;
+    const el = $('#cline'); el.innerHTML = `<div class="who">${booth[(Math.random() * booth.length) | 0]}</div><div class="txt">${txt}</div>`;
     el.classList.add('on'); this.lineTimer = 3.6;
   },
   callout(text, sub = '', color = '#fff', dur = 1.6) {

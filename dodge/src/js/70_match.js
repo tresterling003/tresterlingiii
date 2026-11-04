@@ -19,7 +19,7 @@ G.onPickup = (p, b) => {
   if (G.human && p.team === G.human.team && p !== G.human && !G.human.ball && G.human.state === 'active' && G.phase === 'play') {
     const near = G.balls.some(x => x.state === 'loose' && Math.hypot(x.pos.x - G.human.pos.x, x.pos.z - G.human.pos.z) < 2.5);
     const busy = G.human.catchT > 0 || G.human.duck || G.human.airborne;
-    if (!near && !busy && SETTINGS.autoSwitch !== false) G.setHuman(p);
+    if (!near && !busy && SETTINGS.autoSwitch !== false && !G.locked) G.setHuman(p);
   }
 };
 G.onDodge = (p, b, d) => {
@@ -263,7 +263,7 @@ function updateCamera(dtReal) {
     }
     if (G.phase === 'gameover' && G.winnerTeam) { const w = G.winnerTeam.players.filter(p => p.state !== 'bench'); if (w.length) { const c = w.reduce((s, p) => s.add(p.pos), new THREE.Vector3()).multiplyScalar(1 / w.length); wantPos.set(c.x * 0.7, 3.2, c.z + 8.5); wantLook.set(c.x, 1.2, c.z); k = 1.6; fov = portrait ? 55 : 34; } }
   }
-  if (ARENA.jumbo) ARENA.jumbo.visible = !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
+  if (ARENA.jumbo) ARENA.jumbo.visible = (!G.match.venue || G.match.venue.jumbo || G.phase === 'menu') && !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
   CAMS.pos.lerp(wantPos, 1 - Math.exp(-k * dtReal)); CAMS.look.lerp(wantLook, 1 - Math.exp(-k * 1.2 * dtReal));
   CAMS.kick = damp(CAMS.kick || 0, 0, 7, dtReal);
   CAMS.fov = damp(CAMS.fov, fov + CAMS.kick, 4, dtReal);
@@ -298,26 +298,33 @@ G.clearMatch = () => {
   for (const p of G.players) { scene.remove(p.char.root, p.ring, p.blob); p.char.mats.forEach(m => { if (m.map && m.map.isCanvasTexture) m.map.dispose(); m.dispose(); }); }
   G.players = []; G.teams = []; G.human = null; AUDIO.chant = false;
 };
-G.setupMatch = async (homeIdx, awayIdx, diffIdx) => {
+G.match = { bestOf: 3, venue: null, locked: null, career: null };
+G.need = () => Math.ceil(G.match.bestOf / 2);
+G.setupMatch = (homeIdx, awayIdx, diffIdx) => G.setupMatchTeams(TEAMS[homeIdx], TEAMS[awayIdx], { diff: diffIdx, bestOf: 3 });
+G.setupMatchTeams = async (home, away, opts = {}) => {
   G.clearMatch();
-  const home = TEAMS[homeIdx], away = TEAMS[awayIdx];
-  const [uH, uA] = uniformsFor(home, away);
-  G.diff = DIFFS[diffIdx];
+  const [uH, uA] = opts.uni || uniformsFor(home, away);
+  G.diff = DIFFS[opts.diff ?? 1];
+  G.match = { bestOf: opts.bestOf || 3, venue: VENUES[opts.venue || 'pro'], locked: opts.lockedId || null, career: opts.career || null };
   const tA = new TeamRT(home, 0, -1, uH, true), tB = new TeamRT(away, 1, 1, uA, false);
   G.teams = [tA, tB];
   for (const t of G.teams) { t.logoImg = await svgToImage(logoSVG(t.data), 256); }
-  await dressArena(home, away, uH, uA);
+  await dressArena(home, away, uH, uA, G.match.venue);
   for (const t of G.teams) t.data.roster.forEach((d, i) => { const p = new Player(d, t, i); t.players.push(p); G.players.push(p); });
   if (!G.balls.length) { const mat = ballMaterial(); for (let i = 0; i < 6; i++) G.balls.push(new Ball(i, mat)); }
   G.wins = [0, 0]; G.gameNo = 1; G.lastReplayAt = -99;
   for (const p of G.players) p.stats = makeStats();
+  G.locked = G.match.locked ? G.players.find(p => p.data.id === G.match.locked) : null;
+  G.simSpeed = 1;
   recInit();
 };
+G.toTitle = async () => { await G.setupMatch(UI.sel[0], UI.sel[1], UI.diff); G.demoMode(); };
 G.setHuman = (p) => {
   if (!p || p.state !== 'active') return;
   G.human = p; UI.playerCard(p);
 };
 G.switchPlayer = () => {
+  if (G.locked) { UI.hint('ROAD TO GLORY · LOCKED ON ' + G.locked.name.toUpperCase(), 'lock' + Math.random()); return; }
   const t = G.teams[0]; const cand = t.players.filter(p => p.state === 'active' && p !== G.human); if (!cand.length) return;
   const withBall = cand.filter(p => p.ball);
   let best = null;
@@ -330,6 +337,7 @@ G.switchPlayer = () => {
   G.setHuman(best); AUDIO.ui();
 };
 G.autoSwitch = () => {
+  if (G.locked) { setTimeout(() => { if (G.phase === 'play' && G.locked.state !== 'active') { UI.hint(isTouch ? "YOU'RE OUT · TAP ›› TO FAST-FORWARD" : "YOU'RE OUT · ›› OR TAB TO FAST-FORWARD", 'out' + Math.random()); } }, 600); return; }
   setTimeout(() => { if (G.human && G.human.state !== 'active') G.switchPlayer(); }, 250);
 };
 
@@ -344,13 +352,14 @@ G.startGame = () => {
   const zs = [-3.6, -2.2, -0.75, 0.75, 2.2, 3.6];
   G.balls.forEach((b, i) => b.reset(new THREE.Vector3(0, BALL_R, zs[i])));
   const cap = G.teams[0].players.find(p => p.data.arch === 'CAPTAIN') || G.teams[0].players[0];
-  G.setHuman(G.teams[0].players[2] || cap);
+  if (G.locked) { G.human = G.locked; UI.playerCard(G.locked); } else G.setHuman(G.teams[0].players[2] || cap);
+  G.simSpeed = 1;
   G.rush = true; G.rushT = 0;
   recInit();
   G.phase = 'countdown'; G.countT = 0; G.countStep = -1;
   UI.updateScorebug(true); drawJumboScore();
-  UI.banner(`<div class="cb"><div class="k">${G.wins[0] + G.wins[1] === 0 ? 'OPENING GAME' : G.wins[0] === 1 && G.wins[1] === 1 ? 'WINNER TAKES ALL' : 'BEST OF 3'}</div><div class="t">GAME ${G.gameNo}</div><div class="s">${G.teams[0].data.name} ${G.wins[0]} — ${G.wins[1]} ${G.teams[1].data.name}</div></div>`, 1.6);
-  if (G.wins[0] === 1 || G.wins[1] === 1) COMM.say('gamePoint', {}, true);
+  UI.banner(`<div class="cb"><div class="k">${G.wins[0] + G.wins[1] === 0 ? (G.match.bestOf === 1 ? 'ONE GAME · WINNER TAKES IT' : 'OPENING GAME') : G.wins[0] === G.need() - 1 && G.wins[1] === G.need() - 1 ? 'WINNER TAKES ALL' : 'BEST OF ' + G.match.bestOf}</div><div class="t">GAME ${G.gameNo}</div><div class="s">${G.teams[0].data.name} ${G.wins[0]} — ${G.wins[1]} ${G.teams[1].data.name}</div></div>`, 1.6);
+  if (G.match.bestOf > 1 && (G.wins[0] === G.need() - 1 || G.wins[1] === G.need() - 1)) COMM.say('gamePoint', {}, true);
 };
 G.updateCountdown = (dt) => {
   G.countT += dt;
@@ -365,7 +374,7 @@ G.endGame = (winner) => {
   G.phase = 'gameover'; G.winnerTeam = winner; G.goT = 0; G.goReplayed = false;
   G.wins[winner.idx]++;
   AUDIO.whistle(0.9); AUDIO.horn(); AUDIO.cheer(2); AUDIO.chant = false; G.cheer = 1.2;
-  const matchOver = G.wins[winner.idx] >= 2;
+  const matchOver = G.wins[winner.idx] >= G.need(); G.simSpeed = 1;
   COMM.say(matchOver ? 'matchWin' : 'gameWin', { team: winner.data.name }, true);
   COMM.callout(matchOver ? 'MATCH' : 'GAME', winner.data.city + ' ' + winner.data.name, winner.uni.p, 2.2);
   UI.updateScorebug(true); drawJumboText(winner.data.name + ' WIN', `GAME ${G.gameNo} · SERIES ${G.wins[0]}-${G.wins[1]}`);

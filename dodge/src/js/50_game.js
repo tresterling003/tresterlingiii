@@ -369,7 +369,7 @@ class TeamRT {
     p.stats.returns++;
     return p;
   }
-  onReturned(p) { p.targetYaw = this.side < 0 ? Math.PI / 2 : -Math.PI / 2; }
+  onReturned(p) { p.targetYaw = this.side < 0 ? Math.PI / 2 : -Math.PI / 2; if (p === G.locked) { G.simSpeed = 1; G.human = p; UI.playerCard(p); COMM.callout("YOU'RE BACK IN!", p.name, '#39ff8a', 1.3); } }
 }
 
 // ---------- balls ----------

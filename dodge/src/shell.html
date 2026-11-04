@@ -39,6 +39,7 @@
       <div class="tagline">PRO DODGEBALL · LIVE FROM THE ARENA</div>
       <nav class="menu" id="title-menu">
         <button class="mi primary" data-act="play"><span>PLAY NOW</span><small>Quick match · Best of 3</small></button>
+        <button class="mi" data-act="career"><span>ROAD TO GLORY</span><small>Create a player · Gym class → Rec league</small></button>
         <button class="mi" data-act="controls"><span>HOW TO PLAY</span><small>Controls &amp; rules</small></button>
         <button class="mi" data-act="settings"><span>SETTINGS</span><small>Graphics · Audio · Difficulty</small></button>
         <button class="mi" data-act="credits"><span>CREDITS</span><small>Avatars &amp; motion capture</small></button>
@@ -74,6 +75,7 @@
     <div id="scorebug"></div>
     <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
     <button id="cam-btn" class="icon-btn" aria-label="Change camera">CAM</button>
+    <button id="sim-btn">FAST-FORWARD ››</button>
     <div id="live-tag"><span class="live-dot"></span>LIVE</div>
     <div id="pcard"></div>
     <div id="meter"><div class="mbar"><i class="perfect"></i><i class="fill" id="meter-fill"></i></div><div class="mlabel" id="meter-label">POWER</div></div>
@@ -96,6 +98,9 @@
       </div>
     </div>
   </section>
+
+  <!-- road to glory -->
+  <section id="scr-career" class="screen"><div id="career-root"></div></section>
 
   <!-- pause -->
   <section id="scr-pause" class="screen modal">

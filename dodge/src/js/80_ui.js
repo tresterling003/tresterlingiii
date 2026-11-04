@@ -137,6 +137,7 @@ const UI = {
   titleAction(a) {
     AUDIO.init();
     if (a === 'play') this.go('select', () => this.renderSelect());
+    if (a === 'career') CAREER.open();
     if (a === 'controls') this.info('controls');
     if (a === 'settings') this.info('settings');
     if (a === 'credits') this.info('credits');
@@ -187,8 +188,8 @@ const UI = {
       const pips = t.players.map(p => `<i class="${p.state === 'active' || p.state === 'returning' || p.state === 'celebrate' ? '' : 'out'}"></i>`).join('');
       return `<div class="sb-team ${i ? 'r' : ''}" style="background:linear-gradient(${i ? 270 : 90}deg, ${t.uni.s}, ${t.uni.p})">${logoSVG(t.data)}<span class="sb-abbr" style="color:${lum(t.uni.p) > 0.7 ? '#111' : '#fff'}">${t.data.abbr}</span><span class="sb-pips">${pips}</span></div>`;
     });
-    const dots = (w) => `<span class="sb-dots">${[0, 1].map(k => `<i class="${k < w ? 'won' : ''}"></i>`).join('')}</span>`;
-    $('#scorebug').innerHTML = `${html[0]}<div class="sb-mid"><div class="sb-gl">GAME ${G.gameNo} · BO3</div><div class="sb-games"><span>${dots(G.wins[0])}</span><span>${dots(G.wins[1])}</span></div></div>${html[1]}`;
+    const dots = (w) => `<span class="sb-dots">${[...Array(G.need()).keys()].map(k => `<i class="${k < w ? 'won' : ''}"></i>`).join('')}</span>`;
+    $('#scorebug').innerHTML = `${html[0]}<div class="sb-mid"><div class="sb-gl">${G.match.bestOf === 1 ? 'SINGLE GAME' : 'GAME ' + G.gameNo + ' · BO' + G.match.bestOf}</div><div class="sb-games"><span>${dots(G.wins[0])}</span><span>${dots(G.wins[1])}</span></div></div>${html[1]}`;
     if (flash) { const s = $('#scorebug'); s.classList.remove('sb-flash'); void s.offsetWidth; s.classList.add('sb-flash'); }
   },
   playerCard(p) {
@@ -221,16 +222,17 @@ const UI = {
     };
     const ms = mvp.stats;
     $('#res-wrap').innerHTML = `
-      <div class="res-head">${logoSVG(A.data)}<div class="sc">${G.wins[0]}</div><div class="mid"><div class="fin">FINAL · BEST OF 3</div><div class="sc">—</div></div><div class="sc">${G.wins[1]}</div>${logoSVG(B.data)}</div>
+      <div class="res-head">${logoSVG(A.data)}<div class="sc">${G.wins[0]}</div><div class="mid"><div class="fin">FINAL${G.match.bestOf > 1 ? ' · BEST OF ' + G.match.bestOf : ''}</div><div class="sc">—</div></div><div class="sc">${G.wins[1]}</div>${logoSVG(B.data)}</div>
       <div class="res-win" style="color:${winner.uni.p === '#ffffff' ? '#ffcc33' : winner.uni.p}">${winner.data.city} ${winner.data.name} WIN${winner.isHuman ? ' — YOU TAKE THE SERIES!' : ''}</div>
       <div class="res-body"><div class="mvp"><div class="tag">★ MATCH MVP</div>${this.cardHTML(mvp.data, mvp.team.data, mvp.team.uni)}<div class="line">${ms.hits} HITS · ${ms.catches} CATCHES · ${ms.dodges} DODGES</div></div>
       <div class="tables">${tbl(A)}${tbl(B)}</div></div>
-      <div class="res-actions"><button class="cta" data-act="rematch">REMATCH ›</button><button class="btn2" data-act="newmatch">NEW MATCHUP</button><button class="btn2" data-act="menu">MAIN MENU</button></div>`;
+      <div class="res-actions">${G.match.career ? `<button class="cta" data-act="career">CONTINUE ›</button>` : `<button class="cta" data-act="rematch">REMATCH ›</button><button class="btn2" data-act="newmatch">NEW MATCHUP</button><button class="btn2" data-act="menu">MAIN MENU</button>`}</div>`;
     this.go('results');
     for (const b of $$('#res-wrap [data-act]')) b.onclick = () => this.resultAction(b.dataset.act);
     const url = await portrait(mvp.data, mvp.team.data, mvp.team.uni); const el = $(`#res-wrap [data-pc="${mvp.data.id}"] .sil`); if (el && url) el.innerHTML = `<img src="${url}" alt="">`;
   },
   resultAction(a) {
+    if (a === 'career') { CAREER.afterMatch(); return; }
     if (a === 'rematch') this.go('hud', () => startMatchFlow(true));
     if (a === 'newmatch') this.go('select', () => { G.demoMode(); this.renderSelect(); });
     if (a === 'menu') this.go('title', () => G.demoMode());
@@ -305,7 +307,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 // ---------- 3D rendered portraits for player cards ----------
 const PORTRAIT = { scene: null, cam: null, rt: null };
 async function portrait(p, team, uni) {
-  const key = p.id + uni.p + uni.s;
+  const key = p.id + p.avatar.id + p.num + uni.p + uni.s;
   if (UI.portraits.has(key)) return UI.portraits.get(key);
   if (!PORTRAIT.scene) {
     const s = new THREE.Scene(); s.environment = scene.environment;

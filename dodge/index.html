@@ -378,6 +378,107 @@ body.touch .mlabel{font-size:13px}
   .mu-team .rec{display:none}
 }
 
+/* ===== Road to Glory ===== */
+#scr-career{background:radial-gradient(ellipse at 30% 0%,rgba(40,30,70,.96),rgba(5,7,13,.98) 70%);overflow:auto;touch-action:pan-y}
+#career-root{min-height:100%;padding:calc(66px + var(--safe-t)) calc(16px + var(--safe-r)) calc(18px + var(--safe-b)) calc(16px + var(--safe-l))}
+#sim-btn{position:absolute;left:50%;top:calc(104px + var(--safe-t));transform:translateX(-50%) skewX(-10deg);display:none;pointer-events:auto;font-family:var(--disp);font-size:18px;letter-spacing:.06em;padding:8px 18px;background:rgba(5,8,14,.85);border:2px solid var(--gold);color:var(--gold)}
+#sim-btn.on{display:block}
+#sim-btn.fast{background:var(--gold);color:#140a00}
+input{user-select:text;-webkit-user-select:text;touch-action:auto}
+.cr-create{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;max-width:1150px;margin:0 auto}
+.cr-looks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cr-look{position:relative;aspect-ratio:3/4;border:2px solid var(--line);background:linear-gradient(170deg,#2f6bff,#0d1b3d);overflow:hidden;transform:skewX(-4deg);display:flex;flex-direction:column;justify-content:flex-end}
+.cr-look .sil{position:absolute;inset:0 0 22px 0;display:flex;justify-content:center;align-items:flex-end}
+.cr-look .sil img{height:100%;width:100%;object-fit:cover;object-position:50% 0}
+.cr-look span{position:relative;background:rgba(0,0,0,.6);font-weight:800;font-size:11px;letter-spacing:.12em;padding:4px}
+.cr-look.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 30px rgba(255,204,51,.35)}
+.cr-form{display:flex;flex-direction:column;gap:8px}
+.cr-form label{display:flex;flex-direction:column;gap:3px;font-weight:800;font-size:12px;letter-spacing:.16em;color:var(--dim)}
+.cr-form input{font-family:var(--cond);font-weight:700;font-size:20px;padding:7px 10px;background:#0a0e18;border:1px solid var(--line);color:#fff;outline:none}
+.cr-form input:focus{border-color:var(--gold)}
+.cr-lab{font-weight:800;font-size:12px;letter-spacing:.16em;color:var(--dim);margin-top:4px}
+.cr-arch,.cr-diff{flex-direction:row;flex-wrap:wrap}
+.cr-arch button,.cr-diff button{min-width:0}
+.cr-archdesc{font-weight:600;color:#cfd6e6;font-size:15px}
+.cr-note{color:var(--dim);font-weight:600;font-size:14px;line-height:1.35;margin:6px 0}
+.cr-hub{display:grid;grid-template-columns:240px 1fr;gap:18px;max-width:1150px;margin:0 auto}
+.cr-me{display:flex;flex-direction:column;align-items:center;gap:8px}
+.cr-me .pc{width:200px}
+.cr-name{font-family:var(--disp);font-size:24px;text-align:center;line-height:1}
+.cr-rank{font-weight:800;font-size:12px;letter-spacing:.14em;color:var(--gold);text-align:center}
+.cr-lvl{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-weight:800;font-size:12px;letter-spacing:.08em}
+.xpbar{height:8px;background:rgba(255,255,255,.1);transform:skewX(-20deg);overflow:hidden}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#39d98a,#b6f36a)}
+.cr-upg{width:100%;font-size:17px;position:relative}
+.badge{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:12px;background:var(--hot);color:#fff;font-family:var(--cond);font-size:14px;margin-left:6px;transform:skewX(10deg)}
+.cr-tot{font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--dim);text-align:center}
+.cr-main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cr-tier{display:flex;gap:14px;align-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:10px 14px}
+.cr-tlogo{width:70px;height:70px;flex:none}
+.cr-tier .k,.cr-next .k{font-weight:800;font-size:12px;letter-spacing:.22em;color:var(--gold)}
+.cr-tier .t{font-family:var(--disp);font-size:26px;line-height:1.05}
+.cr-tier .o,.cr-next .o{font-weight:600;font-size:14px;color:#cfd6e6}
+.cr-next{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;background:linear-gradient(90deg,rgba(255,90,31,.22),rgba(255,204,51,.05));border-left:4px solid var(--hot)}
+.cr-next .t{font-family:var(--disp);font-size:clamp(22px,3vw,34px);line-height:1}
+.cr-next .t span{color:var(--gold);font-size:.7em}
+.cr-coach{font-weight:600;font-size:15px;color:#dfe5f2;background:rgba(0,0,0,.3);padding:8px 12px;border-left:3px solid var(--gold)}
+.cr-coach b{color:var(--gold);letter-spacing:.06em}
+.cr-sched{display:flex;flex-direction:column;gap:4px}
+.cr-row{display:grid;grid-template-columns:70px 1fr 1.4fr;gap:8px;padding:6px 10px;background:rgba(255,255,255,.04);font-weight:700;font-size:15px}
+.cr-row.next{background:rgba(255,204,51,.12);border-left:3px solid var(--gold)}
+.cr-row b.w{color:#39d98a}.cr-row b.l{color:#ff6b6b}
+.cr-stand{margin-top:8px}
+.cr-stand tr.me td{color:var(--gold)}
+.up-wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
+.up-top{display:flex;gap:12px;margin-bottom:6px}
+.up-top div{flex:1;background:rgba(255,255,255,.05);padding:8px 12px;display:flex;flex-direction:column}
+.up-top span{font-weight:800;font-size:11px;letter-spacing:.18em;color:var(--dim)}
+.up-top b{font-family:var(--disp);font-size:32px;color:var(--gold)}
+.up-row{display:grid;grid-template-columns:150px 1fr 40px 70px;gap:10px;align-items:center;padding:6px 10px;background:rgba(255,255,255,.04);font-weight:800;letter-spacing:.06em}
+.up-row .bar{position:relative;height:10px;background:rgba(255,255,255,.08);transform:skewX(-20deg)}
+.up-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--hot),var(--gold))}
+.up-row .bar em{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;opacity:.6}
+.up-row b{font-family:var(--disp);font-size:22px;text-align:right}
+.up-plus{font-family:var(--disp);font-size:22px;background:#1f8a4c;border:1px solid #39d98a;padding:2px 6px;display:flex;flex-direction:column;align-items:center;line-height:1}
+.up-plus small{font-family:var(--cond);font-weight:800;font-size:10px;letter-spacing:.1em}
+.up-plus:disabled{background:rgba(255,255,255,.05);border-color:var(--line);opacity:.5}
+.post-wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.post-res{font-family:var(--disp);font-size:clamp(54px,10vw,110px);text-align:center;transform:skewX(-8deg);line-height:1}
+.post-res.w{background:linear-gradient(90deg,#39d98a,#b6f36a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.post-res.l{color:#ff6b6b}
+.post-grid{display:grid;grid-template-columns:200px 1fr;gap:14px}
+.post-grade{background:rgba(255,255,255,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px}
+.post-grade span{font-weight:800;font-size:12px;letter-spacing:.18em;color:var(--dim)}
+.post-grade b{font-family:var(--disp);font-size:90px;line-height:1;color:var(--gold)}
+.post-grade em{font-style:normal;font-weight:800;color:var(--gold);letter-spacing:.1em}
+.post-xp{display:flex;flex-direction:column;gap:3px}
+.post-xp div{display:flex;justify-content:space-between;padding:5px 10px;background:rgba(255,255,255,.04);font-weight:700;font-size:16px}
+.post-xp div b{color:#b6f36a}
+.post-xp .mult b{color:var(--gold)}
+.post-xp .tot{background:rgba(57,217,138,.15);font-size:20px}
+.post-lvl{text-align:center;font-family:var(--disp);font-size:28px;color:#b6f36a;letter-spacing:.04em;animation:pop .6s cubic-bezier(.2,1.5,.3,1) both}
+.post-news{padding:14px 18px;border-left:5px solid var(--gold);background:rgba(255,204,51,.1)}
+.post-news.repeat{border-color:#ff6b6b;background:rgba(255,107,107,.08)}
+.post-news.champ,.post-news.promo{border-color:#39d98a;background:rgba(57,217,138,.12)}
+.post-news .t{font-family:var(--disp);font-size:30px;letter-spacing:.03em}
+.post-news .s{font-weight:600;font-size:16px;color:#dfe5f2}
+@media (max-width:760px), (max-height:560px){
+  .cr-create{grid-template-columns:1fr}
+  .cr-looks{grid-template-columns:repeat(4,1fr)}
+  .cr-look{aspect-ratio:3/3.3}
+  .cr-hub{grid-template-columns:1fr}
+  .cr-me{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:6px 12px}
+  .cr-me .pc{width:120px;grid-row:span 4}
+  .cr-name,.cr-rank{text-align:left}
+  .cr-tot{grid-column:1/3;text-align:left}
+  .up-row{grid-template-columns:110px 1fr 34px 60px;font-size:12px}
+  .post-grid{grid-template-columns:1fr}
+  .post-grade b{font-size:60px}
+  #career-root{padding-top:calc(54px + var(--safe-t))}
+}
+
+.cr-stand th:nth-child(2),.cr-stand td:nth-child(2){text-align:left}
+
 </style>
 </head>
 <body>
@@ -399,6 +500,7 @@ body.touch .mlabel{font-size:13px}
       <div class="tagline">PRO DODGEBALL · LIVE FROM THE ARENA</div>
       <nav class="menu" id="title-menu">
         <button class="mi primary" data-act="play"><span>PLAY NOW</span><small>Quick match · Best of 3</small></button>
+        <button class="mi" data-act="career"><span>ROAD TO GLORY</span><small>Create a player · Gym class → Rec league</small></button>
         <button class="mi" data-act="controls"><span>HOW TO PLAY</span><small>Controls &amp; rules</small></button>
         <button class="mi" data-act="settings"><span>SETTINGS</span><small>Graphics · Audio · Difficulty</small></button>
         <button class="mi" data-act="credits"><span>CREDITS</span><small>Avatars &amp; motion capture</small></button>
@@ -434,6 +536,7 @@ body.touch .mlabel{font-size:13px}
     <div id="scorebug"></div>
     <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
     <button id="cam-btn" class="icon-btn" aria-label="Change camera">CAM</button>
+    <button id="sim-btn">FAST-FORWARD ››</button>
     <div id="live-tag"><span class="live-dot"></span>LIVE</div>
     <div id="pcard"></div>
     <div id="meter"><div class="mbar"><i class="perfect"></i><i class="fill" id="meter-fill"></i></div><div class="mlabel" id="meter-label">POWER</div></div>
@@ -456,6 +559,9 @@ body.touch .mlabel{font-size:13px}
       </div>
     </div>
   </section>
+
+  <!-- road to glory -->
+  <section id="scr-career" class="screen"><div id="career-root"></div></section>
 
   <!-- pause -->
   <section id="scr-pause" class="screen modal">
@@ -1010,6 +1116,11 @@ scene.fog = new THREE.Fog(0x04060b, 38, 85);
 const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 160);
 camera.position.set(0, 8, 16);
 
+const VENUES = {
+  pro: { id: 'pro', name: 'DNL ARENA', league: 'DODGE NATION LEAGUE', floor: 'pro', apron: '#0d1630', apronText: 'DODGE NATION LEAGUE', crowd: 99999, noise: 1, jumbo: true, banners: true, boards: ['DODGE NATION', '★', 'PRO DODGEBALL', '★', 'DNL LIVE', '★', 'THROW HARD', '★', 'CATCH EVERYTHING', '★'] },
+  gym: { id: 'gym', name: 'WESTBROOK HIGH GYM', league: 'PERIOD 3 GYM CLASS', floor: 'gym', apron: '#1d5c3a', apronText: 'WESTBROOK WOLVES', crowd: 70, noise: 0.35, jumbo: false, banners: false, booth: ['COACH REYNOLDS', 'PA ANNOUNCER'], logo: { primary: '#f2c14e', secondary: '#1d5c3a', accent: '#ffffff', shape: 'circle', glyph: 'fang' }, boards: ['WESTBROOK HIGH', '★', 'GO WOLVES', '★', 'NO GUM IN THE GYM', '★', 'PHYS ED · PERIOD 3', '★'] },
+  rec: { id: 'rec', name: 'EASTSIDE REC CENTER', league: 'EASTSIDE THURSDAY REC LEAGUE', floor: 'rec', apron: '#5a2a1a', apronText: 'EASTSIDE REC CENTER', crowd: 380, noise: 0.6, jumbo: false, banners: false, booth: ['RICH (LEAGUE COMMISSIONER)', 'TINA ON THE MIC'], logo: { primary: '#ff7a2f', secondary: '#2a1a14', accent: '#ffd29c', shape: 'hex', glyph: 'star' }, boards: ['EASTSIDE REC', '★', 'THURSDAY NIGHT LEAGUE', '★', 'PIZZA AFTER THE GAME', '★', 'SIGN UP AT THE FRONT DESK', '★'] },
+};
 const ARENA = { teamObjs: [], boardTex: null, jumboCtx: null, jumboTex: null, crowdMat: null, lights: {} };
 
 function canvasTex(w, h, draw, srgb = true) {
@@ -1019,15 +1130,15 @@ function canvasTex(w, h, draw, srgb = true) {
 
 // ---------- court floor ----------
 const FLOOR_W = 26, FLOOR_D = 15; // meters covered by the painted floor texture
-function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA) {
+function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA, venue = VENUES.pro) {
   const ppm = w / FLOOR_W; const cx = w / 2, cy = h / 2; const X = (m) => cx + m * ppm, Y = (m) => cy + m * ppm;
   // wood planks
-  x.fillStyle = '#c8955b'; x.fillRect(0, 0, w, h);
+  x.fillStyle = venue.floor === 'gym' ? '#d9ac70' : venue.floor === 'rec' ? '#b7834c' : '#c8955b'; x.fillRect(0, 0, w, h);
   const rnd = seeded(42); const plankH = 0.18 * ppm;
   for (let y = 0; y < h; y += plankH) {
     let px = -rnd() * 300;
     while (px < w) {
-      const len = (1.2 + rnd() * 2.6) * ppm; const l = 0.48 + rnd() * 0.14;
+      const len = (1.2 + rnd() * 2.6) * ppm; const l = (venue.floor === 'gym' ? 0.56 : venue.floor === 'rec' ? 0.42 : 0.48) + rnd() * 0.14;
       x.fillStyle = `hsl(${30 + rnd() * 6},${48 + rnd() * 12}%,${l * 100}%)`; x.fillRect(px, y, len, plankH);
       x.fillStyle = 'rgba(60,30,10,.35)'; x.fillRect(px, y, 1.5, plankH);
       for (let g = 0; g < 4; g++) { x.fillStyle = `rgba(90,50,20,${0.05 + rnd() * 0.07})`; x.fillRect(px, y + rnd() * plankH, len, 1); }
@@ -1036,7 +1147,7 @@ function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA) {
     x.fillStyle = 'rgba(70,35,10,.28)'; x.fillRect(0, y, w, 1.2);
   }
   // apron (out of bounds) in deep navy with gloss
-  x.fillStyle = '#0d1630';
+  x.fillStyle = venue.apron;
   x.fillRect(0, 0, w, Y(-COURT.HZ - 0.02)); x.fillRect(0, Y(COURT.HZ + 0.02), w, h); x.fillRect(0, 0, X(-COURT.HX - 0.02), h); x.fillRect(X(COURT.HX + 0.02), 0, w, h);
   // team halves tinted
   const tint = (col, x0, x1, a) => { x.fillStyle = col; x.globalAlpha = a; x.fillRect(X(x0), Y(-COURT.HZ), (x1 - x0) * ppm, COURT.W * ppm); x.globalAlpha = 1; };
@@ -1059,8 +1170,12 @@ function drawCourt(x, w, h, home, away, homeLogo, uniH, uniA) {
   x.translate(X(COURT.HX - 1.1), Y(0)); x.rotate(Math.PI / 2); x.fillStyle = '#ffffff'; x.globalAlpha = 0.9; x.fillText(away.name, 0, 0); x.restore();
   // apron branding
   x.save(); x.font = `${0.62 * ppm}px Anton, Impact, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(255,255,255,.85)';
-  x.fillText('DODGE NATION LEAGUE', X(-5), Y(COURT.HZ + 1.1)); x.fillStyle = '#ffcc33'; x.fillText(home.city + ' ' + home.name, X(5), Y(COURT.HZ + 1.1));
-  x.fillStyle = 'rgba(255,255,255,.55)'; x.fillText('DNL', X(0), Y(-COURT.HZ - 1.0)); x.restore();
+  x.fillText(venue.apronText, X(-5), Y(COURT.HZ + 1.1)); x.fillStyle = '#ffcc33'; x.fillText(venue.id === 'pro' ? home.city + ' ' + home.name : venue.league, X(5), Y(COURT.HZ + 1.1));
+  x.fillStyle = 'rgba(255,255,255,.55)'; x.fillText(venue.id === 'pro' ? 'DNL' : venue.name, X(0), Y(-COURT.HZ - 1.0)); x.restore();
+  if (venue.floor === 'gym') { // basketball lines under the dodgeball court, like a real school gym
+    x.strokeStyle = 'rgba(29,92,58,.75)'; x.lineWidth = 0.05 * ppm;
+    for (const s of [-1, 1]) { x.beginPath(); x.arc(X(s * (COURT.HX + 1.2)), Y(0), 6.0 * ppm, s < 0 ? -Math.PI / 2 : Math.PI / 2, s < 0 ? Math.PI / 2 : Math.PI * 1.5); x.stroke(); x.strokeRect(s < 0 ? X(-COURT.HX - 1.2) : X(COURT.HX + 1.2 - 5.8), Y(-2.45), 5.8 * ppm, 4.9 * ppm); }
+  }
 }
 
 function buildArena() {
@@ -1094,12 +1209,8 @@ function buildArena() {
   };
   addStand(30, 'z', -1, 8.2); addStand(30, 'z', 1, 9.4); addStand(17, 'x', -1, 13.5); addStand(17, 'x', 1, 13.5);
   // dasher wall / LED boards
-  const boardTex = canvasTex(2048, 64, (x) => {
-    const grd = x.createLinearGradient(0, 0, 0, 64); grd.addColorStop(0, '#0b1124'); grd.addColorStop(1, '#05070e'); x.fillStyle = grd; x.fillRect(0, 0, 2048, 64);
-    x.font = '44px Anton, Impact, sans-serif'; x.textBaseline = 'middle';
-    const items = ['DODGE NATION', '★', 'PRO DODGEBALL', '★', 'DNL LIVE', '★', 'THROW HARD', '★', 'CATCH EVERYTHING', '★'];
-    let px = 20; let i = 0; while (px < 2048) { const s = items[i++ % items.length]; x.fillStyle = s === '★' ? '#ffcc33' : (i % 4 === 1 ? '#ff5a1f' : '#ffffff'); x.fillText(s, px, 34); px += x.measureText(s).width + 40; }
-  });
+  const boardTex = canvasTex(2048, 64, (x) => paintBoards(x, VENUES.pro.boards));
+  ARENA.boardCtx = boardTex.image.getContext('2d');
   boardTex.wrapS = THREE.RepeatWrapping; boardTex.repeat.set(3, 1); ARENA.boardTex = boardTex;
   const boardMat = new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false });
   const b1 = new THREE.Mesh(new THREE.PlaneGeometry(30, 0.85), boardMat); b1.position.set(0, 0.45, -7.6); g.add(b1);
@@ -1148,6 +1259,11 @@ function buildArena() {
   return g;
 }
 
+function paintBoards(x, items) {
+  const grd = x.createLinearGradient(0, 0, 0, 64); grd.addColorStop(0, '#0b1124'); grd.addColorStop(1, '#05070e'); x.fillStyle = grd; x.fillRect(0, 0, 2048, 64);
+  x.font = '44px Anton, Impact, sans-serif'; x.textBaseline = 'middle';
+  let px = 20; let i = 0; while (px < 2048) { const s = items[i++ % items.length]; x.fillStyle = s === '★' ? '#ffcc33' : (i % 4 === 1 ? '#ff5a1f' : '#ffffff'); x.fillText(s, px, 34); px += x.measureText(s).width + 40; }
+}
 // ---------- crowd (GPU animated instanced fans) ----------
 function crowdGeometry() {
   const parts = [];
@@ -1167,6 +1283,7 @@ function crowdGeometry() {
 function buildCrowd(spots, g) {
   const max = QUALITY.crowd; const step = Math.max(1, spots.length / max);
   const chosen = []; for (let i = 0; i < spots.length; i += step) chosen.push(spots[Math.floor(i)]);
+  for (let i = chosen.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [chosen[i], chosen[j]] = [chosen[j], chosen[i]]; }
   const geo = crowdGeometry();
   const mat = new THREE.MeshLambertMaterial({ vertexColors: false });
   const uniforms = { uTime: { value: 0 }, uHype: { value: 0.2 }, uWave: { value: -99 }, uCheer: { value: 0 } };
@@ -1221,9 +1338,13 @@ function paintCrowd(uniH, uniA) {
 
 // ---------- per-match dressing (floor paint, banners, jumbotron) ----------
 let banners = null;
-async function dressArena(home, away, uniH, uniA) {
-  const homeLogo = await svgToImage(logoSVG(home), 512);
-  const tex = canvasTex(2048, Math.round(2048 * FLOOR_D / FLOOR_W), (x, c) => drawCourt(x, c.width, c.height, home, away, homeLogo, uniH, uniA));
+async function dressArena(home, away, uniH, uniA, venue = VENUES.pro) {
+  const homeLogo = await svgToImage(logoSVG(venue.logo || home), 512);
+  const tex = canvasTex(2048, Math.round(2048 * FLOOR_D / FLOOR_W), (x, c) => drawCourt(x, c.width, c.height, home, away, homeLogo, uniH, uniA, venue));
+  paintBoards(ARENA.boardCtx, venue.boards); ARENA.boardTex.needsUpdate = true;
+  ARENA.crowd.mesh.count = Math.min(venue.crowd, ARENA.crowd.spots.length);
+  if (banners) banners.visible = venue.banners;
+  ARENA.lights.key.intensity = venue.floor === 'gym' ? 3.0 : 2.6;
   if (ARENA.floorMat.map) ARENA.floorMat.map.dispose();
   ARENA.floorMat.map = tex; ARENA.floorMat.needsUpdate = true;
   paintCrowd(uniH, uniA);
@@ -1241,6 +1362,7 @@ async function dressArena(home, away, uniH, uniA) {
       const b = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.2), new THREE.MeshStandardMaterial({ map: bt, roughness: 0.9, side: THREE.DoubleSide }));
       b.position.set(-12.6 + i * 3.6, 17.5, -16.5); banners.add(b);
     }
+    banners.visible = venue.banners;
   }
 }
 function drawJumbo(lines) {
@@ -1456,7 +1578,8 @@ const COMM = {
     let s = pool.filter(l => !this.recent.includes(l)); if (!s.length) s = pool;
     const line = pick(s); this.recent.push(line); if (this.recent.length > 8) this.recent.shift();
     const txt = line.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
-    const el = $('#cline'); el.innerHTML = `<div class="who">${BOOTH[(Math.random() * 2) | 0]}</div><div class="txt">${txt}</div>`;
+    const booth = (G.match && G.match.venue && G.match.venue.booth) || BOOTH;
+    const el = $('#cline'); el.innerHTML = `<div class="who">${booth[(Math.random() * booth.length) | 0]}</div><div class="txt">${txt}</div>`;
     el.classList.add('on'); this.lineTimer = 3.6;
   },
   callout(text, sub = '', color = '#fff', dur = 1.6) {
@@ -1843,7 +1966,7 @@ class TeamRT {
     p.stats.returns++;
     return p;
   }
-  onReturned(p) { p.targetYaw = this.side < 0 ? Math.PI / 2 : -Math.PI / 2; }
+  onReturned(p) { p.targetYaw = this.side < 0 ? Math.PI / 2 : -Math.PI / 2; if (p === G.locked) { G.simSpeed = 1; G.human = p; UI.playerCard(p); COMM.callout("YOU'RE BACK IN!", p.name, '#39ff8a', 1.3); } }
 }
 
 // ---------- balls ----------
@@ -2195,7 +2318,7 @@ G.onPickup = (p, b) => {
   if (G.human && p.team === G.human.team && p !== G.human && !G.human.ball && G.human.state === 'active' && G.phase === 'play') {
     const near = G.balls.some(x => x.state === 'loose' && Math.hypot(x.pos.x - G.human.pos.x, x.pos.z - G.human.pos.z) < 2.5);
     const busy = G.human.catchT > 0 || G.human.duck || G.human.airborne;
-    if (!near && !busy && SETTINGS.autoSwitch !== false) G.setHuman(p);
+    if (!near && !busy && SETTINGS.autoSwitch !== false && !G.locked) G.setHuman(p);
   }
 };
 G.onDodge = (p, b, d) => {
@@ -2439,7 +2562,7 @@ function updateCamera(dtReal) {
     }
     if (G.phase === 'gameover' && G.winnerTeam) { const w = G.winnerTeam.players.filter(p => p.state !== 'bench'); if (w.length) { const c = w.reduce((s, p) => s.add(p.pos), new THREE.Vector3()).multiplyScalar(1 / w.length); wantPos.set(c.x * 0.7, 3.2, c.z + 8.5); wantLook.set(c.x, 1.2, c.z); k = 1.6; fov = portrait ? 55 : 34; } }
   }
-  if (ARENA.jumbo) ARENA.jumbo.visible = !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
+  if (ARENA.jumbo) ARENA.jumbo.visible = (!G.match.venue || G.match.venue.jumbo || G.phase === 'menu') && !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
   CAMS.pos.lerp(wantPos, 1 - Math.exp(-k * dtReal)); CAMS.look.lerp(wantLook, 1 - Math.exp(-k * 1.2 * dtReal));
   CAMS.kick = damp(CAMS.kick || 0, 0, 7, dtReal);
   CAMS.fov = damp(CAMS.fov, fov + CAMS.kick, 4, dtReal);
@@ -2474,26 +2597,33 @@ G.clearMatch = () => {
   for (const p of G.players) { scene.remove(p.char.root, p.ring, p.blob); p.char.mats.forEach(m => { if (m.map && m.map.isCanvasTexture) m.map.dispose(); m.dispose(); }); }
   G.players = []; G.teams = []; G.human = null; AUDIO.chant = false;
 };
-G.setupMatch = async (homeIdx, awayIdx, diffIdx) => {
+G.match = { bestOf: 3, venue: null, locked: null, career: null };
+G.need = () => Math.ceil(G.match.bestOf / 2);
+G.setupMatch = (homeIdx, awayIdx, diffIdx) => G.setupMatchTeams(TEAMS[homeIdx], TEAMS[awayIdx], { diff: diffIdx, bestOf: 3 });
+G.setupMatchTeams = async (home, away, opts = {}) => {
   G.clearMatch();
-  const home = TEAMS[homeIdx], away = TEAMS[awayIdx];
-  const [uH, uA] = uniformsFor(home, away);
-  G.diff = DIFFS[diffIdx];
+  const [uH, uA] = opts.uni || uniformsFor(home, away);
+  G.diff = DIFFS[opts.diff ?? 1];
+  G.match = { bestOf: opts.bestOf || 3, venue: VENUES[opts.venue || 'pro'], locked: opts.lockedId || null, career: opts.career || null };
   const tA = new TeamRT(home, 0, -1, uH, true), tB = new TeamRT(away, 1, 1, uA, false);
   G.teams = [tA, tB];
   for (const t of G.teams) { t.logoImg = await svgToImage(logoSVG(t.data), 256); }
-  await dressArena(home, away, uH, uA);
+  await dressArena(home, away, uH, uA, G.match.venue);
   for (const t of G.teams) t.data.roster.forEach((d, i) => { const p = new Player(d, t, i); t.players.push(p); G.players.push(p); });
   if (!G.balls.length) { const mat = ballMaterial(); for (let i = 0; i < 6; i++) G.balls.push(new Ball(i, mat)); }
   G.wins = [0, 0]; G.gameNo = 1; G.lastReplayAt = -99;
   for (const p of G.players) p.stats = makeStats();
+  G.locked = G.match.locked ? G.players.find(p => p.data.id === G.match.locked) : null;
+  G.simSpeed = 1;
   recInit();
 };
+G.toTitle = async () => { await G.setupMatch(UI.sel[0], UI.sel[1], UI.diff); G.demoMode(); };
 G.setHuman = (p) => {
   if (!p || p.state !== 'active') return;
   G.human = p; UI.playerCard(p);
 };
 G.switchPlayer = () => {
+  if (G.locked) { UI.hint('ROAD TO GLORY · LOCKED ON ' + G.locked.name.toUpperCase(), 'lock' + Math.random()); return; }
   const t = G.teams[0]; const cand = t.players.filter(p => p.state === 'active' && p !== G.human); if (!cand.length) return;
   const withBall = cand.filter(p => p.ball);
   let best = null;
@@ -2506,6 +2636,7 @@ G.switchPlayer = () => {
   G.setHuman(best); AUDIO.ui();
 };
 G.autoSwitch = () => {
+  if (G.locked) { setTimeout(() => { if (G.phase === 'play' && G.locked.state !== 'active') { UI.hint(isTouch ? "YOU'RE OUT · TAP ›› TO FAST-FORWARD" : "YOU'RE OUT · ›› OR TAB TO FAST-FORWARD", 'out' + Math.random()); } }, 600); return; }
   setTimeout(() => { if (G.human && G.human.state !== 'active') G.switchPlayer(); }, 250);
 };
 
@@ -2520,13 +2651,14 @@ G.startGame = () => {
   const zs = [-3.6, -2.2, -0.75, 0.75, 2.2, 3.6];
   G.balls.forEach((b, i) => b.reset(new THREE.Vector3(0, BALL_R, zs[i])));
   const cap = G.teams[0].players.find(p => p.data.arch === 'CAPTAIN') || G.teams[0].players[0];
-  G.setHuman(G.teams[0].players[2] || cap);
+  if (G.locked) { G.human = G.locked; UI.playerCard(G.locked); } else G.setHuman(G.teams[0].players[2] || cap);
+  G.simSpeed = 1;
   G.rush = true; G.rushT = 0;
   recInit();
   G.phase = 'countdown'; G.countT = 0; G.countStep = -1;
   UI.updateScorebug(true); drawJumboScore();
-  UI.banner(`<div class="cb"><div class="k">${G.wins[0] + G.wins[1] === 0 ? 'OPENING GAME' : G.wins[0] === 1 && G.wins[1] === 1 ? 'WINNER TAKES ALL' : 'BEST OF 3'}</div><div class="t">GAME ${G.gameNo}</div><div class="s">${G.teams[0].data.name} ${G.wins[0]} — ${G.wins[1]} ${G.teams[1].data.name}</div></div>`, 1.6);
-  if (G.wins[0] === 1 || G.wins[1] === 1) COMM.say('gamePoint', {}, true);
+  UI.banner(`<div class="cb"><div class="k">${G.wins[0] + G.wins[1] === 0 ? (G.match.bestOf === 1 ? 'ONE GAME · WINNER TAKES IT' : 'OPENING GAME') : G.wins[0] === G.need() - 1 && G.wins[1] === G.need() - 1 ? 'WINNER TAKES ALL' : 'BEST OF ' + G.match.bestOf}</div><div class="t">GAME ${G.gameNo}</div><div class="s">${G.teams[0].data.name} ${G.wins[0]} — ${G.wins[1]} ${G.teams[1].data.name}</div></div>`, 1.6);
+  if (G.match.bestOf > 1 && (G.wins[0] === G.need() - 1 || G.wins[1] === G.need() - 1)) COMM.say('gamePoint', {}, true);
 };
 G.updateCountdown = (dt) => {
   G.countT += dt;
@@ -2541,7 +2673,7 @@ G.endGame = (winner) => {
   G.phase = 'gameover'; G.winnerTeam = winner; G.goT = 0; G.goReplayed = false;
   G.wins[winner.idx]++;
   AUDIO.whistle(0.9); AUDIO.horn(); AUDIO.cheer(2); AUDIO.chant = false; G.cheer = 1.2;
-  const matchOver = G.wins[winner.idx] >= 2;
+  const matchOver = G.wins[winner.idx] >= G.need(); G.simSpeed = 1;
   COMM.say(matchOver ? 'matchWin' : 'gameWin', { team: winner.data.name }, true);
   COMM.callout(matchOver ? 'MATCH' : 'GAME', winner.data.city + ' ' + winner.data.name, winner.uni.p, 2.2);
   UI.updateScorebug(true); drawJumboText(winner.data.name + ' WIN', `GAME ${G.gameNo} · SERIES ${G.wins[0]}-${G.wins[1]}`);
@@ -2765,6 +2897,7 @@ const UI = {
   titleAction(a) {
     AUDIO.init();
     if (a === 'play') this.go('select', () => this.renderSelect());
+    if (a === 'career') CAREER.open();
     if (a === 'controls') this.info('controls');
     if (a === 'settings') this.info('settings');
     if (a === 'credits') this.info('credits');
@@ -2815,8 +2948,8 @@ const UI = {
       const pips = t.players.map(p => `<i class="${p.state === 'active' || p.state === 'returning' || p.state === 'celebrate' ? '' : 'out'}"></i>`).join('');
       return `<div class="sb-team ${i ? 'r' : ''}" style="background:linear-gradient(${i ? 270 : 90}deg, ${t.uni.s}, ${t.uni.p})">${logoSVG(t.data)}<span class="sb-abbr" style="color:${lum(t.uni.p) > 0.7 ? '#111' : '#fff'}">${t.data.abbr}</span><span class="sb-pips">${pips}</span></div>`;
     });
-    const dots = (w) => `<span class="sb-dots">${[0, 1].map(k => `<i class="${k < w ? 'won' : ''}"></i>`).join('')}</span>`;
-    $('#scorebug').innerHTML = `${html[0]}<div class="sb-mid"><div class="sb-gl">GAME ${G.gameNo} · BO3</div><div class="sb-games"><span>${dots(G.wins[0])}</span><span>${dots(G.wins[1])}</span></div></div>${html[1]}`;
+    const dots = (w) => `<span class="sb-dots">${[...Array(G.need()).keys()].map(k => `<i class="${k < w ? 'won' : ''}"></i>`).join('')}</span>`;
+    $('#scorebug').innerHTML = `${html[0]}<div class="sb-mid"><div class="sb-gl">${G.match.bestOf === 1 ? 'SINGLE GAME' : 'GAME ' + G.gameNo + ' · BO' + G.match.bestOf}</div><div class="sb-games"><span>${dots(G.wins[0])}</span><span>${dots(G.wins[1])}</span></div></div>${html[1]}`;
     if (flash) { const s = $('#scorebug'); s.classList.remove('sb-flash'); void s.offsetWidth; s.classList.add('sb-flash'); }
   },
   playerCard(p) {
@@ -2849,16 +2982,17 @@ const UI = {
     };
     const ms = mvp.stats;
     $('#res-wrap').innerHTML = `
-      <div class="res-head">${logoSVG(A.data)}<div class="sc">${G.wins[0]}</div><div class="mid"><div class="fin">FINAL · BEST OF 3</div><div class="sc">—</div></div><div class="sc">${G.wins[1]}</div>${logoSVG(B.data)}</div>
+      <div class="res-head">${logoSVG(A.data)}<div class="sc">${G.wins[0]}</div><div class="mid"><div class="fin">FINAL${G.match.bestOf > 1 ? ' · BEST OF ' + G.match.bestOf : ''}</div><div class="sc">—</div></div><div class="sc">${G.wins[1]}</div>${logoSVG(B.data)}</div>
       <div class="res-win" style="color:${winner.uni.p === '#ffffff' ? '#ffcc33' : winner.uni.p}">${winner.data.city} ${winner.data.name} WIN${winner.isHuman ? ' — YOU TAKE THE SERIES!' : ''}</div>
       <div class="res-body"><div class="mvp"><div class="tag">★ MATCH MVP</div>${this.cardHTML(mvp.data, mvp.team.data, mvp.team.uni)}<div class="line">${ms.hits} HITS · ${ms.catches} CATCHES · ${ms.dodges} DODGES</div></div>
       <div class="tables">${tbl(A)}${tbl(B)}</div></div>
-      <div class="res-actions"><button class="cta" data-act="rematch">REMATCH ›</button><button class="btn2" data-act="newmatch">NEW MATCHUP</button><button class="btn2" data-act="menu">MAIN MENU</button></div>`;
+      <div class="res-actions">${G.match.career ? `<button class="cta" data-act="career">CONTINUE ›</button>` : `<button class="cta" data-act="rematch">REMATCH ›</button><button class="btn2" data-act="newmatch">NEW MATCHUP</button><button class="btn2" data-act="menu">MAIN MENU</button>`}</div>`;
     this.go('results');
     for (const b of $$('#res-wrap [data-act]')) b.onclick = () => this.resultAction(b.dataset.act);
     const url = await portrait(mvp.data, mvp.team.data, mvp.team.uni); const el = $(`#res-wrap [data-pc="${mvp.data.id}"] .sil`); if (el && url) el.innerHTML = `<img src="${url}" alt="">`;
   },
   resultAction(a) {
+    if (a === 'career') { CAREER.afterMatch(); return; }
     if (a === 'rematch') this.go('hud', () => startMatchFlow(true));
     if (a === 'newmatch') this.go('select', () => { G.demoMode(); this.renderSelect(); });
     if (a === 'menu') this.go('title', () => G.demoMode());
@@ -2933,7 +3067,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 // ---------- 3D rendered portraits for player cards ----------
 const PORTRAIT = { scene: null, cam: null, rt: null };
 async function portrait(p, team, uni) {
-  const key = p.id + uni.p + uni.s;
+  const key = p.id + p.avatar.id + p.num + uni.p + uni.s;
   if (UI.portraits.has(key)) return UI.portraits.get(key);
   if (!PORTRAIT.scene) {
     const s = new THREE.Scene(); s.environment = scene.environment;
@@ -2960,6 +3094,301 @@ async function portrait(p, team, uni) {
   const url = cv.toDataURL('image/png'); UI.portraits.set(key, url); return url;
 }
 
+// ===== 85_career.js =====
+// ================= ROAD TO GLORY (career mode) =================
+const TIERS = {
+  gym: { id: 'gym', label: 'HIGH SCHOOL · GYM CLASS', short: 'GYM CLASS', cap: 68, venue: 'gym', days: 5, needWins: 3 },
+  rec: { id: 'rec', label: 'EASTSIDE REC LEAGUE', short: 'REC LEAGUE', cap: 78, venue: 'rec' },
+};
+const REC_TEAMS = [
+  { id: 'cats', city: 'EASTSIDE', name: 'ALLEY CATS', abbr: 'EAC', primary: '#ff7a2f', secondary: '#1b1b1b', accent: '#ffd29c', shape: 'shield', glyph: 'fang', tier: 0.76, style: { speed: 2 } },
+  { id: 'knights', city: 'THURSDAY', name: 'KNIGHTS', abbr: 'THK', primary: '#8f9bb5', secondary: '#101827', accent: '#ffffff', shape: 'shield', glyph: 'crown', tier: 0.77, style: { catch: 4 } },
+  { id: 'gutter', city: 'THE', name: 'GUTTER BALLERS', abbr: 'GTB', primary: '#2fbf71', secondary: '#0e2a1b', accent: '#e9ffe9', shape: 'hex', glyph: 'bolt', tier: 0.74, style: { pow: 4 } },
+  { id: 'plaid', city: 'PLAID', name: 'PANTHERS', abbr: 'PLP', primary: '#b22234', secondary: '#f1e3c6', accent: '#1a0a0a', shape: 'circle', glyph: 'star', tier: 0.79, style: { acc: 3, awr: 3 } },
+  { id: 'rejects', city: 'REC ROOM', name: 'REJECTS', abbr: 'RRR', primary: '#8a5cf6', secondary: '#1c1033', accent: '#efe6ff', shape: 'diamond', glyph: 'comet', tier: 0.72, style: { dodge: 4 } },
+  { id: 'lunch', city: 'LUNCH BREAK', name: 'LEGENDS', abbr: 'LBL', primary: '#f5c518', secondary: '#2b2b2b', accent: '#ffffff', shape: 'hex', glyph: 'flame', tier: 0.8, style: { pow: 3, clutch: 3 } },
+];
+const GYM_UNI = [{ p: '#2f6bff', s: '#0d1b3d', a: '#ffffff' }, { p: '#e23b3b', s: '#3d0d0d', a: '#ffffff' }];
+const LOOKS = [{ avatar: 0, label: 'LOOK 1' }, { avatar: 1, label: 'LOOK 2' }, { avatar: 2, label: 'LOOK 3' }, { avatar: 3, label: 'LOOK 4' }];
+
+const CAREER = {
+  C: null,
+  load() { try { const s = localStorage.getItem('dn_career'); this.C = s ? JSON.parse(s) : null; } catch (e) { this.C = this.C || null; } return this.C; },
+  save() { try { localStorage.setItem('dn_career', JSON.stringify(this.C)); } catch (e) { } },
+  xpNeed(level) { return 100 + level * 30; },
+  cost(v) { return v < 55 ? 1 : v < 65 ? 2 : v < 75 ? 3 : 4; },
+  ovr() { return computeOVR(this.C.ratings, this.C.arch); },
+  rank() {
+    const o = this.ovr(), t = this.C.tier;
+    if (t === 'gym') return o < 54 ? 'BENCHWARMER' : o < 60 ? 'GYM CLASS STARTER' : o < 65 ? 'GYM CLASS HERO' : 'HALLWAY LEGEND';
+    return o < 62 ? 'REC ROOKIE' : o < 68 ? 'REC REGULAR' : o < 74 ? 'REC STANDOUT' : 'LOCAL LEGEND';
+  },
+  meData(team) {
+    const C = this.C; const av = AVATARS[LOOKS[C.look].avatar];
+    return { id: 'me', first: C.first, last: C.last, num: C.num, arch: C.arch, ratings: { ...C.ratings }, ovr: this.ovr(), avatar: av, female: av.female, height: C.height, build: ARCH[C.arch].build };
+  },
+  myTeamColors() { return this.C.tier === 'gym' ? GYM_UNI[0] : { p: REC_TEAMS[0].primary, s: REC_TEAMS[0].secondary, a: REC_TEAMS[0].accent }; },
+
+  // ---------- generated people ----------
+  classmates() {
+    const pool = [];
+    for (let k = 0; k < 4; k++) {
+      const t = { id: 'cm' + k, tier: 0.6 + k * 0.025, style: {} };
+      const r = buildRoster(t, 40 + k + (this.C.seed % 1000) * 7);
+      r.forEach(p => pool.push(p));
+    }
+    return pool;
+  },
+  gymTeams(day) {
+    const rnd = seeded(this.C.seed + day * 101 + this.C.gym.semester * 7);
+    const pool = this.classmates().sort(() => rnd() - 0.5);
+    const mine = pool.slice(0, 5), theirs = pool.slice(5, 11);
+    const blue = { id: 'blue', city: 'PERIOD 3', name: 'BLUE TEAM', abbr: 'BLU', primary: GYM_UNI[0].p, secondary: GYM_UNI[0].s, accent: '#fff', shape: 'circle', glyph: 'bolt', roster: null };
+    const red = { id: 'red', city: 'PERIOD 3', name: 'RED TEAM', abbr: 'RED', primary: GYM_UNI[1].p, secondary: GYM_UNI[1].s, accent: '#fff', shape: 'circle', glyph: 'star', roster: theirs };
+    blue.roster = [this.meData(blue), ...mine];
+    return [blue, red];
+  },
+  recTeam(i) {
+    const base = REC_TEAMS[i]; const t = { ...base, roster: buildRoster(base, 300 + i * 13 + (this.C.seed % 1000) + this.C.rec.season * 17) };
+    // the league gets a little tougher every season
+    t.roster.forEach(p => { for (const k of RATING_KEYS) p.ratings[k] = clamp(p.ratings[k] + (this.C.rec.season - 1) * 2, 40, 99); p.ovr = computeOVR(p.ratings, p.arch); });
+    if (i === 0) t.roster = [this.meData(t), ...t.roster.filter(p => p.arch !== this.C.arch).slice(0, 5)];
+    t.ovr = Math.round(t.roster.reduce((s, p) => s + p.ovr, 0) / t.roster.length);
+    return t;
+  },
+  teamOvr(i) { return this.recTeam(i).ovr; },
+
+  // ---------- flow ----------
+  open() {
+    this.load();
+    UI.go('career', () => { G.demoMode(); this.C ? this.renderHub() : this.renderCreate(); });
+  },
+  newCareer(form) {
+    const arch = form.arch, r = {};
+    for (const k of RATING_KEYS) r[k] = clamp(Math.round(44 + (ARCH[arch].base[k] - 75) * 0.5 + rand(-2, 2)), 38, 62);
+    const fem = AVATARS[LOOKS[form.look].avatar].female;
+    this.C = {
+      v: 1, seed: (Math.random() * 1e9) | 0, first: form.first, last: form.last, num: form.num, look: form.look, arch, height: fem ? 1.74 : 1.86,
+      ratings: r, level: 1, xp: 0, sp: 3, tier: 'gym', diff: form.diff,
+      gym: { semester: 1, day: 0, results: [] },
+      rec: { season: 1, round: 0, results: [], standings: {}, phase: 'regular', order: [], playoff: null },
+      totals: { games: 0, wins: 0, hits: 0, catches: 0, dodges: 0, throws: 0, outs: 0, sky: 0 }, log: [], champ: 0,
+    };
+    this.save();
+  },
+  initRecSeason() {
+    const R = this.C.rec; R.round = 0; R.results = []; R.phase = 'regular'; R.playoff = null; R.standings = {};
+    REC_TEAMS.forEach(t => R.standings[t.id] = { w: 0, l: 0 });
+    const rnd = seeded(this.C.seed + R.season * 999); R.order = [1, 2, 3, 4, 5].sort(() => rnd() - 0.5);
+  },
+  nextGame() { // {home, away, opts, label}
+    const C = this.C;
+    if (C.tier === 'gym') {
+      const [blue, red] = this.gymTeams(C.gym.day);
+      return { home: blue, away: red, label: `GYM DAY ${C.gym.day + 1} OF ${TIERS.gym.days}`, opts: { diff: C.diff, bestOf: 1, venue: 'gym', lockedId: 'me', career: 'gym', uni: GYM_UNI } };
+    }
+    const R = C.rec; let oppI, bestOf = 1, label;
+    if (R.phase === 'regular') { oppI = R.order[R.round]; label = `WEEK ${R.round + 1} OF 5`; }
+    else if (R.phase === 'semi') { oppI = R.playoff.semiOpp; label = 'PLAYOFFS · SEMIFINAL'; }
+    else if (R.phase === 'final') { oppI = R.playoff.finalOpp; bestOf = 3; label = 'CHAMPIONSHIP · BEST OF 3'; }
+    else return null;
+    const home = this.recTeam(0), away = this.recTeam(oppI);
+    return { home, away, label, oppI, opts: { diff: C.diff, bestOf, venue: 'rec', lockedId: 'me', career: 'rec' } };
+  },
+  play() {
+    const g = this.nextGame(); if (!g) return;
+    this.current = g;
+    UI.go('hud', () => startMatchFlow({ home: g.home, away: g.away, opts: g.opts }));
+  },
+  simGame(a, b) { const oa = this.teamOvr(a), ob = this.teamOvr(b); return Math.random() < 1 / (1 + Math.exp(-(oa - ob) / 4)) ? a : b; },
+
+  // ---------- after a match ----------
+  afterMatch() {
+    const C = this.C, me = G.locked; if (!C || !me) return UI.go('title', () => G.toTitle());
+    const won = G.wins[0] > G.wins[1]; const s = me.stats;
+    const lines = [['GAME PLAYED', 20]];
+    if (won) lines.push([G.match.bestOf > 1 ? 'SERIES WIN' : 'WIN', G.match.bestOf > 1 ? 120 : 60]);
+    if (s.hits) lines.push([`${s.hits} HIT${s.hits > 1 ? 'S' : ''}`, s.hits * 30]);
+    if (s.catches) lines.push([`${s.catches} CATCH${s.catches > 1 ? 'ES' : ''}`, s.catches * 45]);
+    if (s.dodges) lines.push([`${s.dodges} DODGE${s.dodges > 1 ? 'S' : ''}`, s.dodges * 10]);
+    if (s.blocks) lines.push([`${s.blocks} BLOCK${s.blocks > 1 ? 'S' : ''}`, s.blocks * 15]);
+    if (s.perfect) lines.push([`${s.perfect} PERFECT RELEASE${s.perfect > 1 ? 'S' : ''}`, s.perfect * 8]);
+    if (s.skyShots) lines.push([`${s.skyShots} SKY SHOT${s.skyShots > 1 ? 'S' : ''}`, s.skyShots * 25]);
+    const all = G.players.slice(); const sc = (p) => p.stats.hits * 3 + p.stats.catches * 4.5 + p.stats.dodges + p.stats.blocks * 1.5 - p.stats.outs * 1.2;
+    const mvp = all.sort((a, b) => sc(b) - sc(a))[0] === me;
+    if (mvp) lines.push(['GAME MVP', 40]);
+    const score = sc(me) + (won ? 2 : 0);
+    const grade = score >= 12 ? 'A+' : score >= 9 ? 'A' : score >= 6.5 ? 'B+' : score >= 4.5 ? 'B' : score >= 2.5 ? 'C' : score >= 0.5 ? 'D' : 'F';
+    const gradeMult = { 'A+': 1.25, A: 1.15, 'B+': 1.08, B: 1, C: 0.95, D: 0.9, F: 0.85 }[grade];
+    let xp = Math.round(lines.reduce((a, l) => a + l[1], 0) * gradeMult);
+    // levels
+    const before = C.level; C.xp += xp;
+    while (C.xp >= this.xpNeed(C.level)) { C.xp -= this.xpNeed(C.level); C.level++; C.sp += 3; }
+    const lvls = C.level - before;
+    const T = C.totals; T.games++; if (won) T.wins++; T.hits += s.hits; T.catches += s.catches; T.dodges += s.dodges; T.throws += s.throws; T.outs += s.outs; T.sky += s.skyShots || 0;
+    // schedule progression
+    let news = null;
+    const opp = G.teams[1].data;
+    if (C.tier === 'gym') {
+      C.gym.results.push({ opp: opp.name, won, grade, line: `${s.hits}H ${s.catches}C ${s.dodges}D` }); C.gym.day++;
+      if (C.gym.day >= TIERS.gym.days) {
+        const w = C.gym.results.filter(r => r.won).length;
+        if (w >= TIERS.gym.needWins) { C.tier = 'rec'; this.initRecSeason(); C.sp += 2; news = { kind: 'promo', title: "YOU'VE BEEN NOTICED", sub: `Coach Reynolds passed your name to the Eastside Rec League. Welcome to the ALLEY CATS. (+2 skill points)` }; }
+        else { C.gym.semester++; C.gym.day = 0; C.gym.results = []; news = { kind: 'repeat', title: 'NEW SEMESTER', sub: `${w}-${TIERS.gym.days - w} wasn't enough. You need ${TIERS.gym.needWins} wins in a semester to get invited to the rec league. Your ratings carry over.` }; }
+      }
+    } else {
+      const R = C.rec; const oppI = this.current ? this.current.oppI : R.order[R.round];
+      if (R.phase === 'regular') {
+        R.results.push({ opp: opp.name, won, grade, line: `${s.hits}H ${s.catches}C ${s.dodges}D` });
+        R.standings.cats[won ? 'w' : 'l']++; R.standings[REC_TEAMS[oppI].id][won ? 'l' : 'w']++;
+        const others = [1, 2, 3, 4, 5].filter(i => i !== oppI); // two other games this week, one bye
+        for (let k = 0; k + 1 < others.length; k += 2) { const a = others[(k + R.round) % 4], b = others[(k + 1 + R.round) % 4]; const wv = this.simGame(a, b); R.standings[REC_TEAMS[wv].id].w++; R.standings[REC_TEAMS[wv === a ? b : a].id].l++; }
+        R.round++;
+        if (R.round >= 5) {
+          const table = this.table(); const seed = table.findIndex(t => t.i === 0);
+          if (seed < 4) { R.phase = 'semi'; const opp4 = table[3 - seed].i; const o = table.filter((t, j) => j < 4 && t.i !== 0 && t.i !== opp4).map(t => t.i); R.playoff = { semiOpp: opp4, otherSemi: o, seed: seed + 1 }; news = { kind: 'playoffs', title: 'PLAYOFFS!', sub: `You finished #${seed + 1}. Semifinal vs the ${REC_TEAMS[opp4].name}.` }; }
+          else { news = { kind: 'repeat', title: 'MISSED THE PLAYOFFS', sub: `Finished #${seed + 1}. Top 4 make it. New season starts now — keep leveling up.` }; R.season++; this.initRecSeason(); }
+        }
+      } else if (R.phase === 'semi') {
+        R.results.push({ opp: opp.name, won, grade, line: 'SEMIFINAL' });
+        if (won) { const [a, b] = R.playoff.otherSemi; R.playoff.finalOpp = this.simGame(a, b); R.phase = 'final'; news = { kind: 'final', title: 'TO THE CHAMPIONSHIP', sub: `The ${REC_TEAMS[R.playoff.finalOpp].name} are waiting. Best of 3 for the rec league title.` }; }
+        else { news = { kind: 'repeat', title: 'SEASON OVER', sub: 'Knocked out in the semis. New season — run it back.' }; R.season++; this.initRecSeason(); }
+      } else if (R.phase === 'final') {
+        R.results.push({ opp: opp.name, won, grade, line: 'CHAMPIONSHIP' });
+        if (won) { C.champ++; C.sp += 4; news = { kind: 'champ', title: 'REC LEAGUE CHAMPIONS', sub: `${C.first} ${C.last} and the Alley Cats run the Eastside. The road to glory continues soon (+4 skill points).` }; }
+        else news = { kind: 'repeat', title: 'SO CLOSE', sub: 'Lost the championship series. New season — come back stronger.' };
+        R.season++; this.initRecSeason();
+      }
+    }
+    C.log.unshift(`${won ? 'W' : 'L'} vs ${opp.name} · ${grade} · +${xp} XP`); C.log = C.log.slice(0, 12);
+    this.save();
+    this.renderPost({ won, lines, gradeMult, xp, grade, lvls, mvp, news, s });
+  },
+  table() {
+    const R = this.C.rec;
+    return REC_TEAMS.map((t, i) => ({ i, t, ...R.standings[t.id] })).sort((a, b) => (b.w - b.l) - (a.w - a.l) || (a.i === 0 ? -1 : b.i === 0 ? 1 : this.teamOvr(b.i) - this.teamOvr(a.i)));
+  },
+
+  // ---------- screens ----------
+  root() { return $('#career-root'); },
+  async renderCreate() {
+    const form = { first: 'Jordan', last: 'Rivers', num: 7, look: 0, arch: 'GHOST', diff: 1 };
+    const R = this.root();
+    const draw = () => {
+      const archs = Object.keys(ARCH);
+      R.innerHTML = `<header class="scr-head"><button class="back" data-cr="title">‹</button><h2>ROAD TO GLORY · CREATE PLAYER</h2></header>
+      <div class="cr-create">
+        <div class="cr-looks">${LOOKS.map((l, i) => `<button class="cr-look ${i === form.look ? 'on' : ''}" data-look="${i}"><div class="sil"></div><span>${AVATARS[l.avatar].female ? 'WOMEN\'S' : 'MEN\'S'} · ${l.label}</span></button>`).join('')}</div>
+        <div class="cr-form">
+          <label>FIRST NAME<input id="cf-first" maxlength="12" value="${form.first}"></label>
+          <label>LAST NAME<input id="cf-last" maxlength="14" value="${form.last}"></label>
+          <label>NUMBER<input id="cf-num" type="number" min="0" max="99" value="${form.num}"></label>
+          <div class="cr-lab">ARCHETYPE</div>
+          <div class="seg cr-arch">${archs.map(a => `<button class="${a === form.arch ? 'on' : ''}" data-arch="${a}">${ARCH[a].label}</button>`).join('')}</div>
+          <div class="cr-archdesc">${({ CANNON: 'Pure arm strength. Throws that knock people over.', SNIPER: 'Pinpoint accuracy. Rarely misses.', WALL: 'Hands of glue. Catches everything.', GHOST: 'Fast and slippery. Jukes, dives and disappears.', CAPTAIN: 'Leader. Clutch when it matters; rallies the team.', ANCHOR: 'Balanced at everything, elite at nothing — yet.' })[form.arch]}</div>
+          <div class="cr-lab">DIFFICULTY</div>
+          <div class="seg cr-diff">${DIFFS.slice(0, 3).map((d, i) => `<button class="${i === form.diff ? 'on' : ''}" data-diff="${i}">${d.name}</button>`).join('')}</div>
+          <p class="cr-note">You start as a nobody in Period 3 gym class with ratings in the 40s and 50s. Win, play well, earn XP and level up. Get noticed and the rec league comes calling.</p>
+          <button class="cta" data-cr="start">START CAREER ›</button>
+        </div>
+      </div>`;
+      for (const b of $$('[data-look]', R)) b.onclick = () => { this.grab(form); form.look = +b.dataset.look; AUDIO.ui(); draw(); };
+      for (const b of $$('[data-arch]', R)) b.onclick = () => { this.grab(form); form.arch = b.dataset.arch; AUDIO.ui(); draw(); };
+      for (const b of $$('[data-diff]', R)) b.onclick = () => { this.grab(form); form.diff = +b.dataset.diff; AUDIO.ui(); draw(); };
+      $('[data-cr="title"]', R).onclick = () => UI.go('title', () => G.toTitle());
+      $('[data-cr="start"]', R).onclick = () => { this.grab(form); if (!form.first.trim() || !form.last.trim()) { UI.hint('ENTER A NAME', 'nm' + Math.random()); return; } this.newCareer(form); AUDIO.sting(); UI.go('career', () => this.renderHub(true)); };
+      // portraits of each look in gym pinnies
+      LOOKS.forEach(async (l, i) => {
+        const av = AVATARS[l.avatar]; const d = { id: 'look' + i, first: '', last: '', num: form.num, arch: form.arch, ratings: { ...ARCH[form.arch].base }, ovr: 50, avatar: av, female: av.female, height: av.female ? 1.74 : 1.86, build: 1 };
+        const url = await portrait(d, { name: 'BLUE TEAM' }, GYM_UNI[0]); const el = $(`[data-look="${i}"] .sil`, R); if (el && url) el.innerHTML = `<img src="${url}" alt="">`;
+      });
+    };
+    draw();
+  },
+  grab(form) {
+    const f = $('#cf-first'), l = $('#cf-last'), n = $('#cf-num');
+    if (f) form.first = f.value.replace(/[^A-Za-z' -]/g, '').slice(0, 12) || form.first;
+    if (l) form.last = l.value.replace(/[^A-Za-z' -]/g, '').slice(0, 14) || form.last;
+    if (n) form.num = clamp(parseInt(n.value, 10) || 0, 0, 99);
+  },
+  async renderHub(fresh) {
+    const C = this.C, R = this.root(); const T = TIERS[C.tier] || TIERS.rec;
+    const team = C.tier === 'gym' ? { name: 'BLUE TEAM', city: 'PERIOD 3', abbr: 'BLU' } : REC_TEAMS[0];
+    const uni = this.myTeamColors(); const me = this.meData(team);
+    const ng = this.nextGame();
+    const xpN = this.xpNeed(C.level);
+    let sched = '', objective = '', tierLogo;
+    if (C.tier === 'gym') {
+      tierLogo = VENUES.gym.logo;
+      const w = C.gym.results.filter(r => r.won).length;
+      objective = `Win ${TIERS.gym.needWins} of ${TIERS.gym.days} gym days to get invited to the rec league. <b>${w}-${C.gym.results.length - w}</b> so far · semester ${C.gym.semester}.`;
+      sched = [...Array(TIERS.gym.days).keys()].map(d => { const r = C.gym.results[d]; return `<div class="cr-row ${d === C.gym.day ? 'next' : ''}"><span>DAY ${d + 1}</span><span>BLUE vs RED</span><span>${r ? `<b class="${r.won ? 'w' : 'l'}">${r.won ? 'W' : 'L'}</b> ${r.grade} · ${r.line}` : d === C.gym.day ? 'NEXT' : ''}</span></div>`; }).join('');
+    } else {
+      tierLogo = VENUES.rec.logo; const Rr = C.rec;
+      objective = Rr.phase === 'regular' ? `Top 4 make the playoffs. Win the semifinal and a best-of-3 final to become rec league champion. Season ${Rr.season}.` : Rr.phase === 'semi' ? `Playoffs! Semifinal as the #${Rr.playoff.seed} seed.` : 'Championship series — best of 3.';
+      sched = Rr.order.map((oi, k) => { const r = Rr.results[k]; return `<div class="cr-row ${Rr.phase === 'regular' && k === Rr.round ? 'next' : ''}"><span>WK ${k + 1}</span><span>vs ${REC_TEAMS[oi].name}</span><span>${r ? `<b class="${r.won ? 'w' : 'l'}">${r.won ? 'W' : 'L'}</b> ${r.grade} · ${r.line}` : ''}</span></div>`; }).join('');
+      if (Rr.phase !== 'regular') sched += `<div class="cr-row next"><span>${Rr.phase === 'semi' ? 'SEMI' : 'FINAL'}</span><span>vs ${REC_TEAMS[Rr.phase === 'semi' ? Rr.playoff.semiOpp : Rr.playoff.finalOpp].name}</span><span>NEXT</span></div>`;
+      sched += `<table class="tbl cr-stand"><tr><th>#</th><th>TEAM</th><th>W</th><th>L</th><th>OVR</th></tr>${this.table().map((t, j) => `<tr class="${t.i === 0 ? 'me' : ''}"><td>${j + 1}</td><td>${t.t.name}</td><td>${t.w}</td><td>${t.l}</td><td>${this.teamOvr(t.i)}</td></tr>`).join('')}</table>`;
+    }
+    const coach = this.coachLine();
+    R.innerHTML = `<header class="scr-head"><button class="back" data-cr="menu">‹</button><h2>ROAD TO GLORY</h2></header>
+    <div class="cr-hub">
+      <div class="cr-me">
+        ${UI.cardHTML(me, team, uni)}
+        <div class="cr-id"><div class="cr-name">${C.first.toUpperCase()} ${C.last.toUpperCase()}</div><div class="cr-rank">${this.rank()} · ${ARCH[C.arch].label}</div></div>
+        <div class="cr-lvl"><span>LEVEL ${C.level}</span><div class="xpbar"><i style="width:${(C.xp / xpN * 100).toFixed(0)}%"></i></div><span>${C.xp}/${xpN} XP</span></div>
+        <button class="btn2 cr-upg" data-cr="upgrade">UPGRADE RATINGS ${C.sp ? `<b class="badge">${C.sp}</b>` : ''}</button>
+        <div class="cr-tot">${C.totals.games} GP · ${C.totals.wins} W · ${C.totals.hits} HITS · ${C.totals.catches} CATCHES · ${C.totals.dodges} DODGES${C.champ ? ` · 🏆 x${C.champ}` : ''}</div>
+      </div>
+      <div class="cr-main">
+        <div class="cr-tier"><div class="cr-tlogo">${logoSVG(tierLogo)}</div><div><div class="k">${T.label}</div><div class="t">${ng ? ng.label : ''}</div><div class="o">${objective}</div></div></div>
+        <div class="cr-next"><div><div class="k">NEXT UP</div><div class="t">${ng ? `${ng.home.name} <span>vs</span> ${ng.away.name}` : ''}</div><div class="o">${ng ? `${ng.away.city} ${ng.away.name} · ${ng.away.ovr || Math.round(ng.away.roster.reduce((s, p) => s + p.ovr, 0) / 6)} OVR · rating cap this tier: ${T.cap}` : ''}</div></div><button class="cta" data-cr="play">PLAY ›</button></div>
+        <div class="cr-coach"><b>${C.tier === 'gym' ? 'COACH REYNOLDS' : 'CAPTAIN DEV (ALLEY CATS)'}:</b> ${coach}</div>
+        <div class="cr-sched">${sched}</div>
+      </div>
+    </div>`;
+    $('[data-cr="menu"]', R).onclick = () => UI.go('title', () => G.toTitle());
+    $('[data-cr="play"]', R).onclick = () => this.play();
+    $('[data-cr="upgrade"]', R).onclick = () => this.renderUpgrade();
+    if (fresh) UI.hint('PLAYER CREATED · YOU HAVE 3 SKILL POINTS TO SPEND', 'crfresh');
+    const url = await portrait(me, team, uni); const el = $(`[data-pc="me"] .sil`, R); if (el && url) el.innerHTML = `<img src="${url}" alt="">`;
+  },
+  coachLine() {
+    const C = this.C; const last = C.log[0];
+    if (!last) return C.tier === 'gym' ? "Alright, new kid. Dodgeball today. Grab a pinny and try not to get hit in the face." : "We play Thursdays at 8. Don't be late, and don't hog the ball.";
+    if (last.startsWith('W')) return pick(C.tier === 'gym' ? ['Now THAT is how you play gym class.', "Keep that up and people are going to start talking.", 'Not bad. Not bad at all.'] : ['That is Alley Cats basketball — I mean dodgeball.', 'Pizza is on me tonight.', 'You are carrying us. Keep it going.']);
+    return pick(C.tier === 'gym' ? ['Shake it off. Watch the ball, not the thrower.', 'You got cooked out there. Go spend some skill points.', 'Duck. Dive. Do something!'] : ['Tough one. We go again next week.', 'Their arms were better tonight. Work on your catching.', 'Get your ratings up — the playoffs are no joke.']);
+  },
+  renderUpgrade() {
+    const C = this.C, R = this.root(); const cap = (TIERS[C.tier] || TIERS.rec).cap;
+    const rows = RATING_KEYS.map(k => { const v = C.ratings[k], c = this.cost(v), ok = C.sp >= c && v < cap; return `<div class="up-row"><span class="nm">${({ pow: 'THROW POWER', acc: 'THROW ACCURACY', catch: 'CATCH', dodge: 'DODGE', speed: 'SPEED', sta: 'STAMINA', awr: 'AWARENESS', clutch: 'CLUTCH' })[k]}</span><div class="bar"><i style="width:${(v - 30) / 69 * 100}%"></i><em style="left:${(cap - 30) / 69 * 100}%"></em></div><b>${v}</b><button class="up-plus" data-k="${k}" ${ok ? '' : 'disabled'}>+<small>${v >= cap ? 'CAP' : c + ' SP'}</small></button></div>`; }).join('');
+    R.innerHTML = `<header class="scr-head"><button class="back" data-cr="hub">‹</button><h2>UPGRADE RATINGS</h2></header>
+    <div class="up-wrap panel-like"><div class="up-top"><div><span>SKILL POINTS</span><b>${C.sp}</b></div><div><span>OVERALL</span><b>${this.ovr()}</b></div><div><span>TIER CAP</span><b>${cap}</b></div></div>
+    ${rows}<p class="cr-note">Costs rise as a rating climbs (1 SP under 55, 2 under 65, 3 under 75, 4 above). Each tier has a rating cap — move up to raise it. Level up by earning XP in games: +3 SP per level.</p>
+    <button class="cta" data-cr="hub">DONE ›</button></div>`;
+    for (const b of $$('.up-plus', R)) b.onclick = () => { const k = b.dataset.k; const c = this.cost(C.ratings[k]); if (C.sp >= c && C.ratings[k] < cap) { C.sp -= c; C.ratings[k]++; this.save(); AUDIO.ui(); this.renderUpgrade(); } };
+    for (const b of $$('[data-cr="hub"]', R)) b.onclick = () => this.renderHub();
+  },
+  renderPost(r) {
+    const C = this.C, R = this.root();
+    UI.go('career', () => {
+      R.innerHTML = `<div class="post-wrap">
+        <div class="post-res ${r.won ? 'w' : 'l'}">${r.won ? 'VICTORY' : 'DEFEAT'}</div>
+        <div class="post-grid">
+          <div class="post-grade"><span>COACH'S GRADE</span><b>${r.grade}</b>${r.mvp ? '<em>★ GAME MVP</em>' : ''}</div>
+          <div class="post-xp">${r.lines.map(l => `<div><span>${l[0]}</span><b>+${l[1]}</b></div>`).join('')}<div class="mult"><span>GRADE BONUS</span><b>×${r.gradeMult.toFixed(2)}</b></div><div class="tot"><span>TOTAL XP</span><b>+${r.xp}</b></div></div>
+        </div>
+        ${r.lvls ? `<div class="post-lvl">LEVEL UP! · LEVEL ${C.level} · +${r.lvls * 3} SKILL POINTS</div>` : ''}
+        ${r.news ? `<div class="post-news ${r.news.kind}"><div class="t">${r.news.title}</div><div class="s">${r.news.sub}</div></div>` : ''}
+        <div class="res-actions">${C.sp ? `<button class="btn2" data-cr="upgrade">SPEND ${C.sp} SKILL POINTS</button>` : ''}<button class="cta" data-cr="hub">CONTINUE ›</button></div></div>`;
+      $('[data-cr="hub"]', R).onclick = () => this.renderHub();
+      const u = $('[data-cr="upgrade"]', R); if (u) u.onclick = () => this.renderUpgrade();
+      if (r.news && (r.news.kind === 'promo' || r.news.kind === 'champ')) { AUDIO.horn(); AUDIO.cheer(2); } else if (r.lvls) AUDIO.sting();
+      G.demoMode();
+    });
+  },
+};
+
 // ===== 90_main.js =====
 // ================= BOOT / LOOP =================
 function setLoad(v, t) { $('#load-fill').style.width = (v * 100).toFixed(0) + '%'; if (t) $('#load-text').textContent = t; }
@@ -2977,17 +3406,19 @@ G.demoMode = () => {
   drawJumboScore();
 };
 
-async function startMatchFlow() {
+async function startMatchFlow(custom) {
   $('#scorebug').classList.add('hide'); COMM.clear(); FX.clear();
   G.phase = 'loading';
-  await G.setupMatch(UI.sel[0], UI.sel[1], UI.diff);
+  if (custom) await G.setupMatchTeams(custom.home, custom.away, custom.opts);
+  else await G.setupMatch(UI.sel[0], UI.sel[1], UI.diff);
   UI.hintShown = {};
   // line up for the intro shot
   for (const t of G.teams) t.players.forEach((p, i) => { p.reset(); p.state = 'celebrate'; p.celebrate = i % 3 === 0 ? 'clap' : 'idle'; p.pos.set(t.side * (COURT.HX - 0.7), 0, LANES[i]); p.yaw = p.targetYaw = t.side < 0 ? Math.PI / 2 : -Math.PI / 2; });
   const zs = [-3.6, -2.2, -0.75, 0.75, 2.2, 3.6]; G.balls.forEach((b, i) => b.reset(new THREE.Vector3(0, BALL_R, zs[i])));
   G.phase = 'intro';
   const [h, a] = G.teams;
-  UI.banner(`<div class="cb"><div class="k">● LIVE · ${h.data.city} ARENA</div><div class="t">${h.data.name} <span style="color:#ffcc33">VS</span> ${a.data.name}</div><div class="s">DODGE NATION LEAGUE · BEST OF 3 · ${G.diff.name}</div></div>`, 3.2);
+  const V = G.match.venue;
+  UI.banner(`<div class="cb"><div class="k">● LIVE · ${V.name}</div><div class="t">${h.data.name} <span style="color:#ffcc33">VS</span> ${a.data.name}</div><div class="s">${V.league}${G.match.bestOf > 1 ? ' · BEST OF ' + G.match.bestOf : ''} · ${G.diff.name}</div></div>`, 3.2);
   AUDIO.cheer(1.5); AUDIO.sting();
   drawJumboText('TONIGHT', `${h.data.abbr} vs ${a.data.abbr}`);
   CAMS.intro = { t: 0, dur: 3.8, done: () => { $('#scorebug').classList.remove('hide'); G.startGame(); } };
@@ -2999,12 +3430,13 @@ function wireButtons() {
   $('#scr-matchup [data-act="start-match"]').onclick = () => UI.go('hud', () => startMatchFlow());
   $('#pause-btn').onclick = () => UI.togglePause(true);
   $('#cam-btn').onclick = () => cycleCamera();
+  $('#sim-btn').onclick = () => { G.simSpeed = G.simSpeed > 1 ? 1 : 4; AUDIO.ui(); };
   for (const b of $$('#scr-pause [data-act]')) b.onclick = () => {
     const a = b.dataset.act;
     if (a === 'resume') UI.togglePause(false);
     if (a === 'controls') UI.info('controls');
     if (a === 'settings') UI.info('settings');
-    if (a === 'quit') { UI.togglePause(false); UI.go('title', () => G.demoMode()); }
+    if (a === 'quit') { UI.togglePause(false); if (G.match.career) CAREER.open(); else UI.go('title', () => G.demoMode()); }
   };
   $('#scr-matchup').addEventListener('keydown', () => { });
   addEventListener('keydown', (e) => {
@@ -3036,11 +3468,12 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
   if (UI.inGame() && !REPLAY.on && pressed('camera')) cycleCamera();
+  if (UI.inGame() && G.locked && G.locked.state !== 'active' && G.phase === 'play' && pressed('switch')) G.simSpeed = G.simSpeed > 1 ? 1 : 4;
   if (!UI.paused) {
     FX.update(dtReal);
     if (REPLAY.on) updateReplay(dtReal);
     else if (G.teams.length) {
-      const dt = dtReal * FX.timeScale();
+      const dt = dtReal * FX.timeScale() * (G.simSpeed || 1);
       let rem = dt, first = true;
       while (rem > 1e-6 && !REPLAY.on) { const h = Math.min(rem, 1 / 60); G.simulate(h); rem -= h; if (first) { INPUT.pressed.clear(); INPUT.released.clear(); first = false; } }
       if (!REPLAY.on) G.render(dt);
@@ -3050,7 +3483,8 @@ function frame(now) {
   // crowd + audio
   G.cheer = Math.max(0, G.cheer - dtReal * 0.45);
   if (ARENA.crowd) { const u = ARENA.crowd.uniforms; u.uTime.value += dtReal; u.uHype.value = damp(u.uHype.value, G.hypeTarget(), 2, dtReal); u.uCheer.value = G.cheer; if (G.phase === 'menu' || G.phase === 'between') { u.uWave.value += dtReal * 18; if (u.uWave.value > 60) u.uWave.value = -60; } else u.uWave.value = -99; }
-  AUDIO.update(dtReal, clamp(G.hypeTarget() + G.cheer * 0.5, 0, 1.2));
+  AUDIO.update(dtReal, clamp(G.hypeTarget() + G.cheer * 0.5, 0, 1.2) * (G.match.venue ? G.match.venue.noise : 1));
+  { const sb = $('#sim-btn'); const show = !!(G.locked && G.phase === 'play' && G.locked.state !== 'active' && UI.inGame()); if (sb.classList.contains('on') !== show) sb.classList.toggle('on', show); if (show) sb.classList.toggle('fast', G.simSpeed > 1); if (!show && G.simSpeed > 1 && G.phase !== 'play') G.simSpeed = 1; }
   if (ARENA.boardTex) ARENA.boardTex.offset.x = (ARENA.boardTex.offset.x + dtReal * 0.035) % 1;
   if (ARENA.jumbo) ARENA.jumbo.rotation.y += dtReal * 0.05;
   updateCamera(dtReal); UI.updateHUD(dtReal); COMM.update(dtReal);
@@ -3078,7 +3512,7 @@ async function boot() {
     requestAnimationFrame(frame);
     await new Promise(r => setTimeout(r, 250));
     UI.wipe(() => UI.show('title'));
-    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, scene, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp, updateCamera, SETTINGS };
+    window.__DN = { G, UI, THREE, startMatchFlow, camera, renderer, scene, CAMS, REPLAY, startReplay, FX, COMM, INPUT, keyDown, keyUp, updateCamera, SETTINGS, CAREER };
   } catch (e) {
     console.error(e);
     setLoad(1, 'Could not start: ' + (e && e.message ? e.message : e) + ' — check your connection and reload.');
