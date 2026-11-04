@@ -353,6 +353,7 @@ body.touch .medal{font-size:16px}
 #fsMenu{position:fixed;z-index:15;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));padding:8px 14px;font-size:15px;background:rgba(9,20,33,.75)}
 body.ingame #fsMenu{display:none}
 #fsMsg{position:fixed;z-index:50;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:10px 16px;max-width:min(520px,92vw);font-size:15px;text-align:center}
+.padfocus{outline:3px solid var(--gold)!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(245,196,81,.25)!important}
 @media (prefers-reduced-motion:reduce){.sk.ready{animation:none}#centerMsg{transition:none}}
 </style>
 
@@ -475,7 +476,8 @@ body.ingame #fsMenu{display:none}
         <kbd>F</kbd><span>Call in a killstreak</span>
         <kbd>Tab</kbd><span>Scoreboard</span>
         <kbd>Esc</kbd><span>Pause</span>
-        <kbd>Controller</kbd><span>Left stick move (push all the way to sprint) · Right stick look · RT throw · LT aim · A jump · B crouch · X reload · Y swap · RB grenade · LB killstreak · Start pause · Back scores</span>
+        <kbd>PlayStation</kbd><span>Left stick move (click L3 or push all the way to sprint) · Right stick look · R2 throw · L2 aim · ✕ jump · ○ crouch (while sprinting: slide) · □ reload · △ or D-pad ←/→ swap · R1 grenade · L1 or D-pad ↑ killstreak · Options pause · Touchpad or D-pad ↓ scores. In menus: stick or D-pad to move, ✕ select, ○ back, L1/R1 switch tabs.</span>
+        <kbd>Xbox / other</kbd><span>Same layout: RT throw · LT aim · A jump · B crouch · X reload · Y swap · RB grenade · LB killstreak · Start pause · Back scores.</span>
       </div>
       <h3>Killstreaks</h3>
       <div class="ctl">
@@ -1221,7 +1223,7 @@ function onPlayerKill(v,head){
   addXP(100,'Eliminations');if(head)addXP(50,'Head-flakes');
   P.score+=head?50:0;let medal=P.multi===2?'Double Kill':P.multi===3?'Triple Kill':P.multi>3?'Snowstorm!':'';if(!medal&&s===1&&G.firstBlood!==false){medal='First Frost';G.firstBlood=false}
   if(medal)addXP(50,'Medals');if(!medal&&head)medal='';showRibbon(v.isPlayer?'You':v.name,head,medal);if(medal)msg='';
-  for(const st of STREAKS)if(s===st.n){P.streaks.push(st.id);addXP(150,'Killstreaks');msg=st.name+(touchMode?' ready! Tap it':padActive?' ready! Press LB':' ready! Press F');sfx('jingle')}
+  for(const st of STREAKS)if(s===st.n){P.streaks.push(st.id);addXP(150,'Killstreaks');msg=st.name+(touchMode?' ready! Tap it':padActive?' ready! Press '+btnName('lb'):' ready! Press F');sfx('jingle')}
   if(msg)centerMsg(msg);
   sfx('kill');
 }
@@ -1318,7 +1320,7 @@ function look(dx,dy,k,touch){swayX=clamp(swayX-dx*.00035,-.05,.05);swayY=clamp(s
 
 // touch
 let lookActive=false,stickReset=()=>{};
-function buzz(ms){if(!touchMode)return;try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}}
+function buzz(ms){if(padActive){rumble(ms*2.2,Math.min(1,ms/45),Math.min(1,ms/30));return}if(!touchMode)return;try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}}
 function setupTouch(){
   touchMode=true;$('touch').hidden=false;document.body.classList.add('touch');
   const zone=$('stickZone'),stick=$('stick'),knob=$('knob');let sid=null,cx=0,cy=0;
@@ -1372,28 +1374,80 @@ function crosshairEnemy(def){
   for(const e of G.ents){if(!e.alive||e.team===P.team||e.protT>0)continue;const b={minX:e.pos.x-e.radius,maxX:e.pos.x+e.radius,minY:e.pos.y,maxY:e.pos.y+e.h-e.crouch*.6,minZ:e.pos.z-e.radius,maxZ:e.pos.z+e.radius};
     const tt=rayBox(camera.position.x,camera.position.y,camera.position.z,_dir.x,_dir.y,_dir.z,b,t);if(tt<t){t=tt;hit=e}}
   return hit}
-// ---- controller (Gamepad API) ----
-let padActive=false,padPrev=[];const PAD={mx:0,my:0,fire:false,ads:false,sprint:false,crouch:false};
-addEventListener('gamepadconnected',()=>{if(G.running)centerMsg('Controller connected')});
+// ---- controller (Gamepad API): PlayStation, Xbox and other pads ----
+// Every pad is read into one layout: a/b/x/y = PlayStation Cross/Circle/Square/Triangle (Xbox A/B/X/Y).
+let padActive=false,padSony=false,padGp=null,padPrev={};const PAD={mx:0,my:0,fire:false,ads:false,sprint:false,crouch:false};
+const SONY_RE=/054c|sony|playstation|dualshock|dualsense|wireless controller/i;
+const GLYPH={a:['✕','A'],b:['○','B'],x:['□','X'],y:['△','Y'],lb:['L1','LB'],rb:['R1','RB'],lt:['L2','LT'],rt:['R2','RT'],back:['Touchpad','Back'],start:['Options','Start'],ls:['L3','LS'],rs:['R3','RS']};
+const btnName=k=>(GLYPH[k]||[k,k])[padSony?0:1];
+addEventListener('gamepadconnected',e=>{const sony=SONY_RE.test(e.gamepad.id);const msg=(sony?'PlayStation controller':'Controller')+' connected';if(G.running)centerMsg(msg);else{try{fsMsg(msg+'. Use the left stick or D-pad to move around the menus and '+(sony?'✕':'A')+' to select.')}catch(x){}}});
+addEventListener('gamepaddisconnected',()=>{padActive=false;if(G.running&&!G.paused&&!G.over)pauseGame()});
+function readPad(gp){
+  const B=i=>{const b=gp.buttons[i];return!!b&&(b.pressed||b.value>.35)},A=i=>+gp.axes[i]||0;
+  if(gp.mapping==='standard'||gp.buttons.length>=17&&gp.axes.length<=4){
+    return{lx:A(0),ly:A(1),rx:A(2),ry:A(3),a:B(0),b:B(1),x:B(2),y:B(3),lb:B(4),rb:B(5),lt:B(6),rt:B(7),back:B(8)||B(17),start:B(9),ls:B(10),rs:B(11),up:B(12),down:B(13),left:B(14),right:B(15),home:B(16)}}
+  // raw PlayStation layout used by Firefox and some Android builds
+  const trig=(i,bi)=>B(bi)||(gp.axes.length>i&&A(i)>-.3&&A(i)!==0);
+  const hat=gp.axes.length>9?A(9):2,dp=d=>hat<1.1&&Math.abs(hat-d)<.15;
+  return{lx:A(0),ly:A(1),rx:A(2),ry:A(5),a:B(1),b:B(2),x:B(0),y:B(3),lb:B(4),rb:B(5),lt:trig(3,6),rt:trig(4,7),back:B(8)||B(13),start:B(9),ls:B(10),rs:B(11),
+    up:dp(-1)||dp(1),down:dp(1/7),left:dp(5/7),right:dp(-3/7),home:B(12)}
+}
+function rumble(ms,strong,weak){try{const a=padGp&&padGp.vibrationActuator;if(a&&a.playEffect)a.playEffect('dual-rumble',{duration:ms,strongMagnitude:strong,weakMagnitude:weak}).catch(()=>{})}catch(e){}}
+// ---- menu navigation with a pad: move between buttons with the stick/D-pad, ✕/A selects, ○/B goes back ----
+let navEl=null,navHold=0,navDir='';
+function navRoot(){for(const id of ['voteScr','end','pause','death','menu']){const el=$(id);if(el&&!el.hidden)return el}return null}
+function navItems(root){return[...root.querySelectorAll('button,select,input,.vcard')].filter(el=>!el.disabled&&!el.closest('[hidden]')&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden')}
+function navFocus(el){if(navEl)navEl.classList.remove('padfocus');navEl=el;if(!el)return;el.classList.add('padfocus');try{el.focus({preventScroll:true})}catch(e){}el.scrollIntoView({block:'nearest',inline:'nearest'});sfx('hover')}
+function navMove(dx,dy){const root=navRoot();if(!root)return;const items=navItems(root);if(!items.length)return;
+  if(!navEl||!items.includes(navEl)){navFocus(items.find(e=>e.id==='deployBtn'||e.id==='againBtn'||e.id==='resumeBtn'||e.id==='respawnBtn')||items[0]);return}
+  if(navEl.type==='range'&&dx){const st=+navEl.step||1;navEl.value=+navEl.value+dx*st*(+navEl.max-+navEl.min>10?2:1);navEl.dispatchEvent(new Event('input',{bubbles:true}));return}
+  if(navEl.type==='number'&&dx){const st=+navEl.step||.1;navEl.value=(+navEl.value+dx*Math.max(st,.05)).toFixed(2);navEl.dispatchEvent(new Event('change',{bubbles:true}));return}
+  if(navEl.tagName==='SELECT'&&dx){navEl.selectedIndex=(navEl.selectedIndex+dx+navEl.options.length)%navEl.options.length;navEl.dispatchEvent(new Event('change',{bubbles:true}));return}
+  const r=navEl.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let best=null,bs=1e9;
+  for(const el of items){if(el===navEl)continue;const q=el.getBoundingClientRect(),vx=q.left+q.width/2-cx,vy=q.top+q.height/2-cy;const along=vx*dx+vy*dy;if(along<=4)continue;const perp=Math.abs(vx*dy-vy*dx);const sc=along+perp*2.2;if(sc<bs){bs=sc;best=el}}
+  if(best)navFocus(best)}
+function navPress(){if(!navEl)return navMove(0,0);const el=navEl;
+  if(el.tagName==='SELECT'){el.selectedIndex=(el.selectedIndex+1)%el.options.length;el.dispatchEvent(new Event('change',{bubbles:true}));return}
+  if(el.type==='checkbox'){el.checked=!el.checked;el.dispatchEvent(new Event('change',{bubbles:true}));return}
+  if(el.type==='text'||el.type==='number'){el.focus();return}
+  el.click()}
+function navBack(){if(!$('pause').hidden){resume();return}if(!$('voteScr').hidden){if(!$('vLeave').hidden)$('vLeave').click();return}
+  if(!$('menu').hidden){const t=document.querySelector('#tabs [data-tab=deploy]');if(!t.classList.contains('on'))t.click()}}
+function navTab(d){if($('menu').hidden)return;const tabs=[...document.querySelectorAll('#tabs button')];const i=tabs.findIndex(t=>t.classList.contains('on'));tabs[(i+d+tabs.length)%tabs.length].click();navEl=null}
 function pollPad(dt){
   let gp=null;try{const gps=navigator.getGamepads?navigator.getGamepads():[];for(const g of gps)if(g&&g.connected){gp=g;break}}catch(e){}
+  padGp=gp;
   if(!gp){padActive=false;PAD.fire=PAD.ads=PAD.sprint=false;PAD.mx=PAD.my=0;return}
-  const dz=v=>Math.abs(v)<.16?0:(v-Math.sign(v)*.16)/.84;const btn=i=>{const b=gp.buttons[i];return!!b&&(b.pressed||b.value>.4)};
-  const lx=dz(gp.axes[0]||0),ly=dz(gp.axes[1]||0),rx=dz(gp.axes[2]||0),ry=dz(gp.axes[3]||0);
-  const any=lx||ly||rx||ry||gp.buttons.some(b=>b&&b.pressed);if(any&&!padActive){padActive=true}
+  padSony=SONY_RE.test(gp.id);
+  const p=readPad(gp),dz=v=>Math.abs(v)<.16?0:(v-Math.sign(v)*.16)/.84;
+  const lx=dz(p.lx),ly=dz(p.ly),rx=dz(p.rx),ry=dz(p.ry);
+  const anyBtn=['a','b','x','y','lb','rb','lt','rt','start','back','up','down','left','right'].some(k=>p[k]);
+  if((lx||ly||rx||ry||anyBtn)&&!padActive){padActive=true;document.body.classList.add('pad')}
   if(!padActive)return;
-  PAD.mx=lx;PAD.my=-ly;PAD.fire=btn(7);PAD.ads=btn(6);PAD.sprint=btn(10)||(-ly>.88&&Math.abs(lx)<.45);
-  const pr=i=>btn(i)&&!padPrev[i];
-  if(G.running&&!G.over){
-    if(pr(9)){G.paused?resume():pauseGame()}
-    if(!G.paused&&P&&P.alive){
+  const pr=k=>p[k]&&!padPrev[k];
+  const inMatch=G.running&&!G.over&&!G.paused&&$('voteScr').hidden;
+  PAD.mx=inMatch?lx:0;PAD.my=inMatch?-ly:0;PAD.fire=inMatch&&p.rt;PAD.ads=inMatch&&p.lt;PAD.sprint=inMatch&&(p.ls||(-ly>.88&&Math.abs(lx)<.45));
+  if(inMatch){
+    if(pr('start'))pauseGame();
+    if(P&&P.alive){
       const z=P.w[P.cur].def.zoom||1,fr=assistNear?.72:1,k=SETTINGS.psens*fr*lerp(1,SETTINGS.adsMul,P.adsAmt)/(1+(z-1)*P.adsAmt*.8);
       P.yaw-=rx*Math.abs(rx)*3.4*dt*k;P.pitch=clamp(P.pitch-(SETTINGS.invY?-1:1)*ry*Math.abs(ry)*2.4*dt*k,-1.45,1.45);
-      if(pr(0))jumpQ=true;if(pr(1))PAD.crouch=!PAD.crouch;if(pr(2))startReload(P);if(pr(3))swapTo(P,1-P.cur);if(pr(5))playerNade();if(pr(4))useStreak()}
-    if(pr(8)){showBoard=!showBoard;if(showBoard)renderBoard();else $('scoreboard').hidden=true}
-  }else if(!G.running&&pr(0)&&!$('menu').hidden){$('deployBtn').click()}
-  else if(G.over&&pr(0)&&!$('againBtn').hidden){$('againBtn').click()}
-  padPrev=gp.buttons.map((b,i)=>btn(i));
+      if(pr('a'))jumpQ=true;if(pr('b'))PAD.crouch=!PAD.crouch;if(pr('x'))startReload(P);if(pr('y')||pr('right')||pr('left'))swapTo(P,1-P.cur);if(pr('rb'))playerNade();if(pr('lb')||pr('up'))useStreak()}
+    else if(pr('a')&&!$('death').hidden)$('respawnBtn').click();
+    if(pr('back')||pr('down')){showBoard=!showBoard;if(showBoard)renderBoard();else $('scoreboard').hidden=true}
+  }else{
+    // menus, pause, map vote, end screen
+    if(pr('start')&&G.running&&G.paused){resume()}
+    else{
+      const dx=(p.right||lx>.6?1:0)-(p.left||lx<-.6?1:0),dy=(p.down||ly>.6?1:0)-(p.up||ly<-.6?1:0),dir=dx+','+dy;
+      if(dx||dy){if(dir!==navDir){navDir=dir;navHold=.32;navMove(dx,dy)}else{navHold-=dt;if(navHold<=0){navHold=.11;navMove(dx,dy)}}}else navDir='';
+      if(pr('a'))navPress();if(pr('b'))navBack();if(pr('lb'))navTab(-1);if(pr('rb'))navTab(1);
+      if(pr('start')&&!$('menu').hidden&&!G.running)$('deployBtn').click();
+      const root=navRoot();if(root&&(!navEl||!root.contains(navEl)||!navEl.getClientRects().length))navMove(0,0);
+      if(ry&&root){const sc=root.querySelector('.menu-panel')||root.querySelector('.box')||root;sc.scrollTop+=ry*dt*600}
+    }
+  }
+  padPrev=p;
 }
 
 /* ================= WEAPON ACTIONS ================= */
@@ -1418,7 +1472,7 @@ function playerFire(){
   const seed=Math.random()*1e9|0;
   const B=new THREE.Vector3().subVectors(_tgt,_org).normalize().multiplyScalar(d.speed);
   if(d.explode||d.grav>6)B.y+=d.grav*Math.min(t,60)/d.speed*.5;
-  firePellets(P,d,_org,B,seed,spr);publishShot(P,d.key,_org,B,seed,Math.round(spr*1e4));if(P.adsAmt<.3)puff(_tgt.copy(_org).addScaledVector(_dir,.25).add(_right.multiplyScalar(.06)),2,0xffffff,1,.018,.1,0);
+  firePellets(P,d,_org,B,seed,spr);if(padActive)rumble(45,d.dmg>50||d.explode?.55:.1,d.dmg>50?.4:.22);publishShot(P,d.key,_org,B,seed,Math.round(spr*1e4));if(P.adsAmt<.3)puff(_tgt.copy(_org).addScaledVector(_dir,.25).add(_right.multiplyScalar(.06)),2,0xffffff,1,.018,.1,0);
   // recoil: real aim climb (you pull down to control it) + a horizontal wander + a visual kick that settles
   const n=(P.sprayN=(P.sprayN||0)+1);const adsK=1-P.adsAmt*.25,crK=P.crouch>.5?.85:1,ramp=Math.min(1.35,.75+n*.05);
   const climb=d.rv*.68*adsK*crK*ramp*rand(.85,1.15);P.pitch=Math.min(1.45,P.pitch+climb);P.climb=(P.climb||0)+climb;
@@ -1545,7 +1599,7 @@ function addFeed(k,v,wn,head){
 function updateClassHud(){setT($('clsLabel'),P.cls.name);setT($('perkLabel'),PERKS[P.cls.perk].name)}
 function renderStreaks(){
   const box=$('streakBox');let h='';
-  let nextMarked=false;for(const st of STREAKS){const have=P.streaks.filter(x=>x===st.id).length;let cls=have?'sk ready':(P.streak>=st.n?'sk got':'sk');if(!have&&P.streak<st.n&&!nextMarked&&!P.streaks.length){cls+=' next';nextMarked=true}h+=`<div class="${cls}">${st.name}<small>${have?(touchMode?'Tap to call in':'F to call in'):Math.min(P.streak,st.n)+' / '+st.n+' kills'}</small></div>`}
+  let nextMarked=false;for(const st of STREAKS){const have=P.streaks.filter(x=>x===st.id).length;let cls=have?'sk ready':(P.streak>=st.n?'sk got':'sk');if(!have&&P.streak<st.n&&!nextMarked&&!P.streaks.length){cls+=' next';nextMarked=true}h+=`<div class="${cls}">${st.name}<small>${have?(padActive?btnName('lb')+' to call in':touchMode?'Tap to call in':'F to call in'):Math.min(P.streak,st.n)+' / '+st.n+' kills'}</small></div>`}
   if(box._v!==h){box._v=h;box.innerHTML=h}
 }
 function renderBoard(){
@@ -1581,7 +1635,7 @@ function updateHud(dt){
   const ah=`${w.ammo} <small>/ ∞ snow</small>`;const ae=$('ammo');if(ae._v!==ah){ae._v=ah;ae.innerHTML=ah}
   setT($('equip'),EQUIPMENT[P.cls.equip].name+' ×'+P.nades+'  ·  G');
   $('reloadBar').style.width=P.reloadT>0?((1-P.reloadT/P.reloadMax)*100)+'%':'0';
-  const pr=$('prompt');let ps='';if(P.reloadT>0)ps='Packing snow…';else if(w.ammo===0)ps='Reload  [R]';else if(w.ammo<=Math.ceil(d.mag*.25)&&d.mag>2)ps='Low snow  [R]';else if(P.frozenT>0)ps='Frozen!';
+  const pr=$('prompt');let ps='';if(P.reloadT>0)ps='Packing snow…';else if(w.ammo===0)ps='Reload  ['+(padActive?btnName('x'):'R')+']';else if(w.ammo<=Math.ceil(d.mag*.25)&&d.mag>2)ps='Low snow  ['+(padActive?btnName('x'):'R')+']';else if(P.frozenT>0)ps='Frozen!';
   pr.hidden=!ps;setT(pr,ps);
   hmT-=dt;$('hitmarker').style.opacity=hmT>0?1:0;
   vigT=Math.max(0,vigT-dt*.8);const lowHp=P.hp<P.maxHp*.35&&P.alive?.45:0;$('vignette').style.opacity=Math.max(vigT,lowHp);
@@ -1729,7 +1783,7 @@ function startMatch(net){
   $('menu').hidden=true;$('end').hidden=true;$('pause').hidden=true;$('death').hidden=true;$('hud').hidden=false;
   if(isTouch)setupTouchOnce();
   G.running=true;
-  const hint=$('hint');hint.innerHTML=touchMode?'Left thumb: move · Right side: look · Hold <kbd>Throw</kbd> to aim and fire (slide it to steer)':'Click to lock the mouse · <kbd>WASD</kbd> move · <kbd>Click</kbd> throw · <kbd>Right-click</kbd> aim · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>R</kbd> reload · <kbd>G</kbd> grenade · <kbd>F</kbd> streak · <kbd>Tab</kbd> scores';hint.style.opacity=1;setTimeout(()=>hint.style.opacity=0,9000);
+  const hint=$('hint');hint.innerHTML=padActive?`Left stick move · Right stick look · <kbd>${btnName('rt')}</kbd> throw · <kbd>${btnName('lt')}</kbd> aim · <kbd>${btnName('a')}</kbd> jump · <kbd>${btnName('b')}</kbd> crouch/slide · <kbd>${btnName('x')}</kbd> reload · <kbd>${btnName('y')}</kbd> swap · <kbd>${btnName('rb')}</kbd> grenade · <kbd>${btnName('lb')}</kbd> streak`:touchMode?'Left thumb: move · Right side: look · Hold <kbd>Throw</kbd> to aim and fire (slide it to steer)':'Click to lock the mouse · <kbd>WASD</kbd> move · <kbd>Click</kbd> throw · <kbd>Right-click</kbd> aim · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>R</kbd> reload · <kbd>G</kbd> grenade · <kbd>F</kbd> streak · <kbd>Tab</kbd> scores';hint.style.opacity=1;setTimeout(()=>hint.style.opacity=0,9000);
   G.countdown=3.6;G.cdShown=-1;G.firstBlood=true;G.killer=null;
   if(MODELS.elf&&MODELS.soldier&&!P.mesh){P.mesh=makeModelChar(P.team);P.mesh.visible=false}
   playMusic('match');
@@ -2073,7 +2127,7 @@ function frame(now){
   if(G.running&&!G.paused&&rawMs<250){ftAvg=ftAvg*.95+rawMs*.05;prT+=dt;
     if(prT>1.2){prT=0;if(ftAvg>23&&prCur>prMin){prCur=Math.max(prMin,prCur-.15);renderer.setPixelRatio(prCur)}else if(ftAvg<14.5&&prCur<prMax){prCur=Math.min(prMax,prCur+.1);renderer.setPixelRatio(prCur)}}}
   netTick(dt);voteTick(dt);document.body.classList.toggle('ingame',G.running);
-  if(touchMode){const show=G.running&&!G.over&&!G.paused&&P&&P.alive&&$('voteScr').hidden;const tl=$('touch');if(tl.hidden===show){tl.hidden=!show;if(!show)resetTouchState()}}
+  if(touchMode){const show=G.running&&!G.over&&!G.paused&&P&&P.alive&&$('voteScr').hidden&&!padActive;const tl=$('touch');if(tl.hidden===show){tl.hidden=!show;if(!show)resetTouchState()}}
   if(G.running&&(!G.paused||NET.on)){if(!G.over)update(dt);else{updateParts(dt);updateProjs(dt)}}
   if(!G.running){menuT+=dt;vm.visible=false;menuScene(dt)}else for(const f of lobby.figs)f.visible=false;
   audioTick(dt);
