@@ -1831,34 +1831,38 @@ for(const id of ['pauseClass','deathClass'])$(id).addEventListener('change',e=>{
 /* ================= ONLINE (room codes) ================= */
 const IN_CLAUDE=!!(window.claude&&window.claude.use);
 const ARTIFACT_URL=IN_CLAUDE?'https://claude.ai/artifact/8ZfXZDULRRQ4VsWTuZMWbR':location.origin+location.pathname;
-// ---- Standalone online play (outside claude.ai): a tiny PeerJS "room" with the same calls the game uses.
-// The first page to claim a code becomes the hub; everyone else connects to it and the hub relays presence.
+// ---- Standalone online play (outside claude.ai): a relay "room" over secure WebSockets (MQTT).
+// Everyone in a party connects out to the same public relay on port 443 and shares presence on one topic,
+// so it works behind home routers, school Wi-Fi and phone networks (no direct device-to-device link needed).
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
-const PEER_OPTS={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}]}};
-function makePeerRoom(){
+const RELAYS=[['wss://public.cloud.shiftr.io',{username:'public',password:'public'}],['wss://broker.emqx.io:8084/mqtt',{}],['wss://broker.hivemq.com:8884/mqtt',{}]];
+function makeRelayRoom(){
   return{join:name=>new Promise((resolve,reject)=>{
-    const hubId='northpoleops-'+name;let peer,hub=false,hubConn=null;const conns=new Map(),pres=new Map();let mine={},subs=[],errs=[],snap=Object.freeze([]),left=false,myId='';
-    const rebuild=()=>{const arr=[{peer:myId||'me',by:null,isMe:true,sameTab:true,kind:'viewer',guest:false,presence:mine,updatedAt:Date.now()}];for(const [id,o] of pres)if(id!==myId)arr.push({peer:id,by:null,isMe:false,sameTab:false,kind:'viewer',guest:false,presence:o,updatedAt:Date.now()});snap=Object.freeze(arr);for(const f of subs)try{f({peers:snap,joined:[],left:[],updated:[]})}catch(e){}};
-    const fail=e=>{if(left)return;for(const f of errs)try{f({code:'upstream_error',message:String(e)})}catch(x){}};
-    const api={name,presence:o=>{mine=Object.assign({},mine,o);for(const k in mine)if(mine[k]===null)delete mine[k];
-        if(hub){for(const c of conns.values())if(c.open)c.send({t:'p',id:myId,o:mine})}else if(hubConn&&hubConn.open)hubConn.send({t:'p',o:mine});rebuild();return Promise.resolve()},
+    const myId='p'+Math.random().toString(36).slice(2,10),topic='northpoleops/v2/'+name;
+    let c=null,mine={},subs=[],errs=[],snap=Object.freeze([]),left=false,done=false,lastSend=0,sendT=null,beat=null;const pres=new Map();
+    const rebuild=()=>{const arr=[{peer:myId,by:null,isMe:true,sameTab:true,kind:'viewer',guest:false,presence:mine,updatedAt:Date.now()}];
+      for(const [id,v] of pres)arr.push({peer:id,by:null,isMe:false,sameTab:false,kind:'viewer',guest:false,presence:v.o,updatedAt:v.at});snap=Object.freeze(arr);
+      for(const f of subs)try{f({peers:snap,joined:[],left:[],updated:[]})}catch(e){}};
+    const send=()=>{sendT=null;lastSend=performance.now();if(c&&c.connected)try{c.publish(topic,JSON.stringify({id:myId,o:mine}),{qos:0})}catch(e){}};
+    const queue=()=>{const since=performance.now()-lastSend;if(since>=45)send();else if(!sendT)sendT=setTimeout(send,45-since)};
+    const api={name,
+      presence:o=>{mine=Object.assign({},mine,o);for(const k in mine)if(mine[k]===null)delete mine[k];queue();rebuild();return Promise.resolve()},
       peers:()=>snap,onPeers:(f,e)=>{subs.push(f);if(e)errs.push(e);setTimeout(()=>f({peers:snap,joined:snap,left:[],updated:[]}),0);return()=>{subs=subs.filter(x=>x!==f)}},
-      connected:()=>!!peer&&!peer.disconnected,onConnection:()=>()=>{},emit:()=>Promise.resolve(),on:()=>()=>{},
-      leave:()=>{left=true;try{peer.destroy()}catch(e){}return Promise.resolve()}};
-    const asHub=()=>{hub=true;myId=peer.id;
-      peer.on('connection',c=>{c.on('open',()=>{conns.set(c.peer,c);const all={};for(const [id,o] of pres)all[id]=o;all[myId]=mine;c.send({t:'all',m:all})});
-        c.on('data',d=>{if(!d||d.t!=='p'||typeof d.o!=='object')return;pres.set(c.peer,d.o);for(const [id,o] of conns)if(id!==c.peer&&o.open)o.send({t:'p',id:c.peer,o:d.o});rebuild()});
-        const bye=()=>{conns.delete(c.peer);pres.delete(c.peer);for(const o of conns.values())if(o.open)o.send({t:'bye',id:c.peer});rebuild()};c.on('close',bye);c.on('error',bye)});
-      rebuild();resolve(api)};
-    const asGuest=()=>{peer=new Peer(undefined,PEER_OPTS);peer.on('open',id=>{myId=id;hubConn=peer.connect(hubId,{reliable:false,serialization:'json'});let ok=false;
-        const to=setTimeout(()=>{if(!ok)reject({code:'upstream_error'})},12000);
-        hubConn.on('open',()=>{ok=true;clearTimeout(to);hubConn.send({t:'p',o:mine});resolve(api)});
-        hubConn.on('data',d=>{if(!d)return;if(d.t==='all'&&d.m){for(const k in d.m)if(k!==myId)pres.set(k,d.m[k])}else if(d.t==='p'&&d.id&&d.id!==myId)pres.set(d.id,d.o);else if(d.t==='bye')pres.delete(d.id);rebuild()});
-        hubConn.on('close',()=>{pres.clear();rebuild();fail('hub closed')})});
-      peer.on('error',e=>{if(e.type==='peer-unavailable'){/* nobody holds this code: claim it ourselves so the game can report "no game found" */try{peer.destroy()}catch(x){}peer=new Peer(hubId,PEER_OPTS);peer.on('open',asHub);peer.on('error',fail)}else{reject({code:'upstream_error'});fail(e)}})};
-    peer=new Peer(hubId,PEER_OPTS);
-    peer.on('open',asHub);
-    peer.on('error',e=>{if(e.type==='unavailable-id')asGuest();else if(!hub){reject({code:'upstream_error'})}else fail(e)});
+      connected:()=>!!(c&&c.connected),onConnection:()=>()=>{},emit:()=>Promise.resolve(),on:()=>()=>{},
+      leave:()=>{left=true;clearInterval(beat);try{c.publish(topic,JSON.stringify({id:myId,bye:1}),{qos:0});setTimeout(()=>c.end(true),300)}catch(e){}return Promise.resolve()}};
+    beat=setInterval(()=>{const now=Date.now();let ch=false;for(const [id,v] of pres)if(now-v.at>9000){pres.delete(id);ch=true}if(ch)rebuild();if(performance.now()-lastSend>2000)send()},1000);
+    const tryRelay=i=>{
+      if(i>=RELAYS.length*2){clearInterval(beat);reject({code:'upstream_error'});return}
+      const [url,auth]=RELAYS[i%RELAYS.length];let ok=false;
+      try{c=mqtt.connect(url,Object.assign({clientId:'npo_'+myId,clean:true,keepalive:20,reconnectPeriod:2000,connectTimeout:12000,
+        will:{topic,payload:JSON.stringify({id:myId,bye:1}),qos:0,retain:false}},auth))}catch(e){tryRelay(i+1);return}
+      const giveUp=setTimeout(()=>{if(!ok){try{c.end(true)}catch(e){}tryRelay(i+1)}},14000);
+      c.on('connect',()=>{c.subscribe(topic,{qos:0},err=>{if(err)return;if(!ok){ok=true;clearTimeout(giveUp);send();if(!done){done=true;resolve(api)}}else send()})});
+      c.on('message',(t,m)=>{if(left)return;let d;try{d=JSON.parse(m.toString())}catch(e){return}if(!d||typeof d.id!=='string'||d.id===myId)return;
+        if(d.bye)pres.delete(d.id);else if(d.o&&typeof d.o==='object'){const isNew=!pres.has(d.id);pres.set(d.id,{o:d.o,at:Date.now()});if(isNew)send()}rebuild()});
+      c.on('error',()=>{if(!ok){clearTimeout(giveUp);try{c.end(true)}catch(e){}tryRelay(i+1)}});
+    };
+    tryRelay(0);
   })}}
 const NET={on:false,room:null,code:'',isHost:false,myId:'',ep:0,cfg:null,out:[],seq:0,lastSeq:{},inGame:false,team:0,pubT:0,balT:0,hostSeen:0,hostFound:false,joinedAt:0,lastPeers:null,teamPicked:false};
 let ROOM=null,roomReady=false;
@@ -1873,9 +1877,9 @@ function mpAvail(on){$('hostBtn').disabled=!on;$('joinBtn').disabled=!on;
   mpNote(on?'Invite friends to get a party code. They open the same link, type the code and press Join.':(IN_CLAUDE?'Online play works when this game is opened on claude.ai while signed in.':'Online play could not connect. Check your internet connection and reload.')+' Solo play still works.',!on)}
 mpAvail(false);mpNote('Connecting to online play…');
 (async()=>{try{ROOM=IN_CLAUDE?await window.claude.use('room'):null}catch(e){ROOM=null}
-  if(!ROOM&&!IN_CLAUDE){try{await loadScript('https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js');if(window.Peer)ROOM=makePeerRoom()}catch(e){}}
+  if(!ROOM&&!IN_CLAUDE){try{await loadScript('https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js');if(window.mqtt)ROOM=makeRelayRoom()}catch(e){}}
   roomReady=true;mpAvail(!!ROOM);
-  const m=/^#np-([a-z0-9]{4})$/i.exec(location.hash||'');if(m){$('joinCode').value=m[1].toUpperCase();if(ROOM)joinGame(m[1])}})();
+  const m=/^#np-([a-z0-9]{4})$/i.exec(location.hash||'');if(m){$('joinCode').value=m[1].toUpperCase();if(ROOM){mpNote('Joining '+m[1].toUpperCase()+'…');await modelsP;while(!$('boot').hidden)await new Promise(r=>setTimeout(r,200));joinGame(m[1])}}})();
 $('hostBtn').onclick=()=>{initAudio();enterRoom(genCode(),true)};
 $('joinBtn').onclick=()=>{initAudio();joinGame($('joinCode').value)};
 $('joinCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('joinBtn').click()});
