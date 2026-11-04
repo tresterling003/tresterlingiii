@@ -55,7 +55,7 @@ const AUDIO = {
     for (const f of [2750, 2810]) { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = f; o.connect(am); o.start(t0); o.stop(t0 + len + 0.05); }
     am.connect(g); g.connect(this.master); trem.start(t0); trem.stop(t0 + len + 0.05);
   },
-  throw(power) { this.noiseHit({ freq: 2400, sweepTo: 500, q: 1.2, peak: 0.12 + power * 0.18, a: 0.02, d: 0.22 }); },
+  throw(power) { this.noiseHit({ freq: 2600, sweepTo: 420, q: 1.1, peak: 0.18 + power * 0.32, a: 0.015, d: 0.24 }); this.tone({ f0: 90, f1: 50, peak: 0.12 + power * 0.2, d: 0.1 }); },
   hit(power) { this.noiseHit({ freq: 1600, type: 'lowpass', q: 0.7, peak: 0.6 + power * 0.3, d: 0.09 }); this.tone({ f0: 150, f1: 48, peak: 0.6, d: 0.16 }); this.noiseHit({ t: 0.01, freq: 3200, q: 2, peak: 0.15, d: 0.05 }); },
   catch() { this.tone({ f0: 120, f1: 60, peak: 0.6, d: 0.12 }); this.noiseHit({ freq: 900, type: 'lowpass', peak: 0.5, d: 0.06 }); this.noiseHit({ t: 0.03, freq: 2600, q: 3, peak: 0.12, d: 0.04 }); },
   block() { this.tone({ f0: 210, f1: 90, peak: 0.45, d: 0.1 }); this.noiseHit({ freq: 1200, type: 'lowpass', peak: 0.55, d: 0.07 }); },

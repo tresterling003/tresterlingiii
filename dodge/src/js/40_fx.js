@@ -77,7 +77,8 @@ const FX = {
     }
   },
   shake(a) { if (!SETTINGS.shake) return; this.shakeAmp = Math.max(this.shakeAmp, a); },
-  slowMo(scale, dur) { this.slowmo = scale; this.slowmoT = dur; },
+  slowMo(scale, dur) { if (this.stopT > 0) { this.queued = [scale, dur]; return; } this.slowmo = scale; this.slowmoT = dur; },
+  hitStop(dur) { this.stopT = dur; },
   update(dtReal) {
     this.sparks.update(dtReal); this.dust.update(dtReal);
     for (const r of this.rings) {
@@ -86,9 +87,10 @@ const FX = {
       r.m.scale.setScalar(0.2 + k * 1.3 * r.power); r.m.material.opacity = (1 - k) * 0.8; r.m.quaternion.copy(camera.quaternion);
     }
     this.shakeAmp = damp(this.shakeAmp, 0, 7, dtReal);
+    if (this.stopT > 0) { this.stopT -= dtReal; if (this.stopT <= 0 && this.queued) { this.slowmo = this.queued[0]; this.slowmoT = this.queued[1]; this.queued = null; } return; }
     if (this.slowmoT > 0) { this.slowmoT -= dtReal; if (this.slowmoT <= 0) this.slowmo = 1; }
   },
-  timeScale() { return this.slowmo; },
+  timeScale() { return this.stopT > 0 ? 0.03 : this.slowmo; },
   clear() { this.sparks.clear(); this.dust.clear(); for (const r of this.rings) { r.life = 0; r.m.visible = false; } },
 };
 

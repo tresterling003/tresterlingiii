@@ -23,7 +23,7 @@ G.onPickup = (p, b) => {
   }
 };
 G.onDodge = (p, b, d) => {
-  if (p.dive && d < 1.1) { COMM.say('dive', { d: p.name }, true); COMM.callout('LAID OUT!', p.name, '#9fffc4', 0.9); AUDIO.cheer(0.6); }
+  if (p.dive && d < 1.1) { COMM.say('dive', { d: p.name }, true); COMM.callout('LAID OUT!', p.name, '#9fffc4', 0.9); AUDIO.cheer(0.6); if (p === G.human) FX.slowMo(0.3, 0.35); }
   else if (d < 0.75 && (p === G.human || Math.random() < 0.35)) { COMM.say('dodge', { d: p.name }); if (p === G.human) COMM.callout('DODGE', '', '#9fffc4', 0.8); }
   AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.35);
 };
@@ -39,7 +39,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   if (p.catchT > 0 && !p.ball && frontal) {
     const prog = 1 - p.catchT / p.catchLen; const timing = 1 - Math.abs(prog - 0.5) * 2;
     let ch = 0.6 + r01(p.r('catch')) * 0.38 - b.power * 0.3 + timing * 0.12 - (b.perfect ? 0.08 : 0);
-    if (!p.team.isHuman) ch *= G.diffFor(p).catchSkill; else if (p === G.human) ch += 0.06;
+    if (!p.team.isHuman) ch *= G.diffFor(p).catchSkill; else if (p === G.human) ch += 0.08 + timing * 0.12;
     ch = clamp(ch, 0.2, 0.97);
     if (Math.random() < ch) return G.caught(b, p, thrower, contact);
     // bobble
@@ -87,6 +87,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   thrower.stats.hits++;
   AUDIO.hit(power); FX.sweat(contact, inc, 0.6 + power); FX.impact(contact, b.perfect ? 0xffc040 : 0xffffff, 0.7 + power * 0.6); FX.shake(0.12 + power * 0.32);
   const last = G.aliveCount(p.team) === 0;
+  FX.hitStop(0.05 + power * 0.05); b.squash = 1;
   if (last) FX.slowMo(0.18, 0.75); else if (b.perfect || power > 0.75) FX.slowMo(0.35, 0.22);
   const big = power > 0.7 || b.perfect;
   COMM.callout(big ? pick(['BOOM!', 'DRILLED!', 'LIGHTS OUT!', 'ROCKET!']) : pick(['OUT!', 'TAGGED!', 'GOT HIM!']).replace('HIM', p.data.female ? 'HER' : 'HIM'), `${thrower.name} ▸ ${p.name}`, thrower.team.uni.p === '#ffffff' ? '#ffcc33' : '#ffffff', 1.1);
@@ -98,7 +99,7 @@ G.resolveContact = (b, p, nrm, cy) => {
 G.caught = (b, p, thrower, contact) => {
   b.state = 'held'; b.holder = p; p.ball = b; b.live = false; b.thrower = null; b.vel.set(0, 0, 0); b.trail.length = 0;
   p.catchT = 0; p.catchCD = 0.2; p.secureT = 0.5; p.stats.catches++; p.ai.holdT = 0; p.ai.fakeDone = false;
-  AUDIO.catch(); AUDIO.cheer(1.2); FX.impact(contact, 0x7fd4ff, 1.1); FX.shake(0.22); FX.slowMo(0.25, 0.4);
+  AUDIO.catch(); AUDIO.cheer(1.2); FX.impact(contact, 0x7fd4ff, 1.1); FX.shake(0.22); FX.hitStop(0.08); FX.slowMo(0.25, 0.4);
   thrower.knockOut(p, null, 'caught');
   const ret = p.team.returnOne();
   COMM.callout(pick(['WHAT A CATCH!', 'SNAGGED!', 'CAUGHT!', 'HANDS!']), ret ? `${thrower.name} OUT · ${ret.name} RETURNS` : `${thrower.name} OUT`, '#7fd4ff', 1.6);
@@ -151,13 +152,14 @@ G.markEvent = (kind, pos, score, who) => {
 const REC = { frames: [], max: 520, stride: 0 };
 function recInit() { REC.stride = G.players.length * (6 + REC_STRIDE_CHAR) + G.balls.length * 7; REC.frames.length = 0; }
 function recCapture() {
-  const a = new Float32Array(REC.stride); let o = 0;
+  let a; if (REC.frames.length >= REC.max) a = REC.frames.shift().a; else a = new Float32Array(REC.stride);
+  let o = 0;
   for (const p of G.players) {
     const r = p.char.root; a[o++] = r.position.x; a[o++] = r.position.y; a[o++] = r.position.z; a[o++] = r.rotation.y; a[o++] = p.flash; a[o++] = p.pitch || 0;
     o = p.char.capture(a, o);
   }
   for (const b of G.balls) { a[o++] = b.pos.x; a[o++] = b.pos.y; a[o++] = b.pos.z; a[o++] = b.mesh.rotation.x; a[o++] = b.mesh.rotation.z; a[o++] = b.state === 'flying' && b.live ? 1 : 0; a[o++] = b.perfect ? 1 : 0; }
-  REC.frames.push({ t: G.time, a }); if (REC.frames.length > REC.max) REC.frames.shift();
+  REC.frames.push({ t: G.time, a });
 }
 function recApply(t) {
   const F = REC.frames; if (F.length < 2) return;
@@ -173,6 +175,7 @@ function recApply(t) {
   G.balls.forEach((b, bi) => {
     b.mesh.position.set(lerp(A.a[o], B.a[o], k), lerp(A.a[o + 1], B.a[o + 1], k), lerp(A.a[o + 2], B.a[o + 2], k));
     b.mesh.rotation.x = B.a[o + 3]; b.mesh.rotation.z = B.a[o + 4];
+    b.shadow.position.set(b.mesh.position.x, 0.011, b.mesh.position.z); b.mesh.scale.setScalar(1);
     const flying = B.a[o + 5] > 0.5, perf = B.a[o + 6] > 0.5;
     b.trailMeshes.forEach((m, kk) => {
       const fi = i - (kk + 1) * 1; const f = F[fi];
@@ -194,6 +197,7 @@ function startReplay(ev, after) {
   REPLAY.dist = 4.6 + Math.random();
   $('#replay-ui').classList.add('on');
   $('#replay-sub').textContent = ({ catch: 'THE CATCH', hit: 'THE HIT', ghost: 'THE DODGE', comeback: 'THE COMEBACK', fumble: 'THE FUMBLE', bobble: 'THE BOBBLE', final: 'GAME POINT' })[ev.kind] || 'BIG MOMENT';
+  if (G.catchRing) { G.catchRing.outer.material.opacity = 0; G.catchRing.inner.material.opacity = 0; }
   FX.clear(); COMM.clear(); $('#meter').classList.remove('on'); $('#center-banner').classList.remove('on'); UI.bannerT = 0;
   UI.wipe(); drawJumboReplay();
 }
@@ -216,7 +220,7 @@ function updateReplay(dtReal) {
 const CAM_MODES = ['BROADCAST', 'COURTSIDE', 'OVERHEAD', 'PLAYER'];
 const CAM_LABEL = { BROADCAST: 'BROADCAST CAM', COURTSIDE: 'COURTSIDE CAM', OVERHEAD: 'OVERHEAD CAM', PLAYER: 'PLAYER CAM' };
 function cycleCamera() { SETTINGS.camera = ((SETTINGS.camera || 0) + 1) % CAM_MODES.length; saveSettings(); UI.hint(CAM_LABEL[CAM_MODES[SETTINGS.camera]] + (isTouch ? '' : ' · V TO CHANGE'), 'cam' + Math.random()); AUDIO.ui(); }
-const CAMS = { pos: new THREE.Vector3(0, 8, 16), look: new THREE.Vector3(0, 1, 0), fov: 36, intro: null };
+const CAMS = { kick: 0, pos: new THREE.Vector3(0, 8, 16), look: new THREE.Vector3(0, 1, 0), fov: 36, intro: null };
 function updateCamera(dtReal) {
   const portrait = camera.aspect < 1;
   let wantPos, wantLook, fov = portrait ? 58 : camera.aspect < 1.45 ? 44 : 36, k = 3.2;
@@ -261,7 +265,8 @@ function updateCamera(dtReal) {
   }
   if (ARENA.jumbo) ARENA.jumbo.visible = !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
   CAMS.pos.lerp(wantPos, 1 - Math.exp(-k * dtReal)); CAMS.look.lerp(wantLook, 1 - Math.exp(-k * 1.2 * dtReal));
-  CAMS.fov = damp(CAMS.fov, fov, 4, dtReal);
+  CAMS.kick = damp(CAMS.kick || 0, 0, 7, dtReal);
+  CAMS.fov = damp(CAMS.fov, fov + CAMS.kick, 4, dtReal);
   camera.position.copy(CAMS.pos);
   if (FX.shakeAmp > 0.001) { const s = FX.shakeAmp; camera.position.x += (Math.random() - 0.5) * s; camera.position.y += (Math.random() - 0.5) * s; }
   camera.lookAt(CAMS.look);
@@ -417,7 +422,28 @@ G.simulate = (dt) => {
   if (G.phase === 'between') { G.betweenT += dt; if (G.betweenT > 3.0) { G.gameNo++; G.startGame(); } }
   if (G.pendingReplay && G.phase === 'play' && G.time >= G.pendingReplay.at) { const ev = G.pendingReplay.ev; G.pendingReplay = null; startReplay(ev); }
 };
+G.catchRing = null;
+function updateCatchRing(dt) {
+  if (!G.catchRing) {
+    const mk = (r0, r1, col, op) => { const g = new THREE.RingGeometry(r0, r1, 48); g.rotateX(-Math.PI / 2); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, toneMapped: false })); m.renderOrder = 3; scene.add(m); return m; };
+    G.catchRing = { outer: mk(0.92, 1, 0xffffff, 0), inner: mk(0.5, 0.56, 0xffffff, 0) };
+  }
+  const R = G.catchRing, h = G.human;
+  let th = null;
+  if (h && h.state === 'active' && !h.ball && G.phase === 'play') for (const b of G.balls) { const t = threatTo(h, b); if (t && (!th || t.tc < th.tc)) th = t; }
+  const btn = $('.tb-catch');
+  if (!th || th.tc > 0.9) { R.outer.material.opacity = damp(R.outer.material.opacity, 0, 14, dt); R.inner.material.opacity = damp(R.inner.material.opacity, 0, 14, dt); if (btn) btn.classList.remove('ready'); return; }
+  const W = 0.13 + r01(h.r('catch')) * 0.24 + 0.05;
+  const ideal = W * 0.5, err = th.tc - ideal;
+  const good = Math.abs(err) < W * 0.38;
+  const r = clamp(0.53 + err * 4.2, 0.25, 4);
+  for (const m of [R.outer, R.inner]) m.position.set(h.pos.x, 0.02, h.pos.z);
+  R.outer.scale.setScalar(r); R.outer.material.color.set(good ? 0x39ff8a : err > 0 ? 0xffffff : 0xff5a3a);
+  R.outer.material.opacity = 0.9; R.inner.material.opacity = 0.65; R.inner.material.color.set(good ? 0x39ff8a : 0xffcc33);
+  if (btn) btn.classList.toggle('ready', good);
+}
 G.render = (dt) => {
+  updateCatchRing(dt);
   for (const p of G.players) p.pose(dt);
   for (const b of G.balls) { if (b.state === 'held') b.update(0); b.visual(dt); }
   if (G.phase === 'play' || G.phase === 'gameover' || G.phase === 'countdown') recCapture();

@@ -2,7 +2,7 @@
 const canvas = $('#gl');
 const QUALITY = (() => {
   const q = SETTINGS.quality === 'auto' ? (isTouch ? 'medium' : 'high') : SETTINGS.quality;
-  return { name: q, pr: q === 'high' ? Math.min(devicePixelRatio, 2) : q === 'medium' ? Math.min(devicePixelRatio, 1.5) : 1, shadows: q !== 'low', shadowSize: q === 'high' ? 2048 : 1024, crowd: q === 'high' ? 2400 : q === 'medium' ? 1500 : 800, aa: q !== 'low' };
+  return { name: q, pr: q === 'high' ? Math.min(devicePixelRatio, 2) : q === 'medium' ? Math.min(devicePixelRatio, 1.5) : 1, minPr: q === 'high' ? 0.9 : 0.7, shadows: q === 'high', shadowSize: 2048, crowd: q === 'high' ? 2400 : q === 'medium' ? 1000 : 600, aa: q !== 'low' };
 })();
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: QUALITY.aa, powerPreference: 'high-performance' });
 renderer.setPixelRatio(QUALITY.pr);

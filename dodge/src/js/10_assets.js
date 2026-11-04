@@ -163,8 +163,9 @@ function fitText(x, text, maxW, size, font) {
 }
 function playerBodyTexture(pl, uni, team) {
   const av = pl.avatar; const base = kitCanvas(av, uni);
-  const c = document.createElement('canvas'); c.width = c.height = 1024; const x = c.getContext('2d');
-  x.drawImage(base, 0, 0);
+  const S = (typeof QUALITY !== 'undefined' && QUALITY.name === 'high') ? 1024 : 512;
+  const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
+  x.scale(S / 1024, S / 1024); x.drawImage(base, 0, 0);
   const font = "'Anton', Impact, 'Arial Narrow Bold', sans-serif";
   if (av.kit === 'soccer') {
     // back number (texture is upside-down there)
@@ -186,6 +187,7 @@ function playerBodyTexture(pl, uni, team) {
 
 // ================= CHARACTER (skinned avatar + animation + pose layer) =================
 const LOCO = ['idle', 'walk', 'jog', 'run', 'sprint'];
+const _poseQ = new THREE.Quaternion(), _poseE = new THREE.Euler();
 class Character {
   constructor(tpl, clips, pl, uni, team) {
     this.tpl = tpl;
@@ -252,7 +254,7 @@ class Character {
   setCharQ(bone, q) { this.charQ(bone.parent, _q3); _q3.invert(); bone.quaternion.copy(_q3.multiply(q)); }
   addSpine(pitch, yaw, roll) {
     if (!pitch && !yaw && !roll) return;
-    const d = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch / 3, yaw / 3, roll / 3, 'YXZ'));
+    const d = _poseQ.setFromEuler(_poseE.set(pitch / 3, yaw / 3, roll / 3, 'YXZ'));
     for (const n of ['Bip01_Spine', 'Bip01_Spine1', 'Bip01_Spine2']) { const b = this.bones[n]; this.charQ(b, _q1); _q1.premultiply(d); this.setCharQ(b, _q1); }
   }
   aimLimb(name, dir, w, chestRel) {
@@ -266,7 +268,7 @@ class Character {
   }
   addHead(pitch, yaw) {
     if (!pitch && !yaw) return;
-    const d = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch * 0.5, yaw * 0.5, 0, 'YXZ'));
+    const d = _poseQ.setFromEuler(_poseE.set(pitch * 0.5, yaw * 0.5, 0, 'YXZ'));
     for (const n of ['Bip01_Neck', 'Bip01_Head']) { const b = this.bones[n]; this.charQ(b, _q1); _q1.premultiply(d); this.setCharQ(b, _q1); }
   }
   applyPose(P) {
@@ -310,9 +312,10 @@ const POSE = {
   block: { r: [[-0.28, -0.3, 0.92], [0.35, 0.55, 0.8]], l: [[0.28, -0.3, 0.92], [-0.35, 0.55, 0.8]], spine: [0.08, 0, 0] },
   hit: { r: [[-0.85, 0.35, -0.3], [-0.3, 0.5, -0.4]], l: [[0.85, 0.35, -0.3], [0.3, 0.5, -0.4]], spine: [-0.42, 0, 0] },
   jump: { r: [[-0.6, 0.45, 0.35], [-0.2, 0.8, 0.3]], l: [[0.6, 0.45, 0.35], [0.2, 0.8, 0.3]] },
-  dive: { r: [[-0.25, 1, 0.25], [-0.1, 1, 0.2]], l: [[0.25, 1, 0.25], [0.1, 1, 0.2]], spine: [-0.1, 0, 0] },
+  dive: { r: [[-0.3, 1, 0.35], [-0.15, 1, 0.15]], l: [[0.3, 1, 0.35], [0.15, 1, 0.15]], spine: [-0.22, 0, 0] },
   celebrate: { r: [[-0.35, 1, 0.1], [-0.1, 1, 0.1]], l: [[0.35, 1, 0.1], [0.1, 1, 0.1]], spine: [-0.15, 0, 0] },
 };
+const LEGS_DIVE = [[-0.1, -1, -0.28], [-0.05, -0.75, -0.75], [0.12, -1, -0.12], [0.05, -0.85, -0.55]];
 const LEGS_TUCK = [[-0.15, -0.35, 0.95], [-0.05, -0.95, -0.35], [0.15, -0.35, 0.95], [0.05, -0.95, -0.35]];
 function mixDir(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
 function mixPose(A, B, t) {

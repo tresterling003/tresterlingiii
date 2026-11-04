@@ -31,6 +31,17 @@ textures are embedded in the file.
   banners. The post-match box score names an MVP.
 - **Teams.** There are 8 original fictional teams with shape-built logos and generated 6-player rosters.
 
+## v3 additions
+
+- Camera modes: Broadcast, Courtside, Overhead and Player cam (V / CAM button). Movement is camera-relative.
+- Dive (X / DIVE): the athlete lays out from the hips with trailing legs, slides on landing, and pushes up through a crouch.
+  While in the air and on the floor the hitbox lies flat.
+- Jump throws: charging carries through a jump, with hang time near the apex. A perfect release in the air is a SKY SHOT.
+- Catch timing ring: it closes in on your player and turns green, and the CATCH button glows, inside the sweet spot.
+- Impact feel: hit-stop, a camera kick on releases, ball squash, a heavier whoosh, ball shadows and stronger trails.
+- Phones: automatic resolution scaling. Medium quality turns off shadow maps and keeps blob shadows, with a lighter crowd and 512px kit textures.
+  Per-frame allocations are gone from the replay recorder and pose layer.
+
 ## Controls
 
 | Action | Keyboard / mouse | Touch |
@@ -38,7 +49,8 @@ textures are embedded in the file.
 | Move / sprint | WASD or arrows / Shift | Left stick (push to edge to sprint) |
 | Throw (hold, release) | J or left click | THROW |
 | Catch / block (hold with ball) | K or right click | CATCH |
-| Juke · Jump · Duck | L/E · Space · C/Ctrl | JUKE · JUMP · DUCK |
+| Juke · Dive · Jump · Duck | L/E · X · Space · C/Ctrl | JUKE · DIVE · JUMP · DUCK |
+| Camera angle | V | CAM |
 | Fake · Switch · Cycle target | F · Q/Tab · R | FAKE · SWITCH |
 | Pause | Esc / P | ❚❚ |
 

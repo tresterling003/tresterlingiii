@@ -209,6 +209,10 @@ body.touch #touch{display:block}
   background:rgba(10,14,24,.55);border:2px solid rgba(255,255,255,.35);text-align:center;color:#fff;backdrop-filter:blur(2px)}
 .tb small{display:block;font-size:9px;opacity:.8}
 .tb.down{transform:scale(.92);filter:brightness(1.4)}
+.tb-catch.ready{box-shadow:0 0 0 4px #39ff8a,0 0 24px #39ff8a;border-color:#39ff8a;animation:rdy .25s infinite alternate}
+@keyframes rdy{to{transform:scale(1.08)}}
+body.touch .mbar{width:170px;height:16px}
+body.touch .mlabel{font-size:13px}
 .tb-throw{right:0;bottom:0;width:104px;height:104px;font-size:17px;background:radial-gradient(circle at 40% 35%,rgba(255,120,60,.85),rgba(190,40,10,.75));border-color:#ffb38a}
 .tb-catch{right:112px;bottom:4px;width:78px;height:78px;background:radial-gradient(circle at 40% 35%,rgba(70,170,255,.75),rgba(20,70,170,.7));border-color:#9fd2ff}
 .tb-juke{right:6px;bottom:116px;width:72px;height:72px;background:radial-gradient(circle at 40% 35%,rgba(120,240,160,.7),rgba(20,120,60,.65));border-color:#b6ffd0}

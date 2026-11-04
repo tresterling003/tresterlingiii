@@ -59,6 +59,16 @@ function onResize() {
 addEventListener('resize', onResize);
 
 let lastT = performance.now();
+const DYN = { ema: 1 / 60, t: 0, pr: QUALITY.pr };
+function dynamicResolution(dtReal) {
+  if (document.hidden || dtReal <= 0) return;
+  DYN.ema = lerp(DYN.ema, dtReal, 0.05); DYN.t += dtReal;
+  if (DYN.t < 1.2) return; DYN.t = 0;
+  let pr = DYN.pr;
+  if (DYN.ema > 1 / 42 && pr > QUALITY.minPr) pr = Math.max(QUALITY.minPr, pr - 0.15);
+  else if (DYN.ema < 1 / 57 && pr < QUALITY.pr) pr = Math.min(QUALITY.pr, pr + 0.1);
+  if (pr !== DYN.pr) { DYN.pr = pr; renderer.setPixelRatio(pr); onResize(); }
+}
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
@@ -81,6 +91,7 @@ function frame(now) {
   if (ARENA.boardTex) ARENA.boardTex.offset.x = (ARENA.boardTex.offset.x + dtReal * 0.035) % 1;
   if (ARENA.jumbo) ARENA.jumbo.rotation.y += dtReal * 0.05;
   updateCamera(dtReal); UI.updateHUD(dtReal); COMM.update(dtReal);
+  dynamicResolution(dtReal);
   renderer.render(scene, camera);
 }
 

@@ -100,7 +100,7 @@ function humanIntent(p, dt) {
   // first-game coaching hints
   if (G.gameNo === 1) {
     if (p.ball && !UI.hintShown.throw) UI.hint(isTouch ? 'HOLD THROW · RELEASE IN THE GOLD ZONE' : 'HOLD J / LEFT CLICK · RELEASE IN THE GOLD ZONE', 'throw');
-    else if (!p.ball && G.balls.some(b => b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team && threatTo(p, b)) && !UI.hintShown.catch) UI.hint(isTouch ? 'TAP CATCH JUST BEFORE IT HITS · OR JUKE / DUCK / JUMP' : 'K / RIGHT CLICK TO CATCH · L JUKE · C DUCK · SPACE JUMP', 'catch');
+    else if (!p.ball && G.balls.some(b => b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team && threatTo(p, b)) && !UI.hintShown.catch) UI.hint(isTouch ? 'CATCH WHEN THE RING TURNS GREEN · OR JUKE / DIVE / JUMP' : 'K / RIGHT CLICK WHEN THE RING TURNS GREEN · L JUKE · X DIVE', 'catch');
   }
   return I;
 }
@@ -205,7 +205,7 @@ const UI = {
       m.style.left = ((_v1.x * 0.5 + 0.5) * innerWidth) + 'px'; m.style.top = ((-_v1.y * 0.5 + 0.5) * innerHeight) + 'px';
       $('#meter-fill').style.width = (p.charge * 100).toFixed(1) + '%';
       const perf = p.charge >= 0.86 && p.charge <= 0.97; m.classList.toggle('hot', perf);
-      $('#meter-label').textContent = perf ? 'PERFECT!' : p.chargePhase > 1 ? 'TOO LONG' : 'POWER';
+      $('#meter-label').textContent = p.airborne ? (perf ? 'SKY SHOT!' : 'IN THE AIR') : perf ? 'PERFECT!' : p.chargePhase > 1 ? 'TOO LONG' : 'POWER';
     } else m.classList.remove('on');
   },
   // ---------- results ----------

@@ -249,6 +249,10 @@ body.touch #touch{display:block}
   background:rgba(10,14,24,.55);border:2px solid rgba(255,255,255,.35);text-align:center;color:#fff;backdrop-filter:blur(2px)}
 .tb small{display:block;font-size:9px;opacity:.8}
 .tb.down{transform:scale(.92);filter:brightness(1.4)}
+.tb-catch.ready{box-shadow:0 0 0 4px #39ff8a,0 0 24px #39ff8a;border-color:#39ff8a;animation:rdy .25s infinite alternate}
+@keyframes rdy{to{transform:scale(1.08)}}
+body.touch .mbar{width:170px;height:16px}
+body.touch .mlabel{font-size:13px}
 .tb-throw{right:0;bottom:0;width:104px;height:104px;font-size:17px;background:radial-gradient(circle at 40% 35%,rgba(255,120,60,.85),rgba(190,40,10,.75));border-color:#ffb38a}
 .tb-catch{right:112px;bottom:4px;width:78px;height:78px;background:radial-gradient(circle at 40% 35%,rgba(70,170,255,.75),rgba(20,70,170,.7));border-color:#9fd2ff}
 .tb-juke{right:6px;bottom:116px;width:72px;height:72px;background:radial-gradient(circle at 40% 35%,rgba(120,240,160,.7),rgba(20,120,60,.65));border-color:#b6ffd0}
@@ -822,8 +826,9 @@ function fitText(x, text, maxW, size, font) {
 }
 function playerBodyTexture(pl, uni, team) {
   const av = pl.avatar; const base = kitCanvas(av, uni);
-  const c = document.createElement('canvas'); c.width = c.height = 1024; const x = c.getContext('2d');
-  x.drawImage(base, 0, 0);
+  const S = (typeof QUALITY !== 'undefined' && QUALITY.name === 'high') ? 1024 : 512;
+  const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
+  x.scale(S / 1024, S / 1024); x.drawImage(base, 0, 0);
   const font = "'Anton', Impact, 'Arial Narrow Bold', sans-serif";
   if (av.kit === 'soccer') {
     // back number (texture is upside-down there)
@@ -845,6 +850,7 @@ function playerBodyTexture(pl, uni, team) {
 
 // ================= CHARACTER (skinned avatar + animation + pose layer) =================
 const LOCO = ['idle', 'walk', 'jog', 'run', 'sprint'];
+const _poseQ = new THREE.Quaternion(), _poseE = new THREE.Euler();
 class Character {
   constructor(tpl, clips, pl, uni, team) {
     this.tpl = tpl;
@@ -911,7 +917,7 @@ class Character {
   setCharQ(bone, q) { this.charQ(bone.parent, _q3); _q3.invert(); bone.quaternion.copy(_q3.multiply(q)); }
   addSpine(pitch, yaw, roll) {
     if (!pitch && !yaw && !roll) return;
-    const d = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch / 3, yaw / 3, roll / 3, 'YXZ'));
+    const d = _poseQ.setFromEuler(_poseE.set(pitch / 3, yaw / 3, roll / 3, 'YXZ'));
     for (const n of ['Bip01_Spine', 'Bip01_Spine1', 'Bip01_Spine2']) { const b = this.bones[n]; this.charQ(b, _q1); _q1.premultiply(d); this.setCharQ(b, _q1); }
   }
   aimLimb(name, dir, w, chestRel) {
@@ -925,7 +931,7 @@ class Character {
   }
   addHead(pitch, yaw) {
     if (!pitch && !yaw) return;
-    const d = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch * 0.5, yaw * 0.5, 0, 'YXZ'));
+    const d = _poseQ.setFromEuler(_poseE.set(pitch * 0.5, yaw * 0.5, 0, 'YXZ'));
     for (const n of ['Bip01_Neck', 'Bip01_Head']) { const b = this.bones[n]; this.charQ(b, _q1); _q1.premultiply(d); this.setCharQ(b, _q1); }
   }
   applyPose(P) {
@@ -969,9 +975,10 @@ const POSE = {
   block: { r: [[-0.28, -0.3, 0.92], [0.35, 0.55, 0.8]], l: [[0.28, -0.3, 0.92], [-0.35, 0.55, 0.8]], spine: [0.08, 0, 0] },
   hit: { r: [[-0.85, 0.35, -0.3], [-0.3, 0.5, -0.4]], l: [[0.85, 0.35, -0.3], [0.3, 0.5, -0.4]], spine: [-0.42, 0, 0] },
   jump: { r: [[-0.6, 0.45, 0.35], [-0.2, 0.8, 0.3]], l: [[0.6, 0.45, 0.35], [0.2, 0.8, 0.3]] },
-  dive: { r: [[-0.25, 1, 0.25], [-0.1, 1, 0.2]], l: [[0.25, 1, 0.25], [0.1, 1, 0.2]], spine: [-0.1, 0, 0] },
+  dive: { r: [[-0.3, 1, 0.35], [-0.15, 1, 0.15]], l: [[0.3, 1, 0.35], [0.15, 1, 0.15]], spine: [-0.22, 0, 0] },
   celebrate: { r: [[-0.35, 1, 0.1], [-0.1, 1, 0.1]], l: [[0.35, 1, 0.1], [0.1, 1, 0.1]], spine: [-0.15, 0, 0] },
 };
+const LEGS_DIVE = [[-0.1, -1, -0.28], [-0.05, -0.75, -0.75], [0.12, -1, -0.12], [0.05, -0.85, -0.55]];
 const LEGS_TUCK = [[-0.15, -0.35, 0.95], [-0.05, -0.95, -0.35], [0.15, -0.35, 0.95], [0.05, -0.95, -0.35]];
 function mixDir(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
 function mixPose(A, B, t) {
@@ -986,7 +993,7 @@ function mixPose(A, B, t) {
 const canvas = $('#gl');
 const QUALITY = (() => {
   const q = SETTINGS.quality === 'auto' ? (isTouch ? 'medium' : 'high') : SETTINGS.quality;
-  return { name: q, pr: q === 'high' ? Math.min(devicePixelRatio, 2) : q === 'medium' ? Math.min(devicePixelRatio, 1.5) : 1, shadows: q !== 'low', shadowSize: q === 'high' ? 2048 : 1024, crowd: q === 'high' ? 2400 : q === 'medium' ? 1500 : 800, aa: q !== 'low' };
+  return { name: q, pr: q === 'high' ? Math.min(devicePixelRatio, 2) : q === 'medium' ? Math.min(devicePixelRatio, 1.5) : 1, minPr: q === 'high' ? 0.9 : 0.7, shadows: q === 'high', shadowSize: 2048, crowd: q === 'high' ? 2400 : q === 'medium' ? 1000 : 600, aa: q !== 'low' };
 })();
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: QUALITY.aa, powerPreference: 'high-performance' });
 renderer.setPixelRatio(QUALITY.pr);
@@ -1302,7 +1309,7 @@ const AUDIO = {
     for (const f of [2750, 2810]) { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = f; o.connect(am); o.start(t0); o.stop(t0 + len + 0.05); }
     am.connect(g); g.connect(this.master); trem.start(t0); trem.stop(t0 + len + 0.05);
   },
-  throw(power) { this.noiseHit({ freq: 2400, sweepTo: 500, q: 1.2, peak: 0.12 + power * 0.18, a: 0.02, d: 0.22 }); },
+  throw(power) { this.noiseHit({ freq: 2600, sweepTo: 420, q: 1.1, peak: 0.18 + power * 0.32, a: 0.015, d: 0.24 }); this.tone({ f0: 90, f1: 50, peak: 0.12 + power * 0.2, d: 0.1 }); },
   hit(power) { this.noiseHit({ freq: 1600, type: 'lowpass', q: 0.7, peak: 0.6 + power * 0.3, d: 0.09 }); this.tone({ f0: 150, f1: 48, peak: 0.6, d: 0.16 }); this.noiseHit({ t: 0.01, freq: 3200, q: 2, peak: 0.15, d: 0.05 }); },
   catch() { this.tone({ f0: 120, f1: 60, peak: 0.6, d: 0.12 }); this.noiseHit({ freq: 900, type: 'lowpass', peak: 0.5, d: 0.06 }); this.noiseHit({ t: 0.03, freq: 2600, q: 3, peak: 0.12, d: 0.04 }); },
   block() { this.tone({ f0: 210, f1: 90, peak: 0.45, d: 0.1 }); this.noiseHit({ freq: 1200, type: 'lowpass', peak: 0.55, d: 0.07 }); },
@@ -1400,7 +1407,8 @@ const FX = {
     }
   },
   shake(a) { if (!SETTINGS.shake) return; this.shakeAmp = Math.max(this.shakeAmp, a); },
-  slowMo(scale, dur) { this.slowmo = scale; this.slowmoT = dur; },
+  slowMo(scale, dur) { if (this.stopT > 0) { this.queued = [scale, dur]; return; } this.slowmo = scale; this.slowmoT = dur; },
+  hitStop(dur) { this.stopT = dur; },
   update(dtReal) {
     this.sparks.update(dtReal); this.dust.update(dtReal);
     for (const r of this.rings) {
@@ -1409,9 +1417,10 @@ const FX = {
       r.m.scale.setScalar(0.2 + k * 1.3 * r.power); r.m.material.opacity = (1 - k) * 0.8; r.m.quaternion.copy(camera.quaternion);
     }
     this.shakeAmp = damp(this.shakeAmp, 0, 7, dtReal);
+    if (this.stopT > 0) { this.stopT -= dtReal; if (this.stopT <= 0 && this.queued) { this.slowmo = this.queued[0]; this.slowmoT = this.queued[1]; this.queued = null; } return; }
     if (this.slowmoT > 0) { this.slowmoT -= dtReal; if (this.slowmoT <= 0) this.slowmo = 1; }
   },
-  timeScale() { return this.slowmo; },
+  timeScale() { return this.stopT > 0 ? 0.03 : this.slowmo; },
   clear() { this.sparks.clear(); this.dust.clear(); for (const r of this.rings) { r.life = 0; r.m.visible = false; } },
 };
 
@@ -1512,9 +1521,9 @@ class Player {
   }
   isActive() { return this.state === 'active'; }
   hitbox() { // capsule segment (world) + radius
-    if (this.dive && this.pitch > 0.7) { // laid out horizontally along the dive
-      const d = this.dive.dir, y = this.jumpY + 0.24;
-      return { a: _v1.set(this.pos.x + d.x * 0.25, y, this.pos.z + d.z * 0.25), b: _v2.set(this.pos.x + d.x * 1.45, y + 0.05, this.pos.z + d.z * 1.45), r: 0.24 };
+    if (this.dive && this.pitch > 0.8) { // laid out horizontally along the dive
+      const d = this.dive.dir, y = this.diveH || 0.3;
+      return { a: _v1.set(this.pos.x - d.x * 0.8, y, this.pos.z - d.z * 0.8), b: _v2.set(this.pos.x + d.x * 0.7, y + 0.04, this.pos.z + d.z * 0.7), r: 0.23 };
     }
     const H = this.height; const top = this.duck ? H * 0.58 : H;
     const y0 = this.jumpY + 0.25, y1 = this.jumpY + top - 0.2;
@@ -1548,7 +1557,7 @@ class Player {
       if (Math.hypot(dx, dz) < 0.2) { dx = 0; dz = this.pos.z > 0 ? -1 : 1; }
       const l = Math.hypot(dx, dz); dx /= l; dz /= l;
       const imp = 6.4 + r01(this.r('dodge')) * 2.6;
-      this.vel.x = dx * imp; this.vel.z = dz * imp; this.jumpV = 2.3; this.airborne = true;
+      this.vel.x = dx * imp; this.vel.z = dz * imp; this.jumpV = 2.7; this.airborne = true;
       this.yaw = this.targetYaw = Math.atan2(dx, dz); this.action = null; this.blocking = false;
       this.dive = { t: 0, dir: { x: dx, z: dz }, landed: false, landT: 0 }; this.stamina -= 0.16; this.evaded.clear();
       FX.dustPuff(this.pos, 6, 0.9); AUDIO.squeak(); AUDIO.noiseHit({ freq: 900, sweepTo: 300, q: 1, peak: 0.08, d: 0.2 });
@@ -1560,7 +1569,7 @@ class Player {
     this.blocking = !!(I.block && this.ball && !this.action);
     // catch
     if (I.catch && !this.ball && this.catchT <= 0 && this.catchCD <= 0 && !this.airborne) {
-      this.catchLen = this.catchT = 0.13 + r01(this.r('catch')) * 0.24; this.catchStart = G.time;
+      this.catchLen = this.catchT = 0.13 + r01(this.r('catch')) * 0.24 + (this === G.human ? 0.05 : 0); this.catchStart = G.time;
       if (this.action && this.action.type === 'charge') this.action = null;
     }
     // juke
@@ -1578,7 +1587,11 @@ class Player {
     }
     // jump
     if (I.jump && !this.airborne && !this.duck) { this.jumpV = 3.7 + r01(this.r('dodge')) * 0.6; this.airborne = true; this.stamina -= 0.05; }
-    if (this.airborne) { this.jumpV -= 11.5 * dt; this.jumpY += this.jumpV * dt; if (this.jumpY <= 0) { this.jumpY = 0; this.airborne = false; this.jumpV = 0; FX.dustPuff(this.pos, 6, 0.6); AUDIO.step(); } }
+    if (this.airborne) {
+      const hang = this.action && this.action.type === 'charge' && this.jumpV < 1.4 ? 0.42 : 1; // hang time to line up a sky shot
+      this.jumpV -= 11.5 * hang * dt; this.jumpY += this.jumpV * dt;
+      if (this.jumpY <= 0) { this.jumpY = 0; this.airborne = false; this.jumpV = 0; FX.dustPuff(this.pos, 6, 0.6); AUDIO.step(); }
+    }
     // throwing
     this.updateThrow(dt, I);
     // movement
@@ -1662,22 +1675,38 @@ class Player {
     b.launch(this, o, v, { perfect: A.perfect, target: tgt, power: clamp((v.length() - 12) / 18, 0, 1), sky: sky && A.perfect });
     this.ball = null; this.stats.throws++; if (A.perfect) this.stats.perfect++;
     AUDIO.throw(b.power);
+    if (this === G.human) { FX.shake(0.03 + b.power * 0.09); CAMS.kick = -(1 + b.power * 2.5); }
     if (sky && A.perfect) { this.stats.skyShots = (this.stats.skyShots || 0) + 1; COMM.callout('SKY SHOT!', this.name + ' FROM THE AIR', '#ffcc33', 1.1); COMM.say('skyshot', { t: this.name }); AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.6); }
     else if (A.perfect && this.team.isHuman && this === G.human) COMM.callout('PERFECT', 'RELEASE', '#ffcc33', 0.9);
     G.onThrow(this, b);
   }
   updateDive(dt) {
     const D = this.dive; D.t += dt;
+    const PR = 1.45;
+    D.getUp = 0;
     if (!D.landed) {
       this.jumpV -= 11.5 * dt; this.jumpY += this.jumpV * dt;
-      this.pitch = Math.min(1.42, D.t / 0.16 * 1.42);
-      if (this.jumpY <= 0 && D.t > 0.12) { this.jumpY = 0; this.airborne = false; this.jumpV = 0; D.landed = true; D.landT = 0; FX.dustPuff(_v1.set(this.pos.x + D.dir.x, 0, this.pos.z + D.dir.z), 10, 1.2); AUDIO.bounce(6); FX.shake(this === G.human ? 0.08 : 0.03); }
+      this.pitch = PR * smooth(Math.min(1, D.t / 0.2));
+      if (this.jumpY <= 0 && D.t > 0.16) {
+        this.jumpY = 0; this.airborne = false; this.jumpV = 0; D.landed = true; D.landT = 0; D.dustT = 0;
+        FX.dustPuff(_v1.set(this.pos.x + D.dir.x * 0.5, 0, this.pos.z + D.dir.z * 0.5), 12, 1.4); AUDIO.bounce(7); AUDIO.noiseHit({ freq: 600, type: 'lowpass', peak: 0.25, d: 0.25 });
+        FX.shake(this === G.human ? 0.1 : 0.03);
+      }
     } else {
       D.landT += dt;
-      this.vel.multiplyScalar(Math.exp(-6 * dt));
-      const getUp = D.landT - (0.32 - r01(this.r('dodge')) * 0.12);
-      if (getUp > 0) { const k = clamp(getUp / 0.42, 0, 1); this.pitch = 1.42 * (1 - smooth(k)); this.vel.multiplyScalar(0.8); if (k >= 1) { this.dive = null; this.pitch = 0; this.recover = 0.15; } }
+      const slideT = 0.38 - r01(this.r('dodge')) * 0.12;
+      if (D.landT < slideT) {
+        this.vel.multiplyScalar(Math.exp(-3.8 * dt)); this.pitch = PR;
+        D.dustT -= dt; if (D.dustT <= 0 && Math.hypot(this.vel.x, this.vel.z) > 1.2) { D.dustT = 0.05; FX.dustPuff(_v1.set(this.pos.x + D.dir.x * 0.4, 0, this.pos.z + D.dir.z * 0.4), 2, 0.4); }
+      } else {
+        const k = clamp((D.landT - slideT) / 0.5, 0, 1); D.getUp = k;
+        this.pitch = PR * (1 - smooth(k)); this.vel.multiplyScalar(Math.exp(-12 * dt));
+        if (k >= 1) { this.dive = null; this.pitch = 0; this.recover = 0.12; this.diveH = 0; }
+      }
     }
+    // hip (pivot) height: standing hips -> lying on the floor
+    const hip = this.height * 0.53;
+    this.diveH = lerp(hip, 0.27, Math.min(1, this.pitch / PR)) + this.jumpY;
     this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt;
     const [bx0, bx1] = this.bounds();
     this.pos.x = clamp(this.pos.x, bx0, bx1); this.pos.z = clamp(this.pos.z, -COURT.HZ + 0.3, COURT.HZ - 0.3);
@@ -1719,12 +1748,15 @@ class Player {
     const speed = Math.hypot(this.vel.x, this.vel.z);
     let full = null;
     if (this.state === 'bench') full = 'sit';
-    else if (this.dive) full = 'idle';
+    else if (this.dive) full = this.dive.getUp > 0.05 ? 'crouch' : 'idle';
     else if (this.state === 'celebrate') full = this.celebrate || 'cheer';
     else if (this.duck) full = 'crouch';
     c.root.position.set(this.pos.x, this.jumpY, this.pos.z);
     c.root.rotation.order = 'YXZ'; c.root.rotation.y = this.yaw; c.root.rotation.x = this.pitch || 0;
-    if (this.pitch) c.root.position.y += 0.16 * Math.sin(this.pitch);
+    if (this.dive) { // rotate about the hips so the body arcs through the air
+      const h = this.height * 0.53, th = this.pitch, fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+      c.root.position.set(this.pos.x - fx * h * Math.sin(th), (this.diveH || h) - h * Math.cos(th), this.pos.z - fz * h * Math.sin(th));
+    }
     if (this.state === 'bench') c.root.position.y = -0.04;
     c.animate(dt, this.state === 'bench' || this.state === 'celebrate' ? 0 : speed, full);
     // procedural layer
@@ -1758,7 +1790,11 @@ class Player {
       } else if (this.ball) {
         Object.assign(P, POSE.hold, { armW: 1, lw: speed > 2.5 ? 0.25 : 0.7 });
       }
-      if (this.dive) { Object.assign(P, POSE.dive, { armW: 1 }); if (this.ball) P.rw = 0.6; }
+      if (this.dive) {
+        const up = this.dive.getUp || 0;
+        Object.assign(P, POSE.dive, { armW: 1 - up * 0.7 }); if (this.ball) P.rw = 0.6;
+        P.legW = 1 - smooth(up); P.legs = LEGS_DIVE;
+      }
       else if (this.airborne && P.armW < 0.5) { Object.assign(P, POSE.jump, { armW: 0.7 }); }
       if (this.airborne && !this.dive) { P.legW = 0.75 * smooth(clamp(this.jumpY / 0.35, 0, 1)); P.legs = LEGS_TUCK; }
       if (this.jukeT > 0) { const k = this.jukeT / 0.3; P.spine = P.spine || [0, 0, 0]; P.spine = [P.spine[0] + 0.12 * k, P.spine[1], P.spine[2] + this.jukeDir * 0.42 * k]; }
@@ -1830,6 +1866,8 @@ class Ball {
     this.trailMeshes = []; for (let k = 0; k < 9; k++) { const m = new THREE.Mesh(BALL_GEO, tm.clone()); m.visible = false; scene.add(m); this.trailMeshes.push(m); }
     const glow = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.24, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffcc33, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }));
     this.glow = glow; scene.add(glow);
+    this.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
+    this.shadow.renderOrder = 1; scene.add(this.shadow); this.squash = 0;
     this.reset(new THREE.Vector3());
   }
   reset(p) { this.state = 'loose'; this.pos.copy(p); this.vel.set(0, 0, 0); this.holder = null; this.thrower = null; this.live = false; this.target = null; this.ignore = new Set(); this.minDist = new Map(); this.outT = 0; this.pickCD = 0; this.trail.length = 0; this.restT = 0; }
@@ -1929,12 +1967,16 @@ class Ball {
   }
   visual(dt) {
     this.mesh.position.copy(this.pos);
+    this.squash = Math.max(0, (this.squash || 0) - dt * 7);
+    const sq = this.squash; this.mesh.scale.set(1 + sq * 0.35, 1 - sq * 0.3, 1 + sq * 0.35);
+    const hgt = Math.max(0, this.pos.y - BALL_R); this.shadow.position.set(this.pos.x, 0.011, this.pos.z);
+    this.shadow.scale.setScalar(1 + hgt * 0.5); this.shadow.material.opacity = (this.state === 'held' ? 0 : 0.38) / (1 + hgt * 0.8);
     const fast = this.state === 'flying' && this.live;
     if (fast) { this.trail.unshift(this.pos.clone()); if (this.trail.length > 9) this.trail.pop(); } else if (this.trail.length) this.trail.pop();
     this.trailMeshes.forEach((m, k) => {
       const p = this.trail[k + 1]; if (!p) { m.visible = false; return; }
       m.visible = true; m.position.copy(p); const f = 1 - (k + 1) / 10; m.scale.setScalar(f * 0.95);
-      m.material.opacity = f * (this.perfect ? 0.55 : 0.32); m.material.color.set(this.perfect ? 0xffb030 : 0xffffff);
+      m.material.opacity = f * (this.perfect ? 0.7 : 0.45); m.material.color.set(this.perfect ? 0xffb030 : 0xffffff);
     });
     // glow ring on loose balls on the human's side
     const g = this.glow; const show = this.state === 'loose' && G.human && this.pos.x * G.human.side > -0.6 && G.phase === 'play' && this.vel.length() < 4;
@@ -2157,7 +2199,7 @@ G.onPickup = (p, b) => {
   }
 };
 G.onDodge = (p, b, d) => {
-  if (p.dive && d < 1.1) { COMM.say('dive', { d: p.name }, true); COMM.callout('LAID OUT!', p.name, '#9fffc4', 0.9); AUDIO.cheer(0.6); }
+  if (p.dive && d < 1.1) { COMM.say('dive', { d: p.name }, true); COMM.callout('LAID OUT!', p.name, '#9fffc4', 0.9); AUDIO.cheer(0.6); if (p === G.human) FX.slowMo(0.3, 0.35); }
   else if (d < 0.75 && (p === G.human || Math.random() < 0.35)) { COMM.say('dodge', { d: p.name }); if (p === G.human) COMM.callout('DODGE', '', '#9fffc4', 0.8); }
   AUDIO.ooh(); G.cheer = Math.max(G.cheer, 0.35);
 };
@@ -2173,7 +2215,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   if (p.catchT > 0 && !p.ball && frontal) {
     const prog = 1 - p.catchT / p.catchLen; const timing = 1 - Math.abs(prog - 0.5) * 2;
     let ch = 0.6 + r01(p.r('catch')) * 0.38 - b.power * 0.3 + timing * 0.12 - (b.perfect ? 0.08 : 0);
-    if (!p.team.isHuman) ch *= G.diffFor(p).catchSkill; else if (p === G.human) ch += 0.06;
+    if (!p.team.isHuman) ch *= G.diffFor(p).catchSkill; else if (p === G.human) ch += 0.08 + timing * 0.12;
     ch = clamp(ch, 0.2, 0.97);
     if (Math.random() < ch) return G.caught(b, p, thrower, contact);
     // bobble
@@ -2221,6 +2263,7 @@ G.resolveContact = (b, p, nrm, cy) => {
   thrower.stats.hits++;
   AUDIO.hit(power); FX.sweat(contact, inc, 0.6 + power); FX.impact(contact, b.perfect ? 0xffc040 : 0xffffff, 0.7 + power * 0.6); FX.shake(0.12 + power * 0.32);
   const last = G.aliveCount(p.team) === 0;
+  FX.hitStop(0.05 + power * 0.05); b.squash = 1;
   if (last) FX.slowMo(0.18, 0.75); else if (b.perfect || power > 0.75) FX.slowMo(0.35, 0.22);
   const big = power > 0.7 || b.perfect;
   COMM.callout(big ? pick(['BOOM!', 'DRILLED!', 'LIGHTS OUT!', 'ROCKET!']) : pick(['OUT!', 'TAGGED!', 'GOT HIM!']).replace('HIM', p.data.female ? 'HER' : 'HIM'), `${thrower.name} ▸ ${p.name}`, thrower.team.uni.p === '#ffffff' ? '#ffcc33' : '#ffffff', 1.1);
@@ -2232,7 +2275,7 @@ G.resolveContact = (b, p, nrm, cy) => {
 G.caught = (b, p, thrower, contact) => {
   b.state = 'held'; b.holder = p; p.ball = b; b.live = false; b.thrower = null; b.vel.set(0, 0, 0); b.trail.length = 0;
   p.catchT = 0; p.catchCD = 0.2; p.secureT = 0.5; p.stats.catches++; p.ai.holdT = 0; p.ai.fakeDone = false;
-  AUDIO.catch(); AUDIO.cheer(1.2); FX.impact(contact, 0x7fd4ff, 1.1); FX.shake(0.22); FX.slowMo(0.25, 0.4);
+  AUDIO.catch(); AUDIO.cheer(1.2); FX.impact(contact, 0x7fd4ff, 1.1); FX.shake(0.22); FX.hitStop(0.08); FX.slowMo(0.25, 0.4);
   thrower.knockOut(p, null, 'caught');
   const ret = p.team.returnOne();
   COMM.callout(pick(['WHAT A CATCH!', 'SNAGGED!', 'CAUGHT!', 'HANDS!']), ret ? `${thrower.name} OUT · ${ret.name} RETURNS` : `${thrower.name} OUT`, '#7fd4ff', 1.6);
@@ -2285,13 +2328,14 @@ G.markEvent = (kind, pos, score, who) => {
 const REC = { frames: [], max: 520, stride: 0 };
 function recInit() { REC.stride = G.players.length * (6 + REC_STRIDE_CHAR) + G.balls.length * 7; REC.frames.length = 0; }
 function recCapture() {
-  const a = new Float32Array(REC.stride); let o = 0;
+  let a; if (REC.frames.length >= REC.max) a = REC.frames.shift().a; else a = new Float32Array(REC.stride);
+  let o = 0;
   for (const p of G.players) {
     const r = p.char.root; a[o++] = r.position.x; a[o++] = r.position.y; a[o++] = r.position.z; a[o++] = r.rotation.y; a[o++] = p.flash; a[o++] = p.pitch || 0;
     o = p.char.capture(a, o);
   }
   for (const b of G.balls) { a[o++] = b.pos.x; a[o++] = b.pos.y; a[o++] = b.pos.z; a[o++] = b.mesh.rotation.x; a[o++] = b.mesh.rotation.z; a[o++] = b.state === 'flying' && b.live ? 1 : 0; a[o++] = b.perfect ? 1 : 0; }
-  REC.frames.push({ t: G.time, a }); if (REC.frames.length > REC.max) REC.frames.shift();
+  REC.frames.push({ t: G.time, a });
 }
 function recApply(t) {
   const F = REC.frames; if (F.length < 2) return;
@@ -2307,6 +2351,7 @@ function recApply(t) {
   G.balls.forEach((b, bi) => {
     b.mesh.position.set(lerp(A.a[o], B.a[o], k), lerp(A.a[o + 1], B.a[o + 1], k), lerp(A.a[o + 2], B.a[o + 2], k));
     b.mesh.rotation.x = B.a[o + 3]; b.mesh.rotation.z = B.a[o + 4];
+    b.shadow.position.set(b.mesh.position.x, 0.011, b.mesh.position.z); b.mesh.scale.setScalar(1);
     const flying = B.a[o + 5] > 0.5, perf = B.a[o + 6] > 0.5;
     b.trailMeshes.forEach((m, kk) => {
       const fi = i - (kk + 1) * 1; const f = F[fi];
@@ -2328,6 +2373,7 @@ function startReplay(ev, after) {
   REPLAY.dist = 4.6 + Math.random();
   $('#replay-ui').classList.add('on');
   $('#replay-sub').textContent = ({ catch: 'THE CATCH', hit: 'THE HIT', ghost: 'THE DODGE', comeback: 'THE COMEBACK', fumble: 'THE FUMBLE', bobble: 'THE BOBBLE', final: 'GAME POINT' })[ev.kind] || 'BIG MOMENT';
+  if (G.catchRing) { G.catchRing.outer.material.opacity = 0; G.catchRing.inner.material.opacity = 0; }
   FX.clear(); COMM.clear(); $('#meter').classList.remove('on'); $('#center-banner').classList.remove('on'); UI.bannerT = 0;
   UI.wipe(); drawJumboReplay();
 }
@@ -2350,7 +2396,7 @@ function updateReplay(dtReal) {
 const CAM_MODES = ['BROADCAST', 'COURTSIDE', 'OVERHEAD', 'PLAYER'];
 const CAM_LABEL = { BROADCAST: 'BROADCAST CAM', COURTSIDE: 'COURTSIDE CAM', OVERHEAD: 'OVERHEAD CAM', PLAYER: 'PLAYER CAM' };
 function cycleCamera() { SETTINGS.camera = ((SETTINGS.camera || 0) + 1) % CAM_MODES.length; saveSettings(); UI.hint(CAM_LABEL[CAM_MODES[SETTINGS.camera]] + (isTouch ? '' : ' · V TO CHANGE'), 'cam' + Math.random()); AUDIO.ui(); }
-const CAMS = { pos: new THREE.Vector3(0, 8, 16), look: new THREE.Vector3(0, 1, 0), fov: 36, intro: null };
+const CAMS = { kick: 0, pos: new THREE.Vector3(0, 8, 16), look: new THREE.Vector3(0, 1, 0), fov: 36, intro: null };
 function updateCamera(dtReal) {
   const portrait = camera.aspect < 1;
   let wantPos, wantLook, fov = portrait ? 58 : camera.aspect < 1.45 ? 44 : 36, k = 3.2;
@@ -2395,7 +2441,8 @@ function updateCamera(dtReal) {
   }
   if (ARENA.jumbo) ARENA.jumbo.visible = !(CAM_MODES[SETTINGS.camera || 0] === 'OVERHEAD' && !REPLAY.on && !CAMS.intro && G.phase !== 'menu');
   CAMS.pos.lerp(wantPos, 1 - Math.exp(-k * dtReal)); CAMS.look.lerp(wantLook, 1 - Math.exp(-k * 1.2 * dtReal));
-  CAMS.fov = damp(CAMS.fov, fov, 4, dtReal);
+  CAMS.kick = damp(CAMS.kick || 0, 0, 7, dtReal);
+  CAMS.fov = damp(CAMS.fov, fov + CAMS.kick, 4, dtReal);
   camera.position.copy(CAMS.pos);
   if (FX.shakeAmp > 0.001) { const s = FX.shakeAmp; camera.position.x += (Math.random() - 0.5) * s; camera.position.y += (Math.random() - 0.5) * s; }
   camera.lookAt(CAMS.look);
@@ -2551,7 +2598,28 @@ G.simulate = (dt) => {
   if (G.phase === 'between') { G.betweenT += dt; if (G.betweenT > 3.0) { G.gameNo++; G.startGame(); } }
   if (G.pendingReplay && G.phase === 'play' && G.time >= G.pendingReplay.at) { const ev = G.pendingReplay.ev; G.pendingReplay = null; startReplay(ev); }
 };
+G.catchRing = null;
+function updateCatchRing(dt) {
+  if (!G.catchRing) {
+    const mk = (r0, r1, col, op) => { const g = new THREE.RingGeometry(r0, r1, 48); g.rotateX(-Math.PI / 2); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, toneMapped: false })); m.renderOrder = 3; scene.add(m); return m; };
+    G.catchRing = { outer: mk(0.92, 1, 0xffffff, 0), inner: mk(0.5, 0.56, 0xffffff, 0) };
+  }
+  const R = G.catchRing, h = G.human;
+  let th = null;
+  if (h && h.state === 'active' && !h.ball && G.phase === 'play') for (const b of G.balls) { const t = threatTo(h, b); if (t && (!th || t.tc < th.tc)) th = t; }
+  const btn = $('.tb-catch');
+  if (!th || th.tc > 0.9) { R.outer.material.opacity = damp(R.outer.material.opacity, 0, 14, dt); R.inner.material.opacity = damp(R.inner.material.opacity, 0, 14, dt); if (btn) btn.classList.remove('ready'); return; }
+  const W = 0.13 + r01(h.r('catch')) * 0.24 + 0.05;
+  const ideal = W * 0.5, err = th.tc - ideal;
+  const good = Math.abs(err) < W * 0.38;
+  const r = clamp(0.53 + err * 4.2, 0.25, 4);
+  for (const m of [R.outer, R.inner]) m.position.set(h.pos.x, 0.02, h.pos.z);
+  R.outer.scale.setScalar(r); R.outer.material.color.set(good ? 0x39ff8a : err > 0 ? 0xffffff : 0xff5a3a);
+  R.outer.material.opacity = 0.9; R.inner.material.opacity = 0.65; R.inner.material.color.set(good ? 0x39ff8a : 0xffcc33);
+  if (btn) btn.classList.toggle('ready', good);
+}
 G.render = (dt) => {
+  updateCatchRing(dt);
   for (const p of G.players) p.pose(dt);
   for (const b of G.balls) { if (b.state === 'held') b.update(0); b.visual(dt); }
   if (G.phase === 'play' || G.phase === 'gameover' || G.phase === 'countdown') recCapture();
@@ -2660,7 +2728,7 @@ function humanIntent(p, dt) {
   // first-game coaching hints
   if (G.gameNo === 1) {
     if (p.ball && !UI.hintShown.throw) UI.hint(isTouch ? 'HOLD THROW · RELEASE IN THE GOLD ZONE' : 'HOLD J / LEFT CLICK · RELEASE IN THE GOLD ZONE', 'throw');
-    else if (!p.ball && G.balls.some(b => b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team && threatTo(p, b)) && !UI.hintShown.catch) UI.hint(isTouch ? 'TAP CATCH JUST BEFORE IT HITS · OR JUKE / DUCK / JUMP' : 'K / RIGHT CLICK TO CATCH · L JUKE · C DUCK · SPACE JUMP', 'catch');
+    else if (!p.ball && G.balls.some(b => b.state === 'flying' && b.live && b.thrower && b.thrower.team !== p.team && threatTo(p, b)) && !UI.hintShown.catch) UI.hint(isTouch ? 'CATCH WHEN THE RING TURNS GREEN · OR JUKE / DIVE / JUMP' : 'K / RIGHT CLICK WHEN THE RING TURNS GREEN · L JUKE · X DIVE', 'catch');
   }
   return I;
 }
@@ -2765,7 +2833,7 @@ const UI = {
       m.style.left = ((_v1.x * 0.5 + 0.5) * innerWidth) + 'px'; m.style.top = ((-_v1.y * 0.5 + 0.5) * innerHeight) + 'px';
       $('#meter-fill').style.width = (p.charge * 100).toFixed(1) + '%';
       const perf = p.charge >= 0.86 && p.charge <= 0.97; m.classList.toggle('hot', perf);
-      $('#meter-label').textContent = perf ? 'PERFECT!' : p.chargePhase > 1 ? 'TOO LONG' : 'POWER';
+      $('#meter-label').textContent = p.airborne ? (perf ? 'SKY SHOT!' : 'IN THE AIR') : perf ? 'PERFECT!' : p.chargePhase > 1 ? 'TOO LONG' : 'POWER';
     } else m.classList.remove('on');
   },
   // ---------- results ----------
@@ -2954,6 +3022,16 @@ function onResize() {
 addEventListener('resize', onResize);
 
 let lastT = performance.now();
+const DYN = { ema: 1 / 60, t: 0, pr: QUALITY.pr };
+function dynamicResolution(dtReal) {
+  if (document.hidden || dtReal <= 0) return;
+  DYN.ema = lerp(DYN.ema, dtReal, 0.05); DYN.t += dtReal;
+  if (DYN.t < 1.2) return; DYN.t = 0;
+  let pr = DYN.pr;
+  if (DYN.ema > 1 / 42 && pr > QUALITY.minPr) pr = Math.max(QUALITY.minPr, pr - 0.15);
+  else if (DYN.ema < 1 / 57 && pr < QUALITY.pr) pr = Math.min(QUALITY.pr, pr + 0.1);
+  if (pr !== DYN.pr) { DYN.pr = pr; renderer.setPixelRatio(pr); onResize(); }
+}
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
@@ -2976,6 +3054,7 @@ function frame(now) {
   if (ARENA.boardTex) ARENA.boardTex.offset.x = (ARENA.boardTex.offset.x + dtReal * 0.035) % 1;
   if (ARENA.jumbo) ARENA.jumbo.rotation.y += dtReal * 0.05;
   updateCamera(dtReal); UI.updateHUD(dtReal); COMM.update(dtReal);
+  dynamicResolution(dtReal);
   renderer.render(scene, camera);
 }
 
