@@ -484,6 +484,19 @@ input{user-select:text;-webkit-user-select:text;touch-action:auto}
 .fs-title{position:absolute;top:calc(14px + var(--safe-t));right:calc(16px + var(--safe-r));font-weight:800;letter-spacing:.14em;font-size:13px;padding:8px 14px;background:rgba(0,0,0,.5);border:1px solid var(--line);transform:skewX(-10deg)}
 body.is-fs .fs-btn{display:none}
 
+/* very short landscape screens (phones, embedded frames): title fits without cropping */
+@media (max-height:430px){
+  .title-left{top:calc(10px + var(--safe-t));transform:none;gap:4px;max-width:none;right:calc(16px + var(--safe-r))}
+  .brand.huge{font-size:min(10vw,16vh);flex-direction:row;gap:.25em}
+  .tagline{display:none}
+  .menu{display:grid;grid-template-columns:repeat(2,minmax(0,250px));gap:6px;margin-top:6px}
+  .mi{min-width:0;padding:6px 12px}
+  .mi span{font-size:min(19px,5.4vh)}
+  .mi small{font-size:10px;letter-spacing:.08em}
+  .fs-title{top:auto;bottom:calc(34px + var(--safe-b))}
+}
+@media (max-height:300px){ .mi small{display:none} .title-ticker{display:none} .fs-title{bottom:calc(8px + var(--safe-b))} }
+
 </style>
 </head>
 <body>
