@@ -229,6 +229,33 @@ body.touch.padui #vitals{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0
 body.touch.padui #killfeed{top:calc(8px + env(safe-area-inset-top,0px));left:calc(102px + env(safe-area-inset-left,0px))}
 body.touch.padui #streakBox{top:calc(60px + env(safe-area-inset-top,0px))}
 
+/* ===== create-a-class (CoD style) ===== */
+body.gunmode #menu{background:linear-gradient(90deg,rgba(3,8,15,.9),rgba(3,8,15,.55) 30%,rgba(3,8,15,0) 50%)}
+#tab-classes .classes{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;background:none!important;border:0!important;padding:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+#slotList button{background:linear-gradient(90deg,rgba(14,28,46,.92),rgba(14,28,46,.7))!important;border:1px solid rgba(160,210,255,.14)!important;border-left:3px solid transparent!important;padding:12px 14px!important;font-size:16px!important;letter-spacing:.04em}
+#slotList button.on{border-left-color:var(--gold)!important;background:linear-gradient(90deg,rgba(60,48,16,.85),rgba(14,28,46,.75))!important}
+#gunView{position:relative;height:clamp(230px,44vh,430px);border:1px solid rgba(160,210,255,.12);border-bottom:2px solid rgba(245,196,81,.55);cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;background:radial-gradient(ellipse at 50% 70%,rgba(245,196,81,.06),transparent 60%)}
+#gunView:active{cursor:grabbing}
+.gvInfo{position:absolute;left:18px;top:14px;max-width:55%;pointer-events:none}
+.gvInfo em{display:block;font-style:normal;font-weight:800;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+.gvInfo b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(26px,3.6vw,48px);line-height:1;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.7)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips span{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(127,200,255,.16);border:1px solid rgba(127,200,255,.35);padding:3px 8px}
+.chips span.cm{background:rgba(245,196,81,.18);border-color:rgba(245,196,81,.5)}.chips span.nil{opacity:.6}
+.gvStats{position:absolute;right:14px;top:14px;width:min(260px,38%);background:rgba(5,10,18,.66);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(160,210,255,.14);padding:10px 12px;pointer-events:none}
+.gvStats h4{margin:0 0 6px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--frost)}.gvStats small{display:block;margin-top:6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.srow{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ice);margin:4px 0}
+.srow i{position:relative;height:6px;background:rgba(255,255,255,.1)}.srow i b{position:absolute;left:0;top:0;bottom:0;background:#e3f0f9}.srow i u{position:absolute;top:0;bottom:0}.srow i u.up{background:#5cff9a}.srow i u.dn{background:#ff5a6e}
+.gvHint{position:absolute;left:18px;bottom:10px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(227,240,249,.55);pointer-events:none}
+.crow{margin-top:14px}.crow h3{margin:0 0 8px!important}
+.ccards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ccard{position:relative;text-align:left;color:#fff;background:linear-gradient(180deg,rgba(24,42,64,.92),rgba(10,20,34,.92));border:1px solid rgba(160,210,255,.16);padding:10px 12px 11px;min-height:74px;clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);transition:transform .15s,filter .15s}
+.ccard:hover,.ccard.padfocus{transform:translateY(-2px);filter:brightness(1.2);border-color:var(--gold)}.ccard.on{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 18px rgba(245,196,81,.2)}
+.ccard em{display:block;font-style:normal;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}.ccard b{display:block;font-size:17px;margin-top:4px;letter-spacing:.02em}.ccard span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.ccard.mini{min-height:0;padding:6px 12px;flex:0 0 auto}
+.picker{margin-top:12px;background:linear-gradient(180deg,rgba(14,28,46,.95),rgba(8,18,30,.95));border:1px solid rgba(245,196,81,.45);padding:12px 14px;animation:paneIn .25s both}
+.phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.phead b{font-family:var(--display);font-weight:400;font-size:22px}
+@media (max-height:520px){.gvStats{display:none}#gunView{height:200px}}
+@media (max-width:820px){#tab-classes .classes{grid-template-columns:1fr}#slotList{flex-direction:row!important;overflow-x:auto}#slotList button{flex:0 0 auto}.gvStats{display:none}.gvInfo{max-width:90%}}
 /* ===== gunsmith display ===== */
 #gunStage{position:relative;height:clamp(170px,30vh,280px);margin:-4px 0 6px;background:radial-gradient(ellipse at 50% 60%,rgba(120,170,230,.28),rgba(10,20,34,.0) 65%),linear-gradient(180deg,rgba(6,12,22,.4),rgba(6,12,22,.85));border:1px solid rgba(160,210,255,.15);border-bottom:2px solid rgba(245,196,81,.5);overflow:hidden;touch-action:pan-y}
 #gunStage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:pan-y}
@@ -1909,7 +1936,15 @@ addEventListener('mouseup',e=>{if(e.button===0)mouseL=false;if(e.button===2)mous
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('pointerlockchange',()=>{const was=locked;locked=document.pointerLockElement===cv;if(was&&!locked&&G.running&&!G.paused&&!G.over&&P&&P.alive)pauseGame()});
 document.addEventListener('pointerlockerror',()=>{if(lockClick)lockFailed=true});
-addEventListener('mousemove',e=>{if(!G.running||G.paused||G.over||!P||!P.alive||touchMode)return;if(!locked&&!(lockFailed&&e.buttons))return;const mx=e.movementX||0,my=e.movementY||0;if(Math.abs(mx)>280||Math.abs(my)>280)return; /* drop browser pointer-lock spikes */look(mx,my,.0022)});
+let mouseFree={x:-1,y:-1};
+addEventListener('mousemove',e=>{mouseFree.x=e.clientX;mouseFree.y=e.clientY;mouseFree.t=performance.now();if(!G.running||G.paused||G.over||!P||!P.alive||touchMode||G.veh&&false)return;const mx=e.movementX||0,my=e.movementY||0;if(Math.abs(mx)>280||Math.abs(my)>280)return; /* drop browser pointer-lock spikes */
+  // with the mouse captured this is normal FPS look; without capture (some browsers/embeds block it) every movement still turns you
+  look(mx,my,.0022)});
+// without pointer capture the cursor can hit the screen edge: keep turning while it rests near an edge
+document.addEventListener('mouseleave',()=>{mouseFree.x=-1});addEventListener('blur',()=>{mouseFree.x=-1});
+function edgeTurn(dt){if(locked||touchMode||padActive||!G.running||G.paused||G.over||!P||!P.alive||mouseFree.x<0||performance.now()-(mouseFree.t||0)>1500)return;const W=innerWidth,ex=W*.04;let dx=0;
+  if(mouseFree.x<ex)dx=-(1-mouseFree.x/ex);else if(mouseFree.x>W-ex)dx=1-(W-mouseFree.x)/ex;
+  if(dx)look(dx*dt*900,0,.0022)}
 addEventListener('wheel',e=>{if(G.running&&!G.paused&&P&&P.alive)swapTo(P,1-P.cur)},{passive:true});
 function look(dx,dy,k,touch){swayX=clamp(swayX-dx*.00035,-.05,.05);swayY=clamp(swayY+dy*.00035,-.04,.04);const z=P.w[P.cur].def.zoom||1;const fr=assistNear?.72:1;const s=k*(touch?SETTINGS.tsens:SETTINGS.sens)*fr*lerp(1,SETTINGS.adsMul,P.adsAmt)/(1+(z-1)*P.adsAmt*.8);P.yaw-=dx*s;dy*=SETTINGS.invY?-1:1;P.pitch=clamp(P.pitch-dy*s,-1.45,1.45)}
 
@@ -3397,6 +3432,7 @@ setupBloom();if(MAP)gradeFor(MAP.env);
 (function(){const dep=$('tab-deploy');const L=document.createElement('div');L.className='colL';const R=document.createElement('div');R.className='colR';
   const kids=[...dep.children];dep.classList.add('cols');dep.append(L,R);
   for(const k of kids){if(k.id==='partyBox'||k.id==='chatBox')R.appendChild(k);else L.appendChild(k)}
+  {const tc=$('tab-classes');const cl=tc.querySelector('.classes');if(cl)tc.prepend(cl)}
   $('tQuick').onclick=()=>{sfx('ui');$('deployBtn').click()};$('tCamp').onclick=()=>{sfx('ui');document.querySelector('#tabs [data-tab=campaign]').click()};
   $('tParty').onclick=()=>{sfx('ui');$('partyBox').scrollIntoView({behavior:'smooth',block:'start'});const h=$('hostBtn');if(h&&h.offsetParent)setTimeout(()=>{try{h.focus()}catch(e){};if(padActive)navFocus(h)},250)}})();
 function menuArt(){const m=MAPS[SETTINGS.map]||MAPS.workshop;if(THUMB[SETTINGS.map])$('tQuickBg').style.backgroundImage=`url(${THUMB[SETTINGS.map]})`;
@@ -3484,7 +3520,7 @@ function frame(now){
   if(touchMode){const show=G.running&&!G.over&&!G.paused&&P&&P.alive&&$('voteScr').hidden&&!padActive&&!CUT.on;const tl=$('touch');if(tl.hidden===show){tl.hidden=!show;if(!show)resetTouchState()}}
   if(CUT.on){cutTick(dt);for(const f of lobby.figs)f.visible=false}
   else{if(G.running&&(!G.paused||NET.on)){if(!G.over)update(dt);else{updateParts(dt);updateProjs(dt)}}
-  if(!G.running){menuT+=dt;vm.visible=false;if(TITLE.on){titleTick(dt);for(const f of lobby.figs)f.visible=false}else menuScene(dt)}else for(const f of lobby.figs)f.visible=false}
+  if(!G.running){menuT+=dt;vm.visible=false;if(TITLE.on){gvExit();titleTick(dt);for(const f of lobby.figs)f.visible=false}else if(gvActive())gvScene(dt);else{gvExit();menuScene(dt)}}else{gvExit();for(const f of lobby.figs)f.visible=false}}
   audioTick(dt);
   // snow follows camera
   const cp=camera.position;for(let i=0;i<SNOW_N;i++){let y=snowPos[i*3+1]-dt*snowFall*(1+(i%7)*.12);let x=snowPos[i*3]+Math.sin(now*.0005+i)*dt*.4;if(y<cp.y-6)y+=30;snowPos[i*3+1]=y;snowPos[i*3]=x;
@@ -3561,6 +3597,7 @@ function update(dt){
     e.stepD=(e.stepD||0)+sp*dt;const stride=sp>7.5?2.3:1.75;if(e.stepD>stride){e.stepD=0;if(e.isPlayer||camera.position.distanceToSquared(e.pos)<1600)footstep(e,e.isPlayer?1:Math.min(1,sp/6))}}
   if(G.camp&&G.countdown<=0&&!G.over)campTick(dt);if(G.hub)hubTick(dt);
   updateProjs(dt);updateNades(dt);updateParts(dt);updateGifts(dt);updateSleighs(dt);updateDecals(dt);updateSentries(dt);
+  edgeTurn(dt);
   if(P&&!G.veh)updateCamera(dt);if(G.veh)vm.visible=false;
   $('lowHp').style.opacity=P&&P.alive&&P.hp<P.maxHp*.3?(.55+.25*Math.sin(G.time*7)):0;
   updateHud(dt);if(G.veh)vehHud();
@@ -3689,30 +3726,77 @@ let editSlot=0;
 function renderSlots(){$('slotList').innerHTML=CLASSES.map((c,i)=>`<button class="${i===editSlot?'on':''}" data-i="${i}">${c.name}<small>${PRIMARIES[c.primary].name}</small></button>`).join('')+'<button id="resetCls"><small>Reset all to defaults</small></button>';
   $('slotList').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{editSlot=+b.dataset.i;renderSlots();renderEditor()});
   $('resetCls').onclick=()=>{CLASSES=JSON.parse(JSON.stringify(DEFAULT_CLASSES));store('npo-classes-v1',CLASSES);renderSlots();renderEditor();renderClassPick()}}
+let edPick=null;
+const GS_SLOTS=['Optic','Muzzle','Barrel','Underbarrel','Magazine'];
+const SLOT_ICON={Primary:'🔫',Secondary:'🍬',Equipment:'💣',Perk:'⭐',Optic:'🔭',Muzzle:'🧦',Barrel:'📏',Underbarrel:'✊',Magazine:'❄',Camo:'🎨'};
+function statRows(base,eff){const f=d=>({Damage:Math.min(1,d.dmg*d.pellets/120),'Fire rate':Math.min(1,d.rpm/850),Range:Math.min(1,d.speed/175),Accuracy:clamp(1-d.spread*14,0,1),Mobility:clamp((d.mobility-.8)/.27,0,1),Control:clamp(1-(d.rv||.02)*18,0,1)});
+  const A=f(base),B=f(eff);return Object.keys(A).map(k=>{const d=B[k]-A[k];return `<div class="srow"><span>${k}</span><i><b style="width:${(Math.min(A[k],B[k])*100).toFixed(1)}%"></b>${d>.004?`<u class="up" style="left:${(A[k]*100).toFixed(1)}%;width:${(d*100).toFixed(1)}%"></u>`:d<-.004?`<u class="dn" style="left:${(B[k]*100).toFixed(1)}%;width:${(-d*100).toFixed(1)}%"></u>`:''}</i></div>`}).join('')}
 function renderEditor(){
-  const c=CLASSES[editSlot];
-  const grp=(title,key,src,stats)=>`<h3>${title}</h3><div class="opts">${Object.entries(src).map(([k,d])=>`<button class="opt ${c[key]===k?'on':''}" data-key="${key}" data-v="${k}"><b>${d.name}</b><span>${d.type?d.type+' · ':''}${d.desc}</span>${stats?statBars(d):''}</button>`).join('')}</div>`;
-  const lv=PROG.lv,lock=n=>lv<n,eff=effDef(c);
-  const attH=`<h3>Gunsmith · attachments ${c.att.length}/3</h3><div class="opts">${Object.entries(ATTACH).map(([k,a])=>`<button class="opt ${c.att.includes(k)?'on':''} ${lock(a.lv)?'locked':''}" data-att="${k}" ${lock(a.lv)?'disabled':''}><b>${a.name}</b><span>${a.slot} · ${lock(a.lv)?'🔒 Unlocks at level '+a.lv:a.desc}</span></button>`).join('')}</div><div class="note" style="margin:6px 0 2px">${esc(PRIMARIES[c.primary].name)} with these attachments:</div>${statBars(eff)}`;
-  const camoH=`<h3>Weapon camo</h3><div class="opts">${Object.entries(CAMOS).map(([k,a])=>`<button class="opt ${c.camo===k?'on':''} ${lock(a.lv)?'locked':''}" data-camo="${k}" ${lock(a.lv)?'disabled':''}><b><i class="sw sw-${k}"></i>${a.name}</b><span>${lock(a.lv)?'🔒 Level '+a.lv:'Unlocked'}</span></button>`).join('')}</div>`;
-  const outH=`<h3>Outfit (all classes)</h3><div class="opts">${Object.entries(OUTFITS).map(([k,a])=>`<button class="opt ${(SETTINGS.outfit||'classic')===k?'on':''} ${lock(a.lv)?'locked':''}" data-outfit="${k}" ${lock(a.lv)?'disabled':''}><b>${a.name}</b><span>${lock(a.lv)?'🔒 Level '+a.lv:'Unlocked'}</span></button>`).join('')}</div>`;
-  const ed=$('editor');const keepStage=$('gunStage');
-  $('editor').innerHTML=`<div id="gunStage"><div class="gsInfo"><em>${esc(PRIMARIES[c.primary].type||'Primary')}</em><b>${esc(PRIMARIES[c.primary].name)}</b><span>${c.att.length?c.att.map(a=>esc(ATTACH[a].name)).join(' · '):'No attachments'}${c.camo&&c.camo!=='none'?' · '+esc(CAMOS[c.camo].name)+' camo':''}</span></div><div class="gsHint">Drag to rotate</div></div><h3>Class name</h3><input type="text" id="clsName" maxlength="22" value="${c.name.replace(/"/g,'&quot;')}">`+grp('Primary','primary',PRIMARIES,true)+attH+camoH+grp('Secondary','secondary',SECONDARIES,true)+grp('Equipment','equip',EQUIPMENT)+grp('Perk','perk',PERKS)+outH;
-  try{gdShow(eff)}catch(e){}
-  $('clsName').oninput=e=>{c.name=e.target.value.trim()||'Custom Class';saveClasses();$('slotList').querySelectorAll('[data-i]')[editSlot].firstChild.textContent=c.name};
-  $('editor').querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+  const c=CLASSES[editSlot];const lv=PROG.lv,lock=n=>lv<n,eff=effDef(c),P0=PRIMARIES[c.primary];
+  const attIn=slot=>c.att.find(a=>ATTACH[a].slot===slot);
+  const card=(slot,val,sub,key,locked)=>`<button class="ccard ${edPick===key?'on':''}" data-pick="${key}"><em>${SLOT_ICON[slot]||''} ${slot}</em><b>${esc(val)}</b>${sub?`<span>${esc(sub)}</span>`:''}</button>`;
+  const gs=GS_SLOTS.map(sl=>{const a=attIn(sl);return card(sl,a?ATTACH[a].name:'None',a?'':'Empty slot','att:'+sl)}).join('');
+  let pickH='';
+  if(edPick){const [kind,arg]=edPick.split(':');let opts=[],title='';
+    if(kind==='primary'){title='Primary weapon';opts=Object.entries(PRIMARIES).map(([k,d])=>({on:c.primary===k,attr:`data-key="primary" data-v="${k}"`,b:d.name,s:(d.type?d.type+' · ':'')+d.desc,stats:statBars(d)}))}
+    if(kind==='secondary'){title='Secondary';opts=Object.entries(SECONDARIES).map(([k,d])=>({on:c.secondary===k,attr:`data-key="secondary" data-v="${k}"`,b:d.name,s:d.desc,stats:statBars(d)}))}
+    if(kind==='equip'){title='Equipment';opts=Object.entries(EQUIPMENT).map(([k,d])=>({on:c.equip===k,attr:`data-key="equip" data-v="${k}"`,b:d.name,s:d.desc}))}
+    if(kind==='perk'){title='Perk';opts=Object.entries(PERKS).map(([k,d])=>({on:c.perk===k,attr:`data-key="perk" data-v="${k}"`,b:d.name,s:d.desc}))}
+    if(kind==='camo'){title='Weapon camo';opts=Object.entries(CAMOS).map(([k,a])=>({on:c.camo===k,attr:`data-camo="${k}"`,locked:lock(a.lv),b:`<i class="sw sw-${k}"></i>${a.name}`,s:lock(a.lv)?'🔒 Unlocks at level '+a.lv:'Unlocked'}))}
+    if(kind==='att'){title=arg;opts=[{on:!attIn(arg),attr:`data-attnone="${arg}"`,b:'None',s:'Leave this slot empty'}].concat(Object.entries(ATTACH).filter(([k,a])=>a.slot===arg).map(([k,a])=>({on:c.att.includes(k),attr:`data-att="${k}"`,locked:lock(a.lv),b:a.name,s:lock(a.lv)?'🔒 Unlocks at level '+a.lv:a.desc})))}
+    if(kind==='outfit'){title='Outfit (all classes)';opts=Object.entries(OUTFITS).map(([k,a])=>({on:(SETTINGS.outfit||'classic')===k,attr:`data-outfit="${k}"`,locked:lock(a.lv),b:a.name,s:lock(a.lv)?'🔒 Level '+a.lv:'Unlocked'}))}
+    pickH=`<div class="picker"><div class="phead"><b>${esc(title)}</b><button class="btn" id="pickClose">Done</button></div><div class="opts">${opts.map(o=>`<button class="opt ${o.on?'on':''} ${o.locked?'locked':''}" ${o.attr} ${o.locked?'disabled':''}><b>${o.b}</b><span>${o.s}</span>${o.stats||''}</button>`).join('')}</div></div>`}
+  $('editor').innerHTML=`<div id="gunView"><div class="gvInfo"><em>${esc(P0.type||'Primary')} · ${esc(c.name)}</em><b>${esc(P0.name)}</b><div class="chips">${c.att.map(a=>`<span>${esc(ATTACH[a].name)}</span>`).join('')}${c.camo&&c.camo!=='none'?`<span class="cm">${esc(CAMOS[c.camo].name)}</span>`:''}${!c.att.length&&(!c.camo||c.camo==='none')?'<span class="nil">Stock · no attachments</span>':''}</div></div>
+      <div class="gvStats"><h4>Weapon stats</h4>${statRows(P0,eff)}<small>${c.att.length}/3 attachments</small></div><div class="gvHint">Drag to inspect</div></div>
+    <div class="crow"><h3>Loadout</h3><div class="ccards">${card('Primary',P0.name,P0.type,'primary')}${card('Secondary',SECONDARIES[c.secondary].name,'','secondary')}${card('Equipment',EQUIPMENT[c.equip].name,'','equip')}${card('Perk',PERKS[c.perk].name,'','perk')}</div></div>
+    <div class="crow"><h3>Gunsmith · ${c.att.length}/3</h3><div class="ccards">${gs}${card('Camo',CAMOS[c.camo||'none'].name,'','camo')}</div></div>
+    ${pickH}
+    <div class="crow small"><h3>Class name</h3><div class="mprow"><input type="text" id="clsName" maxlength="22" value="${c.name.replace(/"/g,'&quot;')}"><button class="ccard mini" data-pick="outfit"><em>🧝 Outfit</em><b>${esc((OUTFITS[SETTINGS.outfit||'classic']||{}).name||'Classic')}</b></button></div></div>`;
+  gvSet(eff);gvBind();
+  $('clsName').oninput=e=>{c.name=e.target.value.trim()||'Custom Class';saveClasses();const sb=$('slotList').querySelectorAll('[data-i]')[editSlot];if(sb)sb.firstChild.textContent=c.name};
+  $('editor').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{sfx('ui');edPick=edPick===b.dataset.pick?null:b.dataset.pick;renderEditor();const p=$('editor').querySelector('.picker');if(p)p.scrollIntoView({block:'nearest',behavior:'smooth'})});
+  const pc=$('pickClose');if(pc)pc.onclick=()=>{edPick=null;renderEditor()};
+  $('editor').querySelectorAll('.picker .opt').forEach(b=>b.onclick=()=>{
     if(b.dataset.att){const k=b.dataset.att;if(c.att.includes(k))c.att=c.att.filter(x=>x!==k);else{c.att=c.att.filter(x=>ATTACH[x].slot!==ATTACH[k].slot);c.att.push(k);if(c.att.length>3)c.att.shift()}}
+    else if(b.dataset.attnone){c.att=c.att.filter(x=>ATTACH[x].slot!==b.dataset.attnone)}
     else if(b.dataset.camo)c.camo=b.dataset.camo;
     else if(b.dataset.outfit){SETTINGS.outfit=b.dataset.outfit;saveSettings();lobby.key=''}
     else c[b.dataset.key]=b.dataset.v;
-    saveClasses();renderEditor();renderSlots();lobby.key='';if(NET.on){pushPresence();partyDirty=true}});
+    sfx('swap');saveClasses();renderEditor();renderSlots();lobby.key='';if(NET.on){pushPresence();partyDirty=true}});
 }
+/* ===== gun showcase: drawn by the main renderer in a dark studio set, framed into the #gunView window ===== */
+const GV={key:'',ang:.6,spin:0,pop:0,drag:null,gun:null,on:false};
+const STUDIO=new THREE.Group();STUDIO.position.set(0,400,0);scene.add(STUDIO);STUDIO.visible=false;
+(function(){const c=document.createElement('canvas');c.width=16;c.height=256;const g=c.getContext('2d');const gr=g.createLinearGradient(0,0,0,256);gr.addColorStop(0,'#05080e');gr.addColorStop(.45,'#101c2c');gr.addColorStop(.55,'#162538');gr.addColorStop(1,'#04070c');g.fillStyle=gr;g.fillRect(0,0,16,256);
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;const dome=new THREE.Mesh(new THREE.SphereGeometry(8,32,16),new THREE.MeshBasicMaterial({map:t,side:THREE.BackSide,fog:false}));STUDIO.add(dome);
+  const floor=new THREE.Mesh(CIRCLE,new THREE.MeshBasicMaterial({color:0x1d3550,transparent:true,opacity:.55,fog:false,depthWrite:false}));floor.rotation.x=-Math.PI/2;floor.position.y=-.32;floor.scale.setScalar(1.6);STUDIO.add(floor);
+  const glowR=new THREE.Mesh(new THREE.RingGeometry(.98,1,64),new THREE.MeshBasicMaterial({color:0xf5c451,transparent:true,opacity:.5,fog:false}));glowR.rotation.x=-Math.PI/2;glowR.position.y=-.315;STUDIO.add(glowR);
+  GV.turn=new THREE.Group();STUDIO.add(GV.turn);
+  GV.key1=new THREE.PointLight(0xfff0dc,0,6,2);GV.key1.position.set(1.1,1.2,1.5);GV.rim=new THREE.PointLight(0x7fc8ff,0,6,2);GV.rim.position.set(-1.6,.5,-1.2);GV.fill=new THREE.PointLight(0xffb070,0,5,2);GV.fill.position.set(-.6,-.4,1.4);
+  STUDIO.add(GV.key1,GV.rim,GV.fill)})();
+function gvSet(def){const key=JSON.stringify([def.key,def.att,def.camo]);if(key===GV.key)return;GV.key=key;if(GV.gun)GV.turn.remove(GV.gun);
+  const g=buildGun(def,false);const bb=new THREE.Box3().setFromObject(g),sz=bb.getSize(new THREE.Vector3()),ctr=bb.getCenter(new THREE.Vector3());g.position.sub(ctr);
+  const w=new THREE.Group();w.add(g);w.scale.setScalar(1/Math.max(sz.z,.25));GV.turn.add(w);GV.gun=w;GV.pop=1;GV.spin=1.4}
+function gvBind(){const v=$('gunView');if(!v||v._b)return;v._b=1;
+  v.addEventListener('pointerdown',e=>{GV.drag={x:e.clientX,y:e.clientY,a:GV.ang};try{v.setPointerCapture(e.pointerId)}catch(x){}});
+  v.addEventListener('pointermove',e=>{if(GV.drag){GV.ang=GV.drag.a+(e.clientX-GV.drag.x)*.012;GV.spin=0}});
+  const up=()=>{GV.drag=null};v.addEventListener('pointerup',up);v.addEventListener('pointercancel',up)}
+function gvActive(){if($('menu').hidden||TITLE.on||CUT.on)return false;const t=$('tab-classes'),v=$('gunView');return !!(t&&!t.hidden&&v&&v.getClientRects().length)}
+function gvScene(dt){const v=$('gunView');const r=v.getBoundingClientRect();if(!GV.on){GV.on=true;STUDIO.visible=true;snowPts.visible=false;GV.key1.intensity=2.2;GV.rim.intensity=2.6;GV.fill.intensity=.9;document.body.classList.add('gunmode');for(const f of lobby.figs)f.visible=false}
+  if(!GV.drag)GV.ang+=dt*(.4+GV.spin*3);GV.spin=Math.max(0,GV.spin-dt*1.5);GV.pop=Math.max(0,GV.pop-dt*3);const t=performance.now()*.001;
+  GV.turn.rotation.set(-.1+Math.sin(t*.7)*.035,GV.ang,Math.sin(t*.5)*.03);GV.turn.position.y=Math.sin(t*1.3)*.012;GV.turn.scale.setScalar(1+Math.sin(GV.pop*Math.PI)*.07);
+  // frame the gun into the #gunView rectangle: shift the projection centre there and pick a distance that fills ~70% of its width
+  const W=innerWidth,H=innerHeight,cx=r.left+r.width*.5,cy=r.top+r.height*.52;camera.fov=34;camera.aspect=W/H;
+  const wantFrac=Math.min(r.width*.62,r.height*1.9)/W,dist=1/(wantFrac*2*Math.tan(camera.fov*Math.PI/360)*camera.aspect);
+  camera.position.set(STUDIO.position.x,STUDIO.position.y+dist*.12,STUDIO.position.z+dist);camera.lookAt(STUDIO.position.x,STUDIO.position.y,STUDIO.position.z);
+  camera.setViewOffset(W,H,W/2-cx,H/2-cy,W,H);camera.updateProjectionMatrix()}
+function gvExit(){if(!GV.on)return;GV.on=false;STUDIO.visible=false;snowPts.visible=true;GV.key1.intensity=GV.rim.intensity=GV.fill.intensity=0;camera.clearViewOffset();camera.updateProjectionMatrix();document.body.classList.remove('gunmode');lobby.key=''}
 function renderStreakPick(){const cur=SETTINGS.streaks||['recon','sleigh','blizzard'];
   $('streakPick').innerHTML=ALL_STREAKS.map(s=>`<button class="opt ${cur.includes(s.id)?'on':''}" data-id="${s.id}"><b>${s.name} · ${s.n} kills</b><span>${s.desc}</span></button>`).join('');
   $('streakPick').querySelectorAll('.opt').forEach(b=>b.onclick=()=>{let c=(SETTINGS.streaks||['recon','sleigh','blizzard']).slice();const id=b.dataset.id;
     if(c.includes(id)){if(c.length>1)c=c.filter(x=>x!==id)}else{c.push(id);if(c.length>3)c.shift()}SETTINGS.streaks=c;saveSettings();setStreaks();renderStreakPick()})}
 function saveClasses(){store('npo-classes-v1',CLASSES);renderClassPick()}
-$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('tabs').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));for(const t of ['deploy','classes','campaign','controls']){const el=$('tab-'+t),show=t===b.dataset.tab;if(show&&el.hidden){el.classList.remove('tabpane-in');void el.offsetWidth;el.classList.add('tabpane-in')}el.hidden=!show}if(b.dataset.tab==='classes')setTimeout(()=>{try{gdShow(effDef(CLASSES[editSlot]))}catch(e){}},30)});
+$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('tabs').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));for(const t of ['deploy','classes','campaign','controls']){const el=$('tab-'+t),show=t===b.dataset.tab;if(show&&el.hidden){el.classList.remove('tabpane-in');void el.offsetWidth;el.classList.add('tabpane-in')}el.hidden=!show}});
 for(const k of ['fireAds','leftFire']){$(k).checked=!!SETTINGS[k];$(k).onchange=e=>{SETTINGS[k]=e.target.checked;saveSettings();document.body.classList.toggle('noLeftFire',!SETTINGS.leftFire)}}document.body.classList.toggle('noLeftFire',!SETTINGS.leftFire);
 
 bindSeg('aimSeg','aim');
