@@ -402,6 +402,33 @@ async function waitForText(p, testid, expected, timeout = 15000) {
     return `A sees 17.0, B has ${bAct.data.workouts.length} workouts, league intact; sign-out invalidates session`;
   });
 
+  await step("Commissioner deletes the league; member deletes their account", async () => {
+    const A3 = await newPlayer(browser, "A3");
+    const B3 = await newPlayer(browser, "B3");
+    await signIn(A3, emails.a);
+    await signIn(B3, emails.b);
+    const leagueName = (await apiCall(A3, "GET", `/api/leagues/${leagueId}`)).data.league.name;
+    await A3.page.goto("/league/manage");
+    await A3.page.click("[data-testid=delete-league]");
+    await A3.page.fill("[data-testid=delete-league-name]", leagueName);
+    await A3.page.click("[data-testid=delete-league-confirm]");
+    await A3.page.waitForURL(/\/(home|onboarding)/);
+    const gone = await apiCall(B3, "GET", `/api/leagues/${leagueId}`);
+    assert(gone.status === 404, `league still visible to member: ${gone.status}`);
+    // B deletes their account through Profile.
+    await B3.page.goto("/profile");
+    await B3.page.click("[data-testid=delete-account]");
+    await B3.page.fill("[data-testid=delete-account-password]", "correct-horse-42");
+    await B3.page.click("[data-testid=delete-account-confirm]");
+    await B3.page.waitForURL((u) => new URL(u).pathname === "/");
+    const after = await apiCall(B3, "GET", "/api/me");
+    const relog = await apiCall(A3, "POST", "/api/auth/signin", { email: emails.b, password: "correct-horse-42" });
+    await A3.ctx.close(); await B3.ctx.close();
+    assert(after.status === 401, `deleted user still signed in: ${after.status}`);
+    assert(relog.status === 401, `deleted user can sign in: ${relog.status}`);
+    return "league deleted (member now gets 404); account deleted, signed out, can't sign back in";
+  });
+
   await browser.close();
   const summary = { base: BASE, ranAt: new Date().toISOString(), passed: results.filter((r) => r.ok).length, failed, results };
   fs.writeFileSync(path.join(OUT, "results.json"), JSON.stringify(summary, null, 2));

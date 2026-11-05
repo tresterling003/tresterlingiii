@@ -22,6 +22,7 @@ export function TrashTalk({ s, compact }: { s: LeagueSnapshot; compact?: boolean
   const listRef = useRef<HTMLDivElement>(null);
   const msgs = compact ? s.messages.slice(-3) : s.messages;
   const lastId = s.messages[s.messages.length - 1]?.id;
+  const isComm = s.league.commissionerId === s.me;
 
   useEffect(() => {
     const el = listRef.current;
@@ -71,9 +72,9 @@ export function TrashTalk({ s, compact }: { s: LeagueSnapshot; compact?: boolean
                   <p className="whitespace-pre-wrap break-words text-sm">{m.body}</p>
                   <p className={clsx("mt-0.5 text-[10px]", mine ? "text-lime-ink/60" : "text-fg-faint")}>{timeAgo(m.createdAt)}</p>
                 </div>
-                {mine && !compact && (
-                  <button onClick={() => remove(m.id)} aria-label="Delete message"
-                    className="focus-ring rounded-sm p-1 text-fg-faint opacity-0 transition-opacity hover:text-fg group-hover:opacity-100 focus:opacity-100">
+                {(mine || isComm) && !compact && (
+                  <button onClick={() => (mine || confirm(`Delete this message from ${mem?.teamName ?? "this player"}?`)) && remove(m.id)} aria-label="Delete message"
+                    className="focus-ring rounded-sm p-1 text-fg-faint opacity-60 transition-opacity hover:text-fg sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
