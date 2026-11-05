@@ -983,7 +983,15 @@ const sun=new THREE.DirectionalLight(C(0xfff0dc),HIGH?1.9:1.25);
 sun.position.set(40,70,25);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-62,right:62,top:62,bottom:-62,near:10,far:220});sun.shadow.bias=-.0008;
 scene.add(sun);scene.add(sun.target);
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+// Keep the 3D view the exact size of the screen. Phones (iOS especially) can miss or misreport resize events on rotation,
+// which left the picture smaller than the screen and the crosshair off the gun's aim point, so this also runs every frame.
+const VIEW_SZ={w:0,h:0};
+function fitView(force){const v=document.getElementById('view');const w=Math.round((v&&v.clientWidth)||innerWidth),h=Math.round((v&&v.clientHeight)||innerHeight);
+  if(!force&&w===VIEW_SZ.w&&h===VIEW_SZ.h||!w||!h)return;VIEW_SZ.w=w;VIEW_SZ.h=h;
+  camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);renderer.domElement.style.width='100%';renderer.domElement.style.height='100%';
+  try{if(composer)composer.setSize(w,h)}catch(e){}try{if(touchSetup)layoutTouch()}catch(e){}}
+addEventListener('resize',()=>fitView());addEventListener('orientationchange',()=>{fitView();setTimeout(()=>fitView(true),350)});
+if(window.visualViewport)visualViewport.addEventListener('resize',()=>fitView());
 
 const BOX=new THREE.BoxGeometry(1,1,1),SPH=new THREE.SphereGeometry(1,16,12),CYL=new THREE.CylinderGeometry(1,1,1,14),CONE=new THREE.ConeGeometry(1,1,10),PLANE=new THREE.PlaneGeometry(1,1),CIRCLE=new THREE.CircleGeometry(1,56),ICO=new THREE.IcosahedronGeometry(1,0),DODE=new THREE.DodecahedronGeometry(1,0);
 const ROOF=new THREE.ConeGeometry(.7071,1,4);ROOF.rotateY(Math.PI/4);
@@ -3410,13 +3418,13 @@ const GradeShader={uniforms:{tDiffuse:{value:null},uTime:{value:0},uVig:{value:.
       float l=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(l),c,uSat);c=(c-.5)*uCon+.5;c=c*uGain+uLift*(1.-c);
       vec2 q=vUv-.5;c*=1.-uVig*dot(q,q)*2.2;c+=(h(vUv*999.)-.5)*uGrain;gl_FragColor=vec4(clamp(c,0.,1.),1.);}`};
 function setupBloom(){if(composer||!THREE.EffectComposer||SETTINGS.bloom==='off')return;
-  try{const pr=renderer.getPixelRatio(),w=innerWidth,h=innerHeight;let rt=null;
+  try{const pr=renderer.getPixelRatio(),w=VIEW_SZ.w||innerWidth,h=VIEW_SZ.h||innerHeight;let rt=null;
     if(renderer.capabilities.isWebGL2&&THREE.WebGLMultisampleRenderTarget){rt=new THREE.WebGLMultisampleRenderTarget(w*pr,h*pr,{format:THREE.RGBAFormat,type:THREE.HalfFloatType});rt.samples=HIGH?4:2}
     composer=rt?new THREE.EffectComposer(renderer,rt):new THREE.EffectComposer(renderer);composer.setPixelRatio(pr);composer.setSize(w,h);composer.addPass(new THREE.RenderPass(scene,camera));
     if(HIGH&&THREE.UnrealBloomPass){bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(w/2,h/2),.5,.5,.88);composer.addPass(bloomPass)}
     gradePass=new THREE.ShaderPass(GradeShader);composer.addPass(gradePass);
     if(!rt&&THREE.SMAAPass){composer.addPass(new THREE.SMAAPass(w*pr,h*pr))}
-    addEventListener('resize',()=>{if(composer){composer.setSize(innerWidth,innerHeight)}})}catch(e){console.log('postfx off',e);composer=null}}
+    fitView(true)}catch(e){console.log('postfx off',e);composer=null}}
 function gradeFor(env){if(!gradePass||!env)return;const u=gradePass.uniforms;const night=env.stars>.8,storm=env.snowfall>.8;
   u.uSat.value=storm?1.0:night?1.08:1.14;u.uCon.value=night?1.1:1.06;u.uVig.value=night?.42:.3;
   const t=new THREE.Color(env.sun);u.uGain.value.set(.94+t.r*.08,.94+t.g*.08,.94+t.b*.08);u.uLift.value.set(night?.0:.012,night?.006:.006,night?.03:.014)}
@@ -3510,7 +3518,7 @@ $('vSkip').onclick=()=>{if(VOTE.local&&!VOTE.done)VOTE.t=Math.min(VOTE.t,.01)};
 $('vLeave').onclick=()=>{closeVote();if(NET.on&&NET.isHost){NET.cfg.st='lobby';pushPresence()}renderParty()};
 /* ================= MAIN LOOP ================= */
 let last=performance.now(),menuT=0,ftAvg=16,prT=0,mmT=0,chGap=-1;
-function frame(now){
+function frame(now){fitView();
   requestAnimationFrame(frame);
   const rawMs=now-last;let dt=Math.min(.05,rawMs/1000);last=now;sfxCount=0;
   pollPad(dt);
