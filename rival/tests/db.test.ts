@@ -716,3 +716,76 @@ describe("commissioner reset links and feedback", () => {
     expect(rows.rows).toEqual([{ kind: "idea", body: "Add a rowing type" }]);
   });
 });
+
+// ---------------------------------------------------------------------------
+describe("deleting leagues, accounts and messages", () => {
+  it("only the commissioner deletes a league, with the exact name, and everything cascades", async () => {
+    const a = await db.signup(); const b = await db.signup();
+    const L = await league(a);
+    await join(b, L.code);
+    await db.as(a, "select start_season($1, 'this_week')", [L.id]);
+    await db.as(b, "select post_message($1, 'hi')", [L.id]);
+    await db.log(b, "run", TODAY, { min: 15 });
+    await expectFail(db.as(b, "select delete_league($1, 'Test League')", [L.id]), "forbidden");
+    await expectFail(db.as(a, "select delete_league($1, 'Wrong Name')", [L.id]), "confirm");
+    await db.as(a, "select delete_league($1, '  test league ')", [L.id]);
+    const left = await db.owner.query(
+      `select (select count(*) from leagues where id = $1)::int l, (select count(*) from matchups where league_id = $1)::int m,
+              (select count(*) from league_members where league_id = $1)::int lm, (select count(*) from league_messages where league_id = $1)::int msg`,
+      [L.id]);
+    expect(left.rows[0]).toEqual({ l: 0, m: 0, lm: 0, msg: 0 });
+    // Workouts belong to people, not leagues.
+    expect(await db.as(b, "select id from workouts")).toHaveLength(1);
+  });
+
+  it("commissioner can delete any message in their league; members only their own", async () => {
+    const a = await db.signup(); const b = await db.signup(); const c = await db.signup();
+    const L = await league(a);
+    await join(b, L.code); await join(c, L.code);
+    const [{ id }] = await db.as(b, "select post_message($1, 'spam') as id", [L.id]);
+    await expectFail(db.as(c, "select delete_message($1)", [id]), "not_found");
+    await db.as(a, "select delete_message($1)", [id]);
+    expect(await db.as(c, "select * from league_messages where league_id = $1", [L.id])).toHaveLength(0);
+  });
+
+  it("deleting an account erases personal data, hands off leagues, and keeps rivals' history", async () => {
+    const a = await db.signup({ name: "Alex" }); const b = await db.signup(); const c = await db.signup();
+    const L = await league(a, { weeks: 2 });           // a commissions L with b and c
+    await join(b, L.code); await join(c, L.code);
+    const solo = await league(a);                      // a alone in this one
+    await db.as(a, "select start_season($1, 'this_week')", [L.id]);
+    await db.log(a, "run", TODAY, { min: 30 });
+    await db.as(a, "select post_message($1, 'bye')", [L.id]);
+    await db.as(a, "select set_avatar($1, 'image/jpeg')", [Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(200)])]);
+    const [{ email }] = await db.as(a, "select email from my_account()");
+    await db.as(null, "select auth_create_session($1, $2, 'x')", [a, "e".repeat(64)]);
+
+    await db.as(a, "select delete_account()");
+
+    // Can't sign in or use old sessions; email is free to reuse.
+    expect(await db.as(null, "select * from auth_lookup($1)", [email])).toHaveLength(0);
+    expect((await db.as(null, "select auth_session_user($1) as u", ["e".repeat(64)]))[0].u).toBeNull();
+    await db.as(null, "select auth_signup($1, 'x', 'New', 'New Team', 'NEW', '#C8FF3D', 'UTC')", [email]);
+    // Personal data gone.
+    const o = await db.owner.query(
+      `select (select count(*) from workouts where user_id = $1)::int w, (select count(*) from league_messages where user_id = $1)::int m,
+              (select count(*) from user_avatars where user_id = $1)::int av, (select count(*) from user_credentials where user_id = $1)::int cr,
+              (select display_name from users where id = $1) dn, (select deleted_at is not null from users where id = $1) del`, [a]);
+    expect(o.rows[0]).toEqual({ w: 0, m: 0, av: 0, cr: 0, dn: "Former player", del: true });
+    // Leagues: the shared one passes to the longest-standing member; the solo one is gone.
+    const [lg] = await db.as(b, "select commissioner_id from leagues where id = $1", [L.id]);
+    expect(lg.commissioner_id).toBe(b);
+    expect((await db.owner.query("select count(*)::int n from leagues where id = $1", [solo.id])).rows[0].n).toBe(0);
+    // The current matchup is a forfeit for a's opponent once final.
+    await db.setClock("2026-11-10T18:00:00Z");
+    try {
+      await db.as(b, "select rival_advance_league($1)", [L.id]);
+      const ms = await db.as(b, "select * from matchups where league_id = $1 and week = 1 and (home_id = $2 or away_id = $2)", [L.id, a]);
+      if (ms.length && ms[0].away_id) expect(ms[0].winner_id).not.toBe(a);
+      const st = await db.as(b, "select user_id from league_standings($1)", [L.id]);
+      expect(st.map((r) => r.user_id)).not.toContain(a);
+    } finally {
+      await db.setClock(WED);
+    }
+  });
+});
