@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
-import { ChevronLeft, Copy, KeyRound, RefreshCw, Share2 } from "lucide-react";
+import { ChevronLeft, Copy, KeyRound, RefreshCw, Share2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Sheet } from "@/components/ui/sheet";
 import { useApp } from "@/components/league-context";
 import { PageError, PageHeader, PageSkeleton } from "@/components/page";
@@ -238,6 +239,49 @@ function SeasonControls({ s, onSaved }: { s: LeagueSnapshot; onSaved: () => void
   );
 }
 
+function DangerZone({ s }: { s: LeagueSnapshot }) {
+  const toast = useToast();
+  const router = useRouter();
+  const { mutate } = useSWRConfig();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const matches = name.trim().toLowerCase() === s.league.name.trim().toLowerCase();
+  async function del() {
+    setBusy(true);
+    try {
+      await api("DELETE", `/api/leagues/${s.league.id}`, { confirmName: name });
+      try { localStorage.removeItem("rival.league"); } catch {}
+      await mutate("/api/me");
+      toast({ kind: "success", title: `${s.league.name} deleted` });
+      router.replace("/home");
+    } catch (e) {
+      toast({ kind: "error", title: "Couldn't delete league", body: e instanceof ApiError ? e.message : undefined });
+      setBusy(false);
+    }
+  }
+  const others = s.members.filter((m) => m.active && m.id !== s.me).length;
+  return (
+    <section className="panel border-danger/30 p-4 sm:p-6">
+      <SectionHeader title="Danger zone" />
+      <p className="text-sm text-fg-muted">
+        Permanently delete <span className="font-semibold text-fg">{s.league.name}</span>: schedule, results, standings, champion history and chat.
+        {others > 0 && ` All ${others} other member${others === 1 ? "" : "s"} lose access immediately.`} Workouts stay on each person&rsquo;s own account.
+      </p>
+      <Button variant="danger" className="mt-4" icon={<Trash2 className="h-4 w-4" />} onClick={() => { setName(""); setOpen(true); }} data-testid="delete-league">
+        Delete league
+      </Button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Delete league?">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-fg-muted">This can&rsquo;t be undone. Type <span className="font-semibold text-fg">{s.league.name}</span> to confirm.</p>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={s.league.name} aria-label="League name" data-testid="delete-league-name" autoComplete="off" />
+          <Button variant="danger" block loading={busy} disabled={!matches} onClick={del} data-testid="delete-league-confirm">Delete forever</Button>
+        </div>
+      </Sheet>
+    </section>
+  );
+}
+
 export default function ManagePage() {
   const { leagueId } = useApp();
   const { mutate: mutateAll } = useSWRConfig();
@@ -258,7 +302,10 @@ export default function ManagePage() {
           <SeasonControls s={s} onSaved={refresh} />
           <MembersAdmin s={s} onSaved={refresh} />
         </div>
-        <ScoringEditor s={s} onSaved={refresh} />
+        <div className="flex flex-col gap-6">
+          <ScoringEditor s={s} onSaved={refresh} />
+          <DangerZone s={s} />
+        </div>
       </div>
     </div>
   );

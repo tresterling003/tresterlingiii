@@ -3,7 +3,8 @@ import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
-import { Bug, Camera, Check, Heart, Lightbulb, LogOut, Plus, ShieldCheck, Smartphone, Watch } from "lucide-react";
+import { Bug, Camera, Check, Heart, Lightbulb, LogOut, Plus, ShieldCheck, Smartphone, Trash2, Watch } from "lucide-react";
+import { Sheet } from "@/components/ui/sheet";
 import { InstallCard } from "@/components/pwa";
 import { Segmented } from "@/components/ui/form";
 import { useApp } from "@/components/league-context";
@@ -326,6 +327,54 @@ function Account() {
   );
 }
 
+function DeleteAccount() {
+  const { me } = useApp();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const commish = me!.leagues.filter((l) => l.role === "commissioner");
+  async function del() {
+    setBusy(true); setError(null);
+    try {
+      await api("POST", "/api/me/delete", { password: pw });
+      try { localStorage.clear(); } catch {}
+      router.replace("/");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't delete your account.");
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel border-danger/30 p-4 sm:p-6">
+      <SectionHeader title="Delete account" />
+      <p className="text-sm text-fg-muted">Erase your account and everything personal in it. Past results against you still count for your rivals, shown as &ldquo;Former player&rdquo;.</p>
+      <Button variant="danger" className="mt-4" icon={<Trash2 className="h-4 w-4" />} onClick={() => { setPw(""); setError(null); setOpen(true); }} data-testid="delete-account">
+        Delete my account
+      </Button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Delete your account?">
+        <div className="flex flex-col gap-4 text-sm">
+          <ul className="list-disc space-y-1 pl-5 text-fg-muted">
+            <li>Your workouts, photo, goals, plans and chat messages are deleted.</li>
+            <li>You leave every league; this week&rsquo;s matchups count as forfeits.</li>
+            {commish.length > 0 && (
+              <li>Leagues you run ({commish.map((l) => l.name).join(", ")}) pass to the longest-standing member, or are deleted if you&rsquo;re the only one in them.</li>
+            )}
+            <li>This can&rsquo;t be undone.</li>
+          </ul>
+          <Field label="Enter your password to confirm" htmlFor="delpw">
+            <Input id="delpw" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} data-testid="delete-account-password" />
+          </Field>
+          {error && <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-danger">{error}</p>}
+          <Button variant="danger" block loading={busy} disabled={!pw} onClick={del} data-testid="delete-account-confirm">Delete my account forever</Button>
+        </div>
+      </Sheet>
+    </section>
+  );
+}
+
 export default function ProfilePage() {
   const { me } = useApp();
   if (!me) return <PageSkeleton />;
@@ -334,7 +383,7 @@ export default function ProfilePage() {
       <PageHeader eyebrow="Profile" title={me.account.team_name} />
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6"><TeamIdentity /><Goals /><Leagues /></div>
-        <div className="flex flex-col gap-6"><InstallCard /><Feedback /><Privacy /><Devices /><Account /></div>
+        <div className="flex flex-col gap-6"><InstallCard /><Feedback /><Privacy /><Devices /><Account /><DeleteAccount /></div>
       </div>
       <p className="mt-8 text-center text-xs text-fg-faint">RIVAL v1.0 · Every Move Counts. Every Week Matters.</p>
     </div>
