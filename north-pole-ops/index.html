@@ -222,6 +222,19 @@ body.touch.padui #vitals{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0
 body.touch.padui #killfeed{top:calc(8px + env(safe-area-inset-top,0px));left:calc(102px + env(safe-area-inset-left,0px))}
 body.touch.padui #streakBox{top:calc(60px + env(safe-area-inset-top,0px))}
 #cine{position:fixed;inset:0;z-index:60;pointer-events:none}
+#radio{position:fixed;z-index:12!important;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translate(-50%,-6px);max-width:min(620px,78vw);background:linear-gradient(90deg,rgba(6,14,24,.88),rgba(6,14,24,.7));border-left:3px solid var(--gold);padding:7px 14px 8px;border-radius:4px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-align:left}
+#radio.on{opacity:1;transform:translate(-50%,0)}
+#radio b{display:block;font-family:var(--hud);font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:11px}
+#radio span{font-family:var(--hud);font-weight:600;font-size:16px;color:#fff;line-height:1.2}
+#vehHud{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(360px,70vw);z-index:20;pointer-events:none;font-family:var(--hud)}
+body.touch #vehHud{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}
+#vehHud .vrow{display:flex;align-items:center;gap:8px;margin-bottom:4px}#vehHud label{width:96px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ice);text-align:right}
+#vehHud .vbar{flex:1;height:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);border-radius:4px;overflow:hidden}#vehHud .vbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd23d,#ff7a3d)}
+#vehHud .vbar i.hot{background:#ff3b4e}#vehHud .vbar.hp i{background:linear-gradient(90deg,#3dff7a,#9fe0ff)}
+#vhFlare{text-align:center;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}#vhFlare.ready{color:var(--gold)}
+body.cine #radio{display:none}
+body.veh #ammoBox,body.veh #streakBox,body.veh #vitals,body.veh #tbReload,body.veh #tbSwap,body.veh #tbCrouch,body.veh #tbNade,body.veh #tbMelee,body.veh #tbAds,body.veh #dpad{display:none!important}
+body.veh #tbJump .g::after{content:''}
 #cine .lb{position:absolute;left:0;right:0;height:0;background:#000;animation:lbIn .7s cubic-bezier(.2,.7,.2,1) forwards}
 #cine .lb.top{top:0}#cine .lb.bot{bottom:0}
 @keyframes lbIn{to{height:11vh}}
@@ -603,6 +616,7 @@ body.camp #topbar{display:none}
       <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="fireAds"> Phones: holding Throw also aims down sights (steadier shots without a second finger)</label>
       <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="leftFire"> Phones: extra Throw button on the left, so you can fire with your left thumb while your right thumb aims</label>
       <h3>Sound</h3>
+      <div class="seg" id="voSeg"><button data-v="on">Character voices on</button><button data-v="off">Voices off (subtitles only)</button></div>
       <div class="ctl" style="align-items:center"><span>Master</span><input type="range" id="volMaster" min="0" max="1" step="0.05"><span>Music</span><input type="range" id="volMusic" min="0" max="1" step="0.05"><span>Effects</span><input type="range" id="volSfx" min="0" max="1" step="0.05"></div>
       <h3>Graphics</h3>
       <div class="seg" id="gfxSeg"><button data-v="auto">Auto</button><button data-v="high">High</button><button data-v="low">Fast</button></div>
@@ -664,6 +678,8 @@ body.camp #topbar{display:none}
     <p><b>Game</b>Made with three.js (MIT)</p><p><b>Characters &amp; animation</b>Ultimate Animated Character Pack · Quaternius (CC0)</p><p><b>Villages, trees, props</b>Holiday Kit · Kenney (CC0)</p><p><b>Rocks &amp; dead trees</b>Stylized Nature MegaKit · Quaternius (CC0)</p>
     <p><b>Sound</b>Corsica_S, Pyrano, rubberduck, Kenney, starninjas (CC0) · qubodup (CC-BY 3.0)</p><p><b>Music</b>"Cheerful Christmas Time" · Tarush Singhal (CC0)<br>"Carol of the Bells" · bobjt (CC0)</p><p><b>Starring</b>You, and every elf who held the line</p><h3>Merry Christmas</h3></div></div>
   <button id="cineSkip">Skip <span>▸▸</span></button></div>
+<div id="radio"><b></b><span></span></div>
+<div id="vehHud" hidden><div class="vrow"><label>Candy cannon</label><div class="vbar"><i id="vhHeat"></i></div></div><div class="vrow"><label>Sleigh</label><div class="vbar hp"><i id="vhHp"></i></div></div><div id="vhFlare">Jingle Flare ready</div></div>
 <div id="touch" hidden>
   <div id="stickZone"></div>
   <div id="stick"><div id="knob"></div></div>
@@ -742,6 +758,7 @@ const ATTACH={
   grip:{name:'Mitten Grip',slot:'Underbarrel',lv:4,desc:'25% less recoil.',mod:d=>{d.rv*=.75;d.rh*=.75}},
   laser:{name:'Candy Laser',slot:'Underbarrel',lv:6,desc:'30% tighter hip-fire spread.',mod:d=>{d.spread*=.7}},
   extmag:{name:'Extended Hopper',slot:'Magazine',lv:5,desc:'50% more snowballs per load. Slower reload.',mod:d=>{d.mag=Math.ceil(d.mag*1.5);d.reload*=1.12}},
+  hush:{name:'Hush Mitten',slot:'Muzzle',lv:7,desc:'A suppressor (technically a tactical sock). Shots stay quiet, so unaware enemies don\'t hear you. Slightly shorter range.',mod:d=>{d.sup=true;d.range*=.88;d.speed*=.96}},
   quickmag:{name:'Quick-Pack Mag',slot:'Magazine',lv:8,desc:'Reload 30% faster.',mod:d=>{d.reload*=.7}},
 };
 const CAMOS={
@@ -752,7 +769,7 @@ const OUTFITS={classic:{name:'Classic',lv:1,team0:[0x1f8a4c,0xd42a3c],team1:[0xe
 function effDef(c){const d=Object.assign({},PRIMARIES[c.primary]);d.base=d.key;for(const a of (c.att||[]))if(ATTACH[a])ATTACH[a].mod(d);d.att=(c.att||[]).filter(a=>ATTACH[a]);d.camo=CAMOS[c.camo]?c.camo:'none';return d}
 if(!Array.isArray(CLASSES)||CLASSES.length!==5||!CLASSES.every(c=>c&&PRIMARIES[c.primary]&&SECONDARIES[c.secondary]&&EQUIPMENT[c.equip]&&PERKS[c.perk]))CLASSES=JSON.parse(JSON.stringify(DEFAULT_CLASSES));
 for(const c of CLASSES){if(!Array.isArray(c.att))c.att=[];if(!CAMOS[c.camo])c.camo='none'}
-const SETTINGS=Object.assign({tlayout:'pad',crouchMode:'toggle',fov:75,invY:false,taccel:false,psens:1,adsMul:1,fireAds:true,leftFire:true,gfx:'auto',aim:'off',tsens:1,sens:1,cls:1,map:'workshop',mode:'tdm',diff:'normal',size:5},store('npo-settings-v1')||{});
+const SETTINGS=Object.assign({vo:'on',tlayout:'pad',crouchMode:'toggle',fov:75,invY:false,taccel:false,psens:1,adsMul:1,fireAds:true,leftFire:true,gfx:'auto',aim:'off',tsens:1,sens:1,cls:1,map:'workshop',mode:'tdm',diff:'normal',size:5},store('npo-settings-v1')||{});
 function saveSettings(){store('npo-settings-v1',SETTINGS)}
 const BIND_DEF={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',crouch:'KeyC',sprint:'ShiftLeft',reload:'KeyR',melee:'KeyV',grenade:'KeyG',streak:'KeyF',leanL:'KeyQ',leanR:'KeyE',swap:'KeyX',scores:'Tab'};
 const BIND_LABEL={forward:'Move forward',back:'Move back',left:'Strafe left',right:'Strafe right',jump:'Jump',crouch:'Crouch / slide',sprint:'Sprint',reload:'Reload',melee:'Melee (candy cane)',grenade:'Throw equipment',streak:'Killstreak',leanL:'Lean left (peek)',leanR:'Lean right (peek)',swap:'Swap weapon',scores:'Scoreboard'};
@@ -1386,7 +1403,7 @@ function makeModelChar(team,outfit,rig){
 }
 const BLOBMAT=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false});
 function animChar(e,u,sp,dt){
-  let want=!e.alive?'Death':(!e.isPlayer&&!e.remote&&!e.onGround&&e.vel.y>1.5)?'Jump':sp>.7?'Run':'Idle';
+  let want=!e.alive?'Death':(!e.isPlayer&&!e.remote&&!e.onGround&&e.vel.y>1.5)?'Jump':sp>3.2?'Run':sp>.5?(u.acts.Walk?'Walk':'Run'):'Idle';
   if(!u.acts[want])want='Idle';
   if(want!==u.cur){const a=u.acts[want],b=u.acts[u.cur];if(a){a.reset();a.setLoop(want==='Death'||want==='Jump'?THREE.LoopOnce:THREE.LoopRepeat);a.clampWhenFinished=true;a.play();if(b&&b!==a)a.crossFadeFrom(b,.18,false)}u.cur=want}
   if(want==='Run'&&u.acts.Run)u.acts.Run.timeScale=clamp(sp/6.2,.7,1.5);
@@ -1579,6 +1596,7 @@ G.fxRings=[];
 function damage(t,amt,src,wname,head,at){
   if(!t.alive||t.protT>0)return;
   if(src&&src!==t&&src.team===t.team)return;
+  if(t.stealthGuard&&!t.alerted&&src&&src.isPlayer){amt*=3.5;if(t.hp-amt>0)guardAlert(t)}
   t.hp-=amt;t.lastHurt=G.time;
   if(src&&src.isPlayer&&src!==t){hitMarker(head);sfx(head?'head':'hit')}
   if(t.isPlayer){flashVignette(Math.min(1,amt/50));sfx('hurt');if(src&&src!==t)showDmgDir(src.pos);else if(at)showDmgDir(at)}
@@ -1933,7 +1951,7 @@ function playerMelee(){
 function playerNade(){if(!P||!P.alive||P.frozenT>0)return;camera.getWorldDirection(_a);throwNade(P,_a,17)}
 const _dir=new THREE.Vector3(),_right=new THREE.Vector3(),_org=new THREE.Vector3(),_tgt=new THREE.Vector3(),_v=new THREE.Vector3();
 function playerFire(){
-  const w=P.w[P.cur],d=w.def;w.ammo--;P.cd=60/d.rpm;P.lastFire=G.time;
+  const w=P.w[P.cur],d=w.def;w.ammo--;P.cd=60/d.rpm;P.lastFire=G.time;if(stealthMission())stealthNoise();
   camera.getWorldDirection(_dir);_right.set(Math.cos(P.yaw),0,-Math.sin(P.yaw));
   _org.copy(camera.position).addScaledVector(_dir,.45).addScaledVector(_right,.14*(1-P.adsAmt)).add(_v.set(0,-.1*(1-P.adsAmt),0));
   let t=rayWorld(camera.position,_dir,250);
@@ -1972,6 +1990,7 @@ function pickGoal(b){
 }
 function updateBot(b,dt){
   const bt=b.bot,D=DIFF[G.diff],w=b.w[b.cur],def=w.def;
+  if(b.stealthGuard&&!b.alerted&&b.frozenT<=0&&stealthBot(b,dt))return;
   if(b.frozenT>0){b.vel.x*=.85;b.vel.z*=.85;moveEntity(b,dt);return}
   bt.think-=dt;
   _eye.set(b.pos.x,b.pos.y+1.5,b.pos.z);
@@ -2062,6 +2081,7 @@ function buildGun(def,shadow){
   if(att.includes('longbar')&&!md.tube){const lb=mk(CYL,metal,0,.004,-L*1.2,.017,L*.3,.017,g,false);lb.rotation.x=Math.PI/2}
   if(att.includes('grip')){mk(BOX,grip,0,-.085,-rl*.85,.035,.09,.04,g,false)}
   if(att.includes('laser')){mk(BOX,metal,.045,-.03,-rl*.9,.025,.025,.06,g,false);mk(SPH,mat(0xff2e44,{emissive:0xff0022,emissiveIntensity:2}),.045,-.03,-rl*.9-.032,.008,.008,.008,g,false)}
+  if(att.includes('hush')&&!md.tube){const hm=mk(CYL,mat(0xf4f4f4,{rough:.95}),0,.004,-L*1.08,.034,L*.26,.034,g,false);hm.rotation.x=Math.PI/2;mk(CYL,M.red,0,.004,-L*.97,.036,.03,.036,g,false).rotation.x=Math.PI/2}
   if(att.includes('extmag')&&!md.hopper){const em=mk(CYL,snow,0,-.13,-rl*.7,.04,.2,.04,g,false);em.rotation.x=.15}
   return g;
 }
@@ -2143,7 +2163,7 @@ function updateHud(dt){
   $('frostOverlay').style.opacity=Math.max(P.frozenT>0?.8:0,G.blizzardT>0?.35:0);
   cmT-=dt;if(cmT<=0)$('centerMsg').style.opacity=0;
   xpT-=dt;const xe=$('xpPop');xe.style.opacity=xpT>0?Math.min(1,xpT*2):0;xe.style.transform=`translateX(-50%) translateY(${-(1.2-Math.max(0,xpT))*20}px)`;
-  const scoped=d.scope&&P.adsAmt>.85;$('scope').style.opacity=scoped?1:0;vm.visible=!scoped&&P.alive;
+  const scoped=d.scope&&P.adsAmt>.85;$('scope').style.opacity=scoped?1:0;vm.visible=!scoped&&P.alive&&!G.veh;
   const spr=lerp(d.spread*(1+Math.hypot(P.vel.x,P.vel.z)/7)*(P.onGround?1:2)*(1+Math.min(1,P.bloom||0)*.6),d.ads,Math.pow(P.adsAmt,2));const gap=4+spr*260;
   const gr=Math.round(gap);if(gr!==chGap){chGap=gr;const ch=$('crosshair').children;ch[0].style.top=(-gr-9)+'px';ch[1].style.top=gr+'px';ch[2].style.left=(-gr-9)+'px';ch[3].style.left=gr+'px'}
   $('crosshair').style.opacity=scoped||P.sprinting?0:(P.adsAmt>.6&&!d.scope?.5:1);
@@ -2282,7 +2302,7 @@ function startMatch(net){
   else if(!net){for(let i=0;i<n-1;i++)makeBot(0);for(let i=0;i<n;i++)makeBot(1)}
   for(const e of G.ents)spawn(e);
   if(net&&NET.isHost)hostBalance();
-  document.body.classList.toggle('camp',!!camp);$('campHud').hidden=!camp;$('bossBar').hidden=true;if(camp){G.timeLeft=1e9;campBegin()}
+  document.body.classList.toggle('camp',!!camp);$('campHud').hidden=!camp;$('bossBar').hidden=true;if(camp){G.timeLeft=1e9;const mm=MISSIONS[camp.i];if(mm&&mm.env)applyEnv(Object.assign({},MAP.env,mm.env));campBegin()}
   $('goal').textContent=(net?'Online':G.mode==='gift'?'Gift Grab':'Team Snowball')+' · first to '+G.limit;
   $('menu').hidden=true;$('end').hidden=true;$('pause').hidden=true;$('death').hidden=true;$('hud').hidden=false;
   if(isTouch)setupTouchOnce();
@@ -2613,23 +2633,24 @@ if(!fsOK)document.querySelectorAll('.fsBtn').forEach(b=>b.addEventListener('clic
 // on phones and tablets, go full screen automatically from the tap that starts a match
 document.addEventListener('click',e=>{if(!isTouch||fsEl())return;const t=e.target.closest&&e.target.closest('#deployBtn,#againBtn,#vSkip,.vcard,#resumeBtn');if(t)goFull(true)},true);
 /* ================= CAMPAIGN: SAVE CHRISTMAS ================= */
-const CPROG=Object.assign({done:[]},store('npo-camp-v1')||{});
+const CPROG=(()=>{const v2=store('npo-camp-v2');if(v2&&Array.isArray(v2.done))return v2;const v1=store('npo-camp-v1');const map=[0,1,3,4,6];return {done:v1&&Array.isArray(v1.done)?v1.done.map(i=>map[i]).filter(i=>i!==undefined):[]}})();
+const NIGHT_ENV={sky:['#01040c','#08183a','#16305a'],fog:'#0d1c33',fogNear:20,fogFar:120,sun:'#8fb4ff',sunI:.5,sunDir:[-40,70,20],hemi:['#4d6fa8','#141c2c'],hemiI:.95,aurora:.85,stars:1,glow:'',mount:['#2c3a52','#1e2a3e'],snowTint:'#c8d8f4',exposure:1.15,snowfall:.2};
 const MISSIONS=[
-  {map:'workshop',title:'Workshop Under Siege',allies:3,lives:3,xp:1200,
-   story:"Midnight alarm bells. The Frost Legion is storming Santa's Workshop to finish what they started. Hold the toy factory until the last wave breaks.",
-   obj:['Survive 4 waves of the Frost Legion','Keep at least one life left'],outro:"The workshop stands. But in the chaos, the reindeer stables were raided. Rudolph and two others were dragged onto the frozen lake."},
-  {map:'lake',title:'Thin Ice',allies:3,lives:3,xp:1400,
-   story:"The Frost King froze three of Santa's reindeer solid and left them on the lake as bait. Break them out before the ice patrols close in.",
-   obj:['Free 3 frozen reindeer (stand next to each one)','Watch your footing. The ice is slippery'],outro:"The reindeer are free and back in the stable. A captured soldier talks: the stolen lights of Candy Cane Lane are powering the Frost King's fortress."},
-  {map:'lane',title:'Lights Out on Candy Cane Lane',allies:4,lives:3,xp:1600,
-   story:"The village is occupied and its lights are dark. Retake the three light stations one street at a time so the town can glow again.",
-   obj:['Capture and hold 3 light stations','Enemies inside a station stop your progress'],outro:"Candy Cane Lane glows again. Scouts spot the Frost Legion loading Santa's gift sacks onto the Polar Express."},
-  {map:'yard',title:'The Polar Express Job',allies:2,lives:3,xp:1800,
-   story:"The stolen gift sacks are scattered across the train yard, waiting to be shipped to the Frost King. Grab every one and get them back to Santa's sleigh.",
-   obj:['Collect 5 gift sacks','Bring them to Santa\'s sleigh at the south end'],outro:"Every sack is home except one: the big one. Santa's own gift sack is locked on top of the Igloo Citadel, guarded by the Frost King himself."},
-  {map:'citadel',title:'Siege of the Igloo Citadel',allies:4,lives:4,xp:3000,
-   story:"This is it. Storm the three-story ice fortress, climb to the roof and defeat the Frost King to recover Santa's gift sack before sunrise.",
-   obj:['Fight your way to the roof','Defeat the Frost King','Watch for his mortar barrages'],outro:"The Frost King falls and Santa's gift sack is back where it belongs. The sleigh lifts off on time. You saved Christmas!"}];
+  {id:'workshop',map:'workshop',title:'Workshop Under Siege',allies:3,lives:3,xp:1200,obj:['Survive 4 waves of the Frost Legion','Keep at least one life left'],
+   outro:"The workshop stands. But while you held the line, the reindeer stables were raided."},
+  {id:'lake',map:'lake',title:'Thin Ice',allies:3,lives:3,xp:1400,obj:['Free 3 frozen reindeer (stand next to each one)','Watch your footing. The ice is slippery'],
+   outro:"Rudolph, Dasher and Blitzen are free. Private Flurry has some very interesting things to say."},
+  {id:'stealth',map:'ridge',env:NIGHT_ENV,title:'Silent Night',allies:0,lives:3,xp:1700,obj:["Sneak into the Frost Legion war camp","Steal the battle plans from the lodge","Get back to Rudolph's sled",'Stay quiet, or go loud. Your call'],
+   outro:"The King's battle plans are yours. They are mostly doodles, but one page matters."},
+  {id:'lane',map:'lane',title:'Lights Out on Candy Cane Lane',allies:4,lives:3,xp:1600,obj:['Capture and hold 3 light stations','Enemies inside a station stop your progress'],
+   outro:"Candy Cane Lane glows again. The Legion is loading Santa's gift sacks onto the Polar Express."},
+  {id:'yard',map:'yard',title:'The Polar Express Job',allies:2,lives:3,xp:1800,obj:['Collect 5 gift sacks',"Bring them to Santa's sleigh at the south end"],
+   outro:"Every sack is home except the big one, and the sky to the Citadel is full of ice gliders."},
+  {id:'sleigh',map:'citadel',title:'Sleigh Ride',allies:0,lives:1,xp:2000,obj:["Man the candy cannon on Santa's sleigh",'Shoot down the ice gliders and ground cannons','Bring down the Frost Zeppelin','Jingle Flare (Space / ✕) jams incoming ice missiles'],
+   outro:"The Frost Zeppelin is a very expensive snow cone now. Next stop: the roof of the Citadel."},
+  {id:'citadel',map:'citadel',title:'Siege of the Igloo Citadel',allies:4,lives:4,xp:3000,obj:['Fight your way to the roof','Defeat the Frost King','Watch for his mortar barrages'],
+   outro:"The Frost King falls, Santa's sack is safe, and the sleigh lifts off on time. You saved Christmas!"}];
+const MID=Object.fromEntries(MISSIONS.map((m,i)=>[m.id,i]));
 const CAMP={i:0,m:null,marks:[],obj:null,state:{},lives:3,meshes:[]};
 function campUnlocked(i){return i===0||CPROG.done.includes(i-1)}
 function renderCampList(){$('campList').innerHTML=MISSIONS.map((m,i)=>{const done=CPROG.done.includes(i),open=campUnlocked(i);
@@ -2640,24 +2661,35 @@ function campIntro(i){if(NET.on){fsMsg('The campaign is single player. Leave you
   $('ciObj').innerHTML='<b>Objectives</b>'+m.obj.map(o=>'<div>• '+esc(o)+'</div>').join('')+`<div style="margin-top:6px">Lives: ${m.lives} · Squad: you + ${m.allies} elves · Reward: ${m.xp} XP</div>`;$('campIntro').hidden=false}
 $('ciBack').onclick=()=>{$('campIntro').hidden=true};
 $('ciGo').onclick=()=>{$('campIntro').hidden=true;campLaunch(CAMP.i,false)};
-function campLaunch(i,cine){CAMP.i=i;$('end').hidden=true;resetEndButtons();const m=MISSIONS[i];const go=()=>{G.campStart={map:m.map,allies:m.allies,i};startMatch()};
-  if(cine&&modelsDone){G.running=false;G.over=false;clearMatch();playCut('intro'+i,go)}else go()}
-function campCleanup(){for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];CAMP.marks=[];CAMP.obj=null;document.body.classList.remove('camp');$('campHud').hidden=true;$('bossBar').hidden=true}
+function campLaunch(i,cine){CAMP.i=i;voPrime();$('end').hidden=true;resetEndButtons();const m=MISSIONS[i];const go=()=>{G.campStart={map:m.map,allies:m.allies,i};startMatch()};
+  if(cine&&modelsDone){G.running=false;G.over=false;clearMatch();playCut('intro_'+m.id,go)}else go()}
+function campCleanup(){vehStop();radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];CAMP.marks=[];CAMP.obj=null;document.body.classList.remove('camp');$('campHud').hidden=true;$('bossBar').hidden=true}
 function beacon(x,y,z,color){const g=new THREE.Group();g.position.set(x,y,z);const beam=new THREE.Mesh(CYL,new THREE.MeshBasicMaterial({color:C(color),transparent:true,opacity:.18,depthWrite:false}));beam.scale.set(.5,40,.5);beam.position.y=20;g.add(beam);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(1,.06,8,40),new THREE.MeshBasicMaterial({color:C(color)}));ring.rotation.x=Math.PI/2;ring.position.y=.08;g.add(ring);
   const dia=markerMesh(color);dia.scale.set(.4,.6,.4);dia.position.y=3.2;g.add(dia);fx.add(g);CAMP.meshes.push(g);return g}
 function spawnEnemy(x,y,z,opts){const e=makeBot(1);spawn(e);e.pos.set(x+rand(-1,1),y,z+rand(-1,1));e.noRespawn=true;e.protT=.5;if(opts)Object.assign(e,opts);if(e.mesh)e.mesh.position.copy(e.pos);return e}
 function enemiesAlive(){return G.ents.filter(e=>e.team===1&&e.alive).length}
 function campSet(objTxt,sub,prog){$('campObj').textContent=objTxt;$('campSub').textContent=sub||'';$('campProg').firstChild.style.width=(prog===undefined?0:prog*100)+'%'}
-function campBegin(){const m=MISSIONS[G.camp.i];CAMP.m=m;CAMP.lives=m.lives;CAMP.state={};CAMP.marks=[];CAMP.obj=null;CAMP.meshes=[];const st=CAMP.state,ES=MAP.spawns[1];
-  if(m.map==='workshop'){st.waves=[4,6,8,10];st.w=-1;st.breakT=2}
-  if(m.map==='lake'){st.deer=[[-12,-10],[12,11],[2,-17]].map(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);mk(BOX,mat(0x8a5a2b),0,1.1,0,.6,.6,1.5,g);mk(BOX,mat(0x8a5a2b),0,1.6,-.85,.35,.45,.5,g);for(const [a,b] of [[-.2,-.55],[.2,-.55],[-.2,.55],[.2,.55]])mk(BOX,mat(0x6b4423),a,.5,b,.14,.9,.14,g);mk(SPH,mat(0xff2020,{emissive:0xff0000}),0,1.6,-1.12,.07,.07,.07,g,false);
-      for(const sx of [-1,1]){const an=mk(CYL,mat(0x5b3a22),sx*.15,2.05,-.85,.03,.5,.03,g);an.rotation.z=sx*.4}const ice=mk(BOX,M.iceBlock,0,1.15,0,1.4,2.4,2.2,g,false);fx.add(g);CAMP.meshes.push(g);
+function campBegin(){const m=MISSIONS[G.camp.i];CAMP.m=m;CAMP.lives=m.lives;CAMP.state={};CAMP.marks=[];CAMP.obj=null;CAMP.meshes=[];const st=CAMP.state,ES=MAP.spawns[1];G.overPending=false;radioClear();st.chatT=28;
+  if(m.id!=='sleigh')campChatter(m.id,'start');
+  if(m.id==='stealth'){st.ghost=true;st.phase=0;st.trickle=6;st.cap=8;st.plansT=0;const PX=53,PZ=-12,py=terrH(PX,PZ);st.plans={x:PX,z:PZ};
+    const sack=new THREE.Group();mk(BOX,mat(0x8a5a2b),0,.9,0,.9,.08,.65,sack);mk(BOX,mat(0xf2e8d0),.05,.95,.02,.7,.02,.5,sack);mk(BOX,mat(0x3a2a20),0,.45,0,1.4,.9,.9,sack);sack.position.set(PX,py,PZ);fx.add(sack);CAMP.meshes.push(sack);st.plansMesh=sack;st.pb=beacon(PX,py,PZ,0xf5c451);
+    const g1=(x,z,patrol,y)=>{const e=spawnEnemy(x,y!==undefined?y:terrH(x,z),z);e.stealthGuard=true;e.patrol=patrol||[[x,z]];e.pi=0;e.sus=0;e.look=Math.random()*6;e.yaw=Math.random()*6;return e};
+    g1(-3,-26,[[-3,-26],[3,-8],[-2,10],[3,28]]);g1(3,26,[[3,26],[-2,8],[3,-12],[-3,-30]]);g1(0,0,[[0,0]],4.4);
+    g1(-20,-18,[[-20,-18],[-26,-26],[-18,-28]]);g1(24,18,[[24,18],[18,26],[27,27]]);
+    g1(30,-14,[[30,-14],[30,14]]);g1(38,-20,[[38,-20],[44,-4]]);g1(38,20,[[38,20],[44,4]]);
+    g1(46,-6,[[46,-6],[46,6]]);g1(50,-18,[[50,-18],[57,-18]]);g1(50,18,[[50,18],[57,18]]);g1(54,-14.5,[[54,-14.5]]);g1(48.5,2,[[48.5,2]]);
+    const c=Object.assign({},P.cls,{att:[...(P.cls.att||[]).filter(a=>ATTACH[a]&&ATTACH[a].slot!=='Muzzle').slice(0,2),'hush']});st.cls=c;P.w[0]=mkWeapon(effDef(c));P.cur=0;buildViewmodel();updateClassHud();
+    CAMP.obj={x:PX,z:PZ}}
+  if(m.id==='sleigh'){vehStart();CAMP.lives=1}
+  if(m.id==='workshop'){st.waves=[4,6,8,10];st.w=-1;st.breakT=2}
+  if(m.id==='lake'){st.deer=[[-12,-10],[12,11],[2,-17]].map(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);if(PROPS.reindeer){const rd=PROPS.reindeer.clone();rd.scale.setScalar(2);rd.rotation.y=Math.random()*6;g.add(rd);g.userData.kr=1}else{mk(BOX,mat(0x8a5a2b),0,1.1,0,.6,.6,1.5,g);mk(BOX,mat(0x8a5a2b),0,1.6,-.85,.35,.45,.5,g);for(const [a,b] of [[-.2,-.55],[.2,-.55],[-.2,.55],[.2,.55]])mk(BOX,mat(0x6b4423),a,.5,b,.14,.9,.14,g);mk(SPH,mat(0xff2020,{emissive:0xff0000}),0,1.6,-1.12,.07,.07,.07,g,false);
+      for(const sx of [-1,1]){const an=mk(CYL,mat(0x5b3a22),sx*.15,2.05,-.85,.03,.5,.03,g);an.rotation.z=sx*.4}}const ice=mk(BOX,M.iceBlock,0,1.15,0,1.4,2.4,2.2,g,false);fx.add(g);CAMP.meshes.push(g);
       return{x,z,g,ice,t:0,done:false,b:beacon(x,0,z,0xf5c451)}});st.trickle=6;st.cap=8;for(let i=0;i<6;i++){const s=pick(ES);spawnEnemy(s[0],0,s[1])}}
-  if(m.map==='lane'){st.zones=[[-13,13],[0,7],[13,-13]];st.z=0;st.t=0;st.need=12;st.trickle=4;st.cap=8;campZone()}
-  if(m.map==='yard'){st.sacks=[[-20,0],[18,0],[-6,11],[24,-11],[-28,-22]].map(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);mk(SPH,mat(0x8a5a2b,{rough:.9}),0,.55,0,.5,.6,.5,g);mk(CYL,M.gold,0,1.05,0,.18,.15,.18,g);fx.add(g);CAMP.meshes.push(g);return{x,z,g,got:false,b:beacon(x,0,z,0xf5c451)}});
+  if(m.id==='lane'){st.zones=[[-13,13],[0,7],[13,-13]];st.z=0;st.t=0;st.need=12;st.trickle=4;st.cap=8;campZone()}
+  if(m.id==='yard'){st.sacks=[[-20,0],[18,0],[-6,11],[24,-11],[-28,-22]].map(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);mk(SPH,mat(0x8a5a2b,{rough:.9}),0,.55,0,.5,.6,.5,g);mk(CYL,M.gold,0,1.05,0,.18,.15,.18,g);fx.add(g);CAMP.meshes.push(g);return{x,z,g,got:false,b:beacon(x,0,z,0xf5c451)}});
     st.got=0;st.trickle=5;st.cap=9;const sl=new THREE.Group();sleigh(0,0,sl);sl.position.set(0,0,37);fx.add(sl);CAMP.meshes.push(sl);for(let i=0;i<7;i++){const s=pick(ES);spawnEnemy(s[0]+rand(-6,6),0,s[1]+rand(0,14))}}
-  if(m.map==='citadel'){st.phase=0;st.trickle=8;st.cap=10;st.mortarT=8;
+  if(m.id==='citadel'){st.phase=0;st.trickle=8;st.cap=10;st.mortarT=8;
     for(const [x,y,z] of [[-8,0,-8],[8,0,8],[8,0,-8],[-8,0,8],[0,0,-9],[-9,4.4,-9],[9,4.4,9],[9,4.4,-9],[-9,4.4,9]])spawnEnemy(x,y,z,{home:[[x,z]]});
     const home=[[8,8],[-8,8],[8,-8],[-8,-8],[0,9],[0,-9]];
     const boss=spawnEnemy(8,8.8,8,{home,boss:true,hitR:.62,h:2.7,dmgX:1.5,name:'The Frost King'});boss.hp=boss.maxHp=1400+400*(['easy','normal','hard'].indexOf(G.diff));boss.w=[mkWeapon(PRIMARIES.frost),mkWeapon(SECONDARIES.peppermint)];
@@ -2669,35 +2701,45 @@ function campZone(){const st=CAMP.state;if(st.zb){fx.remove(st.zb);}const [x,z]=
   for(let i=0;i<3+st.z;i++){const s=pick(MAP.spawns[1]);spawnEnemy(lerp(s[0],x,.5)+rand(-5,5),0,lerp(s[1],z,.5)+rand(-5,5))}}
 function campTrickle(dt){const st=CAMP.state;st.tt=(st.tt||st.trickle)-dt;if(st.tt<=0){st.tt=st.trickle;if(enemiesAlive()<st.cap){const s=pick(MAP.spawns[1]);spawnEnemy(s[0],0,s[1])}}}
 function campTick(dt){
-  const m=CAMP.m,st=CAMP.state;if(!m)return;CAMP.marks=[];const near=(x,z,r)=>P.alive&&Math.hypot(P.pos.x-x,P.pos.z-z)<r&&P.pos.y-terrH(x,z)<2.5;
-  if(m.map==='workshop'){
+  const m=CAMP.m,st=CAMP.state;if(!m)return;if(m.id==='sleigh')return;CAMP.marks=[];
+  st.chatT-=dt;if(st.chatT<=0){st.chatT=rand(34,50);if(!(m.id==='stealth'&&st.alarm))campChatter(m.id,'idle')}
+  if(m.id==='stealth'){const near=(x,z,r)=>P.alive&&Math.hypot(P.pos.x-x,P.pos.z-z)<r&&P.pos.y-terrH(x,z)<2.5;for(const e of G.ents)if(e.stealthGuard)guardIcon(e);
+    if(P.alive&&P.w[0]&&!P.w[0].def.sup&&st.cls){P.w[0]=mkWeapon(effDef(st.cls));if(P.cur===0)buildViewmodel()}
+    if(st.alarmT!==undefined&&!st.alarm){st.alarmT-=dt;const live=G.ents.some(e=>e.stealthGuard&&e.alive&&e.alerted);if(!live){st.alarmT=undefined;radio('holly',"Phew. That was close. Nobody else noticed.")}else if(st.alarmT<=0)raiseAlarm()}
+    if(st.alarm)campTrickle(dt);
+    const status=st.alarm?'ALARM: they know you are here':st.alarmT!==undefined?'Spotted! Silence him!':G.ents.some(e=>e.stealthGuard&&e.alive&&(e.sus||0)>.3)?'Suspicious...':'Hidden';
+    if(st.phase===0){const p=st.plans;CAMP.marks.push(p);CAMP.obj=p;if(near(p.x,p.z,2.4)){st.plansT+=dt;if(st.plansT>=2.5){st.phase=1;fx.remove(st.plansMesh);fx.remove(st.pb);sfx('gift');centerMsg('Battle plans stolen!');addXP(200,'Objectives');radio('jingle',"Got them. Now get back to Rudolph. Quietly, if you can.",true);st.eb=beacon(-54,terrH(-54,0),0,0x5cff9a)}}else st.plansT=Math.max(0,st.plansT-dt);
+      campSet(st.plansT>0?'Grabbing the battle plans…':'Steal the battle plans from the lodge',`${status} · Lives ${CAMP.lives}`,st.plansT>0?st.plansT/2.5:0)}
+    else{CAMP.marks.push({x:-54,z:0});CAMP.obj={x:-54,z:0};campSet("Get back to Rudolph's sled",`${status} · Lives ${CAMP.lives}`,1);if(near(-54,0,4)){if(st.ghost){addXP(500,'Ghost bonus');xpPop('Ghost! Never detected')}return campWin()}}
+    return}const near=(x,z,r)=>P.alive&&Math.hypot(P.pos.x-x,P.pos.z-z)<r&&P.pos.y-terrH(x,z)<2.5;
+  if(m.id==='workshop'){
     if(enemiesAlive()===0){if(st.w>=st.waves.length-1)return campWin();st.breakT-=dt;campSet(st.w<0?'Get ready':'Wave '+(st.w+1)+' cleared',`Next wave in ${Math.ceil(Math.max(0,st.breakT))}`,0);
-      if(st.breakT<=0){st.w++;st.breakT=5;const n=st.waves[st.w];for(let i=0;i<n;i++){const s=pick(MAP.spawns[1]);spawnEnemy(s[0]+rand(-8,8),0,s[1]+rand(-3,3))}centerMsg('Wave '+(st.w+1)+' of '+st.waves.length);sfx('count')}}
+      if(st.breakT<=0){st.w++;st.breakT=5;const n=st.waves[st.w];for(let i=0;i<n;i++){const s=pick(MAP.spawns[1]);spawnEnemy(s[0]+rand(-8,8),0,s[1]+rand(-3,3))}centerMsg('Wave '+(st.w+1)+' of '+st.waves.length);if(st.w>0)radio(pick(['jingle','holly','santa']),pick(["Here comes another wave!","More of them! Why is there always more of them?","Steady, elves. Steady."]));sfx('count')}}
     else campSet('Wave '+(st.w+1)+' of '+st.waves.length,`${enemiesAlive()} Frost soldiers left · Lives ${CAMP.lives}`,1-enemiesAlive()/st.waves[st.w]);CAMP.obj={x:0,z:10}}
-  if(m.map==='lake'){campTrickle(dt);let freed=0,cur=null;for(const d of st.deer){if(d.done){freed++;continue}CAMP.marks.push(d);
-      if(near(d.x,d.z,2.6)){d.t+=dt;cur=d;if(d.t>=3){d.done=true;fx.remove(d.ice);d.g.remove(d.ice);fx.remove(d.b);d.fly=0;sfx('jingle');centerMsg('Reindeer freed!');addXP(150,'Objectives')}}else d.t=Math.max(0,d.t-dt*.5)}
+  if(m.id==='lake'){campTrickle(dt);let freed=0,cur=null;for(const d of st.deer){if(d.done){freed++;continue}CAMP.marks.push(d);
+      if(near(d.x,d.z,2.6)){d.t+=dt;cur=d;if(d.t>=3){d.done=true;fx.remove(d.ice);d.g.remove(d.ice);fx.remove(d.b);d.fly=0;sfx('jingle');centerMsg('Reindeer freed!');addXP(150,'Objectives');radio(pick(['holly','jingle']),pick(["One down! Hey buddy, you're okay!","That's one. Keep moving.","Rudolph! Oh, it's Dasher. Hi Dasher!"]))}}else d.t=Math.max(0,d.t-dt*.5)}
     for(const d of st.deer)if(d.done&&d.fly!==undefined&&d.fly<6){d.fly+=dt;d.g.position.y=d.fly*d.fly*1.2;d.g.position.z-=dt*6}
     CAMP.obj=st.deer.find(d=>!d.done)||null;if(freed>=3)return campWin();campSet(cur?'Freeing reindeer…':'Free the frozen reindeer',`${freed} of 3 freed · Lives ${CAMP.lives}`,cur?cur.t/3:freed/3)}
-  if(m.map==='lane'){campTrickle(dt);const [x,z]=st.zones[st.z];CAMP.marks.push({x,z});CAMP.obj={x,z};
+  if(m.id==='lane'){campTrickle(dt);const [x,z]=st.zones[st.z];CAMP.marks.push({x,z});CAMP.obj={x,z};
     const contested=G.ents.some(e=>e.team===1&&e.alive&&Math.hypot(e.pos.x-x,e.pos.z-z)<5);const inside=near(x,z,5);
     if(inside&&!contested)st.t+=dt;campSet(`Capture light station ${'ABC'[st.z]}`,(inside?(contested?'Contested! Clear the enemies out':'Holding…'):'Get inside the green circle')+` · Lives ${CAMP.lives}`,st.t/st.need);
-    if(st.t>=st.need){addXP(150,'Objectives');sfx('jingle');centerMsg('Station '+'ABC'[st.z]+' lit!');for(let i=0;i<14;i++){const c=pick([0xff3b4e,0x3dff7a,0xffd23d,0x3db2ff]);const b=mk(SPH,mat(c,{emissive:c,emissiveIntensity:2}),x+Math.cos(i/14*6.28)*5,3+Math.sin(i)*.3,z+Math.sin(i/14*6.28)*5,.14,.14,.14,fx,false);CAMP.meshes.push(b)}
+    if(st.t>=st.need){addXP(150,'Objectives');sfx('jingle');centerMsg('Station '+'ABC'[st.z]+' lit!');radio(pick(['holly','pip','jingle']),pick(["Ooh, pretty! Next one!","Power's back on that block. Two more grids to go!","Good. Keep the pressure on."]));for(let i=0;i<14;i++){const c=pick([0xff3b4e,0x3dff7a,0xffd23d,0x3db2ff]);const b=mk(SPH,mat(c,{emissive:c,emissiveIntensity:2}),x+Math.cos(i/14*6.28)*5,3+Math.sin(i)*.3,z+Math.sin(i/14*6.28)*5,.14,.14,.14,fx,false);CAMP.meshes.push(b)}
       st.z++;if(st.z>=st.zones.length){fx.remove(st.zb);return campWin()}campZone()}}
-  if(m.map==='yard'){campTrickle(dt);for(const k of st.sacks){if(k.got)continue;CAMP.marks.push(k);k.g.rotation.y+=dt;if(near(k.x,k.z,1.6)){k.got=true;st.got++;fx.remove(k.g);fx.remove(k.b);sfx('gift');xpPop('Gift sack '+st.got+'/5');addXP(80,'Objectives')}}
+  if(m.id==='yard'){campTrickle(dt);for(const k of st.sacks){if(k.got)continue;CAMP.marks.push(k);k.g.rotation.y+=dt;if(near(k.x,k.z,1.6)){k.got=true;st.got++;fx.remove(k.g);fx.remove(k.b);sfx('gift');xpPop('Gift sack '+st.got+'/5');if(st.got===2)radio('holly',"This one's heavy. I bet it's a bike!");if(st.got===5)radio('radio',"That's all five! Bring them to the sleigh!",true);addXP(80,'Objectives')}}
     if(st.got<5){CAMP.obj=st.sacks.find(k=>!k.got)||null;campSet('Collect the stolen gift sacks',`${st.got} of 5 · Lives ${CAMP.lives}`,st.got/5)}
     else{if(!st.sb)st.sb=beacon(0,0,37,0x5cff9a);CAMP.marks.push({x:0,z:37});CAMP.obj={x:0,z:37};campSet("Get the sacks to Santa's sleigh",`South end of the yard · Lives ${CAMP.lives}`,1);if(near(0,37,4))return campWin()}}
-  if(m.map==='citadel'){const b=st.boss;campTrickle(dt);
+  if(m.id==='citadel'){const b=st.boss;campTrickle(dt);
     if(b&&b.alive){$('bossBar').hidden=false;$('bossBar').querySelector('i').style.width=(b.hp/b.maxHp*100)+'%';CAMP.marks.push({x:b.pos.x,z:b.pos.z});
       const onRoof=P.alive&&P.pos.y>7;campSet(onRoof?'Defeat the Frost King':'Climb to the roof',`Lives ${CAMP.lives}`,1-b.hp/b.maxHp);
       st.mortarT-=dt;if(st.mortarT<=0&&P.alive){st.mortarT=rand(7,10);centerMsg('The Frost King calls a mortar barrage!');for(let i=0;i<3;i++)dropMortar(b,_a.set(P.pos.x+rand(-4,4),0,P.pos.z+rand(-4,4)),i*.6,BOSS_MORTAR)}}
     else if(b&&!b.alive)return campWin()}
 }
-function campOnKill(v,k){if(v.isPlayer){CAMP.lives--;if(CAMP.lives<=0)setTimeout(()=>campFail(),1200);else centerMsg(CAMP.lives+(CAMP.lives===1?' life left':' lives left'))}
+function campOnKill(v,k){if(stealthMission())stealthOnKill(v);if(v.isPlayer){CAMP.lives--;if(CAMP.lives<=0)setTimeout(()=>campFail(),1200);else centerMsg(CAMP.lives+(CAMP.lives===1?' life left':' lives left'))}
   else if(v.team===1&&k&&k.isPlayer)addXP(25,'Objectives')}
-function campWin(){if(G.over)return;const i=G.camp.i,m=MISSIONS[i];if(!CPROG.done.includes(i))CPROG.done.push(i);store('npo-camp-v1',CPROG);addXP(m.xp,'Mission complete');
+function campWin(){if(G.over)return;const i=G.camp.i,m=MISSIONS[i];if(!CPROG.done.includes(i))CPROG.done.push(i);store('npo-camp-v2',CPROG);addXP(m.xp,'Mission complete');
   G.over=true;mouseL=false;T.fire=false;if(document.pointerLockElement)document.exitPointerLock();$('bossBar').hidden=true;centerMsg('Mission complete');sfx('victory');
-  setTimeout(()=>{if(!G.running)return;campCleanupMarks();playCut('outro'+i,()=>{G.over=false;campEnd(true)})},1600)}
-function campCleanupMarks(){for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];$('campHud').hidden=true}
+  setTimeout(()=>{if(!G.running)return;campCleanupMarks();playCut('outro_'+m.id,()=>{G.over=false;campEnd(true)})},1600)}
+function campCleanupMarks(){vehStop();radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];$('campHud').hidden=true}
 function campFail(){if(G.over)return;campEnd(false)}
 function campEnd(win){const i=G.camp.i,m=MISSIONS[i];G.over=true;if(win)chars.visible=false;mouseL=false;T.fire=false;if(document.pointerLockElement)document.exitPointerLock();$('bossBar').hidden=true;
   const xp=G.xp||{},gained=Object.values(xp).reduce((a,b)=>a+b,0),lv0=PROG.lv;PROG.xp+=gained;while(PROG.xp>=xpNeed(PROG.lv)&&PROG.lv<60){PROG.xp-=xpNeed(PROG.lv);PROG.lv++}store('npo-prog-v1',PROG);G.xp={};
@@ -2748,99 +2790,148 @@ function cutSleigh(x,z,y,ry){const g=new THREE.Group();g.position.set(x,y,z);g.r
   const a={root:g,tw:[],tween(d,f,end){a.tw.push({t:0,d,f,end});return a}};CUT.actors.push(a);return a}
 const H=(x,z,dy)=>[x,terrH(x,z)+(dy||0),z];
 // ---- the scenes ----
+Object.assign(SPEAKER,{santa:['Santa','#ffd36b'],radio:['Santa (radio)','#ffd36b'],king:['The Frost King','#9fe0ff'],jingle:['Sgt. Jingle','#7dffb0'],elf:['Sgt. Jingle','#7dffb0'],holly:['Holly','#ff9ad0'],scout:['Holly','#ff9ad0'],pip:['Pip (radio)','#ffc46b'],flurry:['Private Flurry','#c9d6e0'],sleet:['Corporal Sleet','#c9d6e0'],soldier:['Private Flurry','#c9d6e0']});
+Object.assign(VOICE,{jingle:[300,'square'],holly:[420,'triangle'],pip:[520,'square'],flurry:[170,'sawtooth'],sleet:[120,'sawtooth']});
+// mid-mission radio lines: [when, who, text]
+const CHATTER={
+  workshop:{start:[['santa',"Elves! Positions! Nobody touches the toy line!"],['holly',"Is it normal that my hands are shaking? Asking for me."],['jingle',"Perfectly normal. Mine stopped shaking in 1712."]],
+    idle:[['jingle',"Watch the doorways. They love the doorways."],['holly',"I named my snowballs. This one's Gerald."],['pip',"Pip from Toy Research here. If you break the conveyor belt, please don't. It took me ages."],['santa',"Ho ho, nice throw! Very nice!"]]},
+  lake:{start:[['holly',"Hang on, Rudolph! We're coming!"],['jingle',"Small steps on the ice. You run, you slide. You slide, you fall. You fall, I laugh."]],
+    idle:[['holly',"Dasher looks so cold. Somebody give Dasher a scarf!"],['pip',"Fun fact: reindeer can see ultraviolet light. Not useful right now. Just fun."],['jingle',"Patrol on the ice. Keep your head down."]]},
+  stealth:{start:[['jingle',"Crouch to stay small. If a guard sees you, the question mark fills up. Don't let it fill."],['pip',"Sneak up behind one and melee to take him out quietly. The Hush Mitten keeps your shots whisper-quiet too!"],['holly',"And if it all goes wrong?"],['jingle',"Then it gets loud. Loud is fine too. Just messier."]],
+    idle:[['holly',"I'm whispering. Why am I whispering? I'm on the radio."],['pip',"The guards change shifts every... I don't actually know. I made that up to sound cool."],['jingle',"Patience. Let them walk past."],['flurry',"Corporal, do you ever wonder if we're the bad guys?"],['sleet',"Every day, Flurry. Every single day."]]},
+  lane:{start:[['jingle',"Station by station. Clear it, hold it, light it."],['holly',"If we win, I'm getting the biggest hot cocoa in the Lane. With the little marshmallows."]],
+    idle:[['pip',"Each station powers about four thousand lights. Ooh, and the big tree!"],['holly',"Sergeant, what's your favorite Christmas song?"],['jingle',"Silence. My favorite is silence."],['sleet',"Hold the stations! The King said no overtime pay if we lose!"]]},
+  yard:{start:[['santa',"Those sacks hold the presents for an entire continent. Treat them gently!"],['jingle',"Grab and go. Don't stop to read the tags."]],
+    idle:[['holly',"Ooh, this one's heavy. I bet it's a bike!"],['pip',"The Polar Express runs on cocoa steam. Technically you could drink the exhaust. Please don't."],['flurry',"Somebody's stealing our stolen sacks!"]]},
+  citadel:{start:[['santa',"Up the stairs, onto the roof. I'll be right behind you!"],['king',"I can SEE you, elves! I have a very large window!"]],
+    idle:[['holly',"This whole place is made of ice. How does he heat it? Does he heat it?"],['jingle',"Mind the mortars. When he shouts, move."],['king',"Do you know how hard it is to get a decent cup of cocoa in an ice castle?!"]]}};
+function campChatter(id,kind){const c=CHATTER[id];if(!c)return;if(kind==='start'){(c.start||[]).forEach((l,i)=>setTimeout(()=>radio(l[0],l[1]),900+i*150));return}
+  const pool=c.idle||[];if(pool.length){const st=CAMP.state;st.ci=((st.ci===undefined?Math.random()*pool.length|0:st.ci)+1)%pool.length;radio(pool[st.ci][0],pool[st.ci][1])}}
 const CINE={
-  intro0:()=>({map:'workshop',title:['Mission 1','Workshop Under Siege',"Santa's Workshop · North Pole · Dec 24, 23:52"],music:'menu',
-    setup(){const s=cutActor('santa',0,11.5).face(0,20);CUT.santa=s;
+  intro_workshop:()=>({map:'workshop',title:['Mission 1','Workshop Under Siege',"Santa's Workshop · North Pole · Dec 24, 23:52"],music:'menu',
+    setup(){CUT.santa=cutActor('santa',0,11.5).face(0,20);
       CUT.elves=[[-3.4,13.6],[-1.8,15.3],[1.9,15.4],[3.5,13.7]].map(([x,z],i)=>cutActor('elf',x,z,{gun:['frost','mule','frost','north'][i]}).face(0,11.5));
-      CUT.sold=[[-6,-50],[-2,-52],[2,-51],[6,-50],[-10,-53],[10,-53],[0,-54]].map(([x,z])=>cutActor('soldier',x,z,{gun:'frost'}).face(0,0));
-      CUT.king=cutActor('king',0,-57,{anim:'Idle'}).face(0,0)},
+      CUT.sold=[[-6,-50],[-2,-52],[2,-51],[6,-50],[-10,-53],[10,-53],[0,-54]].map(([x,z])=>cutActor('soldier',x,z,{gun:'frost'}).face(0,0));CUT.king=cutActor('king',0,-57).face(0,0)},
     shots:[
-      {d:6.5,p0:[-36,30,60],l0:[0,4,6],p1:[-16,7,30],l1:[0,3,10],fov:55},
+      {d:7,p0:[-36,30,60],l0:[0,4,6],p1:[-16,7,30],l1:[0,3,10],fov:55,lines:[[1.5,'jingle',"Christmas Eve. Four hundred and twelve years I've worked this workshop."],[0,'jingle',"Never once had a quiet one."]]},
       {d:7.5,p0:[0,1.75,16.6],l0:[0,1.9,11.5],p1:[0,1.7,15],l1:[0,1.95,11.5],fov:42,
-        lines:[[.3,'santa',"Elves, gather round. I won't sugar-coat it."],[3.6,'santa',"The Frost King wants Christmas cancelled. For good."]],ev:[[.2,()=>CUT.santa.play('Victory',true)]]},
+        lines:[[.3,'santa',"Elves, gather round. I won't sugar-coat it. Well, maybe a little. It is Christmas."],[0,'santa',"The Frost King has declared war on Christmas. Again."],[0,'holly',"Again?! How many times has he done this?"],[0,'jingle',"Thirty-one. He sends a card every year. It just says: Soon."]],ev:[[.2,()=>CUT.santa.play('Victory',true)]]},
       {d:7,p0:[-6,1.4,-34],l0:[0,3,-52],p1:[-5,1.5,-37],l1:[0,3.2,-53],fov:46,
-        lines:[[.6,'king',"Tonight the North Pole freezes. Every toy. Every elf."],[3.9,'king',"And that old man's sleigh never leaves the ground."]],
-        ev:[[0,()=>{for(const s of CUT.sold)s.walk(s.root.position.x,s.root.position.z+8,7)}],[.4,()=>CUT.king.walk(0,-51,3.5,'Walk')],[4,()=>CUT.king.play('SwordSlash',true)]]},
+        lines:[[.6,'king',"Tonight the North Pole freezes! Every toy! Every elf! Every festive little sweater!"],[0,'flurry',"Sir? Do we get overtime for Christmas Eve?"],[0,'king',"Silence, Private Flurry! Villainy is its own reward!"]],
+        ev:[[0,()=>{for(const s of CUT.sold)s.walk(s.root.position.x,s.root.position.z+8,7)}],[.4,()=>CUT.king.walk(0,-51,3.5,'Walk')],[4.5,()=>CUT.king.play('SwordSlash',true)]]},
       {d:7,p0:[7,3.6,20],l0:[0,1.4,13.5],p1:[5.5,3.2,18],l1:[0,1.4,13.5],fov:46,
-        lines:[[.2,'santa',"Hold the workshop. Not one present leaves in a Frost Legion sack."],[3.8,'elf',"You heard him! Snowballs up!"]],
+        lines:[[.2,'santa',"Hold the workshop. Not one present leaves this building in a Frost Legion sack."],[0,'jingle',"You heard the big man. Snowballs up!"],[0,'holly',"This is my first battle and I'm so excited and also extremely terrified!"]],
         ev:[[3.8,()=>{for(const e of CUT.elves)e.play('Victory',true)}],[.1,()=>CUT.santa.play('Shoot_OneHanded',true)]]}]}),
-  outro0:()=>({map:'workshop',music:'',
+  outro_workshop:()=>({map:'workshop',music:'',
     setup(){CUT.santa=cutActor('santa',0,11).face(0,20);CUT.elves=[[-2.5,15],[2.5,15.5],[0,17]].map(([x,z])=>cutActor('elf',x,z,{gun:'frost'}).face(0,11));CUT.run=cutActor('scout',-30,14.5,{gun:'frost'})},
     shots:[
-      {d:5,p0:[8,3.8,21],l0:[0,1.5,13.5],p1:[6.5,3.4,19.5],l1:[0,1.5,13.5],fov:46,lines:[[.3,'santa',"Ho ho ho! The Legion's running back to the ice!"]],ev:[[0,()=>{for(const e of CUT.elves)e.play('Victory',true)}],[.2,()=>CUT.santa.play('Victory',true)]]},
-      {d:6,p0:[-12,2.4,10],l0:[-26,1.5,14],p1:[-9,2.2,10.5],l1:[-3,1.4,13],fov:50,lines:[[.6,'scout',"Santa! The stables! They took Rudolph and two others!"]],ev:[[0,()=>CUT.run.walk(-3,13.5,5.5,'Run')]]},
-      {d:5.5,p0:[1.6,1.95,16],l0:[0,2.05,11],p1:[1.3,1.95,15],l1:[0,2.05,11],fov:40,lines:[[.3,'santa',"Rudolph?! ...Then we go get him back."]],ev:[[0,()=>CUT.santa.play('RecieveHit',true)],[2.4,()=>CUT.santa.play('Defeat',true,'Idle')]]}]}),
-  intro1:()=>({map:'lake',title:['Mission 2','Thin Ice','Frozen Lake · 00:40'],music:'menu',
+      {d:5,p0:[8,3.8,21],l0:[0,1.5,13.5],p1:[6.5,3.4,19.5],l1:[0,1.5,13.5],fov:46,lines:[[.3,'santa',"Ho ho ho! Look at them run! Back to the ice with you!"],[0,'jingle',"Not bad, rookie. You only screamed twice."]],ev:[[0,()=>{for(const e of CUT.elves)e.play('Victory',true)}],[.2,()=>CUT.santa.play('Victory',true)]]},
+      {d:6,p0:[-12,2.4,10],l0:[-26,1.5,14],p1:[-9,2.2,10.5],l1:[-3,1.4,13],fov:50,lines:[[.6,'holly',"Santa! Santa! The stables! They took Rudolph! And Dasher! And... the other one!"],[0,'jingle',"Blitzen. Nobody ever remembers Blitzen."]],ev:[[0,()=>CUT.run.walk(-3,13.5,5.5,'Run')]]},
+      {d:5.5,p0:[1.6,1.95,16],l0:[0,2.05,11],p1:[1.3,1.95,15],l1:[0,2.05,11],fov:40,lines:[[.3,'santa',"Rudolph?!"],[0,'santa',"...Then we're going to get him back."]],ev:[[0,()=>CUT.santa.play('RecieveHit',true)],[2.4,()=>CUT.santa.play('Defeat',true,'Idle')]]}]}),
+  intro_lake:()=>({map:'lake',title:['Mission 2','Thin Ice','Frozen Lake · 00:40'],music:'menu',
     setup(){CUT.deer=[[-12,-10],[12,11],[2,-17]].map(([x,z])=>{const r=cutProp('reindeer',x,z,{s:2,ry:Math.random()*6});cutIce(r);return r});
       CUT.sold=[[-6,-6],[8,4],[-2,-22],[14,-4]].map(([x,z])=>cutActor('soldier',x,z,{gun:'frost'}));
       CUT.scout=cutActor('scout',-27,1.5,{gun:'north'}).face(0,-4);CUT.e2=cutActor('elf',-28.6,3.4,{gun:'frost'}).face(0,0)},
     shots:[
-      {d:7,p0:[30,14,30],l0:[0,0,0],p1:[18,6,-26],l1:[0,1,-6],fov:52,ev:[[0,()=>{CUT.sold[0].walk(4,-2,7);CUT.sold[1].walk(2,12,7);CUT.sold[2].walk(-10,-18,7);CUT.sold[3].walk(14,-14,7)}]]},
+      {d:7,p0:[30,14,30],l0:[0,0,0],p1:[18,6,-26],l1:[0,1,-6],fov:52,lines:[[1.2,'pip',"Um, hi! Pip here, from Toy Research. I've never been on a real mission radio before. This is so cool."]],ev:[[0,()=>{CUT.sold[0].walk(4,-2,7);CUT.sold[1].walk(2,12,7);CUT.sold[2].walk(-10,-18,7);CUT.sold[3].walk(14,-14,7)}]]},
       {d:6.5,p0:H(-30.6,3.4,1.9),l0:[-12,1.2,-10],p1:H(-29.9,2.9,1.8),l1:[-12,1,-10],fov:40,
-        lines:[[.3,'scout',"There. Three of them, frozen solid out on the ice."],[3.6,'scout',"Rudolph's nose is still glowing. He's alive."]]},
+        lines:[[.3,'holly',"There they are. Frozen solid, right out on the ice."],[0,'holly',"Rudolph's nose is still glowing. Hang on, buddy. I'm coming!"],[0,'jingle',"Easy. That lake is slicker than a polished candy cane."]]},
       {d:6.5,p0:H(-24,4.2,1.6),l0:H(-27,1.5,1.55),p1:H(-24.6,3.5,1.55),l1:H(-27,1.5,1.55),fov:42,
-        lines:[[.2,'radio',"Stand next to each one and crack the ice. It takes a few seconds."],[3.5,'radio',"Watch your footing out there. That lake is slick."]],ev:[[0,()=>CUT.scout.face(-24,4)],[4,()=>{CUT.scout.play('Victory',true)}]]}]}),
-  outro1:()=>({map:'lake',music:'',
+        lines:[[.2,'radio',"Stand next to each one and crack the ice. It takes a few seconds."],[0,'pip',"Pro tip: the Frost Legion hates snow down the collar. That's not really tactical. It's just true."]],ev:[[0,()=>CUT.scout.face(-24,4)],[3,()=>{CUT.scout.play('Victory',true)}]]}]}),
+  outro_lake:()=>({map:'lake',music:'',
     setup(){CUT.deer=[[6,13],[9,15],[12,13]].map(([x,z])=>cutProp('reindeer',x,z,{s:2}));CUT.pr=cutActor('soldier',-6,6).face(-3,3);CUT.e=cutActor('elf',-2.5,10,{gun:'frost'}).face(-6,6)},
     shots:[
-      {d:6,p0:[9,1.4,4],l0:[9,1.3,14],p1:[9,3,3],l1:[9,9,-6],fov:52,ev:[[.8,()=>{CUT.deer.forEach((d,i)=>{const x0=d.root.position.x,z0=d.root.position.z;d.tween(8,k=>{const kk=Math.max(0,k*1.2-i*.08);d.root.position.set(x0+kk*6,kk*kk*30,z0-kk*40);d.root.rotation.x=-kk*.5})})}],[1,()=>sfx('jingle')]]},
-      {d:6.5,p0:[-3,1.5,3],l0:[-6,1.1,6],p1:[-3.5,1.4,3.6],l1:[-6,1,6],fov:42,lines:[[.3,'soldier',"Alright, alright! I'll talk!"],[2.8,'soldier',"The lights of Candy Cane Lane... the King's using them to power his citadel!"]],ev:[[0,()=>CUT.pr.play('Defeat',true,null)]]}]}),
-  intro2:()=>({map:'lane',title:['Mission 3','Lights Out on Candy Cane Lane','Candy Cane Lane · 02:15'],music:'menu',
+      {d:6,p0:[9,1.4,4],l0:[9,1.3,14],p1:[9,3,3],l1:[9,9,-6],fov:52,lines:[[.8,'holly',"They're flying! Rudolph, you beautiful glowing goofball!"]],ev:[[.8,()=>{CUT.deer.forEach((d,i)=>{const x0=d.root.position.x,z0=d.root.position.z;d.tween(8,k=>{const kk=Math.max(0,k*1.2-i*.08);d.root.position.set(x0+kk*6,kk*kk*30,z0-kk*40);d.root.rotation.x=-kk*.5})})}],[1,()=>sfx('jingle')]]},
+      {d:6.5,p0:[-3,1.5,3],l0:[-6,1.1,6],p1:[-3.5,1.4,3.6],l1:[-6,1,6],fov:42,
+        lines:[[.3,'flurry',"Okay! Okay! Don't snowball me! I'll talk!"],[0,'jingle',"Then talk."],[0,'flurry',"The King has a war camp up on Reindeer Ridge. His battle plans are in the lodge."],[0,'flurry',"Also... I'd like to apologize to the reindeer. Personally."]],ev:[[0,()=>CUT.pr.play('Defeat',true,null)]]}]}),
+  intro_stealth:()=>({map:'ridge',env:NIGHT_ENV,title:['Mission 3','Silent Night','Reindeer Ridge · 01:20'],music:'menu',
+    setup(){CUT.g=[[46,-6],[46,6],[52,-18]].map(([x,z])=>cutActor('soldier',x,z,{gun:'frost'}).face(0,0));CUT.g[0].walk(46,6,9);
+      CUT.h=cutActor('scout',-46,-1.6,{gun:'frost'}).face(-40,0);CUT.j=cutActor('elf',-46.4,1.6,{gun:'north'}).face(-40,0)},
+    shots:[
+      {d:7,p0:[10,30,-40],l0:[50,8,0],p1:[22,18,-22],l1:[50,9,0],fov:52,lines:[[1,'jingle',"The Frost Legion war camp. A dozen guards, one lodge, one very important folder."]]},
+      {d:7,p0:H(-41,.4,1.7),l0:H(-46,0,1.5),p1:H(-42,.2,1.65),l1:H(-46,0,1.5),fov:42,
+        lines:[[.3,'pip',"I made you something! The Hush Mitten. It goes on the end of your blaster and makes it whisper."],[0,'jingle',"It's a sock, Pip."],[0,'pip',"It's a tactical sock."]]},
+      {d:7,p0:H(-49.5,-1,2.1),l0:[0,5,0],p1:H(-49,-1,2),l1:[10,5,0],fov:46,
+        lines:[[.3,'holly',"So do we sneak in quiet, or go in snowballs blazing?"],[0,'jingle',"Your call, rookie. Quiet keeps them guessing. Loud keeps it interesting."],[0,'radio',"Stay out of their sight and they'll never know you were there. Get the plans, then get out."]]}]}),
+  outro_stealth:()=>({map:'ridge',env:NIGHT_ENV,music:'',
+    setup(){CUT.h=cutActor('scout',-47,-.8,{gun:'frost'}).face(-43,1);CUT.j=cutActor('elf',-47.6,1.4,{gun:'north'}).face(-43,1);CUT.sl=cutProp('sled_long',-53,0,{s:3.4});CUT.r=cutProp('reindeer',-53,-3.4,{s:2})},
+    shots:[
+      {d:7,p0:H(-43,1,1.7),l0:H(-47,0,1.45),p1:H(-43.6,.9,1.65),l1:H(-47,0,1.45),fov:42,
+        lines:[[.3,'holly',"Battle plans. Step one: steal Christmas. Step two: question mark. Step three: get on the Nice List."],[0,'jingle',"...That's actually kind of sad."],[0,'jingle',()=>CAMP.state.ghost?"Not one alarm the whole way. I'm almost proud.":"Bit loud back there. Effective. But loud."]]},
+      {d:6.5,p0:H(-50,4,2.4),l0:H(-53,-1,1.4),p1:H(-49.5,3.4,2.2),l1:H(-53,-1,1.4),fov:46,
+        lines:[[.2,'radio',"Good work. And look at this page. He's powering his Citadel with the stolen lights of Candy Cane Lane."],[0,'holly',"Not the Lane! They have the best hot cocoa in the whole North Pole!"]]}]}),
+  intro_lane:()=>({map:'lane',title:['Mission 4','Lights Out on Candy Cane Lane','Candy Cane Lane · 02:15'],music:'menu',
     setup(){CUT.sold=[[-13,13],[0,7],[13,-13],[-4,9],[3,5],[11,-9]].map(([x,z])=>cutActor('soldier',x,z,{gun:'frost'}).face(0,0));CUT.e=[[-13,46],[-11,48],[-15,49]].map(([x,z])=>cutActor('elf',x,z,{gun:'frost'}).face(-13,30))},
     shots:[
-      {d:7,p0:[-11.5,3,55],l0:[-13,2,0],p1:[-11.5,2.4,42],l1:[-8,3,0],fov:50,ev:[[0,()=>{for(const e of CUT.e)e.walk(e.root.position.x,e.root.position.z-12,7)}]]},
-      {d:6,p0:[-9,6,16],l0:[0,2,7],p1:[-7,4.5,14],l1:[0,2,6],fov:46,lines:[[.4,'elf',"Never seen the Lane this dark. Not even in July."]],ev:[[0,()=>{CUT.sold[1].walk(3,9,6)}]]},
-      {d:6,p0:[-12,1.8,26],l0:[-13,1.6,36],p1:[-12.5,1.7,28],l1:[-13,1.6,36],fov:42,lines:[[.2,'radio',"Three light stations. Take each one back and hold it."],[3.2,'radio',"Keep the Legion out of the circle, or the power cuts out."]]}]}),
-  outro2:()=>({map:'lane',music:'',
+      {d:7,p0:[-11.5,3,55],l0:[-13,2,0],p1:[-11.5,2.4,42],l1:[-8,3,0],fov:50,lines:[[1,'holly',"Candy Cane Lane. It's never been this dark. Not even in July."]],ev:[[0,()=>{for(const e of CUT.e)e.walk(e.root.position.x,e.root.position.z-12,7)}]]},
+      {d:6,p0:[-9,6,16],l0:[0,2,7],p1:[-7,4.5,14],l1:[0,2,6],fov:46,lines:[[.4,'sleet',"Corporal Sleet reporting. The lights are secure, Your Majesty."],[0,'flurry',"It's really dark though. I've stubbed my toe like four times."]],ev:[[0,()=>{CUT.sold[1].walk(3,9,6)}]]},
+      {d:6,p0:[-12,1.8,26],l0:[-13,1.6,36],p1:[-12.5,1.7,28],l1:[-13,1.6,36],fov:42,lines:[[.2,'radio',"Three light stations. Take each one back and hold it."],[0,'jingle',"Keep the Legion out of the circle or the power cuts out. Simple."],[0,'holly',"Simple, he says."]]}]}),
+  outro_lane:()=>({map:'lane',music:'',
     setup(){CUT.e=[[-2,10],[2,10.5],[0,12]].map(([x,z])=>cutActor('elf',x,z,{gun:'frost'}).face(0,0));CUT.scout=cutActor('scout',-13,30,{gun:'frost'})},
     shots:[
-      {d:6,p0:[-10,2.2,22],l0:[0,5,0],p1:[-8,3,17],l1:[0,7,0],fov:55,lines:[[.6,'elf',"Look at that. Candy Cane Lane, glowing again!"]],ev:[[0,()=>{for(const e of CUT.e)e.play('Victory',true)}],[.5,()=>{for(let i=0;i<16;i++){const c=pick([0xff3b4e,0x3dff7a,0xffd23d,0x3db2ff]);const b=mk(SPH,mat(c,{emissive:c,emissiveIntensity:2.2}),Math.cos(i/16*6.28)*6,5+Math.sin(i)*.4,Math.sin(i/16*6.28)*6,.18,.18,.18,cutG,false);CUT.actors.push({root:b,tw:[]})}sfx('jingle')}]]},
-      {d:6,p0:[-7,1.8,18],l0:[-13,1.6,26],p1:[-5,1.7,16],l1:[-2,1.6,12],fov:46,lines:[[.6,'scout',"Bad news! The Legion's loading the gift sacks onto the Polar Express!"]],ev:[[0,()=>CUT.scout.walk(-2,14,5,'Run')]]}]}),
-  intro3:()=>({map:'yard',title:['Mission 4','The Polar Express Job','Polar Express Yard · 03:30'],music:'menu',
+      {d:6,p0:[-10,2.2,22],l0:[0,5,0],p1:[-8,3,17],l1:[0,7,0],fov:55,lines:[[.6,'holly',"Look at that! Candy Cane Lane, glowing again!"],[0,'jingle',"...It's alright. I suppose."],[0,'holly',"Sergeant, are you crying?"],[0,'jingle',"It's the wind."]],ev:[[0,()=>{for(const e of CUT.e)e.play('Victory',true)}],[.5,()=>{for(let i=0;i<16;i++){const c=pick([0xff3b4e,0x3dff7a,0xffd23d,0x3db2ff]);const b=mk(SPH,mat(c,{emissive:c,emissiveIntensity:2.2}),Math.cos(i/16*6.28)*6,5+Math.sin(i)*.4,Math.sin(i/16*6.28)*6,.18,.18,.18,cutG,false);CUT.actors.push({root:b,tw:[]})}sfx('jingle')}]]},
+      {d:6,p0:[-7,1.8,18],l0:[-13,1.6,26],p1:[-5,1.7,16],l1:[-2,1.6,12],fov:46,lines:[[.6,'pip',"Uh, guys? Bad news! The Legion is loading the gift sacks onto the Polar Express!"]],ev:[[0,()=>CUT.scout.walk(-2,14,5,'Run')]]}]}),
+  intro_yard:()=>({map:'yard',title:['Mission 5','The Polar Express Job','Polar Express Yard · 03:30'],music:'menu',
     setup(){CUT.king=cutActor('king',8,-29.5,{y:.5}).face(9,-22);CUT.sold=[[-6,-24],[4,-24],[-12,-10],[12,-10],[-20,0],[18,0]].map(([x,z])=>cutActor('soldier',x,z,{gun:'frost'}).face(8,-29.5));
       CUT.sacks=[[-20,1.5],[18,1.5],[-6,11],[24,-11],[-28,-22]].map(([x,z])=>cutSack(x,z))},
     shots:[
       {d:6.5,p0:[-40,10,30],l0:[0,1,0],p1:[-30,5,20],l1:[0,2,-10],fov:52},
-      {d:7,p0:[10,2,-21],l0:[8,2.7,-29.5],p1:[9.4,2,-23.5],l1:[8,2.8,-29.5],fov:40,lines:[[.3,'king',"Every sack goes on the train. Every last one."],[3.6,'king',"By sunrise the children of the world wake up to nothing."]],ev:[[.2,()=>CUT.king.play('Victory',true)]]},
-      {d:6,p0:[-27,2.4,8],l0:[-20,.8,1.5],p1:[-24.5,1.8,4.5],l1:[-20,.7,1.5],fov:46,lines:[[.2,'radio',"Not on my watch. Five sacks. Grab them all."],[3,'radio',"Then bring them to my sleigh at the south end of the yard."]]}]}),
-  outro3:()=>({map:'yard',music:'',
+      {d:7,p0:[10,2,-21],l0:[8,2.7,-29.5],p1:[9.4,2,-23.5],l1:[8,2.8,-29.5],fov:40,lines:[[.3,'king',"Every sack goes on the train. Every. Last. One."],[0,'king',"By sunrise, the children of the world will wake up to... nothing! Mwa ha ha!"],[0,'sleet',"Sir, your cape is caught in the train door."],[0,'king',"...Free it. Quietly."]],ev:[[.2,()=>CUT.king.play('Victory',true)]]},
+      {d:6,p0:[-27,2.4,8],l0:[-20,.8,1.5],p1:[-24.5,1.8,4.5],l1:[-20,.7,1.5],fov:46,lines:[[.2,'radio',"Not on my watch. Five sacks. Grab them all."],[0,'radio',"Then bring them to my sleigh at the south end of the yard."]]}]}),
+  outro_yard:()=>({map:'yard',music:'',
     setup(){CUT.sl=cutSleigh(0,37,0,Math.PI/2);CUT.santa=cutActor('santa',3,40).face(0,37);CUT.e=[[5,42],[6,39]].map(([x,z])=>cutActor('elf',x,z,{gun:'frost'}).face(3,40))},
     shots:[
-      {d:6,p0:[9,3.6,47],l0:[1.5,1.4,39],p1:[7.5,3.2,45.5],l1:[1.5,1.4,39],fov:46,lines:[[.3,'santa',"Four... five. Every sack accounted for. Well, nearly."]],ev:[[.2,()=>CUT.santa.play('Victory',true)]]},
-      {d:6,p0:[5.2,2,44.4],l0:[3,2.05,40],p1:[4.8,2,43.6],l1:[3,2.05,40],fov:40,lines:[[.2,'santa',"My own sack is missing. The big one."],[3,'santa',"He's taken it to the Igloo Citadel. So that's where we're going."]],ev:[[0,()=>CUT.santa.face(5,44)]]}]}),
-  intro4:()=>({map:'citadel',title:['Mission 5','Siege of the Igloo Citadel','Igloo Citadel · 05:58 · Before sunrise'],music:'menu',
+      {d:6,p0:[9,3.6,47],l0:[1.5,1.4,39],p1:[7.5,3.2,45.5],l1:[1.5,1.4,39],fov:46,lines:[[.3,'santa',"Four... five! Every sack accounted for. Well, nearly."]],ev:[[.2,()=>CUT.santa.play('Victory',true)]]},
+      {d:6,p0:[5.2,2,44.4],l0:[3,2.05,40],p1:[4.8,2,43.6],l1:[3,2.05,40],fov:40,lines:[[.2,'santa',"My own sack is missing. The big one. Every wish of every child is in that sack."],[0,'jingle',"Then we go get it."],[0,'santa',"It's in the Igloo Citadel, and he's filled the sky with ice gliders. We'll have to fly."],[0,'holly',"We get to ride in the sleigh?!"]],ev:[[0,()=>CUT.santa.face(5,44)]]}]}),
+  intro_sleigh:()=>({map:'citadel',title:['Mission 6','Sleigh Ride','Over the Igloo Citadel · 05:20'],music:'menu',
+    setup(){const p=vehPathPos(0,new THREE.Vector3());CUT.sl=cutSleigh(p.x,p.z,p.y,0);const sa=cutActor('santa',0,0,{y:0});CUT.sl.root.add(sa.root);sa.root.position.set(0,.55,.3);sa.root.rotation.y=Math.PI;
+      CUT.sl.tween(30,k=>{const a=k*3.2;vehPathPos(a,CUT.sl.root.position);const n=vehPathPos(a+.02,_vt);CUT.sl.root.rotation.y=Math.atan2(-(n.x-CUT.sl.root.position.x),-(n.z-CUT.sl.root.position.z));CUT.sl.root.rotation.z=-.2})},
+    shots:[
+      {d:7,p0:[40,40,80],l0:[0,30,40],p1:[30,36,60],l1:[0,30,0],fov:52,track:()=>CUT.sl,chase:[[9,4,12],[6,2.6,7]],lines:[[.6,'santa',"Hold on to your hats! Dasher, Dancer, full speed ahead!"],[0,'holly',"Wheeeeee!"]]},
+      {d:7,p0:[-20,40,70],l0:[0,30,0],p1:[-30,38,50],l1:[0,30,0],fov:48,track:()=>CUT.sl,chase:[[-4,2.2,-9],[-3,2,-6.5]],lines:[[.2,'pip',"The candy cannon is on the back. It overheats, so give it a breather now and then."],[0,'jingle',"And if they fire ice missiles, hit the Jingle Flare. Bells confuse them."],[0,'holly',"Why do bells confuse missiles?"],[0,'pip',"Honestly? Nobody knows."]]},
+      {d:6.5,p0:[-2.4,10.7,-4.5],l0:[0,10.8,-10.6],p1:[-1.8,10.6,-5.6],l1:[0,10.8,-10.6],fov:40,setup(){},lines:[[.3,'king',"A sleigh? You brought a sleigh to an AIR battle?"],[0,'king',"Gliders! Turn them into a fruitcake!"]],ev:[[0,()=>{if(!CUT.k2){CUT.k2=cutActor('king',0,-10.6,{y:8.8}).face(-2,-4)}CUT.k2.play('SwordSlash',true)}]]}]}),
+  outro_sleigh:()=>({map:'citadel',music:'',
+    setup(){CUT.sl=cutSleigh(-90,-10,36,0);CUT.sl.tween(7,k=>{const e=k*k*(3-2*k);CUT.sl.root.position.set(lerp(-90,-56,e),lerp(36,terrH(-56,0)+.1,e),lerp(-10,0,e));CUT.sl.root.rotation.y=-Math.PI/2+.25*(1-k)});
+      CUT.santa=cutActor('santa',-53,3).face(-49,4);CUT.h=cutActor('scout',-50,-1.5,{gun:'frost'}).face(-53,3);CUT.j=cutActor('elf',-50.5,4.8,{gun:'north'}).face(-53,3);for(const a of [CUT.santa,CUT.h,CUT.j])a.hidden=true},
+    shots:[
+      {d:7,p0:[-40,8,20],l0:[-80,30,-8],p1:[-44,4,12],l1:[-56,2,0],fov:50,track:()=>CUT.sl,chase:[[10,4,6],[8,2.6,5]],lines:[[.5,'santa',"Ho ho HO! Did you see that zeppelin go down?"],[0,'jingle',"Landing in the courtyard. Everyone off."]]},
+      {d:7,p0:H(-47,7,1.7),l0:H(-51.5,2,1.4),p1:H(-47.5,6.4,1.65),l1:H(-51.5,2,1.4),fov:44,lines:[[.3,'holly',"Can we do that again? Like, every single day?"],[0,'santa',"After Christmas, little one. First, we have a king to visit."]],ev:[[0,()=>{for(const a of [CUT.santa,CUT.h,CUT.j])a.hidden=false;CUT.h.play('Victory',true)}]]}]}),
+  intro_citadel:()=>({map:'citadel',title:['Mission 7','Siege of the Igloo Citadel','Igloo Citadel · 05:58 · Before sunrise'],music:'menu',
     setup(){CUT.king=cutActor('king',0,-10.6,{y:8.8}).face(-2,-4);CUT.sack=cutSack(1.6,-9.4,8.8);CUT.santa=cutActor('santa',-52,0).face(0,0);
       CUT.e=[[-49,-3],[-49,3],[-48,-2.6],[-47.5,2.4],[-50.5,-.8]].map(([x,z],i)=>cutActor('elf',x,z,{gun:['frost','mule','north','frost','frost'][i]}).face(0,0))},
     shots:[
       {d:7,p0:[0,4,-60],l0:[0,6,0],p1:[0,14,-34],l1:[0,9,-10],fov:52},
-      {d:6.5,p0:[-2.4,10.7,-4.5],l0:[0,10.8,-10.6],p1:[-1.8,10.6,-5.6],l1:[0,10.8,-10.6],fov:40,lines:[[.3,'king',"Come then, little elves. Climb my tower."],[3.4,'king',"I'll make ice sculptures of the lot of you."]],ev:[[.3,()=>CUT.king.play('SwordSlash',true)]]},
-      {d:7,p0:[-50.2,2.1,-7],l0:[-52,1.6,0],p1:[-50,2,-6],l1:[-52,1.6,0],fov:46,lines:[[.2,'santa',"This ends tonight. Up the stairs, onto the roof."],[3.4,'santa',"For Christmas!"]],
+      {d:6.5,p0:[-2.4,10.7,-4.5],l0:[0,10.8,-10.6],p1:[-1.8,10.6,-5.6],l1:[0,10.8,-10.6],fov:40,
+        lines:[[.3,'king',"So. You've come for the sack."],[0,'king',"Do you know what I got for Christmas in 1847? Coal. One lump. For one tiny avalanche!"],[0,'santa',"Gary, you buried a village."],[0,'king',"Don't call me Gary!"]],ev:[[.3,()=>CUT.king.play('SwordSlash',true)]]},
+      {d:7,p0:[-50.2,2.1,-7],l0:[-52,1.6,0],p1:[-50,2,-6],l1:[-52,1.6,0],fov:46,lines:[[.2,'santa',"This ends tonight. Up the stairs, onto the roof."],[0,'jingle',"Elves! For Christmas!"],[0,'holly',"For Christmas! And for hot cocoa!"]],
         ev:[[3.3,()=>{CUT.santa.play('Victory',true);for(const e of CUT.e){const z=e.root.position.z;e.walk(e.root.position.x+12,z<0?-8:8,4,'Run')}}]]}]}),
-  outro4:()=>({map:'citadel',music:'menu',env:{sky:['#2a3f7a','#e88a7a','#ffd59a'],fog:'#f2c6a8',fogNear:40,fogFar:230,sun:'#ffd2a0',sunI:1.1,sunDir:[80,18,-10],hemi:['#ffe2c8','#6a6a8a'],hemiI:1.05,aurora:.15,stars:.15,glow:'rgba(255,200,140,.95)',mount:['#f2c8b8','#b9a0b8'],snowTint:'#fff6ee',exposure:1.05,snowfall:.1},
-    setup(){CUT.king=cutActor('king',-1,-6.5,{y:8.8});CUT.king.play('Death',true,null);CUT.santa=cutActor('santa',3,-6,{y:8.8}).face(-1,-6.5);
-      CUT.e=[[6,-5],[4.5,-9.5],[6.5,-9]].map(([x,z])=>cutActor('elf',x,z,{gun:'frost',y:8.8}).face(-1,-6.5));CUT.sack=cutSack(-2.4,-9.2,8.8);CUT.sl=cutSleigh(-30,-24,16,Math.PI/2)},
+  outro_citadel:()=>({map:'citadel',music:'menu',env:{sky:['#2a3f7a','#e88a7a','#ffd59a'],fog:'#f2c6a8',fogNear:40,fogFar:230,sun:'#ffd2a0',sunI:1.1,sunDir:[80,18,-10],hemi:['#ffe2c8','#6a6a8a'],hemiI:1.05,aurora:.15,stars:.15,glow:'rgba(255,200,140,.95)',mount:['#f2c8b8','#b9a0b8'],snowTint:'#fff6ee',exposure:1.05,snowfall:.1},
+    setup(){CUT.king=cutActor('king',-1,-6.5,{y:8.8});CUT.king.play('Defeat',true,null);CUT.santa=cutActor('santa',3,-6,{y:8.8}).face(-1,-6.5);
+      CUT.e=[[6,-5],[4.5,-9.5],[6.5,-9]].map(([x,z])=>cutActor('elf',x,z,{gun:'frost',y:8.8}).face(-1,-6.5));CUT.fs=[[-6,-9],[-6.5,-6.5]].map(([x,z])=>cutActor('soldier',x,z,{y:8.8}).face(-1,-6.5));CUT.sack=cutSack(-2.4,-9.2,8.8);CUT.sl=cutSleigh(-30,-24,16,Math.PI/2)},
     shots:[
-      {d:6,p0:[9,11.8,-1],l0:[0,9.6,-6.5],p1:[7.6,11,-2],l1:[-1,9.4,-6.5],fov:46,lines:[[.6,'king',"Impossible... beaten by... elves..."]],ev:[[0,()=>{for(const e of CUT.e)e.play('Victory',true)}]]},
-      {d:6.5,p0:[5.6,10.75,-2.8],l0:[3,10.85,-6],p1:[5.2,10.75,-3.4],l1:[3,10.85,-6],fov:40,lines:[[.3,'santa',"My sack. Every wish of every child, safe and sound."],[3.4,'santa',"The sun's coming up. Let's not be late."]],ev:[[0,()=>CUT.santa.face(5.6,-2.8)],[3,()=>CUT.santa.play('Victory',true)]]},
-      {d:9,p0:[9,10.2,9],l0:[-30,16,-24],p1:[8,10.6,8],l1:[40,30,26],fov:58,track:()=>CUT.sl,lines:[[1,'santa',"Ho ho ho! Merry Christmas to all..."],[5,'santa',"...and to all a good night!"]],
+      {d:6,p0:[9,11.8,-1],l0:[0,9.6,-6.5],p1:[7.6,11,-2],l1:[-1,9.4,-6.5],fov:46,lines:[[.6,'king',"Impossible... beaten by... elves..."],[0,'holly',"Small elves. Mighty snowballs."]],ev:[[0,()=>{for(const e of CUT.e)e.play('Victory',true)}]]},
+      {d:6.5,p0:[5.6,10.75,-2.8],l0:[3,10.85,-6],p1:[5.2,10.75,-3.4],l1:[3,10.85,-6],fov:40,
+        lines:[[.3,'santa',"Gary. Nobody is ever too far gone for the Nice List."],[0,'king',"...Really?"],[0,'santa',"Start by giving back the sack."],[0,'king',"...Fine. Here. And... Merry Christmas. I suppose."],[0,'flurry',"Does this mean we finally get dental?"],[0,'santa',"Ho ho ho! Everyone gets dental!"]],ev:[[0,()=>CUT.santa.face(5.6,-2.8)],[6,()=>CUT.santa.play('Victory',true)]]},
+      {d:9,p0:[9,10.2,9],l0:[-30,16,-24],p1:[8,10.6,8],l1:[40,30,26],fov:58,track:()=>CUT.sl,lines:[[1,'santa',"Ho ho ho! Merry Christmas to all..."],[0,'santa',"...and to all a good night!"]],
         ev:[[0,()=>{const g=CUT.sl.root;CUT.sl.tween(9,k=>{g.position.set(-30+k*70,16+k*14+Math.sin(k*3)*2,-24+k*50);g.rotation.y=Math.atan2(-70,-50);g.rotation.z=Math.sin(k*6)*.06})}],[.5,()=>sfx('jingle')]]}],
     credits:true})
 };
 function cutFit(p,l){_cl.set(l[0],l[1],l[2]);_cp.set(p[0],p[1],p[2]).sub(_cl);const L=_cp.length();if(L<.5)return p;_cp.divideScalar(L);const t=rayWorld(_cl,_cp,L);if(t<L-.05){const d=Math.max(.6,t-.45);return [_cl.x+_cp.x*d,_cl.y+_cp.y*d,_cl.z+_cp.z*d]}return p}
-function cutSkip(){if(CUT.on)cutEnd()}
+function cutSkip(){if(CUT.on){voStop();cutEnd()}}
 function playCut(key,onEnd){const fn=CINE[key];if(!fn||!(MODELS.elf)){onEnd&&onEnd();return}
   initAudio();if(document.pointerLockElement)document.exitPointerLock();
   const sc0=CINE[key]();if(!MAP||MAP!==MAPS[sc0.map])loadMap(sc0.map);if(sc0.env)applyEnv(Object.assign({},MAP.env,sc0.env));
   const sc=CINE[key]();// rebuilt now that the terrain is loaded
   CUT.on=true;CUT.key=key;CUT.sc=sc;CUT.actors=[];CUT.i=-1;CUT.t=0;CUT.onEnd=onEnd;CUT.fov=camera.fov;CUT.sub=null;CUT.chars=chars.visible;chars.visible=false;vm.visible=false;fx.visible=true;
-  sc.setup();
+  sc.setup();if(!CUT.fill){CUT.fill=new THREE.PointLight(0xdfe8ff,HIGH?.55:.75,16,2);CUT.fill.position.set(0,.4,1.2)}camera.add(CUT.fill);
   $('menu').hidden=true;$('campIntro').hidden=true;$('end').hidden=true;$('death').hidden=true;document.body.classList.add('cine');$('cine').hidden=false;$('cineSub').classList.remove('on');$('cineCred').hidden=true;
   const tc=$('cineTitle');if(sc.title){tc.querySelector('.ey').textContent=sc.title[0];tc.querySelector('h2').textContent=sc.title[1];tc.querySelector('.sub').textContent='';tc.dataset.sub=sc.title[2];tc.classList.remove('on');void tc.offsetWidth;tc.classList.add('on')}else tc.classList.remove('on');
   if(sc.music!==undefined&&sc.music!=='')playMusic(sc.music);
   $('cineFade').style.opacity=1;cutNext()}
 function cutNext(){CUT.i++;const sh=CUT.sc.shots[CUT.i];if(!sh){if(CUT.sc.credits&&!CUT.credDone){CUT.credDone=true;return cutCredits()}return cutEnd()}
   if(sh.fit===1){sh.fit=2;sh.p0=cutFit(sh.p0,sh.l0);sh.p1=cutFit(sh.p1,sh.l1)}
-  CUT.t=0;CUT.lines=(sh.lines||[]).map(l=>({t:l[0],who:l[1],txt:l[2],shown:false}));CUT.ev=(sh.ev||[]).map(e=>({t:e[0],f:e[1],done:false}));
+  CUT.t=0;CUT.hold=0;CUT.li=0;CUT.lines=(sh.lines||[]).map(l=>({t:l[0],who:l[1],txt:typeof l[2]==='function'?l[2]():l[2],shown:false}));CUT.ev=(sh.ev||[]).map(e=>({t:e[0],f:e[1],done:false}));
   camera.fov=sh.fov||50;camera.updateProjectionMatrix();$('cineFade').style.transition='opacity .45s';$('cineFade').style.opacity=0}
 function cutCredits(){const c=$('cineCred');c.hidden=false;c.classList.remove('roll');void c.offsetWidth;c.classList.add('roll');CUT.credT=0;CUT.cred=true}
 const _cp=new THREE.Vector3(),_cl=new THREE.Vector3();
@@ -2850,18 +2941,173 @@ function cutTick(dt){if(!CUT.on)return;
   if(CUT.cred){CUT.credT+=dt;const sh=CUT.sc.shots[CUT.sc.shots.length-1];_cp.set(lerp(sh.p1[0],sh.p1[0]-4,Math.min(1,CUT.credT/20)),sh.p1[1]+CUT.credT*.15,sh.p1[2]);camera.position.copy(_cp);camera.lookAt(sh.l1[0],sh.l1[1],sh.l1[2]);if(CUT.credT>22)cutEnd();return}
   const sh=CUT.sc.shots[CUT.i];if(!sh)return;CUT.t+=dt;const k=Math.min(1,CUT.t/sh.d),e=k*k*(3-2*k);
   _cp.set(lerp(sh.p0[0],sh.p1[0],e),lerp(sh.p0[1],sh.p1[1],e),lerp(sh.p0[2],sh.p1[2],e));_cl.set(lerp(sh.l0[0],sh.l1[0],e),lerp(sh.l0[1],sh.l1[1],e),lerp(sh.l0[2],sh.l1[2],e));
-  if(sh.track){const tr=sh.track();if(tr)_cl.copy(tr.root.position).y+=1.2}const tt=performance.now()*.001;_cp.x+=Math.sin(tt*1.3)*.03;_cp.y+=Math.sin(tt*1.7+1)*.025;camera.position.copy(_cp);camera.lookAt(_cl);
-  for(const a of CUT.actors)if(a.u){const p=a.root.position;const d=Math.hypot(p.x-_cp.x,p.z-_cp.z),dy=_cp.y-p.y;a.root.visible=!(d<1.15&&dy>-.5&&dy<2.8)}
+  if(sh.track){const tr=sh.track();if(tr){_cl.copy(tr.root.position).y+=1.2;if(sh.chase){const c=sh.chase;const e2=e;_cp.set(lerp(c[0][0],c[1][0],e2),lerp(c[0][1],c[1][1],e2),lerp(c[0][2],c[1][2],e2));tr.root.localToWorld(_cp)}}}const tt=performance.now()*.001;_cp.x+=Math.sin(tt*1.3)*.03;_cp.y+=Math.sin(tt*1.7+1)*.025;camera.position.copy(_cp);camera.lookAt(_cl);
+  for(const a of CUT.actors)if(a.u){const p=a.root.position;const d=Math.hypot(p.x-_cp.x,p.z-_cp.z),dy=_cp.y-p.y;a.root.visible=!a.hidden&&!(d<1.15&&dy>-.5&&dy<2.8)}
   for(const ev of CUT.ev)if(!ev.done&&CUT.t>=ev.t){ev.done=true;try{ev.f()}catch(x){}}
-  for(const l of CUT.lines)if(!l.shown&&CUT.t>=l.t){l.shown=true;cutSay(l.who,l.txt)}
-  if(CUT.sub){const s=CUT.sub;s.t+=dt;const n=Math.min(s.txt.length,Math.floor(s.t*48));if(n>s.n){for(let i=s.n;i<n;i++)if(i%3===0&&/[a-z]/i.test(s.txt[i]))voiceBlip(s.who);s.n=n;$('cineSub').querySelector('span').textContent=s.txt.slice(0,n)}if(s.t>s.life){$('cineSub').classList.remove('on');CUT.sub=null}}
+  {const l=CUT.lines[CUT.li];if(l&&CUT.t>=l.t&&!cutBusy()){CUT.li++;cutSay(l.who,l.txt)}}
+  if(CUT.sub){const s=CUT.sub;s.t+=dt;const n=Math.min(s.txt.length,Math.floor(s.t*48));if(n>s.n){if(!s.voiced)for(let i=s.n;i<n;i++)if(i%3===0&&/[a-z]/i.test(s.txt[i]))voiceBlip(s.who);s.n=n;$('cineSub').querySelector('span').textContent=s.txt.slice(0,n)}if(s.t>s.life){$('cineSub').classList.remove('on');CUT.sub=null}}
   const tc=$('cineTitle');if(tc.classList.contains('on')&&CUT.i===0){const sub=tc.dataset.sub||'';const n=Math.min(sub.length,Math.max(0,Math.floor((CUT.t-1)*26)));tc.querySelector('.sub').textContent=sub.slice(0,n)}
-  if(k>=1)cutNext();else if(sh.d-CUT.t<.35&&CUT.i<CUT.sc.shots.length-1){$('cineFade').style.transition='opacity .3s';$('cineFade').style.opacity=.85}}
-function cutSay(who,txt){const sp=SPEAKER[who]||['',''];const el=$('cineSub');el.querySelector('b').textContent=sp[0];el.querySelector('b').style.color=sp[1];el.querySelector('span').textContent='';el.classList.add('on');CUT.sub={who,txt,t:0,n:0,life:Math.max(2.6,txt.length/48+1.6)}}
-function cutEnd(){if(!CUT.on)return;CUT.on=false;CUT.cred=false;CUT.credDone=false;for(const a of CUT.actors){if(a.root.parent)a.root.parent.remove(a.root)}CUT.actors=[];while(cutG.children.length)cutG.remove(cutG.children[0]);
+  const talking=CUT.li<CUT.lines.length||cutBusy();if(k>=1&&talking&&CUT.hold<14){CUT.hold+=dt;return}
+  if(k>=1)cutNext();else if(sh.d-CUT.t<.35&&!talking&&CUT.i<CUT.sc.shots.length-1){$('cineFade').style.transition='opacity .3s';$('cineFade').style.opacity=.85}}
+function cutBusy(){const s=CUT.sub;if(!s)return false;return s.speaking||s.t<s.txt.length/48+.55}
+function cutSay(who,txt){const sp=SPEAKER[who]||['',''];const el=$('cineSub');el.querySelector('b').textContent=sp[0];el.querySelector('b').style.color=sp[1];el.querySelector('span').textContent='';el.classList.add('on');
+  const s={who,txt,t:0,n:0,life:Math.max(2.6,txt.length/48+1.6),speaking:false};CUT.sub=s;if(voSay(who,txt,()=>{s.speaking=false;s.life=s.t+.6})){s.speaking=true;s.voiced=true;s.life=1e9}}
+function cutEnd(){if(!CUT.on)return;CUT.on=false;voStop();if(CUT.fill&&CUT.fill.parent)CUT.fill.parent.remove(CUT.fill);CUT.cred=false;CUT.credDone=false;for(const a of CUT.actors){if(a.root.parent)a.root.parent.remove(a.root)}CUT.actors=[];while(cutG.children.length)cutG.remove(cutG.children[0]);
   chars.visible=true;camera.fov=CUT.fov;camera.updateProjectionMatrix();document.body.classList.remove('cine');$('cine').hidden=true;$('cineTitle').classList.remove('on');$('cineSub').classList.remove('on');$('cineCred').hidden=true;
   if(CUT.sc&&CUT.sc.env&&MAP)applyEnv(MAP.env);const f=CUT.onEnd;CUT.onEnd=null;CUT.sc=null;if(f)f()}
 $('cineSkip').onclick=e=>{e.stopPropagation();cutSkip()};
+/* ================= VOICES (browser speech, free and offline) + RADIO CHATTER ================= */
+const VO={voices:[],ok:'speechSynthesis' in window};
+function voLoad(){try{VO.voices=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang))}catch(e){VO.voices=[]}}
+if(VO.ok){voLoad();try{speechSynthesis.onvoiceschanged=voLoad}catch(e){}}
+const FEM=/samantha|karen|moira|tessa|victoria|fiona|female|zira|serena|susan|allison|ava|kate|veena|hazel|libby|sonia|jenny|aria|emma|google us english|google uk english female/i;
+const MALE=/daniel|alex|fred|oliver|arthur|male|david|mark|rishi|aaron|tom|james|george|ryan|guy|eric|lee|gordon/i;
+// pitch / rate / which kind of voice each character prefers
+const CAST={santa:{p:.62,r:.9,g:'m',n:0},radio:{p:.62,r:.9,g:'m',n:0},king:{p:.38,r:.82,g:'m',n:1},jingle:{p:.82,r:.96,g:'m',n:2},elf:{p:.82,r:.96,g:'m',n:2},
+  holly:{p:1.45,r:1.12,g:'f',n:0},scout:{p:1.45,r:1.12,g:'f',n:0},pip:{p:1.75,r:1.2,g:'m',n:3},flurry:{p:1.05,r:1.04,g:'m',n:4},sleet:{p:.7,r:.92,g:'m',n:5},soldier:{p:1.05,r:1.04,g:'m',n:4}};
+function voFor(who){const c=CAST[who]||CAST.jingle,V=VO.voices;if(!V.length)return null;const pool=V.filter(v=>(c.g==='f'?FEM:MALE).test(v.name));const L=pool.length?pool:V;return L[c.n%L.length]}
+function voPrime(){if(!VO.ok||SETTINGS.vo==='off')return;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}
+function voStop(){if(VO.ok)try{speechSynthesis.cancel()}catch(e){}}
+function voSay(who,txt,onEnd,vol){if(!VO.ok||SETTINGS.vo==='off'||!VO.voices.length)return false;
+  try{const c=CAST[who]||CAST.jingle;const u=new SpeechSynthesisUtterance(txt.replace(/\.\.\./g,', ').replace(/[*_]/g,''));const v=voFor(who);if(v)u.voice=v;u.pitch=c.p;u.rate=c.r;u.volume=Math.min(1,(vol||1)*VOL.master);
+    let done=false;const fin=()=>{if(done)return;done=true;onEnd&&onEnd()};u.onend=fin;u.onerror=fin;setTimeout(fin,1500+txt.length*95);speechSynthesis.speak(u);return true}catch(e){return false}}
+// in-mission radio: a small subtitle box, spoken, queued so lines never overlap
+const RADIO={q:[],busy:false,el:null};
+function radio(who,txt,prio){if(!G.camp||G.over)return;if(prio)RADIO.q.unshift([who,txt]);else{if(RADIO.q.length>3)return;RADIO.q.push([who,txt])}radioPump()}
+function radioPump(){if(RADIO.busy||!RADIO.q.length||CUT.on)return;const [who,txt]=RADIO.q.shift();RADIO.busy=true;const sp=SPEAKER[who]||['',''];const el=$('radio');
+  el.querySelector('b').textContent=sp[0];el.querySelector('b').style.color=sp[1];el.querySelector('span').textContent=txt;el.classList.add('on');
+  const end=()=>{setTimeout(()=>{el.classList.remove('on');setTimeout(()=>{RADIO.busy=false;radioPump()},350)},500)};
+  if(!voSay(who,txt,end,.9)){let n=0;const iv=setInterval(()=>{if(n%3===0)voiceBlip(who);if(++n>txt.length/2.4){clearInterval(iv)}},40);setTimeout(end,1400+txt.length*55)}}
+function radioClear(){RADIO.q=[];RADIO.busy=false;voStop();const el=$('radio');if(el)el.classList.remove('on')}
+
+/* ================= STEALTH ================= */
+const QTEX={};function qTex(k){if(QTEX[k])return QTEX[k];const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+  if(k==='!'){g.fillStyle='#ff4a5a';g.beginPath();g.arc(32,32,26,0,7);g.fill();g.fillStyle='#fff';g.font='bold 40px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('!',32,34)}
+  else{const f=+k;g.strokeStyle='rgba(255,255,255,.7)';g.lineWidth=5;g.beginPath();g.arc(32,32,24,0,7);g.stroke();g.strokeStyle='#ffd23d';g.lineWidth=7;g.beginPath();g.arc(32,32,24,-Math.PI/2,-Math.PI/2+f/10*Math.PI*2);g.stroke();g.fillStyle='#ffd23d';g.font='bold 30px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('?',32,34)}
+  return QTEX[k]=new THREE.CanvasTexture(c)}
+function stealthMission(){return G.camp&&CAMP.m&&CAMP.m.id==='stealth'}
+function guardIcon(b){if(!b.mesh)return;let s=b.mesh.userData.qs;if(!s){s=new THREE.Sprite(new THREE.SpriteMaterial({map:qTex('0'),depthTest:false,transparent:true}));s.scale.set(.7,.7,1);s.position.y=2.75;s.renderOrder=11;b.mesh.add(s);b.mesh.userData.qs=s}
+  const k=b.alerted?'!':String(Math.round((b.sus||0)*10));s.visible=b.alive&&(b.alerted?G.time-b.alertAt<4:(b.sus||0)>.05);if(s.material.map!==qTex(k)){s.material.map=qTex(k);s.material.needsUpdate=true}}
+function stealthBot(b,dt){if(b.alerted)return false;const st=CAMP.state;
+  let see=0;const p=P;
+  if(p&&p.alive){const dx=p.pos.x-b.pos.x,dz=p.pos.z-b.pos.z,dy=p.pos.y-b.pos.y,d=Math.hypot(dx,dz);const range=(p.crouch>.5?12:21)*((b.sus||0)>.3?1.3:1)*(p.sprinting?1.25:1);
+    if(d<range&&Math.abs(dy)<9){const ang=Math.abs(angDiff(b.yaw,Math.atan2(-dx,-dz)));
+      if(ang<.95){_eye.set(b.pos.x,b.pos.y+1.5,b.pos.z);_te.set(p.pos.x,p.pos.y+(p.crouch>.5?.8:1.35),p.pos.z);if(los(_eye,_te))see=(1-d/range)*1.9+.3}
+      else if(d<2.2&&p.crouch<.5&&Math.hypot(p.vel.x,p.vel.z)>3)see=.45}}
+  if(see){b.sus=Math.min(1,(b.sus||0)+see*dt);b.lastSeen={x:p.pos.x,z:p.pos.z}}else b.sus=Math.max(0,(b.sus||0)-dt*.16);
+  if((b.sus||0)>.55&&!b.saidHuh){b.saidHuh=true;if(Math.random()<.5)radio('holly',pick(["He's looking right at you! Get down!","Careful, that one's getting suspicious!","Freeze! Er, I mean, hide!"]))}
+  if(b.sus>=1){guardAlert(b);return false}
+  let tx=null,tz=null,spd=1.7;
+  if((b.sus||0)>.3&&b.lastSeen){tx=b.lastSeen.x;tz=b.lastSeen.z;spd=2.3;if(Math.hypot(tx-b.pos.x,tz-b.pos.z)<1.5){tx=null}}
+  else if(b.patrol&&b.patrol.length>1){const w=b.patrol[b.pi||0];if(Math.hypot(w[0]-b.pos.x,w[1]-b.pos.z)<1.2){b.waitT=(b.waitT||0)+dt;if(b.waitT>2.6){b.waitT=0;b.pi=((b.pi||0)+1)%b.patrol.length}}else{tx=w[0];tz=w[1]}}
+  let wx=0,wz=0;
+  if(tx!==null){const dx=tx-b.pos.x,dz=tz-b.pos.z,d=Math.hypot(dx,dz)||1;wx=dx/d*spd;wz=dz/d*spd;b.yaw+=clamp(angDiff(b.yaw,Math.atan2(-dx,-dz)),-2.2*dt,2.2*dt)}
+  else b.yaw+=Math.sin(G.time*.6+(b.look||0))*.5*dt;
+  accelerate(b,wx,wz,dt);moveEntity(b,dt);return true}
+function guardAlert(b,quiet){if(b.alerted)return;const st=CAMP.state;b.alerted=true;b.alertAt=G.time;b.sus=1;if(b.bot){b.bot.target=P;b.bot.react=.55}
+  if(!quiet){sfx('hit',b.pos);if(!st.alarm&&st.alarmT===undefined){st.alarmT=3.2;centerMsg('Spotted! Take him out before he raises the alarm');radio('jingle',pick(["You've been spotted! Drop him, quick!","He's seen you. Three seconds before he sounds the alarm!"]),true)}}
+  for(const o of G.ents)if(o!==b&&o.alive&&o.stealthGuard&&!o.alerted&&Math.hypot(o.pos.x-b.pos.x,o.pos.z-b.pos.z)<11){o.sus=Math.max(o.sus||0,.6);o.lastSeen={x:P.pos.x,z:P.pos.z}}}
+function raiseAlarm(){const st=CAMP.state;if(st.alarm)return;st.alarm=true;st.ghost=false;st.alarmT=undefined;centerMsg('ALARM! The whole camp is on alert');sfx('streak');
+  for(const o of G.ents)if(o.alive&&o.stealthGuard)guardAlert(o,true);radio('jingle',"Well, so much for quiet. Go loud! Snowballs out!",true);radio('pip',"Um, lots of them are coming. Like, a LOT.")}
+function stealthNoise(){const st=CAMP.state;if(st.alarm)return;const w=P.w[P.cur];const sup=w&&w.def.sup;
+  for(const o of G.ents){if(!o.alive||!o.stealthGuard||o.alerted)continue;const d=Math.hypot(o.pos.x-P.pos.x,o.pos.z-P.pos.z);
+    if(!sup&&d<48){guardAlert(o);}else if(sup&&d<5){o.sus=Math.max(o.sus||0,.5);o.lastSeen={x:P.pos.x,z:P.pos.z}}}
+  if(!sup&&!st.toldLoud){st.toldLoud=true;radio('jingle',"That blaster's not suppressed! Everyone heard that!",true)}}
+function stealthOnKill(v){const st=CAMP.state;if(!v.stealthGuard)return;if(!v.alerted)st.silent=(st.silent||0)+1;
+  for(const o of G.ents){if(!o.alive||!o.stealthGuard||o.alerted||o===v)continue;const d=Math.hypot(o.pos.x-v.pos.x,o.pos.z-v.pos.z);if(d>13)continue;_eye.set(o.pos.x,o.pos.y+1.5,o.pos.z);_te.set(v.pos.x,v.pos.y+.6,v.pos.z);if(los(_eye,_te)){o.sus=Math.max(o.sus||0,.75);o.lastSeen={x:v.pos.x,z:v.pos.z}}}
+  if(st.silent===1)radio('jingle',"Clean. Nobody saw a thing.");if(st.silent===5)radio('holly',"You're like a ninja. A festive ninja!")}
+
+/* ================= SLEIGH FLIGHT (vehicle mission: you man Santa's candy cannon) ================= */
+const VEH={on:false};
+function vehStart(){vehStop();Object.assign(VEH,{on:true,t:0,a:Math.PI*.9,hp:100,heat:0,lock:0,flareCd:0,lastHit:-9,projs:[],eproj:[],gliders:[],turrets:[],zep:null,phase:0,kills:0,need:12,spawnT:2,msgT:0,fire:0,shakeT:0});
+  G.veh=VEH;const g=new THREE.Group();fx.add(g);VEH.g=g;
+  if(PROPS.sled_long){const s=PROPS.sled_long.clone();s.scale.setScalar(3.4);g.add(s)}else sleigh(0,0,g);
+  for(let i=0;i<2;i++)for(const sx of [-.7,.7]){if(!PROPS.reindeer)break;const r=PROPS.reindeer.clone();r.scale.setScalar(2);r.position.set(sx,.2,-3.6-i*2.4);g.add(r)}
+  const glw=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOWTEX,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.9,color:0xffd27a}));glw.scale.set(3,3,1);glw.position.set(0,.4,-5);g.add(glw);
+  if(MODELS.santa){const sa=makeModelChar(0,'classic','santa');chars.remove(sa);sa.userData.marker.visible=false;sa.userData.spawnShield.visible=false;sa.position.set(0,.55,.3);sa.rotation.y=Math.PI;const a=sa.userData.acts.Idle;a&&a.play();g.add(sa);VEH.santa=sa}
+  const cannon=new THREE.Group();mk(CYL,M.cane,0,0,0,.18,1.6,.18,cannon,false).rotation.x=Math.PI/2;mk(SPH,M.gold,0,0,.6,.26,.26,.26,cannon,false);cannon.position.set(0,1.9,1.1);g.add(cannon);VEH.cannon=cannon;cannon.visible=false;
+  const vg=new THREE.Group();const bar=mk(CYL,M.cane,0,0,0,.07,1.1,.07,vg,false);bar.rotation.x=Math.PI/2;bar.position.z=-.55;mk(SPH,M.gold,0,0,0,.14,.14,.14,vg,false);mk(BOX,mat(0x3b2a20),0,-.12,.12,.08,.2,.1,vg,false);vg.position.set(.3,-.34,-.6);vg.scale.setScalar(.55);camera.add(vg);VEH.vm=vg;
+  for(const [x,z] of [[-28,-26],[28,26],[-30,22],[30,-22]]){const h=terrH(x,z)+2.1;const tg=new THREE.Group();tg.position.set(x,h,z);mk(CYL,mat(0x2a3a5a,{metal:.5}),0,.5,0,.7,1,.7,tg,false);const head=mk(SPH,mat(0x9fe0ff,{emissive:0x4fa8ff,emissiveIntensity:.9}),0,1.3,0,.75,.75,.75,tg,false);const bar=mk(CYL,mat(0x1d2a40),0,1.4,-.7,.14,1.3,.14,tg,false);bar.rotation.x=Math.PI/2;fx.add(tg);VEH.turrets.push({g:tg,pos:new THREE.Vector3(x,h+1.3,z),hp:90,fireT:rand(1,3),dead:false})}
+  P.yaw=VEH.a+Math.PI;P.pitch=-.12;if(P.mesh)P.mesh.visible=false;vm.visible=false;$('vehHud').hidden=false;document.body.classList.add('veh');
+  radio('santa',"Hold on to your hats! Dasher, Dancer, full speed ahead!");radio('pip',"The candy cannon overheats, so let it breathe between bursts!")}
+function vehStop(){if(!VEH.on)return;VEH.on=false;G.veh=null;if(VEH.vm&&VEH.vm.parent)VEH.vm.parent.remove(VEH.vm);for(const o of [VEH.g,...VEH.gliders.map(x=>x.g),...VEH.turrets.map(x=>x.g),...VEH.projs.map(x=>x.m),...VEH.eproj.map(x=>x.m),VEH.zep&&VEH.zep.g])if(o&&o.parent)o.parent.remove(o);$('vehHud').hidden=true;document.body.classList.remove('veh')}
+const _vp=new THREE.Vector3(),_vd=new THREE.Vector3(),_vt=new THREE.Vector3(),_vc=new THREE.Vector3();
+function vehPathPos(a,out){const R=74+7*Math.sin(a*3);return out.set(Math.cos(a)*R,31+4*Math.sin(a*2),Math.sin(a)*R)}
+const SHARD_MAT=mat(0xbfefff,{emissive:0x6fd0ff,emissiveIntensity:1.4}),MINT_MAT=mat(0xff4a5a,{emissive:0xff2a3a,emissiveIntensity:1.2});
+function vehShoot(from,dir,speed,dmg,enemy,home,size){const m=new THREE.Mesh(SPH,enemy?SHARD_MAT:MINT_MAT);m.scale.setScalar(size||(enemy?.35:.28));m.position.copy(from);fx.add(m);(enemy?VEH.eproj:VEH.projs).push({m,v:dir.clone().multiplyScalar(speed),life:enemy?4:2.2,dmg,home})}
+function vehGlider(){const S=VEH.S;const g=new THREE.Group();
+  if(PROPS.sled){const s=PROPS.sled.clone();s.scale.setScalar(3.2);s.traverse(o=>{if(o.isMesh)o.material=mat(0x7fc8ff,{emissive:0x2a6aa0,emissiveIntensity:.6,metal:.3,rough:.3})});g.add(s)}else mk(BOX,mat(0x7fc8ff),0,.2,0,1.4,.3,3,g);
+  if(MODELS.soldier){const sd=makeModelChar(1,'classic');chars.remove(sd);sd.userData.marker.visible=false;sd.userData.spawnShield.visible=false;sd.position.y=.5;sd.rotation.y=Math.PI;const a=sd.userData.acts.Idle;a&&a.play();gunMesh(PRIMARIES.frost,sd.userData.gunHolder);g.add(sd)}
+  const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOWTEX,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.8,color:0x7fd0ff}));gl.scale.set(3.4,3.4,1);gl.position.y=-.2;g.add(gl);
+  const ahead=VEH.a+(Math.random()<.5?.9:-.6);const p=vehPathPos(ahead,new THREE.Vector3());p.x+=rand(-25,25);p.y+=rand(-6,14);p.z+=rand(-25,25);g.position.copy(p);fx.add(g);
+  VEH.gliders.push({g,pos:g.position,vel:new THREE.Vector3(),hp:42,fireT:rand(1.5,3),off:rand(0,6.28),r:rand(18,34),h:rand(-5,9),missile:Math.random()<.3,dead:false,deadT:0})}
+function vehZeppelin(){const g=new THREE.Group();const ice=mat(0x9ccbea,{rough:.3,metal:.2}),dark=mat(0x1d3566,{metal:.4,rough:.4});
+  mk(SPH,ice,0,0,0,16,6.4,6.4,g,false);for(const [y,z] of [[5,9],[-5,9]]){mk(BOX,dark,0,y*.6,z+4,.4,5,4,g,false)}mk(BOX,dark,0,0,13.5,8,.4,4,g,false);mk(BOX,dark,0,-6.6,0,4,2,7,g,false);
+  const sign=mk(BOX,mat(0xcfe6ff,{emissive:0x6fa8ff,emissiveIntensity:.6}),0,0,-16.1,2.4,2.4,.3,g,false);g.rotation.order='YXZ';
+  const cannons=[[6.2,-2,-4],[-6.2,-2,-4],[6.2,-2,5],[-6.2,-2,5]].map(([x,y,z])=>{const c=mk(SPH,mat(0xff7a5a,{emissive:0xff3a1a,emissiveIntensity:1.1}),x,y,z,1.4,1.4,1.4,g,false);return{m:c,hp:110,dead:false,fireT:rand(1,2.5)}});
+  fx.add(g);VEH.zep={g,a:VEH.a+Math.PI,cannons,fall:0};g.position.set(0,46,0);centerMsg('The Frost Zeppelin!');radio('king',"Little sleigh... meet my FLAGSHIP! Mwa-ha-ha!",true);radio('jingle',"Shoot the glowing cannons on its sides! That's how you bring it down!")}
+function vehHurt(d){VEH.hp-=d*(G.diff==='easy'?.6:G.diff==='hard'?1.35:1);VEH.lastHit=G.time;flashVignette(Math.min(1,d/22));shake=Math.max(shake,.25);sfx('hurt');buzz(30);
+  if(VEH.hp<=40&&!VEH.toldLow){VEH.toldLow=true;radio('santa',"She's taking a beating! Keep those gliders off us!",true)}
+  if(VEH.hp<=0&&!G.over){VEH.hp=0;centerMsg('The sleigh is going down!');sfx('boom');setTimeout(()=>campFail(),1600);G.overPending=true}}
+function vehUpdate(dt){const V=VEH;if(!V.on)return;V.t+=dt;const live=G.countdown<=0&&!G.overPending;
+  // fly the path
+  if(live)V.a+=dt*.31;const S=vehPathPos(V.a,_vp);V.S=S;const N=vehPathPos(V.a+.02,_vt);const hd=_vd.subVectors(N,S).normalize();
+  V.g.position.copy(S);V.g.position.y+=Math.sin(V.t*2.1)*.35;V.g.rotation.order='YXZ';V.g.rotation.y=Math.atan2(-hd.x,-hd.z);V.g.rotation.z=-.22+Math.sin(V.t*1.3)*.05;V.g.rotation.x=hd.y*.6;
+  if(V.santa&&V.santa.userData.mixer)V.santa.userData.mixer.update(dt);for(const c of V.g.children)if(c!==V.santa&&c.position.z<-3)c.position.y=.2+Math.abs(Math.sin(V.t*6+c.position.z))*.25;
+  P.pos.copy(S);P.alive=true;P.hp=V.hp;P.maxHp=100;
+  // aim + camera
+  P.pitch=clamp(P.pitch,-1.15,.55);const cp=Math.cos(P.pitch);const aim=_vc.set(-Math.sin(P.yaw)*cp,Math.sin(P.pitch),-Math.cos(P.yaw)*cp);
+  V.g.updateMatrixWorld(true);const cam=V.g.localToWorld(camera.position.set(.15,3.75,3.6));camera.lookAt(cam.x+aim.x,cam.y+aim.y,cam.z+aim.z);
+  if(shake>0){camera.position.x+=rand(-1,1)*shake*.3;camera.position.y+=rand(-1,1)*shake*.3;shake=Math.max(0,shake-dt*1.6)}
+  if(Math.abs(camera.fov-SETTINGS.fov)>.5){camera.fov=SETTINGS.fov;camera.updateProjectionMatrix()}
+  V.cannon.lookAt(_vt.copy(cam).addScaledVector(aim,120));
+  // firing (candy cannon with heat)
+  V.heat=Math.max(0,V.heat-dt*.42);V.lock=Math.max(0,V.lock-dt);V.fire-=dt;V.flareCd=Math.max(0,V.flareCd-dt);
+  const trigger=!!(mouseL||T.fire||PAD.fire);
+  if(V.vm){V.vm.position.z=-.6+Math.max(0,V.fire)*.3;V.vm.visible=!CUT.on}
+  if(live&&trigger&&V.lock<=0&&V.fire<=0){V.fire=.11;V.heat+=.05;if(V.heat>=1){V.heat=1;V.lock=1.7;sfx('swap');centerMsg('Cannon overheated!')}
+    let far=220;for(const gl of V.gliders){if(gl.dead)continue;_vt.subVectors(gl.pos,cam);const t=_vt.dot(aim);if(t>0){const off=_vt.addScaledVector(aim,-t).length();if(off<2.4&&t<far)far=t}}
+    const tgt=_vt.copy(cam).addScaledVector(aim,far);const from=camera.localToWorld(new THREE.Vector3(.28,-.32,-1.4));const dir=tgt.sub(from).normalize();dir.x+=rand(-1,1)*.006;dir.y+=rand(-1,1)*.006;dir.normalize();vehShoot(from,dir,150,15,false);play('throw',{vol:.45,rate:rr2(1.9,2.3)});vmKick=.1}
+  if(jumpQ){jumpQ=false;if(V.flareCd<=0&&live){V.flareCd=7;sfx('bell');sfx('jingle');let n=0;for(const p of V.eproj){if(p.m.position.distanceTo(S)<45){p.life=0;n++;puff(p.m.position,6,0xfff2c0,3,.12,.5)}}for(let i=0;i<14;i++)puff(_vt.set(S.x+rand(-3,3),S.y+rand(0,3),S.z+rand(-3,3)),2,0xffd27a,6,.15,.8,2);centerMsg(n?'Jingle Flare! '+n+' shots jammed':'Jingle Flare!')}}
+  // our shots
+  for(let i=V.projs.length-1;i>=0;i--){const p=V.projs[i];p.life-=dt;p.m.position.addScaledVector(p.v,dt);let hit=false;const q=p.m.position;
+    for(const gl of V.gliders){if(gl.dead)continue;if(q.distanceToSquared(gl.pos)<5.5){gl.hp-=p.dmg;hit=true;hitMarker(false);sfx('hit');puff(q,5,0xffffff,3,.1,.4);if(gl.hp<=0)vehKill(gl);break}}
+    if(!hit)for(const t of V.turrets){if(t.dead)continue;if(q.distanceToSquared(t.pos)<6.5){t.hp-=p.dmg;hit=true;hitMarker(false);sfx('hit');if(t.hp<=0){t.dead=true;puff(t.pos,30,0xffffff,8,.2,1,4);sfx('boom',t.pos);t.g.visible=false;addXP(40,'Objectives');xpPop('Ice cannon destroyed')}break}}
+    if(!hit&&V.zep){const z=V.zep;for(const c of z.cannons){if(c.dead)continue;c.m.getWorldPosition(_vt);if(q.distanceToSquared(_vt)<9){c.hp-=p.dmg;hit=true;hitMarker(false);sfx('hit');if(c.hp<=0){c.dead=true;c.m.visible=false;puff(_vt,30,0xffaa80,9,.2,1,4);sfx('boom',_vt);xpPop('Zeppelin cannon down');addXP(60,'Objectives')}break}}
+      if(!hit){z.g.worldToLocal(_vt.copy(q));if((_vt.x/16)**2+(_vt.y/6.4)**2+(_vt.z/6.4)**2<1){hit=true;puff(q,3,0xffffff,2,.1,.3)}}}
+    if(hit||p.life<=0||q.y<terrH(q.x,q.z)){fx.remove(p.m);V.projs.splice(i,1)}}
+  // enemy shots
+  for(let i=V.eproj.length-1;i>=0;i--){const p=V.eproj[i];p.life-=dt;if(p.home&&p.life>0){_vt.subVectors(S,p.m.position).normalize().multiplyScalar(32);p.v.lerp(_vt,Math.min(1,dt*1.6));p.m.rotation.y+=dt*10}
+    p.m.position.addScaledVector(p.v,dt);const d2=p.m.position.distanceToSquared(S);if(d2<7&&p.life>0){vehHurt(p.dmg);puff(p.m.position,8,0xbfefff,4,.12,.5);p.life=0}
+    if(p.life<=0){fx.remove(p.m);V.eproj.splice(i,1)}}
+  if(V.eproj.some(p=>p.home)&&V.flareCd<=0&&!V.toldFlare){V.toldFlare=true;radio('pip',"Ice missile incoming! Hit the Jingle Flare! Space, or cross on a controller!",true)}
+  // gliders
+  if(live){const alive=V.gliders.filter(g=>!g.dead).length;V.spawnT-=dt;const cap=V.phase===0?5:V.phase===1?2:2;if(V.spawnT<=0&&alive<cap&&!(V.phase===2&&V.zep&&V.zep.fall)){V.spawnT=V.phase===0?1.3:3.5;vehGlider()}}
+  for(let i=V.gliders.length-1;i>=0;i--){const gl=V.gliders[i];
+    if(gl.dead){gl.deadT+=dt;gl.vel.y-=14*dt;gl.pos.addScaledVector(gl.vel,dt);gl.g.rotation.z+=dt*5;if(gl.deadT>2.5||gl.pos.y<terrH(gl.pos.x,gl.pos.z)){if(gl.pos.y<terrH(gl.pos.x,gl.pos.z)+1)puff(gl.pos,14,0xffffff,6,.2,.8,3);fx.remove(gl.g);V.gliders.splice(i,1)}continue}
+    gl.off+=dt*.5;_vt.set(Math.cos(gl.off)*gl.r,gl.h,Math.sin(gl.off)*gl.r).add(S);const want=_vt.sub(gl.pos);const dist=want.length();want.normalize().multiplyScalar(Math.min(34,dist*1.4+10));gl.vel.lerp(want,Math.min(1,dt*1.2));gl.pos.addScaledVector(gl.vel,dt);
+    gl.g.rotation.order='YXZ';gl.g.rotation.y=Math.atan2(-gl.vel.x,-gl.vel.z);gl.g.rotation.z=Math.sin(V.t*2+gl.off)*.2;
+    gl.fireT-=dt;const d=gl.pos.distanceTo(S);if(live&&gl.fireT<=0&&d<75){gl.fireT=gl.missile?rand(4.5,6.5):rand(1.4,2.6);const lead=_vt.copy(S).addScaledVector(hd,24*d/55);const dir=lead.sub(gl.pos).normalize();
+      if(gl.missile){vehShoot(gl.pos,dir,22,16,true,true,.55)}else{dir.x+=rand(-1,1)*.03;dir.y+=rand(-1,1)*.03;vehShoot(gl.pos,dir.normalize(),58,5,true)}play('throw',{pos:gl.pos,vol:.5,rate:1.1})}}
+  // turrets
+  for(const t of V.turrets){if(t.dead)continue;t.fireT-=dt;const d=t.pos.distanceTo(S);if(live&&V.phase>=1&&t.fireT<=0&&d<120){t.fireT=rand(1.8,2.6);const ft=d/52;const lead=_vt.copy(S).addScaledVector(hd,24*ft);const dir=lead.sub(t.pos).normalize();vehShoot(t.pos,dir,52,8,true,false,.6);sfx('thump',t.pos)}}
+  // zeppelin
+  if(V.zep){const z=V.zep;if(!z.fall){z.a-=dt*.16;const R=38;z.g.position.set(Math.cos(z.a)*R,44+Math.sin(V.t*.5)*2,Math.sin(z.a)*R);z.g.rotation.y=Math.atan2(Math.sin(z.a),-Math.cos(z.a))+Math.PI/2;
+      for(const c of z.cannons){if(c.dead)continue;c.fireT-=dt;if(live&&c.fireT<=0){c.fireT=rand(1.3,2.2);c.m.getWorldPosition(_vt);const from=_vt.clone();const dir=_vt.copy(S).addScaledVector(hd,10).sub(from).normalize();vehShoot(from,dir,48,7,true,false,.6)}}
+      if(z.cannons.every(c=>c.dead)){z.fall=.001;centerMsg('The Frost Zeppelin is going down!');radio('holly',"It's falling! It's FALLING! We did it!",true);radio('santa',"Ho ho HO! Did you see that?!")}}
+    else{z.fall+=dt;z.g.position.y-=dt*(4+z.fall*5);z.g.rotation.z+=dt*.25;z.g.rotation.x+=dt*.08;if(Math.random()<dt*8){z.g.getWorldPosition(_vt);_vt.x+=rand(-12,12);_vt.y+=rand(-4,4);_vt.z+=rand(-6,6);puff(_vt,10,0xffd2a0,6,.2,.8,2);sfx('boomsmall',_vt)}
+      if(z.fall>5&&!G.over){puff(z.g.position,60,0xffffff,14,.3,1.4,6);sfx('boom');z.g.visible=false;campWin()}}}
+  // phases + objective text
+  CAMP.marks=V.gliders.filter(g=>!g.dead).map(g=>({x:g.pos.x,z:g.pos.z}));if(V.phase===1)for(const t of V.turrets)if(!t.dead)CAMP.marks.push({x:t.pos.x,z:t.pos.z});
+  if(V.phase===0){campSet('Shoot down the ice gliders',`${V.kills} of ${V.need} · Sleigh ${Math.ceil(V.hp)}%`,V.kills/V.need);if(V.kills>=V.need){V.phase=1;centerMsg('Ground cannons below!');radio('jingle',"Ice cannons on the igloos down there. Knock them out!",true)}}
+  else if(V.phase===1){const left=V.turrets.filter(t=>!t.dead).length;campSet('Destroy the ice cannons on the ground',`${4-left} of 4 · Sleigh ${Math.ceil(V.hp)}%`,(4-left)/4);if(!left){V.phase=2;vehZeppelin()}}
+  else{const z=V.zep;const left=z?z.cannons.filter(c=>!c.dead).length:4;campSet(z&&z.fall?'Watch it fall!':'Bring down the Frost Zeppelin',`Cannons left: ${left} · Sleigh ${Math.ceil(V.hp)}%`,(4-left)/4)}
+  if(G.time-V.lastHit>4&&V.hp<100&&V.hp>0)V.hp=Math.min(100,V.hp+dt*3.5);
+  if(V.t>8&&!V.banter){V.banter=G.time}if(V.banter&&G.time-V.banter>26){V.banter=G.time;radio(pick(['holly','jingle','santa','pip']),pick(["Wheee! Sorry. Professional wheee.","I hate flying. I've always hated flying.","Prancer, eyes on the sky, not on the cocoa!","Did anyone else's ears just pop?","For the record, I designed the cup holders."]))}}
+function vehKill(gl){gl.dead=true;gl.vel.y=2;VEH.kills++;puff(gl.pos,20,0xbfefff,7,.18,.9,3);sfx('boomsmall',gl.pos);hitMarker(false,true);addXP(25,'Objectives');
+  if(VEH.kills===1)radio('holly',"Got one! Oh my gosh, we got one!");if(VEH.kills===6)radio('jingle',"Halfway there. Keep it steady.")}
+function vehHud(){const V=VEH;$('vhHeat').style.width=(V.heat*100)+'%';$('vhHeat').classList.toggle('hot',V.lock>0);$('vhHp').style.width=V.hp+'%';$('vhFlare').textContent=V.flareCd>0?'Jingle Flare '+Math.ceil(V.flareCd)+'s':'Jingle Flare ready';$('vhFlare').classList.toggle('ready',V.flareCd<=0)}
+
 /* ================= MAP VOTE (Black Ops style) ================= */
 const THUMB={};
 function makeThumbs(){
@@ -2975,7 +3221,9 @@ function update(dt){
   if(NET.on&&NET.inGame){netSync();if(G.over)return}
   G.uavT=Math.max(0,G.uavT-dt);
   if(G.blizzardT>0){G.blizzardT-=dt;scene.fog.near=lerp(scene.fog.near,8,dt*2);scene.fog.far=lerp(scene.fog.far,60,dt*2)}else{scene.fog.near=lerp(scene.fog.near,FOG_BASE[0],dt);scene.fog.far=lerp(scene.fog.far,FOG_BASE[1],dt)}
+  if(G.veh)vehUpdate(dt);
   for(const e of G.ents.slice()){
+    if(e.isPlayer&&G.veh)continue;
     if(e.remote){updateRemote(e,dt);continue}
     if(G.countdown>.6&&e.alive){e.vel.set(0,0,0);if(e.isPlayer){aimAssist(0)}continue}
     e.cd-=dt;e.protT-=dt;e.frozenT=Math.max(0,e.frozenT-dt);e.slowT=Math.max(0,e.slowT-dt);
@@ -3003,9 +3251,9 @@ function update(dt){
     e.stepD=(e.stepD||0)+sp*dt;const stride=sp>7.5?2.3:1.75;if(e.stepD>stride){e.stepD=0;if(e.isPlayer||camera.position.distanceToSquared(e.pos)<1600)footstep(e,e.isPlayer?1:Math.min(1,sp/6))}}
   if(G.camp&&G.countdown<=0&&!G.over)campTick(dt);
   updateProjs(dt);updateNades(dt);updateParts(dt);updateGifts(dt);updateSleighs(dt);updateDecals(dt);updateSentries(dt);
-  if(P)updateCamera(dt);
+  if(P&&!G.veh)updateCamera(dt);if(G.veh)vm.visible=false;
   $('lowHp').style.opacity=P&&P.alive&&P.hp<P.maxHp*.3?(.55+.25*Math.sin(G.time*7)):0;
-  updateHud(dt);
+  updateHud(dt);if(G.veh)vehHud();
 }
 function updatePlayer(dt){
   const p=P,w=p.w[p.cur],def=w.def;
@@ -3150,7 +3398,7 @@ function renderBinds(){$('bindList').innerHTML=Object.keys(BIND_DEF).map(a=>`<sp
 addEventListener('keydown',e=>{if(!bindWait)return;e.preventDefault();e.stopImmediatePropagation();
   if(e.code!=='Escape'){for(const a in BINDS)if(BINDS[a]===e.code&&a!==bindWait)BINDS[a]='';BINDS[bindWait]=e.code;store('npo-binds-v1',BINDS)}bindWait=null;renderBinds()},true);
 $('bindReset').onclick=()=>{Object.assign(BINDS,BIND_DEF);store('npo-binds-v1',BINDS);renderBinds()};renderBinds();
-bindSeg('crouchSeg','crouchMode',()=>{crouchOn=false});
+bindSeg('crouchSeg','crouchMode',()=>{crouchOn=false});bindSeg('voSeg','vo',()=>{if(SETTINGS.vo!=='off'){voPrime();voSay('santa','Ho ho ho! Merry Christmas!')}});
 const TLAY_NOTE={pad:'A game controller on your screen. D-pad (left) moves you: push past the top arrow or double-tap it to sprint. ✕ jump, ○ crouch/slide, □ reload, △ swap weapon. Shoulder buttons on the screen edges: L2 aim, L1 grenade, R2 fire, R1 melee. Drag anywhere on the right side to look, or hold the big red Throw button and slide your thumb to aim while you fire.',
   classic:'Put your left thumb down anywhere on the left side and a joystick appears under it. Push it all the way forward to sprint. Drag anywhere on the right side to look. Hold the red Throw button to fire, and slide your thumb while holding it to aim at the same time.'};
 bindSeg('tlaySeg','tlayout',()=>{$('tlayNote').textContent=TLAY_NOTE[SETTINGS.tlayout]||TLAY_NOTE.pad;if(touchSetup)layoutTouch()});$('tlayNote').textContent=TLAY_NOTE[SETTINGS.tlayout]||TLAY_NOTE.pad;
