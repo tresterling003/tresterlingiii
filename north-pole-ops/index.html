@@ -229,6 +229,15 @@ body.touch.padui #vitals{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0
 body.touch.padui #killfeed{top:calc(8px + env(safe-area-inset-top,0px));left:calc(102px + env(safe-area-inset-left,0px))}
 body.touch.padui #streakBox{top:calc(60px + env(safe-area-inset-top,0px))}
 
+/* ===== gunsmith display ===== */
+#gunStage{position:relative;height:clamp(170px,30vh,280px);margin:-4px 0 6px;background:radial-gradient(ellipse at 50% 60%,rgba(120,170,230,.28),rgba(10,20,34,.0) 65%),linear-gradient(180deg,rgba(6,12,22,.4),rgba(6,12,22,.85));border:1px solid rgba(160,210,255,.15);border-bottom:2px solid rgba(245,196,81,.5);overflow:hidden;touch-action:pan-y}
+#gunStage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:pan-y}
+#gunStage canvas:active{cursor:grabbing}
+#gunStage .gsInfo{position:absolute;left:14px;top:10px;z-index:2;pointer-events:none;max-width:70%}
+#gunStage .gsInfo em{display:block;font-style:normal;font-weight:800;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+#gunStage .gsInfo b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(20px,2.4vw,30px);line-height:1;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+#gunStage .gsInfo span{display:block;font-size:13px;color:var(--frost);margin-top:3px}
+#gunStage .gsHint{position:absolute;right:12px;bottom:8px;z-index:2;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(227,240,249,.5);pointer-events:none}
 /* ===== console front end ===== */
 #menu{display:block;background:linear-gradient(90deg,rgba(3,8,15,.94) 0%,rgba(3,8,15,.82) 38%,rgba(3,8,15,.25) 66%,rgba(3,8,15,0) 82%),linear-gradient(0deg,rgba(3,8,15,.8),rgba(3,8,15,0) 22%)}
 #menu .menu-panel{width:100%;height:100%;max-width:none;background:none;border:0;padding:0;display:flex;flex-direction:column;gap:0;overflow:hidden}
@@ -831,6 +840,7 @@ body.camp #topbar{display:none}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/environments/RoomEnvironment.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
@@ -2227,6 +2237,20 @@ function buildGun(def,shadow){
   if(md.nozzle){const n=mk(CONE,body,0,.004,-L-.07,.085,.16,.085,g,sh);n.rotation.x=-Math.PI/2;cyl(metal,0,.004,-L-.15,.088,.012)}
   if(def.icicle){const ic=mk(CONE,mat(0xbfeaff,{rough:.05,metal:.1}),0,.004,-L*1.1,.02,.16,.02,g,false);ic.rotation.x=-Math.PI/2}
   else if(!md.tube&&!md.nozzle)mk(SPH,snow,0,.004,-L*1.05,.026,.026,.026,g,false);  // snowball loaded in the muzzle
+  // detail pass: ejection port, bolt, trigger, screws, vented handguard, sights, flash hider, ribbed canister
+  {const dark=mat(0x14171d,{metal:.6,rough:.45}),scr=mat(0xc9ced6,{metal:.9,rough:.25});
+    mk(BOX,dark,.0352,.022,-rl*.38,.003,.026,rl*.26,g,false);                                  // ejection port
+    cyl(metal,.05,.022,-rl*.3,.007,.03,0).rotation.z=Math.PI/2;mk(SPH,metal,.066,.022,-rl*.3,.011,.011,.011,g,false); // bolt handle
+    mk(BOX,metal,0,-.058,-.07,.006,.026,.008,g,false);                                          // trigger
+    for(const z of [-.03,-rl+.03])for(const sx of [-1,1])mk(SPH,scr,sx*.0352,-.025,z,.006,.006,.003,g,false); // screws
+    mk(BOX,body,0,.049,-rl/2,.06,.012,rl*.96,g,sh);                                             // top cover
+    if(!md.tube&&!md.hopper&&!md.nozzle){mk(BOX,body,0,-.004,-rl-L*.16,.058,.062,L*.3,g,sh);for(let i=0;i<4;i++)for(const sx of [-1,1])mk(BOX,dark,sx*.0295,.0,-rl-L*.05-i*L*.07,.002,.022,L*.04,g,false); // vented handguard
+      mk(BOX,metal,0,.044,-L*.93,.012,.03,.016,g,false);mk(BOX,metal,0,.062,-L*.93,.004,.016,.004,g,false)} // front sight post
+    if(!md.scope&&!md.tube){mk(BOX,metal,0,.072,-.03,.03,.022,.02,g,false);mk(BOX,dark,0,.08,-.03,.01,.012,.022,g,false)} // rear sight
+    if(!md.tube&&!md.nozzle){cyl(dark,0,.004,-L*1.0,.023,.05);for(let i=0;i<3;i++)mk(BOX,dark,0,.004,-L*1.0-.012+i*.012,.05,.004,.004,g,false).rotation.z=i*1.05} // flash hider
+    if(L>.3&&!md.hopper&&!md.tube)for(const y of [-.075,-.1,-.125])cyl(acc,0,y,-rl*.7-(y+.09)*.15,.0355,.008,.15); // canister ribs
+    if(L>.3){mk(BOX,grip,0,.03,.1,.05,.026,.12,g,false)}                                        // cheek rest
+  }
   const att=def.att||[];
   if(att.includes('reddot')&&!md.scope){mk(BOX,metal,0,.085,-rl*.6,.035,.04,.07,g,false);mk(CIRCLE,new THREE.MeshBasicMaterial({color:C(0xff2e44),transparent:true,opacity:.6}),0,.09,-rl*.6+.036,.012,.012,1,g,false)}
   if(att.includes('scope2')&&!md.scope){const sc=mk(CYL,mat(0x15171c,{metal:.6,rough:.3}),0,.095,-rl*.55,.026,.2,.026,g,false);sc.rotation.x=Math.PI/2;mk(CIRCLE,new THREE.MeshBasicMaterial({color:C(0x7fd0ff)}),0,.095,-rl*.55+.101,.022,.022,1,g,false)}
@@ -3625,6 +3649,30 @@ function updateCamera(dt){
   vm.position.set(x,y,z);vm.rotation.set(rx,ry,rz);
 }
 
+
+/* ================= GUNSMITH DISPLAY: rotating, studio-lit, updates live ================= */
+const GD={r:null,scene:null,cam:null,gun:null,key:'',ang:0,drag:null,spin:0,pop:0,on:false};
+function gdInit(){if(GD.r)return true;try{const cv=document.createElement('canvas');cv.id='gunCanvas';const r=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true,powerPreference:'low-power'});
+  r.outputEncoding=THREE.sRGBEncoding;r.toneMapping=THREE.ACESFilmicToneMapping;r.toneMappingExposure=1.05;r.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  const sc=new THREE.Scene();const cam=new THREE.PerspectiveCamera(30,2,.05,20);cam.position.set(0,.18,1.55);cam.lookAt(0,0,0);
+  sc.add(new THREE.HemisphereLight(0xdfefff,0x2a3040,.7));const key=new THREE.DirectionalLight(0xfff2dc,1.6);key.position.set(1.2,1.6,1.4);sc.add(key);const rim=new THREE.DirectionalLight(0x8fd3ff,1.3);rim.position.set(-1.6,.6,-1.2);sc.add(rim);
+  try{if(THREE.RoomEnvironment){const pm=new THREE.PMREMGenerator(r);sc.environment=pm.fromScene(new THREE.RoomEnvironment(),.04).texture;pm.dispose()}}catch(e){}
+  const sh=new THREE.Mesh(CIRCLE,new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.35,depthWrite:false}));sh.rotation.x=-Math.PI/2;sh.position.y=-.2;sh.scale.set(.55,.16,1);sc.add(sh);
+  const turn=new THREE.Group();sc.add(turn);GD.r=r;GD.scene=sc;GD.cam=cam;GD.turn=turn;
+  cv.addEventListener('pointerdown',e=>{GD.drag={x:e.clientX,a:GD.ang};cv.setPointerCapture(e.pointerId)});
+  cv.addEventListener('pointermove',e=>{if(GD.drag){GD.ang=GD.drag.a+(e.clientX-GD.drag.x)*.012;GD.spin=0}});
+  const up=()=>{GD.drag=null};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);return true}catch(e){return false}}
+function gdShow(def){const stage=$('gunStage');if(!stage||!gdInit())return;if(!stage.contains(GD.r.domElement))stage.prepend(GD.r.domElement);
+  const key=JSON.stringify([def.key,def.base,def.att,def.camo]);if(key!==GD.key){GD.key=key;if(GD.gun)GD.turn.remove(GD.gun);
+    const g=buildGun(def,false);const bb=new THREE.Box3().setFromObject(g),sz=bb.getSize(new THREE.Vector3()),ctr=bb.getCenter(new THREE.Vector3());g.position.sub(ctr);
+    const wrap=new THREE.Group();wrap.add(g);wrap.scale.setScalar(1.35/Math.max(sz.z,.3));GD.turn.add(wrap);GD.gun=wrap;GD.pop=1;GD.spin=Math.max(GD.spin,1.2)}
+  if(!GD.on){GD.on=true;requestAnimationFrame(gdLoop)}}
+function gdLoop(t){const stage=$('gunStage'),cv=GD.r&&GD.r.domElement;if(!stage||!cv||!stage.contains(cv)||!stage.offsetParent||$('menu').hidden){GD.on=false;return}
+  requestAnimationFrame(gdLoop);const w=stage.clientWidth,h=stage.clientHeight;if(cv._w!==w||cv._h!==h){cv._w=w;cv._h=h;GD.r.setSize(w,h,false);GD.cam.aspect=w/h;GD.cam.updateProjectionMatrix()}
+  const dt=Math.min(.05,(t-(GD.last||t))/1000);GD.last=t;if(!GD.drag)GD.ang+=dt*(.45+GD.spin*3);GD.spin=Math.max(0,GD.spin-dt*1.6);GD.pop=Math.max(0,GD.pop-dt*3);
+  GD.turn.rotation.set(-.12+Math.sin(t*.0007)*.04,GD.ang+Math.PI/2,Math.sin(t*.0005)*.03);GD.turn.position.y=Math.sin(t*.0013)*.012;GD.turn.scale.setScalar(1+Math.sin(GD.pop*Math.PI)*.08);
+  GD.r.render(GD.scene,GD.cam)}
+
 /* ================= MENU UI ================= */
 function statBars(d){const dmg=Math.min(1,d.dmg*d.pellets/120),rate=Math.min(1,d.rpm/850),range=Math.min(1,d.speed/175),mob=clamp((d.mobility-.8)/.27,0,1);
   return `<div class="stat">Damage<i style="--v:${dmg*100}%"></i></div><div class="stat">Fire rate<i style="--v:${rate*100}%"></i></div><div class="stat">Range<i style="--v:${range*100}%"></i></div><div class="stat">Mobility<i style="--v:${mob*100}%"></i></div>`}
@@ -3648,7 +3696,9 @@ function renderEditor(){
   const attH=`<h3>Gunsmith · attachments ${c.att.length}/3</h3><div class="opts">${Object.entries(ATTACH).map(([k,a])=>`<button class="opt ${c.att.includes(k)?'on':''} ${lock(a.lv)?'locked':''}" data-att="${k}" ${lock(a.lv)?'disabled':''}><b>${a.name}</b><span>${a.slot} · ${lock(a.lv)?'🔒 Unlocks at level '+a.lv:a.desc}</span></button>`).join('')}</div><div class="note" style="margin:6px 0 2px">${esc(PRIMARIES[c.primary].name)} with these attachments:</div>${statBars(eff)}`;
   const camoH=`<h3>Weapon camo</h3><div class="opts">${Object.entries(CAMOS).map(([k,a])=>`<button class="opt ${c.camo===k?'on':''} ${lock(a.lv)?'locked':''}" data-camo="${k}" ${lock(a.lv)?'disabled':''}><b><i class="sw sw-${k}"></i>${a.name}</b><span>${lock(a.lv)?'🔒 Level '+a.lv:'Unlocked'}</span></button>`).join('')}</div>`;
   const outH=`<h3>Outfit (all classes)</h3><div class="opts">${Object.entries(OUTFITS).map(([k,a])=>`<button class="opt ${(SETTINGS.outfit||'classic')===k?'on':''} ${lock(a.lv)?'locked':''}" data-outfit="${k}" ${lock(a.lv)?'disabled':''}><b>${a.name}</b><span>${lock(a.lv)?'🔒 Level '+a.lv:'Unlocked'}</span></button>`).join('')}</div>`;
-  $('editor').innerHTML=`<h3>Class name</h3><input type="text" id="clsName" maxlength="22" value="${c.name.replace(/"/g,'&quot;')}">`+grp('Primary','primary',PRIMARIES,true)+attH+camoH+grp('Secondary','secondary',SECONDARIES,true)+grp('Equipment','equip',EQUIPMENT)+grp('Perk','perk',PERKS)+outH;
+  const ed=$('editor');const keepStage=$('gunStage');
+  $('editor').innerHTML=`<div id="gunStage"><div class="gsInfo"><em>${esc(PRIMARIES[c.primary].type||'Primary')}</em><b>${esc(PRIMARIES[c.primary].name)}</b><span>${c.att.length?c.att.map(a=>esc(ATTACH[a].name)).join(' · '):'No attachments'}${c.camo&&c.camo!=='none'?' · '+esc(CAMOS[c.camo].name)+' camo':''}</span></div><div class="gsHint">Drag to rotate</div></div><h3>Class name</h3><input type="text" id="clsName" maxlength="22" value="${c.name.replace(/"/g,'&quot;')}">`+grp('Primary','primary',PRIMARIES,true)+attH+camoH+grp('Secondary','secondary',SECONDARIES,true)+grp('Equipment','equip',EQUIPMENT)+grp('Perk','perk',PERKS)+outH;
+  try{gdShow(eff)}catch(e){}
   $('clsName').oninput=e=>{c.name=e.target.value.trim()||'Custom Class';saveClasses();$('slotList').querySelectorAll('[data-i]')[editSlot].firstChild.textContent=c.name};
   $('editor').querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
     if(b.dataset.att){const k=b.dataset.att;if(c.att.includes(k))c.att=c.att.filter(x=>x!==k);else{c.att=c.att.filter(x=>ATTACH[x].slot!==ATTACH[k].slot);c.att.push(k);if(c.att.length>3)c.att.shift()}}
@@ -3662,7 +3712,7 @@ function renderStreakPick(){const cur=SETTINGS.streaks||['recon','sleigh','blizz
   $('streakPick').querySelectorAll('.opt').forEach(b=>b.onclick=()=>{let c=(SETTINGS.streaks||['recon','sleigh','blizzard']).slice();const id=b.dataset.id;
     if(c.includes(id)){if(c.length>1)c=c.filter(x=>x!==id)}else{c.push(id);if(c.length>3)c.shift()}SETTINGS.streaks=c;saveSettings();setStreaks();renderStreakPick()})}
 function saveClasses(){store('npo-classes-v1',CLASSES);renderClassPick()}
-$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('tabs').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));for(const t of ['deploy','classes','campaign','controls']){const el=$('tab-'+t),show=t===b.dataset.tab;if(show&&el.hidden){el.classList.remove('tabpane-in');void el.offsetWidth;el.classList.add('tabpane-in')}el.hidden=!show}});
+$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('tabs').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));for(const t of ['deploy','classes','campaign','controls']){const el=$('tab-'+t),show=t===b.dataset.tab;if(show&&el.hidden){el.classList.remove('tabpane-in');void el.offsetWidth;el.classList.add('tabpane-in')}el.hidden=!show}if(b.dataset.tab==='classes')setTimeout(()=>{try{gdShow(effDef(CLASSES[editSlot]))}catch(e){}},30)});
 for(const k of ['fireAds','leftFire']){$(k).checked=!!SETTINGS[k];$(k).onchange=e=>{SETTINGS[k]=e.target.checked;saveSettings();document.body.classList.toggle('noLeftFire',!SETTINGS.leftFire)}}document.body.classList.toggle('noLeftFire',!SETTINGS.leftFire);
 
 bindSeg('aimSeg','aim');
