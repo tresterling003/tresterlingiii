@@ -17,7 +17,7 @@
 <body>
 <title>North Pole Ops</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Barlow+Condensed:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Mountains+of+Christmas:wght@700&family=Barlow+Condensed:wght@400;600;700;800&display=swap">
 <style>
 /* Layout: full-bleed 3D battlefield; tactical HUD hugs the corners; menus are a frosted command panel docked left over a live map flyover */
 :root{
@@ -222,6 +222,40 @@ body.touch.padui #vitals{top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0
 body.touch.padui #killfeed{top:calc(8px + env(safe-area-inset-top,0px));left:calc(102px + env(safe-area-inset-left,0px))}
 body.touch.padui #streakBox{top:calc(60px + env(safe-area-inset-top,0px))}
 #cine{position:fixed;inset:0;z-index:60;pointer-events:none}
+#ident{position:fixed;inset:0;z-index:80;background:#05080e;display:grid;place-items:center;transition:opacity .7s;cursor:pointer}
+#ident.out{opacity:0;pointer-events:none}
+#ident .idin{text-align:center;animation:idIn 2.6s cubic-bezier(.2,.7,.2,1) both}
+#ident svg{width:min(120px,26vw);height:auto;animation:idSpin 3.2s cubic-bezier(.2,.7,.2,1) both}
+#ident svg path{stroke-dasharray:120;stroke-dashoffset:120;animation:idDraw 1.6s .2s ease forwards}
+@keyframes idDraw{to{stroke-dashoffset:0}}@keyframes idSpin{from{transform:rotate(-90deg) scale(.7);opacity:0}to{transform:none;opacity:1}}
+@keyframes idIn{0%{opacity:0;letter-spacing:.5em}35%{opacity:1}100%{opacity:1;letter-spacing:.08em}}
+#ident .idname{font-family:var(--display);font-size:clamp(26px,5.5vw,46px);color:#fff;margin-top:14px;letter-spacing:.08em;animation:idIn 2.2s .5s both}
+#ident .idname span{color:var(--santa)}#ident .idsub{font-family:var(--hud);font-weight:600;letter-spacing:.5em;text-transform:uppercase;color:var(--muted);margin-top:8px;font-size:13px;animation:idIn 2s 1.1s both}
+#ident .idfoot{position:absolute;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;font-family:var(--hud);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#56708a;animation:idIn 2s 1.4s both}
+#title{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,rgba(10,20,32,.1),rgba(5,10,18,.72));touch-action:none;user-select:none;padding:12px}
+#scroll{--roll:0;width:min(500px,88vw);filter:drop-shadow(0 18px 30px rgba(0,0,0,.5));animation:scIn .9s cubic-bezier(.2,.7,.2,1) both}
+@keyframes scIn{from{transform:translateY(30px) scale(.94);opacity:0}}
+#scroll .roll{height:30px;border-radius:15px;background:linear-gradient(180deg,#f3dfae,#c39a5b 55%,#8d6a35);position:relative;margin:0 -10px;z-index:2}
+#scroll .roll::before,#scroll .roll::after{content:'';position:absolute;top:2px;width:22px;height:26px;border-radius:7px;background:radial-gradient(circle at 40% 35%,#ff6a6a,#9a1626);left:-16px}
+#scroll .roll::after{left:auto;right:-16px}
+#scroll .paper{height:calc((1 - var(--roll)) * min(62vh,540px));overflow:hidden;background:repeating-linear-gradient(180deg,transparent 0 31px,rgba(140,100,50,.18) 31px 32px),radial-gradient(ellipse at 30% 20%,#fbf1d6,#ecd9a8 70%,#dfc58a);box-shadow:inset 0 10px 18px -10px rgba(90,60,20,.6),inset 0 -10px 18px -10px rgba(90,60,20,.6)}
+#scroll .pin{padding:14px 26px 18px;color:#3a2614}
+#scroll .ptitle{font-family:'Mountains of Christmas',var(--display);font-weight:700;font-size:clamp(34px,7vw,52px);color:#b3122a;text-align:center;line-height:1}
+#scroll .psub{text-align:center;font-family:var(--hud);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#7a5a30;margin:4px 0 10px}
+#niceList{list-style:none;margin:0;padding:0;font-family:var(--hud)}
+#niceList li{display:grid;grid-template-columns:1fr auto;gap:0 10px;padding:5px 0;border-bottom:1px dashed rgba(120,80,40,.3)}
+#niceList b{font-size:18px;font-weight:700}#niceList i{font-style:normal;font-weight:800;color:#1f7a4d;letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+#niceList small{grid-column:1/3;font-size:13px;color:#7a5a30}#niceList li.bad i{color:#b3122a;font-size:17px}#niceList li.bad b{text-decoration:line-through wavy #b3122a}#niceList li.mid i{color:#a07a1a}
+#scroll .seal{margin-top:12px;text-align:right;font-family:'Mountains of Christmas',serif;font-size:22px;color:#b3122a;transform:rotate(-4deg)}
+#thint{text-align:center;color:var(--ice);font-family:var(--hud);font-size:17px;animation:hintPulse 1.8s ease-in-out infinite;transition:opacity .3s;text-shadow:0 2px 8px #000}
+#thint b{color:var(--gold);letter-spacing:.06em}#thint span{display:block;font-size:13px;color:var(--muted);margin-top:4px}
+@keyframes hintPulse{50%{transform:translateY(-4px)}}
+#tSkip{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.4);color:var(--muted);border:1px solid rgba(255,255,255,.2);border-radius:18px;padding:6px 14px;font-family:var(--hud);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:12px}
+#hubPrompt{position:fixed;left:50%;bottom:calc(26% + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:26;background:rgba(8,18,30,.88);border:2px solid var(--gold);color:#fff;border-radius:12px;padding:10px 18px;font-family:var(--hud);font-weight:800;font-size:19px;letter-spacing:.04em;text-transform:uppercase;pointer-events:auto;animation:scIn .3s both}
+#hubPrompt kbd{background:var(--gold);color:var(--night);border-radius:6px;padding:1px 8px;margin-right:8px;font-family:var(--hud)}#hubPrompt span{display:block;font-size:12px;color:var(--frost);letter-spacing:.12em;margin-top:2px}
+#hubMenu{display:none;position:fixed;left:calc(12px + env(safe-area-inset-left,0px));top:calc(12px + env(safe-area-inset-top,0px));z-index:26;background:rgba(8,18,30,.8);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:8px 14px;font-family:var(--hud);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:13px;pointer-events:auto}
+body.hub #hubMenu{display:block}
+body.hub #topbar,body.hub #vitals,body.hub #ammoBox,body.hub #streakBox,body.hub #killfeed,body.hub #minimap,body.hub #goal,body.hub #campHud,body.hub #tbFire,body.hub #tbFireL,body.hub #tbAds,body.hub #tbNade,body.hub #tbMelee,body.hub #tbReload,body.hub #tbSwap,body.hub #tminis,body.hub #tbLeanL,body.hub #tbLeanR,body.hub #hint{display:none!important}
 #radio{position:fixed;z-index:12!important;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translate(-50%,-6px);max-width:min(620px,78vw);background:linear-gradient(90deg,rgba(6,14,24,.88),rgba(6,14,24,.7));border-left:3px solid var(--gold);padding:7px 14px 8px;border-radius:4px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-align:left}
 #radio.on{opacity:1;transform:translate(-50%,0)}
 #radio b{display:block;font-family:var(--hud);font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:11px}
@@ -509,6 +543,7 @@ body.camp #topbar{display:none}
       <div class="eyebrow">Classified · Sector 90°N</div>
       <h1>North Pole<br><span>Ops</span></h1>
       <p>Team snowball combat at the top of the world. Santa's Squad versus the Frost Legion.</p>
+      <button class="btn" id="hubBtn" style="margin:4px 0 10px">🎄 Walk around the workshop</button>
     </header>
     <nav class="tabs" id="tabs">
       <button data-tab="deploy" class="on">Lobby</button>
@@ -619,6 +654,7 @@ body.camp #topbar{display:none}
       <div class="seg" id="voSeg"><button data-v="on">Character voices on</button><button data-v="off">Voices off (subtitles only)</button></div>
       <div class="ctl" style="align-items:center"><span>Master</span><input type="range" id="volMaster" min="0" max="1" step="0.05"><span>Music</span><input type="range" id="volMusic" min="0" max="1" step="0.05"><span>Effects</span><input type="range" id="volSfx" min="0" max="1" step="0.05"></div>
       <h3>Graphics</h3>
+      <div class="seg" id="bloomSeg"><button data-v="on">Bloom glow on</button><button data-v="off">Bloom off</button></div>
       <div class="seg" id="gfxSeg"><button data-v="auto">Auto</button><button data-v="high">High</button><button data-v="low">Fast</button></div>
       <p class="note" id="gfxNote"></p>
       <h3>Credits</h3>
@@ -669,6 +705,10 @@ body.camp #topbar{display:none}
     <div class="vfoot"><span id="vNote" class="note"></span><div class="btnrow" style="margin:0"><button class="btn" id="vLeave">Back to lobby</button><button class="btn primary" id="vSkip">Lock in now</button></div></div>
   </div>
 </div>
+<div id="ident"><div class="idin"><svg viewBox="0 0 100 100" aria-hidden="true"><g stroke="#e3f0f9" stroke-width="4" stroke-linecap="round" fill="none"><path d="M50 8v84M13.6 29l72.8 42M13.6 71l72.8-42"/><path d="M42 16l8 8 8-8M42 84l8-8 8 8M18 40l11-3-3-11M82 60l-11 3 3 11M18 60l11 3-3 11M82 40l-11-3 3-11"/></g><circle cx="50" cy="50" r="7" fill="#e5384a"/></svg><div class="idname">Polar Pine <span>Studios</span></div><div class="idsub">presents</div></div><div class="idfoot">Made with three.js · Kenney · Quaternius · all free &amp; open source</div></div>
+<div id="title" hidden><div id="scroll"><div class="roll"></div><div class="paper"><div class="pin"><div class="ptitle">The Nice List</div><div class="psub">Official · North Pole Records Dept. · Christmas Eve</div><ol id="niceList"></ol><div class="seal">Approved · S. Claus</div></div></div><div class="roll bot"></div></div>
+  <div id="thint"><b>Swipe up</b> to roll up the list<span>or tap <kbd>R1</kbd> <kbd>L2</kbd> · <kbd>Space</kbd> · scroll the mouse wheel</span></div><button id="tSkip">Skip to menu</button></div>
+<button id="hubPrompt" hidden></button><button id="hubMenu">☰ Menu</button>
 <div id="boot"><div class="bootsnow" aria-hidden="true"></div><div class="bootin"><div class="eyebrow2">Classified · Sector 90°N</div><h1>North Pole <span>Ops</span></h1><div class="bootbar"><i id="bootFill"></i></div><p id="bootTxt">Loading the North Pole…</p><p id="bootTip"></p></div><div class="bootfoot">An original winter shooter · Built entirely with free, open-source tools and art</div></div>
 
 <div id="cine" hidden><div class="lb top"></div><div class="lb bot"></div><div id="cineFade"></div>
@@ -703,6 +743,13 @@ body.camp #topbar{display:none}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -769,7 +816,7 @@ const OUTFITS={classic:{name:'Classic',lv:1,team0:[0x1f8a4c,0xd42a3c],team1:[0xe
 function effDef(c){const d=Object.assign({},PRIMARIES[c.primary]);d.base=d.key;for(const a of (c.att||[]))if(ATTACH[a])ATTACH[a].mod(d);d.att=(c.att||[]).filter(a=>ATTACH[a]);d.camo=CAMOS[c.camo]?c.camo:'none';return d}
 if(!Array.isArray(CLASSES)||CLASSES.length!==5||!CLASSES.every(c=>c&&PRIMARIES[c.primary]&&SECONDARIES[c.secondary]&&EQUIPMENT[c.equip]&&PERKS[c.perk]))CLASSES=JSON.parse(JSON.stringify(DEFAULT_CLASSES));
 for(const c of CLASSES){if(!Array.isArray(c.att))c.att=[];if(!CAMOS[c.camo])c.camo='none'}
-const SETTINGS=Object.assign({vo:'on',tlayout:'pad',crouchMode:'toggle',fov:75,invY:false,taccel:false,psens:1,adsMul:1,fireAds:true,leftFire:true,gfx:'auto',aim:'off',tsens:1,sens:1,cls:1,map:'workshop',mode:'tdm',diff:'normal',size:5},store('npo-settings-v1')||{});
+const SETTINGS=Object.assign({bloom:'on',vo:'on',tlayout:'pad',crouchMode:'toggle',fov:75,invY:false,taccel:false,psens:1,adsMul:1,fireAds:true,leftFire:true,gfx:'auto',aim:'off',tsens:1,sens:1,cls:1,map:'workshop',mode:'tdm',diff:'normal',size:5},store('npo-settings-v1')||{});
 function saveSettings(){store('npo-settings-v1',SETTINGS)}
 const BIND_DEF={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',crouch:'KeyC',sprint:'ShiftLeft',reload:'KeyR',melee:'KeyV',grenade:'KeyG',streak:'KeyF',leanL:'KeyQ',leanR:'KeyE',swap:'KeyX',scores:'Tab'};
 const BIND_LABEL={forward:'Move forward',back:'Move back',left:'Strafe left',right:'Strafe right',jump:'Jump',crouch:'Crouch / slide',sprint:'Sprint',reload:'Reload',melee:'Melee (candy cane)',grenade:'Throw equipment',streak:'Killstreak',leanL:'Lean left (peek)',leanR:'Lean right (peek)',swap:'Swap weapon',scores:'Scoreboard'};
@@ -1720,6 +1767,7 @@ const isTouch=IS_TOUCH;
 addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'))return;
   if(CUT.on){if(e.code==='Escape'||e.code==='Enter'||e.code==='Space'){e.preventDefault();cutSkip()}return}
+  if(G.hub&&G.running&&!G.paused&&(e.code==='KeyE'||e.code==='Enter')){e.preventDefault();hubUse();return}
   keys[e.code]=true;
   if(!G.running||G.paused||G.over)return;
   const c=e.code,B=BINDS;
@@ -1906,6 +1954,8 @@ function pollPad(dt){
   if(!padActive)return;
   const pr=k=>p[k]&&!padPrev[k];
   if(CUT.on){if(pr('a')||pr('start')||pr('b'))cutSkip();padPrev=p;return}
+  if(TITLE.on){if(pr('rb')||pr('lt')||pr('a')||pr('rt')||pr('lb'))titleRoll(.22);if(pr('b')||pr('start'))$('tSkip').click();padPrev=p;return}
+  if(G.hub&&G.running&&!G.paused&&pr('x'))hubUse();
   const inMatch=G.running&&!G.over&&!G.paused&&$('voteScr').hidden;
   PAD.mx=inMatch?lx:0;PAD.my=inMatch?-ly:0;PAD.fire=inMatch&&p.rt;PAD.ads=inMatch&&p.lt;PAD.sprint=inMatch&&(p.ls||(-ly>.88&&Math.abs(lx)<.45));
   if(inMatch){
@@ -1940,7 +1990,7 @@ function meleeHits(owner,o,dir){ // damage locally-owned enemies in front of o
     const dx=e.pos.x-o.x,dz=e.pos.z-o.z,d=Math.hypot(dx,dz);if(d>MELEE.range+.4||Math.abs(e.pos.y-(o.y-1.5))>1.4)continue;
     if((dx*dir.x+dz*dir.z)/(d||1)<.55)continue;damage(e,MELEE.dmg,owner,MELEE.name,false,e.pos);puff(_c.set(e.pos.x,e.pos.y+1.2,e.pos.z),14,0xff5a6e,4,.07,.5)}}
 function playerMelee(){
-  const p=P;if(!p.alive||p.frozenT>0||(p.meleeCd||0)>G.time)return;p.meleeCd=G.time+.75;p.meleeT=.4;p.reloadT=0;
+  const p=P;if(!p.alive||p.frozenT>0||G.hub||(p.meleeCd||0)>G.time)return;p.meleeCd=G.time+.75;p.meleeT=.4;p.reloadT=0;
   camera.getWorldDirection(_dir);const dir=_v.set(_dir.x,0,_dir.z).normalize();
   // short lunge toward an enemy right in front of you
   for(const e of G.ents){if(!e.alive||e.team===p.team)continue;const dx=e.pos.x-p.pos.x,dz=e.pos.z-p.pos.z,d=Math.hypot(dx,dz);if(d<4&&d>.6&&(dx*dir.x+dz*dir.z)/d>.8){p.vel.x+=dir.x*5;p.vel.z+=dir.z*5;break}}
@@ -1948,7 +1998,7 @@ function playerMelee(){
   for(const e of G.ents){if(!e.alive||!e.remote||e.team===p.team)continue;const dx=e.pos.x-o.x,dz=e.pos.z-o.z,d=Math.hypot(dx,dz);if(d<MELEE.range+.4&&(dx*dir.x+dz*dir.z)/(d||1)>.55){hitMarker(false);sfx('hit');puff(_c.set(e.pos.x,e.pos.y+1.2,e.pos.z),14,0xff5a6e,4,.07,.5)}}
   publishShot(p,'ml',o,dir,0);play('throw',{vol:.6,rate:1.3});play('bodyhit',{vol:.4,rate:1.1,delay:.08});shake=Math.max(shake,.12);
 }
-function playerNade(){if(!P||!P.alive||P.frozenT>0)return;camera.getWorldDirection(_a);throwNade(P,_a,17)}
+function playerNade(){if(!P||!P.alive||P.frozenT>0||G.hub)return;camera.getWorldDirection(_a);throwNade(P,_a,17)}
 const _dir=new THREE.Vector3(),_right=new THREE.Vector3(),_org=new THREE.Vector3(),_tgt=new THREE.Vector3(),_v=new THREE.Vector3();
 function playerFire(){
   const w=P.w[P.cur],d=w.def;w.ammo--;P.cd=60/d.rpm;P.lastFire=G.time;if(stealthMission())stealthNoise();
@@ -2163,7 +2213,7 @@ function updateHud(dt){
   $('frostOverlay').style.opacity=Math.max(P.frozenT>0?.8:0,G.blizzardT>0?.35:0);
   cmT-=dt;if(cmT<=0)$('centerMsg').style.opacity=0;
   xpT-=dt;const xe=$('xpPop');xe.style.opacity=xpT>0?Math.min(1,xpT*2):0;xe.style.transform=`translateX(-50%) translateY(${-(1.2-Math.max(0,xpT))*20}px)`;
-  const scoped=d.scope&&P.adsAmt>.85;$('scope').style.opacity=scoped?1:0;vm.visible=!scoped&&P.alive&&!G.veh;
+  const scoped=d.scope&&P.adsAmt>.85;$('scope').style.opacity=scoped?1:0;vm.visible=!scoped&&P.alive&&!G.veh&&!G.hub;
   const spr=lerp(d.spread*(1+Math.hypot(P.vel.x,P.vel.z)/7)*(P.onGround?1:2)*(1+Math.min(1,P.bloom||0)*.6),d.ads,Math.pow(P.adsAmt,2));const gap=4+spr*260;
   const gr=Math.round(gap);if(gr!==chGap){chGap=gr;const ch=$('crosshair').children;ch[0].style.top=(-gr-9)+'px';ch[1].style.top=gr+'px';ch[2].style.left=(-gr-9)+'px';ch[3].style.left=gr+'px'}
   $('crosshair').style.opacity=scoped||P.sprinting?0:(P.adsAmt>.6&&!d.scope?.5:1);
@@ -2277,7 +2327,7 @@ function synthSfx(n,pos){
 }
 
 /* ================= MATCH FLOW ================= */
-function clearMatch(){chars.visible=true;
+function clearMatch(){chars.visible=true;hubEnd();
   for(const e of G.ents)if(e.mesh)chars.remove(e.mesh);
   for(const c of fx.children.slice())if(!parts.some(p=>p.m===c))fx.remove(c);
   for(const p of parts){p.life=0;p.m.visible=false}freeParts.length=0;freeParts.push(...parts);
@@ -2292,15 +2342,16 @@ function startMatch(net){
   if(!modelsDone){modelsP.then(()=>startMatch(net));return}
   closeVote();G.xp={};setStreaks();
   if(!(net&&net.map))net=null;
-  const camp=G.campStart;G.campStart=null;G.camp=camp?camp:null;
-  clearMatch();loadMap(camp?camp.map:net?net.map:SETTINGS.map);
+  const camp=G.campStart;G.campStart=null;G.camp=camp?camp:null;const hub=G.hubStart;G.hubStart=false;
+  clearMatch();G.hub=!!hub;loadMap(hub?'workshop':camp?camp.map:net?net.map:SETTINGS.map);
   G.mode=net||camp?'tdm':SETTINGS.mode;G.diff=net?net.diff:SETTINGS.diff;G.limit=G.mode==='gift'?30:40;G.timeLeft=net?(net.tl||480):480;G.scores=[0,0];G.uavT=0;G.blizzardT=0;G.over=false;G.paused=false;G.time=0;
   const n=+SETTINGS.size;const cls=CLASSES[SETTINGS.cls]||CLASSES[0];
   P=makeEntity(net?NET.team:0,true,net?myNick():'You',cls);P.id=net?NET.myId:'you';P.streaks=[];P.adsAmt=0;addEnt(P);
   botN=Math.random()*20|0;
   if(camp){for(let i=0;i<camp.allies;i++)makeBot(0)}
-  else if(!net){for(let i=0;i<n-1;i++)makeBot(0);for(let i=0;i<n;i++)makeBot(1)}
+  else if(!net&&!hub){for(let i=0;i<n-1;i++)makeBot(0);for(let i=0;i<n;i++)makeBot(1)}
   for(const e of G.ents)spawn(e);
+  if(hub){P.pos.set(-10,0,5);P.yaw=-Math.PI/2;P.pitch=0;P.protT=1e9;P.vel.set(0,0,0)}
   if(net&&NET.isHost)hostBalance();
   document.body.classList.toggle('camp',!!camp);$('campHud').hidden=!camp;$('bossBar').hidden=true;if(camp){G.timeLeft=1e9;const mm=MISSIONS[camp.i];if(mm&&mm.env)applyEnv(Object.assign({},MAP.env,mm.env));campBegin()}
   $('goal').textContent=(net?'Online':G.mode==='gift'?'Gift Grab':'Team Snowball')+' · first to '+G.limit;
@@ -2308,9 +2359,9 @@ function startMatch(net){
   if(isTouch)setupTouchOnce();
   G.running=true;
   const hint=$('hint');hint.innerHTML=padActive?`Left stick move · Right stick look · <kbd>${btnName('rt')}</kbd> throw · <kbd>${btnName('lt')}</kbd> aim · <kbd>${btnName('a')}</kbd> jump · <kbd>${btnName('b')}</kbd> crouch/slide · <kbd>${btnName('x')}</kbd> reload · <kbd>${btnName('y')}</kbd> swap · <kbd>${btnName('rb')}</kbd> grenade · <kbd>${btnName('lb')}</kbd> streak`:touchMode?(SETTINGS.tlayout==='classic'?'Left thumb: move · Right side: look · Hold <kbd>Throw</kbd> to aim and fire (slide it to steer)':'D-pad move (push past ▲ to sprint) · Drag right side to look · <kbd>R2</kbd>/<kbd>Throw</kbd> fire · <kbd>L2</kbd> aim · <kbd>✕</kbd> jump · <kbd>○</kbd> crouch · <kbd>□</kbd> reload · <kbd>△</kbd> swap'):'Click to lock the mouse · <kbd>WASD</kbd> move · <kbd>Click</kbd> throw · <kbd>Right-click</kbd> aim · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>C</kbd> crouch · <kbd>Q</kbd>/<kbd>E</kbd> peek · <kbd>V</kbd> melee · <kbd>R</kbd> reload · <kbd>G</kbd> grenade · <kbd>F</kbd> streak · <kbd>Tab</kbd> scores';hint.style.opacity=1;setTimeout(()=>hint.style.opacity=0,9000);
-  G.countdown=3.6;G.cdShown=-1;G.firstBlood=true;G.killer=null;
+  G.countdown=3.6;G.cdShown=-1;G.firstBlood=true;G.killer=null;if(hub){G.countdown=0;G.timeLeft=1e9;hubBegin()}
   if(MODELS.elf&&MODELS.soldier&&!P.mesh){P.mesh=makeModelChar(P.team,SETTINGS.outfit);P.mesh.visible=false}
-  playMusic('match');
+  playMusic(hub?'menu':'match');
   if(!touchMode)requestLock();
 }
 let touchSetup=false;function setupTouchOnce(){if(!touchSetup){touchSetup=true;setupTouch()}else{touchMode=true;$('touch').hidden=false;document.body.classList.add('touch')}layoutTouch();resetTouchState();
@@ -2319,7 +2370,7 @@ function pauseGame(){if(!G.running||G.over||G.paused)return;G.paused=true;mouseL
   $('pause').querySelector('p').textContent=NET.on?'The match keeps going while this menu is open. Class changes apply on your next respawn.':'Class changes apply on your next respawn.';$('quitBtn').textContent=NET.on?'Leave party':'Quit to menu';
   $('pause').hidden=false;if(document.pointerLockElement)document.exitPointerLock()}
 function resume(){G.paused=false;$('pause').hidden=true;if(!touchMode)requestLock()}
-function quitToMenu(){playMusic('menu');campCleanup();G.running=false;G.paused=false;G.over=false;$('pause').hidden=true;$('end').hidden=true;$('death').hidden=true;$('hud').hidden=true;$('touch').hidden=true;$('scoreboard').hidden=true;touchMode=false;document.body.classList.remove('touch');showBoard=false;if(document.pointerLockElement)document.exitPointerLock();clearMatch();loadMap(SETTINGS.map);$('menu').hidden=false;vm.visible=false}
+function quitToMenu(){playMusic('menu');campCleanup();hubEnd();G.running=false;G.paused=false;G.over=false;$('pause').hidden=true;$('end').hidden=true;$('death').hidden=true;$('hud').hidden=true;$('touch').hidden=true;$('scoreboard').hidden=true;touchMode=false;document.body.classList.remove('touch');showBoard=false;if(document.pointerLockElement)document.exitPointerLock();clearMatch();loadMap(SETTINGS.map);$('menu').hidden=false;vm.visible=false}
 function showDeath(k,wn){
   mouseL=false;
   $('deathTitle').textContent=pick(['Snowed under','Frozen solid','Buried in a drift','Iced']);
@@ -2973,7 +3024,7 @@ function voSay(who,txt,onEnd,vol){if(!VO.ok||SETTINGS.vo==='off'||!VO.voices.len
     let done=false;const fin=()=>{if(done)return;done=true;onEnd&&onEnd()};u.onend=fin;u.onerror=fin;setTimeout(fin,1500+txt.length*95);speechSynthesis.speak(u);return true}catch(e){return false}}
 // in-mission radio: a small subtitle box, spoken, queued so lines never overlap
 const RADIO={q:[],busy:false,el:null};
-function radio(who,txt,prio){if(!G.camp||G.over)return;if(prio)RADIO.q.unshift([who,txt]);else{if(RADIO.q.length>3)return;RADIO.q.push([who,txt])}radioPump()}
+function radio(who,txt,prio){if(!(G.camp||G.hub)||G.over)return;if(prio)RADIO.q.unshift([who,txt]);else{if(RADIO.q.length>3)return;RADIO.q.push([who,txt])}radioPump()}
 function radioPump(){if(RADIO.busy||!RADIO.q.length||CUT.on)return;const [who,txt]=RADIO.q.shift();RADIO.busy=true;const sp=SPEAKER[who]||['',''];const el=$('radio');
   el.querySelector('b').textContent=sp[0];el.querySelector('b').style.color=sp[1];el.querySelector('span').textContent=txt;el.classList.add('on');
   const end=()=>{setTimeout(()=>{el.classList.remove('on');setTimeout(()=>{RADIO.busy=false;radioPump()},350)},500)};
@@ -3108,6 +3159,83 @@ function vehKill(gl){gl.dead=true;gl.vel.y=2;VEH.kills++;puff(gl.pos,20,0xbfefff
   if(VEH.kills===1)radio('holly',"Got one! Oh my gosh, we got one!");if(VEH.kills===6)radio('jingle',"Halfway there. Keep it steady.")}
 function vehHud(){const V=VEH;$('vhHeat').style.width=(V.heat*100)+'%';$('vhHeat').classList.toggle('hot',V.lock>0);$('vhHp').style.width=V.hp+'%';$('vhFlare').textContent=V.flareCd>0?'Jingle Flare '+Math.ceil(V.flareCd)+'s':'Jingle Flare ready';$('vhFlare').classList.toggle('ready',V.flareCd<=0)}
 
+/* ================= TITLE: THE NICE LIST (swipe / R1 / L2 to roll it up) ================= */
+const TITLE={on:false,p:0,target:0,t:0};
+const NICE=[['★ {you}','Nice','Saved Christmas (pending)'],['Holly','Nice','Says "oh my gosh" 400 times a day'],['Sgt. Jingle','Nice','Barely. Grumbles. Knits secretly'],['Pip','Nice','Invented the tactical sock'],['Rudolph','Nice','Nose: extremely glowy'],['Dasher','Nice',''],['Blitzen','Nice','Nobody remembers Blitzen'],['Mrs. Claus','Very Nice','Cookies'],['Private Flurry','Pending','Apologized to the reindeer'],['Corporal Sleet','Pending','Wants dental'],['The Frost King','NAUGHTY','Avalanche, 1847. Also this year. Also Gary.']];
+function titleShow(){if(TITLE.on)return;TITLE.on=true;TITLE.p=0;TITLE.target=0;TITLE.t=0;const nm=esc(myNick()||'You');
+  $('niceList').innerHTML=NICE.map(([n,v,w])=>`<li class="${v==='NAUGHTY'?'bad':v==='Pending'?'mid':''}"><b>${esc(n).replace('{you}',nm)}</b><i>${v}</i>${w?`<small>${esc(w)}</small>`:''}</li>`).join('');
+  $('title').hidden=false;$('menu').hidden=true;titleApply();if(MAP!==MAPS.workshop)loadMap('workshop')}
+function titleHide(){TITLE.on=false;$('title').hidden=true}
+function titleRoll(d){if(!TITLE.on)return;initAudio();TITLE.target=Math.min(1,TITLE.target+d);if(d>0)play('throw',{vol:.35,rate:.7+TITLE.target*.5})}
+function titleApply(){const p=TITLE.p,sc=$('scroll');sc.style.setProperty('--roll',p.toFixed(3));$('thint').style.opacity=p>.02?0:1}
+function titleTick(dt){TITLE.t+=dt;TITLE.p+=(TITLE.target-TITLE.p)*Math.min(1,dt*7);titleApply();
+  if(TITLE.target<1&&TITLE.target>0)TITLE.target=Math.max(0,TITLE.target-dt*.04);
+  if(TITLE.p>.985&&TITLE.target>=1){titleHide();sfx('jingle');enterHub()}
+  // slow dolly through the workshop behind the scroll
+  const a=TITLE.t*.06;camera.position.set(Math.sin(a)*6,2.2+Math.sin(TITLE.t*.3)*.2,Math.cos(a)*3+1);camera.lookAt(Math.sin(a+1.2)*8,1.8,-2);if(Math.abs(camera.fov-60)>.01){camera.fov=60;camera.updateProjectionMatrix()}}
+(function titleInput(){const el=$('title');let sy=null;
+  el.addEventListener('touchstart',e=>{sy=e.touches[0].clientY},{passive:true});
+  el.addEventListener('touchmove',e=>{if(sy===null)return;const y=e.touches[0].clientY;const d=(sy-y)/Math.max(300,innerHeight*.9);if(d>0)titleRoll(d*1.15);sy=y},{passive:true});
+  el.addEventListener('touchend',()=>{sy=null});
+  el.addEventListener('wheel',e=>{if(e.deltaY>0)titleRoll(Math.min(.2,e.deltaY/900))},{passive:true});
+  el.addEventListener('click',e=>{if(e.target.closest('#tSkip'))return;titleRoll(.26)});
+  addEventListener('keydown',e=>{if(!TITLE.on)return;if(['Space','Enter','ArrowUp','KeyW','PageDown','ArrowDown'].includes(e.code)){e.preventDefault();titleRoll(.26)}if(e.code==='Escape')$('tSkip').click()},true);
+  $('tSkip').onclick=e=>{e.stopPropagation();initAudio();titleHide();loadMap(SETTINGS.map);$('menu').hidden=false}})();
+
+/* ================= THE WORKSHOP HUB (walk around; stations open the menus) ================= */
+const HUB={on:false,st:[],npc:[],near:null,said:{}};
+const STATIONS=[
+  {id:'camp',x:7,z:4.1,label:'Campaign',sub:"Santa's map table",icon:'🗺',tab:'campaign',npc:['santa',9.8,2.5],line:['santa',"Ho ho! The map table. Pick a mission, any mission. Well, start with the first one."]},
+  {id:'arm',x:-7,z:-.9,label:'Loadouts',sub:"Holly's armory",icon:'🎯',tab:'classes',npc:['holly',-9.8,-2.5],line:['holly',"The armory! Ooh, can I hold the sniper? I won't touch anything. Much."]},
+  {id:'mail',x:0,z:-3.8,label:'Multiplayer',sub:'The mailroom · invite friends',icon:'✉',tab:'deploy',npc:['jingle',6,-5.6],line:['jingle',"Mailroom. Want to snowball your friends? Send them a party code."]},
+  {id:'set',x:0,z:3.8,label:'Settings',sub:"Pip's cocoa machine",icon:'☕',tab:'controls',npc:['pip',-6,5.6],line:['pip',"Settings! And cocoa. Mostly cocoa. The settings are in the cocoa. Not literally."]},
+  {id:'play',x:6,z:11.5,label:'Quick Match',sub:'Hop on the sled · bots on '+'your map',icon:'🛷',play:true,line:['santa',"Off you go! Mind the snowballs."]}];
+function hubLabel(t,sub,icon){const c=document.createElement('canvas');c.width=512;c.height=160;const g=c.getContext('2d');g.fillStyle='rgba(8,18,30,.82)';g.beginPath();g.roundRect?g.roundRect(8,20,496,120,24):g.rect(8,20,496,120);g.fill();g.strokeStyle='#f5c451';g.lineWidth=4;g.stroke();
+  g.font='64px serif';g.textAlign='left';g.textBaseline='middle';g.fillText(icon,28,82);g.fillStyle='#fff';g.font='bold 52px "Bowlby One SC", Impact, sans-serif';g.fillText(t.toUpperCase(),116,70);g.fillStyle='#9fd3ff';g.font='600 26px "Barlow Condensed", sans-serif';g.fillText(sub,118,116);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:true,transparent:true}));s.scale.set(3.4,1.06,1);return s}
+function hubBegin(){HUB.on=true;HUB.st=[];HUB.npc=[];HUB.said={};HUB.near=null;document.body.classList.add('hub');
+  for(const s of STATIONS){const g=new THREE.Group();g.position.set(s.x,terrH(s.x,s.z),s.z);fx.add(g);const lb=hubLabel(s.label,s.sub,s.icon);lb.position.y=2.7;g.add(lb);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.75,.95,40),new THREE.MeshBasicMaterial({color:C(0xf5c451),transparent:true,opacity:.75,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.05;g.add(ring);
+    HUB.st.push({s,g,lb,ring});
+    if(s.npc&&MODELS.elf){const [who,x,z]=s.npc;const kind=who==='santa'?'santa':'elf';const m=makeModelChar(0,'classic',kind==='santa'?'santa':null);chars.remove(m);const u=m.userData;for(const k of ['marker','spawnShield','ice'])if(u[k])u[k].visible=false;
+      if(who!=='santa'&&u.gunHolder)gunMesh(who==='holly'?PRIMARIES.north||PRIMARIES.frost:PRIMARIES.frost,u.gunHolder);if(kind==='santa')m.scale.setScalar(1.18);
+      m.position.set(x,0,z);m.rotation.y=Math.atan2(-(s.x-x),-(s.z-z));fx.add(m);const a=u.acts.Idle;if(a){a.play();a.time=Math.random()*3}HUB.npc.push({m,u,who,s})}}
+  // a few props that make the stations read: map on the table, blasters on the armory bench, mugs by the cocoa machine
+  const mp=canvasTex(256,160,(g,w,h)=>{g.fillStyle='#e9dcb8';g.fillRect(0,0,w,h);g.strokeStyle='#8a6a3a';g.lineWidth=3;g.strokeRect(4,4,w-8,h-8);g.fillStyle='#9fc8e8';g.beginPath();g.ellipse(80,90,40,26,0,0,7);g.fill();g.fillStyle='#3a7a4a';for(let i=0;i<14;i++){g.beginPath();g.moveTo(140+i%5*20,40+(i/5|0)*30);g.lineTo(150+i%5*20,20+(i/5|0)*30);g.lineTo(160+i%5*20,40+(i/5|0)*30);g.fill()}g.fillStyle='#c0283a';g.font='bold 22px serif';g.fillText('✕',196,120);g.strokeStyle='#c0283a';g.setLineDash([6,5]);g.beginPath();g.moveTo(40,140);g.quadraticCurveTo(120,60,200,114);g.stroke()});
+  const map=new THREE.Mesh(PLANE,new THREE.MeshBasicMaterial({map:mp}));map.rotation.x=-Math.PI/2;map.position.set(7,1.03,2.5);map.scale.set(3.4,1.1,1);fx.add(map);HUB.props=[map];
+  ['frost','mule','north'].forEach((k,i)=>{if(!PRIMARIES[k])return;const g=buildGun(PRIMARIES[k],true);g.scale.setScalar(2.2);g.rotation.set(-Math.PI/2,0,Math.PI/2);g.position.set(-8.4+i*1.4,1.06,-2.5);fx.add(g);HUB.props.push(g)});
+  for(let i=0;i<4;i++){const m=mk(CYL,mat([0xd7263d,0x1f7a4d,0xf5c451,0xffffff][i]),-1.2+i*.8,1.12,5.2,.14,.22,.14,fx,false);HUB.props.push(m)}
+  {const sv=mk(CYL,mat(0x7a4b2a,{metal:.3}),2.6,1.45,5.2,.45,1.1,.45,fx,false);HUB.props.push(sv)}
+  if(PROPS.sled_long){const sl=PROPS.sled_long.clone();sl.scale.setScalar(3.4);sl.position.set(6,terrH(6,13),13);sl.rotation.y=Math.PI/2;fx.add(sl);HUB.props.push(sl)}
+  setTimeout(()=>{if(HUB.on)hubSay('santa',"Welcome to the workshop! Have a look around. Walk up to any station to get started.")},900)}
+function hubEnd(){if(!HUB.on)return;HUB.on=false;G.hub=false;document.body.classList.remove('hub');for(const o of [...HUB.st.map(x=>x.g),...HUB.npc.map(x=>x.m),...(HUB.props||[])])if(o.parent)o.parent.remove(o);HUB.st=[];HUB.npc=[];HUB.props=[];$('hubPrompt').hidden=true;radioClear()}
+function hubSay(who,txt){radio(who,txt,true)}
+function hubTick(dt){if(!HUB.on)return;let best=null,bd=2.3;
+  for(const h of HUB.st){h.ring.material.opacity=.45+.3*Math.sin(G.time*3);h.lb.position.y=2.7+Math.sin(G.time*1.6+h.s.x)*.06;const d=Math.hypot(P.pos.x-h.s.x,P.pos.z-h.s.z);if(d<bd){bd=d;best=h}}
+  for(const n of HUB.npc){n.u.mixer.update(dt);const d=Math.hypot(P.pos.x-n.m.position.x,P.pos.z-n.m.position.z);if(d<6){const want=Math.atan2(-(P.pos.x-n.m.position.x),-(P.pos.z-n.m.position.z));n.m.rotation.y+=angDiff(n.m.rotation.y,want)*Math.min(1,dt*3)}}
+  if(best!==HUB.near){HUB.near=best;const el=$('hubPrompt');if(best){el.innerHTML=`<kbd>${padActive?btnName('x'):touchMode?'Tap':'E'}</kbd> ${esc(best.s.label)} <span>${esc(best.s.sub)}</span>`;el.hidden=false;if(!HUB.said[best.s.id]&&best.s.line){HUB.said[best.s.id]=1;hubSay(best.s.line[0],best.s.line[1])}}else el.hidden=true}}
+function hubUse(){const h=HUB.near;if(!HUB.on||!h)return;sfx('ui');const s=h.s;
+  if(s.play){hubEnd();G.running=false;startMatch();return}
+  quitToMenu();const t=document.querySelector(`#tabs [data-tab=${s.tab}]`);if(t)t.click()}
+function enterHub(){if(NET.on){$('menu').hidden=false;return}initAudio();voPrime();G.hubStart=true;startMatch()}
+$('hubPrompt').onclick=e=>{e.stopPropagation();hubUse()};$('hubMenu').onclick=e=>{e.stopPropagation();quitToMenu()};
+
+/* ================= BLOOM (three.js UnrealBloomPass, MIT): lights, lanterns and glowing ice really glow ================= */
+let composer=null,bloomPass=null;
+function setupBloom(){if(composer||!HIGH||!THREE.EffectComposer||!THREE.UnrealBloomPass||SETTINGS.bloom==='off')return;
+  try{const sz=renderer.getSize(new THREE.Vector2());composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));
+    bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(sz.x/2,sz.y/2),.55,.55,.86);composer.addPass(bloomPass);
+    if(THREE.GammaCorrectionShader)composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
+    addEventListener('resize',()=>{if(composer){composer.setSize(innerWidth,innerHeight)}})}catch(e){composer=null}}
+let bloomSlow=0,bloomLast=0;
+function renderFrame(){const now=performance.now(),ft=now-(bloomLast||now);bloomLast=now;
+  if(composer&&SETTINGS.bloom!=='off'){if(ft>30&&ft<250){bloomSlow+=ft/1000;if(bloomSlow>2.5){composer=null;console.log('bloom auto-off (slow frames)')}}else bloomSlow=Math.max(0,bloomSlow-.01);
+    if(composer){try{composer.render();return}catch(e){composer=null}}}
+  renderer.render(scene,camera)}
+
+setupBloom();
+(function(){const id=$('ident');const go=()=>{if(id.classList.contains('out'))return;id.classList.add('out');setTimeout(()=>id.hidden=true,700)};setTimeout(go,3300);id.addEventListener('click',go);id.addEventListener('touchstart',go,{passive:true})})();
+$('hubBtn').onclick=()=>enterHub();
 /* ================= MAP VOTE (Black Ops style) ================= */
 const THUMB={};
 function makeThumbs(){
@@ -3174,7 +3302,7 @@ function frame(now){
   if(touchMode){const show=G.running&&!G.over&&!G.paused&&P&&P.alive&&$('voteScr').hidden&&!padActive&&!CUT.on;const tl=$('touch');if(tl.hidden===show){tl.hidden=!show;if(!show)resetTouchState()}}
   if(CUT.on){cutTick(dt);for(const f of lobby.figs)f.visible=false}
   else{if(G.running&&(!G.paused||NET.on)){if(!G.over)update(dt);else{updateParts(dt);updateProjs(dt)}}
-  if(!G.running){menuT+=dt;vm.visible=false;menuScene(dt)}else for(const f of lobby.figs)f.visible=false}
+  if(!G.running){menuT+=dt;vm.visible=false;if(TITLE.on){titleTick(dt);for(const f of lobby.figs)f.visible=false}else menuScene(dt)}else for(const f of lobby.figs)f.visible=false}
   audioTick(dt);
   // snow follows camera
   const cp=camera.position;for(let i=0;i<SNOW_N;i++){let y=snowPos[i*3+1]-dt*snowFall*(1+(i%7)*.12);let x=snowPos[i*3]+Math.sin(now*.0005+i)*dt*.4;if(y<cp.y-6)y+=30;snowPos[i*3+1]=y;snowPos[i*3]=x;
@@ -3182,7 +3310,7 @@ function frame(now){
   snowGeo.attributes.position.needsUpdate=true;
   sky.position.copy(cp);aurora.position.set(cp.x,150,cp.z);aurora.rotation.y+=dt*.01;
   if(HIGH){sun.position.set(cp.x+SUN_OFF.x,SUN_OFF.y,cp.z+SUN_OFF.z);sun.target.position.set(cp.x,0,cp.z)}
-  renderer.render(scene,camera);
+  renderFrame();
 }
 function deadVisual(e){if(!e.mesh)return;const u=e.mesh.userData;
   if(u.mixer){if(e.deadT>2.6)e.mesh.visible=false}
@@ -3249,7 +3377,7 @@ function update(dt){
     u.ice.visible=e.frozenT>0;u.marker.visible=e.team===P.team;u.spawnShield.visible=e.protT>0}
   for(const e of G.ents){if(!e.alive)continue;const sp=Math.hypot(e.vel.x,e.vel.z);if(sp<1.2||(!e.remote&&!e.onGround))continue;
     e.stepD=(e.stepD||0)+sp*dt;const stride=sp>7.5?2.3:1.75;if(e.stepD>stride){e.stepD=0;if(e.isPlayer||camera.position.distanceToSquared(e.pos)<1600)footstep(e,e.isPlayer?1:Math.min(1,sp/6))}}
-  if(G.camp&&G.countdown<=0&&!G.over)campTick(dt);
+  if(G.camp&&G.countdown<=0&&!G.over)campTick(dt);if(G.hub)hubTick(dt);
   updateProjs(dt);updateNades(dt);updateParts(dt);updateGifts(dt);updateSleighs(dt);updateDecals(dt);updateSentries(dt);
   if(P&&!G.veh)updateCamera(dt);if(G.veh)vm.visible=false;
   $('lowHp').style.opacity=P&&P.alive&&P.hp<P.maxHp*.3?(.55+.25*Math.sin(G.time*7)):0;
@@ -3270,7 +3398,7 @@ function updatePlayer(dt){
   const crouching=crouchIn||sliding;
   p.crouch=lerp(p.crouch,crouching?1:0,Math.min(1,dt*(sliding?18:12)));
   const onTarget=crosshairEnemy(def);$('crosshair').classList.toggle('on',!!onTarget);{const an=$('aimName');const t=onTarget?onTarget.name:'';if(an._v!==t){an._v=t;an.textContent=t}an.style.opacity=onTarget?1:0}
-  const trigger=!!(mouseL||T.fire||PAD.fire);
+  const trigger=!!(mouseL||T.fire||PAD.fire)&&!G.hub;
   const sprintKey=held('sprint')||keys.ShiftRight||(touchMode&&(SETTINGS.tlayout==='classic'?T.jy>.82&&Math.abs(T.jx)<.5:T.sprint))||(padActive&&PAD.sprint);
   p.sprinting=!sliding&&sprintKey&&fz>0&&!crouchIn&&!trigger&&p.reloadT<=0&&!(mouseR||T.ads||PAD.ads);
   if(sprintKey&&fz>0&&crouchOn&&!(p.slideT>0)&&!crouchEdge)crouchOn=false;
@@ -3398,7 +3526,7 @@ function renderBinds(){$('bindList').innerHTML=Object.keys(BIND_DEF).map(a=>`<sp
 addEventListener('keydown',e=>{if(!bindWait)return;e.preventDefault();e.stopImmediatePropagation();
   if(e.code!=='Escape'){for(const a in BINDS)if(BINDS[a]===e.code&&a!==bindWait)BINDS[a]='';BINDS[bindWait]=e.code;store('npo-binds-v1',BINDS)}bindWait=null;renderBinds()},true);
 $('bindReset').onclick=()=>{Object.assign(BINDS,BIND_DEF);store('npo-binds-v1',BINDS);renderBinds()};renderBinds();
-bindSeg('crouchSeg','crouchMode',()=>{crouchOn=false});bindSeg('voSeg','vo',()=>{if(SETTINGS.vo!=='off'){voPrime();voSay('santa','Ho ho ho! Merry Christmas!')}});
+bindSeg('crouchSeg','crouchMode',()=>{crouchOn=false});bindSeg('bloomSeg','bloom',()=>{if(SETTINGS.bloom!=='off')setupBloom()});bindSeg('voSeg','vo',()=>{if(SETTINGS.vo!=='off'){voPrime();voSay('santa','Ho ho ho! Merry Christmas!')}});
 const TLAY_NOTE={pad:'A game controller on your screen. D-pad (left) moves you: push past the top arrow or double-tap it to sprint. ✕ jump, ○ crouch/slide, □ reload, △ swap weapon. Shoulder buttons on the screen edges: L2 aim, L1 grenade, R2 fire, R1 melee. Drag anywhere on the right side to look, or hold the big red Throw button and slide your thumb to aim while you fire.',
   classic:'Put your left thumb down anywhere on the left side and a joystick appears under it. Push it all the way forward to sprint. Drag anywhere on the right side to look. Hold the red Throw button to fire, and slide your thumb while holding it to aim at the same time.'};
 bindSeg('tlaySeg','tlayout',()=>{$('tlayNote').textContent=TLAY_NOTE[SETTINGS.tlayout]||TLAY_NOTE.pad;if(touchSetup)layoutTouch()});$('tlayNote').textContent=TLAY_NOTE[SETTINGS.tlayout]||TLAY_NOTE.pad;
@@ -3412,7 +3540,7 @@ for(const [id,k] of [['volMaster','master'],['volMusic','music'],['volSfx','sfx'
 const TIPS=['Sprint, then crouch to slide into cover.','Peek around corners with Q and E without stepping out of cover.','Snowballs drop over distance. Aim a little high on long shots.','Upstairs windows in the cabins are open. Hold them for long sightlines.','Pick three killstreaks in Loadouts. The Sleigh Strike clears a whole street.','Headshots freeze faster. Every hit is your own aim.','On phones, push past the top of the D-pad to sprint.','The campaign has five missions and a boss on the roof of the Igloo Citadel.','Reindeer Ridge: whoever holds the ranger tower sees the whole valley.'];
 (function boot(){const f=$('bootFill'),t=$('bootTxt'),tp=$('bootTip');let p=5,ti=Math.random()*TIPS.length|0;const showTip=()=>{tp.style.opacity=0;setTimeout(()=>{tp.innerHTML='<b>TIP</b>'+TIPS[ti++%TIPS.length];tp.style.opacity=.85},350)};showTip();const tiv=setInterval(showTip,3800);
   const iv=setInterval(()=>{p=Math.min(88,p+(p<60?3:1));f.style.width=p+'%'},180);modelsP.then(()=>clearInterval(tiv));
-  modelsP.then(()=>{t.textContent='Scouting the battlefields…';f.style.width='90%';setTimeout(()=>{try{makeThumbs()}catch(e){}clearInterval(iv);f.style.width='100%';const b=$('boot');b.style.opacity=0;setTimeout(()=>b.hidden=true,500)},60)})})();
+  modelsP.then(()=>{t.textContent='Scouting the battlefields…';f.style.width='90%';setTimeout(()=>{try{makeThumbs()}catch(e){}clearInterval(iv);f.style.width='100%';const b=$('boot');b.style.opacity=0;setTimeout(()=>{b.hidden=true;if(!/^#np-/i.test(location.hash||''))titleShow()},500)},60)})})();
 renderMaps();bindSeg('modeSeg','mode',modeNote);bindSeg('diffSeg','diff');bindSeg('sizeSeg','size');renderParty();modeNote();renderClassPick();renderSlots();renderEditor();setStreaks();renderStreakPick();
 loadMap(SETTINGS.map);vm.visible=false;
 requestAnimationFrame(frame);
