@@ -1,7 +1,7 @@
 {
-  "name": "North Pole Ops",
-  "short_name": "NP Ops",
-  "description": "Team snowball combat at the top of the world.",
+  "name": "Naughty List",
+  "short_name": "Naughty List",
+  "description": "Snowball warfare at the North Pole. Get off the Naughty List.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

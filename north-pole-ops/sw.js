@@ -1,5 +1,5 @@
-// Offline cache for North Pole Ops: game files are cached after the first visit.
-const CACHE='npo-v11';
+// Offline cache for Naughty List: game files are cached after the first visit.
+const CACHE='npo-v12';
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html','./manifest.webmanifest','./assets/elf.json','./assets/soldier.json','./assets/santa.json','./assets/king.json','./assets/holiday.json','./assets/nature.json']).catch(()=>{})))});
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;
