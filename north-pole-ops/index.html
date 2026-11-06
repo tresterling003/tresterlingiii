@@ -71,6 +71,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #adsRet.iron{}
 #adsRet.red i{width:4px;height:4px;left:-2px;top:-2px;background:#ff4d6a;box-shadow:0 0 4px 1px rgba(255,60,90,.9)}#adsRet.red b{left:-20px;top:-20px;width:40px;height:40px;border:2px solid rgba(255,70,100,.85);box-shadow:0 0 6px rgba(255,50,80,.6),inset 0 0 4px rgba(255,50,80,.4)}#adsRet.red b::before,#adsRet.red b::after{display:none}
 #adsRet.scope2{display:none}
+#grabPrompt{position:absolute;left:50%;top:62%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(6,14,24,.82);border:1px solid rgba(255,255,255,.18);border-left:3px solid var(--gold,#f5c451);padding:8px 16px 8px 10px;color:#fff;font:700 15px/1 var(--ui,sans-serif);letter-spacing:.06em;text-transform:uppercase;pointer-events:auto;z-index:5}#grabPrompt kbd{min-width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#111;font:800 14px/1 var(--ui,sans-serif);border-radius:4px;padding:0 6px}#grabPrompt kbd.sq{background:transparent;color:#e98ad6;border:2px solid #e98ad6;border-radius:3px}
 #scope2Ov{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 30vmin,rgba(10,12,16,.96) 30.4vmin,#0b0d12 33vmin,rgba(0,0,0,.55) 36vmin,rgba(0,0,0,.55) 100%)}
 #scope2Ov::before,#scope2Ov::after{content:'';position:absolute;left:50%;top:50%;background:rgba(10,12,16,.85)}#scope2Ov::before{width:60vmin;height:1.5px;margin:-.75px 0 0 -30vmin}#scope2Ov::after{width:1.5px;height:60vmin;margin:-30vmin 0 0 -.75px;background:linear-gradient(rgba(10,12,16,.85) 0 45%,transparent 45% 55%,rgba(10,12,16,.85) 55%)}
 #scope2Ov i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:#ff3048;box-shadow:0 0 5px 2px rgba(255,40,60,.7)}
@@ -94,6 +95,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #scope::before{left:50%;top:18vh;bottom:18vh;width:2px;margin-left:-1px}
 #scope::after{top:50%;left:calc(50% - 32vmin);right:calc(50% - 32vmin);height:2px;margin-top:-1px}
 #centerMsg{position:absolute;left:0;right:0;top:24%;text-align:center;font-family:var(--display);font-size:clamp(22px,4vw,40px);color:var(--gold);text-shadow:0 2px 0 #000,0 0 18px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;text-wrap:balance;padding-inline:16px}
+#choice{position:fixed;inset:0;z-index:65;background:radial-gradient(ellipse at 50% 60%,rgba(4,10,18,.55),rgba(2,5,10,.85));display:flex;align-items:center;justify-content:center;animation:chIn .35s ease-out}@keyframes chIn{from{opacity:0}}
+#choice .chBox{width:min(860px,94vw);text-align:center}#choice .chEy{font:700 12px/1 var(--ui,sans-serif);letter-spacing:.3em;text-transform:uppercase;color:var(--gold,#f5c451)}#chQ{font-family:var(--display);font-size:clamp(20px,3.4vw,34px);color:#fff;margin:10px 0 18px;line-height:1.15}
+#chOpts{display:flex;gap:14px;justify-content:center}.chOpt{flex:1 1 0;max-width:410px;text-align:left;padding:16px 18px;background:rgba(10,20,32,.9);border:1px solid rgba(255,255,255,.14);border-top:4px solid #9fb3c8;color:#fff;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:transform .15s}
+.chOpt.nice{border-top-color:#5cff9a}.chOpt.naughty{border-top-color:#7fc8ff}.chOpt small{font:700 11px/1 var(--ui,sans-serif);letter-spacing:.2em;text-transform:uppercase;color:#9fb3c8}.chOpt.nice small{color:#5cff9a}.chOpt.naughty small{color:#7fc8ff}.chOpt b{font-size:19px;line-height:1.2}.chOpt span{font-size:14px;color:#b9c8d6;line-height:1.35}.chOpt:hover,.chOpt.padfocus{transform:translateY(-3px);background:rgba(20,36,54,.95)}
+#choice .chHint{margin-top:14px;font-size:11px;letter-spacing:.14em;color:#7f93a8;text-transform:uppercase}
+.mwrap{margin-top:12px}.mbar{display:flex;align-items:center;gap:10px;justify-content:center}.mbar span{font:800 11px/1 var(--ui,sans-serif);letter-spacing:.18em}.mbar .mn{color:#5cff9a}.mbar .mk{color:#7fc8ff}.mtrack{position:relative;width:min(340px,50vw);height:8px;background:linear-gradient(90deg,#2fa85f,#3a4a5c 50%,#2f7fc0)}.mtrack i{position:absolute;top:-5px;width:4px;height:18px;margin-left:-2px;background:#fff;box-shadow:0 0 8px #fff;transition:left .8s}.mlbl{font-size:13px;color:#b9c8d6;margin-top:6px;text-align:center}.mlbl b.nice{color:#5cff9a}.mlbl b.naughty{color:#7fc8ff}
+#osk{position:fixed;inset:0;z-index:70;background:rgba(2,6,12,.6);display:flex;align-items:flex-end;justify-content:center;padding-bottom:4vh}#osk .oskBox{background:#0b1624;border:1px solid rgba(255,255,255,.15);border-top:3px solid var(--gold,#f5c451);padding:14px 16px;width:min(720px,96vw)}
+#osk .oskHead{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}#osk .oskHead span{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#9fb3c8}#osk .oskHead b{font-family:var(--display);font-weight:400;font-size:26px;color:#fff;min-height:30px;border-bottom:2px solid var(--gold,#f5c451);flex:1}#osk .oskHead b::after{content:'_';animation:blink .6s steps(1) infinite;color:var(--gold,#f5c451)}
+#oskKeys{display:flex;flex-direction:column;gap:6px}#oskKeys div{display:flex;gap:6px;justify-content:center}#oskKeys button{flex:0 0 auto;min-width:min(54px,8.4vw);height:44px;font:700 17px/1 var(--ui,sans-serif);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#fff}#oskKeys button.wide{min-width:min(150px,22vw)}#oskKeys button.padfocus,#oskKeys button:hover{background:var(--gold,#f5c451);color:#111}#osk .oskHint{margin-top:10px;font-size:11px;letter-spacing:.14em;color:#7f93a8;text-transform:uppercase;text-align:center}
 #brief{position:fixed;inset:0;z-index:60;background:radial-gradient(ellipse at 50% 40%,#0b1a14,#020504 70%);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .45s}#brief.out{opacity:0}
 #brief::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px)}
 #brief .bfIn{width:min(860px,88vw)}#bfTxt{font:500 clamp(13px,1.9vw,19px)/1.75 'Courier New',ui-monospace,monospace;color:#9fe8b8;text-shadow:0 0 8px rgba(80,255,150,.35);letter-spacing:.04em}
@@ -641,7 +651,7 @@ body.camp #topbar{display:none}
   </div>
   <canvas id="minimap" width="200" height="200"></canvas>
   <div id="killfeed"></div>
-  <div id="crosshair"><i></i><i></i><i></i><i></i></div><div id="adsRet" class="iron"><i></i><b></b></div><div id="scope2Ov"><i></i></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div><div id="adsRet" class="iron"><i></i><b></b></div><div id="scope2Ov"><i></i></div><button id="grabPrompt" hidden><kbd id="grabKey">F</kbd><span id="grabTxt"></span></button>
   <div id="hitmarker"></div>
   <div id="reddot"></div>
   <div id="aimName"></div>
@@ -748,7 +758,7 @@ body.camp #topbar{display:none}
     </section>
 
     <section class="tab" id="tab-campaign" hidden>
-      <div class="campHero"><div class="eyebrow2">Single player story</div><h2>Save Christmas</h2><p class="note">The Frost King has stolen Santa's gift sack, frozen the reindeer and taken over the North Pole. It's Christmas Eve. Lead your elf squad through seven missions and take it all back.</p></div>
+      <div class="campHero"><div class="eyebrow2">Single player story</div><h2>Save Christmas</h2><p class="note">The Frost King has stolen Santa's gift sack, frozen the reindeer and taken over the North Pole. It's Christmas Eve. Lead your elf squad through seven missions and take it all back.</p><div id="campMoral" class="mwrap"></div></div>
       <div id="campList" class="campList"></div>
     </section>
     <section class="tab" id="tab-controls" hidden>
@@ -828,6 +838,8 @@ body.camp #topbar{display:none}
   </div>
 </div>
 
+<div id="choice" hidden><div class="chBox"><div class="chEy">Your call</div><div id="chQ"></div><div id="chOpts"></div><div class="chHint">Click / tap · 1 or 2 · D-pad + ✕</div></div></div>
+<div id="osk" hidden><div class="oskBox"><div class="oskHead"><span id="oskLbl">Type</span><b id="oskVal"></b></div><div id="oskKeys"></div><div class="oskHint">D-pad move · ✕ type · ○ done</div></div></div>
 <div id="brief" hidden><div class="bfIn"><div id="bfTxt"></div><div id="bfTitle"></div></div><div class="bfSkip">Click / tap / Space to skip</div></div>
 <div id="kcOv" hidden><div class="kcBar top"><b>Final Killcam</b></div><div class="kcBar bot"><div class="kcWho"><small>Final kill by</small><b id="kcName"></b><span id="kcWpn"></span></div><span class="kcSkip">Space / tap to skip</span></div></div>
 <div id="end" class="overlay" hidden>
@@ -1532,6 +1544,40 @@ MAPS.ridge={tod:'Morning',shot:[-50,1.8,-2,-1.5708,-.08],name:'Reindeer Ridge',s
       const dense=Math.abs(z)>34||ax>34;if(!dense&&rng()<.7)continue;if(ax<16&&rng()<.6)deadTree(x,z,rr(.8,1.1),true);else ktree(x,z,rr(1,1.7),true)}
     perimeterTrees(S);
   }};
+// Frostpeak: a big campaign-only mountain. South base camp -> forest valley -> ice cliff -> blizzard plateau -> the Everwinter Engine at the summit.
+MAPS.peak={campaign:true,tod:'Blizzard',shot:[0,2,92,0,.06],name:'Frostpeak',size:108,seed:77,desc:'A huge mountain: forest valley, a sheer ice cliff, a blizzard plateau and the King\'s weather machine at the summit.',sw:[0xdfe9f2,0x5a7fa6,0x1f3550],
+  env:{sky:['#2b3d55','#6d86a3','#c9d6e2'],fog:'#c9d5e0',fogNear:30,fogFar:170,sun:'#e8f0ff',sunI:.85,sunDir:[-30,60,50],hemi:['#dfe9f5','#7a8a9c'],hemiI:1.1,aurora:0,stars:0,glow:'',mount:['#e6eef5','#b9c8d6'],snowTint:'#f4f8fc',exposure:1.05,snowfall:.9},
+  spawns:[[[-6,98],[0,99],[6,98],[-10,94],[10,94],[-3,92],[3,92]],[[-8,-96],[0,-98],[8,-96],[-14,-90],[14,-90],[0,-88],[20,-80]]],
+  terrain:(x,z)=>{const ax=Math.abs(x);return 9*smooth(31.5,28.5,z)+smooth(-55,-90,z)*5+smooth(34,62,ax)*13+smooth(70,100,ax)*10+.9*Math.sin(x*.12+z*.05)*Math.cos(z*.09-x*.03)*smooth(8,24,ax)+.5*Math.sin(z*.21)*smooth(20,34,ax)},
+  pads:[[0,96,14,6,0],[-14,58,7,4,null],[16,50,6,4,null],[0,-70,13,5,null,10,10],[-30,0,6,4,null],[30,-12,6,4,null],[0,-34,6,4,null]],
+  build(){const S=108;ground(S);const H=(x,z)=>terrH(x,z);
+    // base camp: Santa's sleigh, tents, lamps, a campfire
+    reindeerTeam(0,99,Math.PI,2);for(const [x,z,ry] of [[-14,92,0],[14,92,0],[-18,82,Math.PI/2],[18,82,Math.PI/2]])kbunker(x,z,ry);
+    for(const [x,z] of [[-8,86],[8,86],[-20,100],[20,100]])klamp(x,z);giftPile(-10,100);
+    kcabin(-24,96,2,2,{y0:H(-24,96),doors:{e:[0]},chimney:true});
+    // forest valley with a Frost outpost
+    kcabin(-14,58,3,2,{y0:H(-14,58),doors:{e:[1],s:[1]},chimney:true});for(const [x,z,ry] of [[16,50,0],[10,62,Math.PI/2],[-4,44,0],[22,40,Math.PI/2]])kbunker(x,z,ry);
+    for(const [x,z,s] of [[-6,70,1.3],[8,74,1.2],[-22,66,1.4],[26,64,1.3],[0,52,1.1],[-28,44,1.4],[30,46,1.2],[-12,38,1.2],[12,36,1.1]])nrock(x,z,s);
+    for(const [x,z] of [[-2,62],[6,48],[-18,48]])klamp(x,z);
+    for(let i=0;i<170;i++){const x=rr(-100,100),z=rr(34,104),ax=Math.abs(x);if(ax<9&&z>40)continue;if(Math.abs(x-lerp(12,0,clamp((z-62)/33,0,1)))<7&&z>58)continue;if(Math.abs(x-lerp(24,12,clamp((z-28)/34,0,1)))<5&&z<64)continue;if(Math.hypot(x,z-96)<20||Math.hypot(x+14,z-58)<9||Math.hypot(x-16,z-50)<7)continue;if(ax<26&&rng()<.55)continue;ktree(x,z,rr(1.1,1.9),true)}
+    // the ice cliff: a sheer wall across the whole valley (climb it with the ice picks, or take the zipline down later)
+    {const iceM=mat(0xa9d6f2,{rough:.12,metal:.1,emissive:0x0d2a40});addBox(0,30.2,220,3.4,9.6,iceM,0);
+      for(let x=-100;x<=100;x+=7){const h=rr(1.5,4);mk(CONE,iceM,x+rr(-2,2),9.4,31.9+rr(0,.6),rr(.6,1.4),h,rr(.6,1.2),world,false).rotation.x=Math.PI}
+      for(const x of [-1.2,1.2])mk(CYL,mat(0x6b4423),x,4.8,32.1,.06,9.4,.06,world,false);for(let y=.6;y<9;y+=.9)mk(BOX,mat(0x8a5a2b),0,y,32.15,2.6,.08,.12,world,false);
+      mk(CYL,mat(0x2a2a30,{metal:.7}),24,10.6,27.6,.12,3,.12,world,false);mk(CYL,mat(0x2a2a30,{metal:.7}),12,1.6,62,.12,3,.12,world,false);
+      const zl=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,6),mat(0x222222));const a=new THREE.Vector3(24,11.8,27.6),b=new THREE.Vector3(12,2.8,62);zl.position.copy(a).lerp(b,.5);zl.scale.y=a.distanceTo(b);zl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());world.add(zl)}
+    // blizzard plateau: radar terminals, guard huts, snow forts
+    for(const [x,z] of [[-30,0],[30,-12],[0,-34]]){const y=H(x,z);addBox(x,z,1.6,1,1.8,mat(0x30353f,{metal:.5}),y);mk(BOX,mat(0x55ffaa,{emissive:0x22ff88,emissiveIntensity:1.4}),x,y+1.35,z+.52,1.1,.5,.02,world,false);
+      const dish=mk(SPH,mat(0xdfe6ee,{metal:.3}),x+2.4,y+3.4,z,1.4,.5,1.4,world,false);mk(CYL,mat(0x3a4250,{metal:.6}),x+2.4,y+1.6,z,.15,3.2,.15,world,false);addCollider(x+2.2,x+2.6,y,y+3,z-.2,z+.2);glow(x,y+2.2,z,3)}
+    kcabin(-36,-24,2,2,{y0:H(-36,-24),doors:{e:[0]},chimney:true});kcabin(38,8,2,2,{y0:H(38,8),doors:{w:[0]},chimney:true});
+    for(const [x,z,ry] of [[-14,14,0],[14,6,Math.PI/2],[-20,-14,Math.PI/2],[18,-28,0],[-8,-50,0],[10,-48,Math.PI/2],[-26,18,0],[28,20,Math.PI/2]])kbunker(x,z,ry);
+    for(const [x,z,s] of [[-6,10,1.2],[6,-6,1.3],[-16,-34,1.2],[22,-40,1.3],[-40,6,1.5],[42,-28,1.4],[0,18,1.1]])nrock(x,z,s);
+    for(let i=0;i<70;i++){const x=rr(-100,100),z=rr(-104,24),ax=Math.abs(x);if(ax<36&&rng()<.85)continue;deadTree(x,z,rr(.9,1.3),true)}
+    // the Everwinter Engine: a fortified hall at the summit with the weather core inside
+    {const y=H(0,-70),iceM=mat(0x8fc4e6,{rough:.15,metal:.1});addBox(0,-80,20,.8,6,iceM,y-.5);addBox(-10,-70,.8,20,6,iceM,y-.5);addBox(10,-70,.8,20,6,iceM,y-.5);addBox(-6,-60,8,.8,6,iceM,y-.5);addBox(6,-60,8,.8,6,iceM,y-.5);addBox(0,-60,4,.8,2.2,iceM,y+3.4);for(let i=0;i<5;i++){const r=mk(CYL,mat(0xbff4ff,{emissive:0x55ccff,emissiveIntensity:1.2}),0,y+6.4+i*1.6,-70,1.6-i*.25,.3,1.6-i*.25,world,false)}glow(0,y+13,-70,14);
+      for(const [x,z] of [[-12,-57],[12,-57]])klamp(x,z)}
+    perimeterTrees(S)}};
+function mpMapKeys(){return Object.keys(MAPS).filter(k=>!MAPS[k].campaign)}
 function clearOf(x,z,r){if(!MAP||!MAP.spawns)return true;for(const t of MAP.spawns)for(const s of t)if(Math.hypot(s[0]-x,s[1]-z)<r)return false;return true}
 function buildNav(){navPts=[];const S=mapSize-2;for(let x=-S;x<=S;x+=3)for(let z=-S;z<=S;z+=3){let ok=true;for(const b of cellAt(x,z)){if(b.minY>1.8||b.maxY<.5)continue;if(x>b.minX-.8&&x<b.maxX+.8&&z>b.minZ-.8&&z<b.maxZ+.8){ok=false;break}}if(ok)navPts.push({x,z})}}
 let mmStatic=null;
@@ -1959,7 +2005,7 @@ addEventListener('keydown',e=>{
   if(c===B.jump)jumpQ=true;
   if(c===B.reload)startReload(P);
   if(c===B.grenade)playerNade();
-  if(c===B.streak)useStreak();
+  if(c===B.streak){if(!tryInteract())useStreak()}
   if(c===B.melee)meleeQ=true;
   if(c===B.crouch||c==='ControlLeft')crouchPress();
   if(c==='Digit1')swapTo(P,0);
@@ -1979,7 +2025,7 @@ cv.addEventListener('mousedown',e=>{
 });
 addEventListener('mouseup',e=>{if(e.button===0)mouseL=false;if(e.button===2)mouseR=false});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-document.addEventListener('pointerlockchange',()=>{const was=locked;locked=document.pointerLockElement===cv;if(was&&!locked&&G.running&&!G.paused&&!G.over&&P&&P.alive)pauseGame()});
+document.addEventListener('pointerlockchange',()=>{const was=locked;locked=document.pointerLockElement===cv;if(was&&!locked&&G.running&&!G.paused&&!G.over&&P&&P.alive&&!CAMP.choosing&&!CAMP.keepUnlocked)pauseGame()});
 document.addEventListener('pointerlockerror',()=>{if(lockClick)lockFailed=true});
 let mouseFree={x:-1,y:-1};
 addEventListener('mousemove',e=>{mouseFree.x=e.clientX;mouseFree.y=e.clientY;mouseFree.t=performance.now();if(!G.running||G.paused||G.over||!P||!P.alive||touchMode||G.veh&&false)return;const mx=e.movementX||0,my=e.movementY||0;if(Math.abs(mx)>280||Math.abs(my)>280)return; /* drop browser pointer-lock spikes */
@@ -2032,7 +2078,7 @@ function setupTouch(){
   cv.addEventListener('touchstart',e=>{for(const t of e.changedTouches)if(t.clientX>innerWidth*.4)looks.set(t.identifier,{x:t.clientX,y:t.clientY});lookActive=looks.size>0},{passive:true});
   for(const el of [cv,$('tbFire')]){el.addEventListener('touchmove',lookMove,{passive:false});el.addEventListener('touchend',lookEnd);el.addEventListener('touchcancel',lookEnd)}
   const act=t=>{if(!G.running||G.over)return;
-    if(t==='jump')jumpQ=true;if(t==='reload')startReload(P);if(t==='nade')playerNade();if(t==='swap')swapTo(P,1-P.cur);if(t==='streak')useStreak();if(t==='pause')pauseGame();
+    if(t==='jump')jumpQ=true;if(t==='reload'){if(!tryInteract())startReload(P)}if(t==='nade')playerNade();if(t==='swap')swapTo(P,1-P.cur);if(t==='streak')useStreak();if(t==='pause')pauseGame();
     if(t==='score'){showBoard=!showBoard;if(showBoard)renderBoard();else $('scoreboard').hidden=true}
     if(t==='melee')meleeQ=true;
     if(t==='ads'){T.ads=!T.ads;$('tbAds').classList.toggle('on',T.ads)}if(t==='crouch'){T.crouch=!T.crouch;$('tbCrouch').classList.toggle('on',T.crouch)}};
@@ -2114,7 +2160,16 @@ function readPad(gp){
 function rumble(ms,strong,weak){try{const a=padGp&&padGp.vibrationActuator;if(a&&a.playEffect)a.playEffect('dual-rumble',{duration:ms,strongMagnitude:strong,weakMagnitude:weak}).catch(()=>{})}catch(e){}}
 // ---- menu navigation with a pad: move between buttons with the stick/D-pad, ✕/A selects, ○/B goes back ----
 let navEl=null,navHold=0,navDir='';
-function navRoot(){for(const id of ['voteScr','end','pause','death','menu']){const el=$(id);if(el&&!el.hidden)return el}return null}
+// on-screen keyboard for controller players: opens on name / party-code boxes
+const OSK={el:null,back:null};
+function openOSK(el){OSK.el=el;OSK.back=navEl;const max=+el.maxLength>0?+el.maxLength:20;$('oskLbl').textContent=el.placeholder||'Type';
+  const rows=['1234567890','QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];const k=$('oskKeys');k.innerHTML=rows.map(r=>'<div>'+[...r].map(c=>`<button data-k="${c}">${c}</button>`).join('')+'</div>').join('')+'<div><button class="wide" data-k="⌫">⌫ Delete</button><button class="wide" data-k=" ">Space</button><button class="wide" data-k="OK">✓ Done</button></div>';
+  const upd=()=>{$('oskVal').textContent=el.value};upd();
+  k.querySelectorAll('button').forEach(b=>b.onclick=()=>{const c=b.dataset.k;if(c==='OK'){closeOSK();return}if(c==='⌫')el.value=el.value.slice(0,-1);else if(el.value.length<max)el.value+=(el.style.textTransform==='uppercase'||/code/i.test(el.id+el.placeholder))?c:(el.value.length?c.toLowerCase():c);
+    el.dispatchEvent(new Event('input',{bubbles:true}));upd();sfx('hover')});
+  $('osk').hidden=false;navEl=null;navFocus(k.querySelector('button[data-k=Q]'))}
+function closeOSK(){if(!OSK.el)return;const el=OSK.el;$('osk').hidden=true;OSK.el=null;el.dispatchEvent(new Event('change',{bubbles:true}));if(OSK.back&&document.contains(OSK.back))navFocus(OSK.back);else navFocus(el)}
+function navRoot(){for(const id of ['osk','choice','voteScr','end','pause','death','menu']){const el=$(id);if(el&&!el.hidden)return el}return null}
 function navItems(root){return[...root.querySelectorAll('button,select,input,.vcard')].filter(el=>!el.disabled&&!el.closest('[hidden]')&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden')}
 function navFocus(el){if(navEl)navEl.classList.remove('padfocus');navEl=el;if(!el)return;el.classList.add('padfocus');try{el.focus({preventScroll:true})}catch(e){}el.scrollIntoView({block:'nearest',inline:'nearest'});sfx('hover')}
 function navMove(dx,dy){const root=navRoot();if(!root)return;const items=navItems(root);if(!items.length)return;
@@ -2128,11 +2183,12 @@ function navMove(dx,dy){const root=navRoot();if(!root)return;const items=navItem
 function navPress(){if(!navEl)return navMove(0,0);const el=navEl;
   if(el.tagName==='SELECT'){el.selectedIndex=(el.selectedIndex+1)%el.options.length;el.dispatchEvent(new Event('change',{bubbles:true}));return}
   if(el.type==='checkbox'){el.checked=!el.checked;el.dispatchEvent(new Event('change',{bubbles:true}));return}
-  if(el.type==='text'||el.type==='number'){el.focus();return}
+  if(el.type==='text'||el.type==='search'||(el.tagName==='INPUT'&&!el.type)){openOSK(el);return}
+  if(el.type==='number'){el.focus();return}
   el.click()}
-function navBack(){if(!$('pause').hidden){resume();return}if(!$('voteScr').hidden){if(!$('vLeave').hidden)$('vLeave').click();return}
+function navBack(){if(!$('osk').hidden){closeOSK();return}if(!$('pause').hidden){resume();return}if(!$('voteScr').hidden){if(!$('vLeave').hidden)$('vLeave').click();return}
   if(!$('menu').hidden){const t=document.querySelector('#tabs [data-tab=deploy]');if(!t.classList.contains('on'))t.click()}}
-function navTab(d){if($('menu').hidden)return;const tabs=[...document.querySelectorAll('#tabs button')];const i=tabs.findIndex(t=>t.classList.contains('on'));tabs[(i+d+tabs.length)%tabs.length].click();navEl=null}
+function navTab(d){if($('menu').hidden||!$('osk').hidden)return;const tabs=[...document.querySelectorAll('#tabs button')];const i=tabs.findIndex(t=>t.classList.contains('on'));tabs[(i+d+tabs.length)%tabs.length].click();navEl=null}
 function pollPad(dt){
   let gp=null;try{const gps=navigator.getGamepads?navigator.getGamepads():[];for(const g of gps)if(g&&g.connected){gp=g;break}}catch(e){}
   padGp=gp;
@@ -2155,7 +2211,7 @@ function pollPad(dt){
     if(P&&P.alive){
       const z=P.w[P.cur].def.zoom||1,fr=assistNear?.72:1,k=SETTINGS.psens*fr*lerp(1,SETTINGS.adsMul,P.adsAmt)/(1+(z-1)*P.adsAmt*.8);
       P.yaw-=rx*Math.abs(rx)*3.4*dt*k;P.pitch=clamp(P.pitch-(SETTINGS.invY?-1:1)*ry*Math.abs(ry)*2.4*dt*k,-1.45,1.45);
-      if(pr('a'))jumpQ=true;if(pr('b'))PAD.crouch=!PAD.crouch;if(pr('x'))startReload(P);if(pr('y')||pr('right')||pr('left'))swapTo(P,1-P.cur);if(pr('rb'))playerNade();if(pr('lb')||pr('up'))useStreak();if(pr('rs'))meleeQ=true}
+      if(pr('a'))jumpQ=true;if(pr('b'))PAD.crouch=!PAD.crouch;if(pr('x')){if(!tryInteract())startReload(P)}if(pr('y')||pr('right')||pr('left'))swapTo(P,1-P.cur);if(pr('rb'))playerNade();if(pr('lb')||pr('up'))useStreak();if(pr('rs'))meleeQ=true}
     else if(pr('a')&&!$('death').hidden)$('respawnBtn').click();
     if(pr('back')||pr('down')){showBoard=!showBoard;if(showBoard)renderBoard();else $('scoreboard').hidden=true}
   }else{
@@ -2743,7 +2799,7 @@ function lobbyPeople(){const cls=CLASSES[SETTINGS.cls]||CLASSES[0];
     out.push({of:OUTFITS[pr.of]?pr.of:'classic',camo:CAMOS[pr.cm]?pr.cm:'none',att:Array.isArray(pr.at)?pr.at.filter(a=>ATTACH[a]).slice(0,3):[],lv:clamp(pr.lv|0,1,99),vv:pr.vk===(VOTE.opts||[]).join()?pr.vv:null,nm:cleanName(pr.nm)||'Player',tm:pr.tm===1?1:0,host:!!pr.host,me:false,guest:p.guest,pk:PRIMARIES[pr.pk]?pr.pk:'frost',cn:cleanName(pr.cn)||'',rd:!!pr.rd,vt:MAPS[pr.vt]?pr.vt:null,peer:p.peer})}
   return out}
 function voteTally(){const t={};for(const p of lobbyPeople())if(p.vt)t[p.vt]=(t[p.vt]||0)+1;return t}
-function voteWinner(){const t=voteTally();let best=null,bv=-1;for(const k of Object.keys(MAPS)){const v=(t[k]||0)+(k===(NET.isHost?NET.vote:SETTINGS.map)?.1:0);if(v>bv){bv=v;best=k}}return best||SETTINGS.map}
+function voteWinner(){const t=voteTally();let best=null,bv=-1;for(const k of mpMapKeys()){const v=(t[k]||0)+(k===(NET.isHost?NET.vote:SETTINGS.map)?.1:0);if(v>bv){bv=v;best=k}}return best||SETTINGS.map}
 let partyDirty=true;
 function unlocksAt(lv,lv0){const u=[];for(const src of [ATTACH,CAMOS,OUTFITS])for(const k in src)if(src[k].lv>lv0&&src[k].lv<=lv)u.push(src[k].name);return u.length?'<br><span style="font-family:var(--hud);font-size:15px;color:var(--ice)">Unlocked: '+u.map(esc).join(', ')+'</span>':''}
 function rankHTML(lv,xp){const need=xpNeed(lv);return `<div class="rbadge">${lv}</div><div class="rinfo"><b>${rankName(lv)}</b><small>Level ${lv} · ${xp} / ${need} XP</small><div class="xpbar"><i style="width:${Math.min(100,xp/need*100)}%"></i></div></div>`}
@@ -2925,6 +2981,8 @@ const MISSIONS=[
    outro:"Rudolph, Dasher and Blitzen are free. Private Flurry has some very interesting things to say."},
   {id:'stealth',map:'ridge',env:NIGHT_ENV,title:'Silent Night',stealth:true,allies:0,lives:3,xp:1700,obj:["Sneak into the Frost Legion war camp","Steal the battle plans from the lodge","Get back to Rudolph's sled",'Stay quiet, or go loud. Your call'],
    outro:"The King's battle plans are yours. They are mostly doodles, but one page matters."},
+  {id:'peak',map:'peak',title:'Everwinter',allies:2,lives:3,xp:2200,obj:['Climb Frostpeak and shut down the Everwinter Engine','Sneak through the blizzard or fight your way up','Outrun the avalanche'],
+   outro:"The Everwinter Engine falls silent. The blizzard breaks, and Santa's sleigh can fly again.",outroK:"The Engine blew, and half the mountain came down on the King's camp. The sky is clear. Your conscience is a little less clear."},
   {id:'lane',map:'lane',title:'Lights Out on Candy Cane Lane',allies:4,lives:3,xp:1600,obj:['Capture and hold 3 light stations','Enemies inside a station stop your progress'],
    outro:"Candy Cane Lane glows again. The Legion is loading Santa's gift sacks onto the Polar Express."},
   {id:'yard',map:'yard',title:'The Polar Express Job',allies:3,lives:3,xp:1800,obj:['Collect 5 gift sacks',"Bring them to Santa's sleigh at the south end"],
@@ -2936,8 +2994,8 @@ const MISSIONS=[
 const MID=Object.fromEntries(MISSIONS.map((m,i)=>[m.id,i]));
 const CAMP={i:0,m:null,marks:[],obj:null,state:{},lives:3,meshes:[]};
 function campUnlocked(i){return i===0||CPROG.done.includes(i-1)}
-function renderCampList(){$('campList').innerHTML=MISSIONS.map((m,i)=>{const done=CPROG.done.includes(i),open=campUnlocked(i),resume=!!(m.phases&&CPROG.at&&CPROG.at.i===i&&CPROG.at.pi>0);
-  const tag={lake:'Stealth or loud',stealth:'Stealth or loud',sleigh:'Vehicle mission'}[m.id]||'';
+function renderCampList(){{const cm=$('campMoral');if(cm)cm.innerHTML=moralHTML(moral())}$('campList').innerHTML=MISSIONS.map((m,i)=>{const done=CPROG.done.includes(i),open=campUnlocked(i),resume=!!(m.phases&&CPROG.at&&CPROG.at.i===i&&CPROG.at.pi>0);
+  const tag={lake:'Stealth or loud',stealth:'Stealth or loud',peak:'Mountain assault',sleigh:'Vehicle mission'}[m.id]||'';
   return `<button class="cm2 ${open?'':'locked'} ${done?'done':''}" data-i="${i}" ${open?'':'disabled'}><div class="cimg" style="background-image:url(${THUMB[m.map]||''})"></div><span class="n">${String(i+1).padStart(2,'0')}</span>${tag?`<span class="ctag">${tag}</span>`:''}<div class="cinfo"><b>${esc(m.title)}</b><span>${esc(MAPS[m.map].name)}</span><small>${esc(m.obj[0])}</small></div><span class="st">${resume?`▶ Resume · Checkpoint ${CPROG.at.pi+1}/${m.phases.length}`:done?'✔ Complete · Replay':open?'▶ Play':'🔒 Locked'}</span>${resume?`<span class="crs" data-r="${i}">Restart</span>`:''}${m.phases&&open?`<span class="cph">${m.phases.length} objectives</span>`:''}</button>`}).join('');
   $('campList').querySelectorAll('.cm2').forEach(b=>b.onclick=ev=>{if(NET.on){fsMsg('The campaign is single player. Leave your party to play it.');return}const r=ev.target.closest('.crs');campLaunch(+b.dataset.i,true,!!r)})}
 function campIntro(i){if(NET.on){fsMsg('The campaign is single player. Leave your party to play it.');return}const m=MISSIONS[i];CAMP.i=i;
@@ -2946,18 +3004,18 @@ function campIntro(i){if(NET.on){fsMsg('The campaign is single player. Leave you
 $('ciBack').onclick=()=>{$('campIntro').hidden=true};
 $('ciGo').onclick=()=>{$('campIntro').hidden=true;campLaunch(CAMP.i,false)};
 function campLaunch(i,cine,fresh){CAMP.i=i;voPrime();$('end').hidden=true;resetEndButtons();const m=MISSIONS[i];if(fresh&&CPROG.at&&CPROG.at.i===i){CPROG.at=null;store('npo-camp-v2',CPROG)}
-  const res=m.phases&&CPROG.at&&CPROG.at.i===i&&CPROG.at.pi>0&&CPROG.at.pi<m.phases.length?CPROG.at.pi:0;
+  const mv=missionFor(i);const res=mv.phases&&CPROG.at&&CPROG.at.i===i&&CPROG.at.pi>0&&CPROG.at.pi<mv.phases.length?CPROG.at.pi:0;
   const go=()=>{G.campStart={map:m.map,allies:m.phases?0:m.allies,i,pi:res};startMatch()};
   if(res){go();return}
-  if(cine&&modelsDone){G.running=false;G.over=false;clearMatch();playBrief(m,i,()=>playCut('intro_'+m.id,go))}else go()}
-function campCleanup(){vehStop();radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];CAMP.marks=[];CAMP.obj=null;document.body.classList.remove('camp');$('campHud').hidden=true;$('bossBar').hidden=true}
+  if(cine&&modelsDone){G.running=false;G.over=false;clearMatch();playBrief(mv,i,()=>mv.kingPath?go():playCut('intro_'+m.id,go))}else go()}
+function campCleanup(){vehStop();CAMP.grab=null;$('grabPrompt').hidden=true;radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];CAMP.marks=[];CAMP.obj=null;document.body.classList.remove('camp');$('campHud').hidden=true;$('bossBar').hidden=true}
 function beacon(x,y,z,color){const g=new THREE.Group();g.position.set(x,y,z);const beam=new THREE.Mesh(CYL,new THREE.MeshBasicMaterial({color:C(color),transparent:true,opacity:.18,depthWrite:false}));beam.scale.set(.5,40,.5);beam.position.y=20;g.add(beam);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(1,.06,8,40),new THREE.MeshBasicMaterial({color:C(color)}));ring.rotation.x=Math.PI/2;ring.position.y=.08;g.add(ring);
   const dia=markerMesh(color);dia.scale.set(.4,.6,.4);dia.position.y=3.2;g.add(dia);fx.add(g);CAMP.meshes.push(g);return g}
 function spawnEnemy(x,y,z,opts){const e=makeBot(1);spawn(e);e.pos.set(x+rand(-1,1),y,z+rand(-1,1));e.noRespawn=true;e.protT=.5;if(opts)Object.assign(e,opts);if(e.mesh)e.mesh.position.copy(e.pos);return e}
 function enemiesAlive(){return G.ents.filter(e=>e.team===1&&e.alive).length}
-function campSet(objTxt,sub,prog){$('campObj').textContent=objTxt;$('campSub').textContent=sub||'';$('campProg').firstChild.style.width=(prog===undefined?0:prog*100)+'%'}
-function campBegin(){const m=MISSIONS[G.camp.i];CAMP.m=m;CAMP.lives=m.lives;CAMP.state={};CAMP.marks=[];CAMP.obj=null;CAMP.meshes=[];const st=CAMP.state,ES=MAP.spawns[1];G.overPending=false;radioClear();st.chatT=28;
+function campSet(objTxt,sub,prog){if(!objTypeIv)$('campObj').textContent=objTxt;$('campSub').innerHTML=sub||'';$('campProg').firstChild.style.width=(prog===undefined?0:prog*100)+'%'}
+function campBegin(){const m=missionFor(G.camp.i);CAMP.m=m;CAMP.moral0=moral();CAMP.ending=null;CAMP.lives=m.lives;CAMP.state={};CAMP.marks=[];CAMP.obj=null;CAMP.meshes=[];const st=CAMP.state,ES=MAP.spawns[1];G.overPending=false;radioClear();st.chatT=28;
   if(m.phases){CAMP.chatT=60;v2Begin(G.camp.pi||0);return}
   if(m.id!=='sleigh')campChatter(m.id,'start');
   if(m.id==='stealth'){st.ghost=true;st.phase=0;st.trickle=12;st.cap=4;st.plansT=0;const PX=53,PZ=-12,py=terrH(PX,PZ);st.plans={x:PX,z:PZ};
@@ -3040,16 +3098,16 @@ function campTick(dt){
 function v2On(){return !!(G.camp&&CAMP.m&&CAMP.m.phases)}
 function v2Near(x,z,r,y){return P.alive&&Math.hypot(P.pos.x-x,P.pos.z-z)<r&&Math.abs(P.pos.y-(y!==undefined?y:terrH(x,z)))<2.6}
 function v2Y(x,z,y){return y!==undefined?y:terrH(x,z)}
-function v2Ally(name,at){const a=makeBot(0);if(name)a.name=name;spawn(a);const c=at||CAMP.cp||[P.pos.x,P.pos.z];a.pos.set(c[0]+rand(-2.5,2.5),0,c[1]+rand(-2.5,2.5));collideXZ(a.pos,a.radius,a.h);a.pos.y=groundAt(a.pos.x,a.pos.z,a.radius,(c[2]||0)+1.5);a.protT=2;return a}
+function v2Ally(name,at){const a=makeBot(0);if(name)a.name=name;spawn(a);if(CAMP.m&&CAMP.m.kingPath)v2Skin(a,1);const c=at||CAMP.cp||[P.pos.x,P.pos.z];a.pos.set(c[0]+rand(-2.5,2.5),0,c[1]+rand(-2.5,2.5));collideXZ(a.pos,a.radius,a.h);a.pos.y=groundAt(a.pos.x,a.pos.z,a.radius,(c[2]||0)+1.5);a.protT=2;return a}
 function v2Allies(n){if(n===undefined)return;const have=G.ents.filter(e=>e.team===0&&!e.isPlayer&&!e.escort);const names=['Holly','Jingle','Tinsel','Sprocket'];
-  for(let i=have.length;i<n;i++)v2Ally(names[i]||null)}
+  const kn=['Sgt. Sleet','Pvt. Flurry','Icicle Ike','Permafrost'];for(let i=have.length;i<n;i++)v2Ally((CAMP.m&&CAMP.m.kingPath?kn:names)[i]||null)}
 function v2Enemy(g,ps){const out=[];const n=g.n||1;for(let i=0;i<n;i++){const sp=g.spread===undefined?(n>1?4:0):g.spread;const x=g.at[0]+(n>1?rand(-sp,sp):0),z=g.at[1]+(n>1?rand(-sp,sp):0);
     const e=spawnEnemy(x,v2Y(x,z,g.y),z,{});e.v2=true;if(g.name)e.name=g.name;if(g.hp){e.hp=e.maxHp=g.hp}if(g.home)e.home=g.home===true?[[g.at[0],g.at[1]]]:g.home;
     if(g.weapon&&PRIMARIES[g.weapon]){e.w=[mkWeapon(PRIMARIES[g.weapon]),e.w[1]];e.cur=0}
     if(g.target){e.v2target=true}
     if(g.guard){e.stealthGuard=true;e.patrol=g.patrol||[[x,z]];e.pi=0;e.sus=0;e.look=Math.random()*6;e.yaw=Math.random()*6}
     if(g.static){e.static=true;e.home=[[x,z]]}
-    if(g.kind)v2Dress(e,g.kind);out.push(e);ps.ents.push(e)}return out}
+    if(g.kind)v2Dress(e,g.kind);else if(g.skin||(CAMP.m&&CAMP.m.kingPath&&!(CAMP.ph&&CAMP.ph.noSkin)))v2Skin(e,0);out.push(e);ps.ents.push(e)}return out}
 // turn an enemy into a machine target: ice cannon, snow plow tank, generator, boiler
 function v2Dress(e,kind){if(!e.mesh)return;const m=e.mesh;for(const c of m.children)c.visible=false;const g=new THREE.Group();m.add(g);e.static=true;e.machine=kind;e.hitR=kind==='plow'?1.4:1;e.h=kind==='plow'?2.2:1.8;
   const ice=mat(0x9fd8ff,{rough:.25,emissive:0x1a4a6a}),steel=mat(0x3a4250,{metal:.6,rough:.4}),red=mat(0xc8243a);
@@ -3072,15 +3130,15 @@ function v2Beacon(x,z,y,col,ps){const b=beacon(x,v2Y(x,z,y),z,col||0xf5c451);ps.
 function v2Clean(ps){for(const o of ps.meshes)fx.remove(o);ps.meshes=[]}
 function v2Save(){if(!G.camp)return;CPROG.at={i:G.camp.i,pi:CAMP.pi};store('npo-camp-v2',CPROG)}
 
-function v2Begin(startPi){const m=CAMP.m;CAMP.pi=-1;CAMP.lives=99;CAMP.nextAt=0;CAMP.pendingRestart=false;CAMP.state={};CAMP.v2meshes=[];
+function v2Begin(startPi){const m=CAMP.m;CAMP.pi=-1;CAMP.lives=99;CAMP.nextAt=0;CAMP.grab=null;CAMP.pendingRestart=false;CAMP.state={};CAMP.v2meshes=[];
   const pi=startPi||0;if(pi>0){const prev=m.phases[pi-1];const c=m.phases[pi].cp||prev.at||null;if(c)CAMP.cp=[c[0],c[1],c[2]||0]}
   else{const c=m.phases[0].cp;CAMP.cp=c?[c[0],c[1],c[2]||0]:null}
   if(CAMP.cp){P.pos.set(CAMP.cp[0],0,CAMP.cp[1]);collideXZ(P.pos,P.radius,P.h);P.pos.y=groundAt(P.pos.x,P.pos.z,P.radius,(CAMP.cp[2]||0)+1.5);if(m.phases[pi].yaw!==undefined)P.yaw=m.phases[pi].yaw}
   v2Phase(pi,false)}
-function v2Phase(i,restart){const m=CAMP.m,ph=m.phases[i];CAMP.pi=i;CAMP.ph=ph;
+function v2Phase(i,restart){const m=CAMP.m;while(i<m.phases.length&&m.phases[i].if&&!m.phases[i].if())i++;if(i>=m.phases.length){CPROG.at=null;store('npo-camp-v2',CPROG);return campWin()}const ph=m.phases[i];CAMP.pi=i;CAMP.ph=ph;CAMP.grab=null;
   const ps=CAMP.state={t:0,ents:[],meshes:[],prog:0,pts:[],k:0,restart};CAMP.marks=[];CAMP.obj=null;
   if(!restart){const c=ph.cp||[P.pos.x,P.pos.z,P.pos.y];CAMP.cp=[c[0],c[1],c[2]!==undefined?c[2]:P.pos.y];v2Save()}
-  v2Allies(ph.allies);
+  v2Allies(typeof ph.allies==='function'?ph.allies():ph.allies);
   if(ph.stealth){ps.ghost=true;ps.trickle=(ph.alarmTrickle||[10,5])[0];ps.cap=(ph.alarmTrickle||[10,5])[1];giveHush(ps)}
   else if(P.w[0]&&P.w[0].def.sup&&CAMP.hushed){P.w[0]=mkWeapon(effDef(P.cls));if(P.cur===0)buildViewmodel();updateClassHud()}
   CAMP.hushed=!!ph.stealth;
@@ -3093,23 +3151,33 @@ function v2Phase(i,restart){const m=CAMP.m,ph=m.phases[i];CAMP.pi=i;CAMP.ph=ph;
   if(ph.type==='escort'){const a=makeBot(0);a.escort=true;a.name=ph.npc==='santa'?'Santa':ph.npc==='flurry'?'Pvt. Flurry':'Pip';spawn(a);a.pos.set(ph.path[0][0],0,ph.path[0][1]);a.pos.y=groundAt(a.pos.x,a.pos.z,a.radius,10);a.hp=a.maxHp=ph.npcHp||500;a.protT=0;a.pathI=1;ps.npc=a;
     if(a.mesh&&ph.npc==='santa'&&MODELS.santa){const old=a.mesh;chars.remove(old);const sm=makeModelChar(0,'classic','santa');sm.scale.setScalar(1.15);sm.position.copy(a.pos);a.mesh=sm}
     else if(a.mesh&&ph.npc==='flurry'&&MODELS.soldier){const old=a.mesh;chars.remove(old);const sm=makeModelChar(0,'classic');sm.position.copy(a.pos);a.mesh=sm}}
-  if(ph.type==='boss'){const [x,z,y]=ph.at;const boss=spawnEnemy(x,y||0,z,{home:ph.home,boss:true,hitR:.62,h:2.7,dmgX:1.4,name:'The Frost King'});boss.v2=true;boss.hp=boss.maxHp=(ph.hp||2000)+400*(['easy','normal','hard'].indexOf(G.diff));boss.w=[mkWeapon(PRIMARIES.frost),mkWeapon(SECONDARIES.peppermint)];
-    if(boss.mesh&&MODELS.king){const old=boss.mesh;chars.remove(old);const km=makeModelChar(1,'classic','king');kingCrown(km,km.userData);km.scale.setScalar(1.35);km.position.copy(old.position);boss.mesh=km;gunMesh(boss.w[0].def,km.userData.gunHolder)}
-    ps.boss=boss;ps.ents.push(boss);ps.mortarT=6}
+  if(ph.type==='boss'){const [x,z,y]=ph.at;const isS=ph.bossKind==='santa';const boss=spawnEnemy(x,y||0,z,{home:ph.home,boss:true,hitR:.62,h:2.7,dmgX:isS?1:1.4,name:isS?'Santa':'The Frost King'});boss.v2=true;boss.hp=boss.maxHp=(ph.hp||2000)+400*(['easy','normal','hard'].indexOf(G.diff));boss.w=[mkWeapon(PRIMARIES.frost),mkWeapon(SECONDARIES.peppermint)];
+    if(isS&&boss.mesh&&MODELS.santa){const old=boss.mesh;chars.remove(old);const km=makeModelChar(0,'classic','santa');km.scale.setScalar(1.3);km.position.copy(old.position);boss.mesh=km;if(km.userData.gunHolder)gunMesh(boss.w[0].def,km.userData.gunHolder)}
+    else if(boss.mesh&&MODELS.king){const old=boss.mesh;chars.remove(old);const km=makeModelChar(1,'classic','king');kingCrown(km,km.userData);km.scale.setScalar(1.35);km.position.copy(old.position);boss.mesh=km;gunMesh(boss.w[0].def,km.userData.gunHolder)}
+    ps.boss=boss;ps.ents.push(boss);$('bossBar').querySelector('b').textContent=boss.name;ps.mortarT=6}
   if(ph.type==='vehicle'){vehStart();VEH.need=ph.need||22;ps.veh=true}
+  if(ph.type==='choice'){ps.choiceAt=G.time+(ph.delay!==undefined?ph.delay:1.2)}
+  if(ph.type==='traverse'){const a=ph.path[0];ps.tp={x:a[0],z:a[2],y:a[1],grab:false};ps.b=v2Beacon(a[0],a[2],a[1],0xf5c451,ps)}
+  if(ph.avalanche)v2Avalanche(ps,ph.avalanche);
   if(ph.onStart)ph.onStart(ps);
   // story: the radio lines play once (not again when you retry from the checkpoint)
-  if(!restart){(ph.say||[]).forEach((l,k)=>radio(l[0],l[1],k===0&&ph.sayNow));if(i>0){xpPop('Checkpoint');sfx('count')}}
-  objType(ph.obj);v2Tick(0)}
-function v2Done(){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(ps.finished)return;ps.finished=true;
+  if(ph.regroup&&!restart)for(const e of G.ents)if(e.team===0&&!e.isPlayer&&!e.escort){e.pos.set(P.pos.x+rand(-3,3),0,P.pos.z+rand(-3,3));collideXZ(e.pos,e.radius,e.h);e.pos.y=groundAt(e.pos.x,e.pos.z,e.radius,P.pos.y+1.5)}
+  if(!restart){((moral()<=-2&&ph.sayK)?ph.sayK:(ph.say||[])).forEach((l,k)=>radio(l[0],l[1],k===0&&ph.sayNow));if(i>0){xpPop('Checkpoint');sfx('count')}}
+  if(!ph.obj)ph.obj=ph.type==='choice'?'Your call':'Keep moving';objType(ph.obj);v2Tick(0)}
+// ▢ / F / tap: interact with whatever objective you're standing next to
+function tryInteract(){if(!v2On()||!CAMP.grab||!P.alive)return false;CAMP.grab.p.grab=true;sfx('hover');return true}
+function grabHud(){const g=v2On()&&CAMP.grab&&P.alive&&!G.over?CAMP.grab:null;const el=$('grabPrompt');if(!g){if(!el.hidden)el.hidden=true;return}
+  if(el.hidden){el.hidden=false;const k=$('grabKey');k.className=padActive?'sq':'';k.textContent=padActive?'▢':touchMode?'TAP':'F';$('grabTxt').textContent=g.txt}}
+$('grabPrompt').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tryInteract()});
+function v2Done(){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(ps.finished)return;ps.finished=true;CAMP.grab=null;$('grabPrompt').hidden=true;
   (ph.end||[]).forEach(l=>radio(l[0],l[1]));addXP(ph.xp||120,'Objectives');sfx('jingle');
   if(ph.onEnd)ph.onEnd(ps);
   if(ps.npc){removeEnt(ps.npc)}
   if(ph.type==='vehicle'){vehStop();const l=ph.land||[-50,0];P.pos.set(l[0],0,l[1]);P.pos.y=groundAt(l[0],l[1],P.radius,10);P.vel.set(0,0,0);P.alive=true;P.hp=P.maxHp=100;buildViewmodel();updateClassHud()}
   const keep=ph.keep;v2Clean(ps);
   if(!keep)for(const e of G.ents.slice())if(e.team===1&&e.v2&&e.alive&&ph.type!=='clear')e.home=null;
-  if(CAMP.pi>=m.phases.length-1){CPROG.at=null;store('npo-camp-v2',CPROG);return campWin()}
-  const next=CAMP.pi+1;centerMsg(ph.doneMsg||'Objective complete');
+  const next=v2NextIndex(ph);if(next>=m.phases.length){CPROG.at=null;store('npo-camp-v2',CPROG);return campWin()}
+  CAMP.nextPi=next;if(ph.type!=='choice')centerMsg(ph.doneMsg||'Objective complete');
   CAMP.nextAt=G.time+(ph.gap!==undefined?ph.gap:2.2)}
 // retry from the checkpoint: clear out this objective's enemies and set it up again
 function v2Restart(){const ps=CAMP.state;v2Clean(ps);if(VEH.on)vehStop();
@@ -3131,9 +3199,12 @@ function escortTick(a,dt){const ps=CAMP.state,ph=CAMP.ph;if(!ph||!ph.path){retur
   if(a.hp<a.maxHp&&G.time-a.lastHurt>5)a.hp=Math.min(a.maxHp,a.hp+30*dt)}
 function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
   if(CAMP.pendingRestart&&P.alive){CAMP.pendingRestart=false;v2Restart();return}
-  if(ps.finished){if(CAMP.nextAt&&G.time>=CAMP.nextAt){CAMP.nextAt=0;v2Phase(CAMP.pi+1,false)}return}ps.t+=dt;CAMP.marks=[];
+  if(ps.finished){if(CAMP.nextAt&&G.time>=CAMP.nextAt){CAMP.nextAt=0;v2Phase(CAMP.nextPi,false)}return}ps.t+=dt;CAMP.marks=[];
   const tot=m.phases.length,cpTxt=`Checkpoint ${CAMP.pi+1}/${tot}`;let sub='',prog=0,status='';
-  if(ph.stealth){status=stealthTick(dt)+' · '}
+  if(ph.blizzard){G.blizzardT=Math.max(G.blizzardT,1.5)}
+  if(ph.timer&&!ps.finished){const left=ph.timer-ps.t;if(left<=0&&P.alive){centerMsg(ph.timerFail||'Too late!');kill(P,null,'snow');return}status+=`<b>${Math.ceil(Math.max(0,left))} s</b> · `}
+  if(ps.av&&P.alive){const k=Math.min(1,ps.t/(ph.timer||40)),z=lerp(ps.av.from,ps.av.to,k);ps.av.g.position.set(0,terrH(0,z),z);for(const b of ps.av.g.children)b.rotation.y+=dt*.5;if(Math.random()<dt*8)puff(_a.set(P.pos.x+rr(-12,12),terrH(P.pos.x,z)+3,z+rr(-2,2)),3,0xffffff,6,.4,1);shake=Math.max(shake,clamp(1-(P.pos.z-z)/40,0,.4));if(P.pos.z<z+3){centerMsg('Buried by the avalanche!');kill(P,null,'snow');return}}
+  if(ph.stealth){status+=stealthTick(dt)+' · '}
   else if(ph.trickle&&ph.type!=='defend')v2Trickle(dt,ph.trickle[0],ph.trickle[1],ph.from);
   if(ph.mortar&&P.alive){ps.mT=(ps.mT===undefined?ph.mortar:ps.mT)-dt;if(ps.mT<=0){ps.mT=ph.mortar*rand(.8,1.2);const o=G.ents.find(e=>e.team===1&&e.alive)||P;centerMsg('Incoming mortars! Move!');for(let k=0;k<3;k++)dropMortar(o,_a.set(P.pos.x+rand(-5,5),0,P.pos.z+rand(-5,5)),k*.5,BOSS_MORTAR)}}
   const T_=ph.type;
@@ -3144,12 +3215,12 @@ function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
     sub=T_==='destroy'?`${all-live.length} of ${all} destroyed`:ph.targetsOnly?`${all-live.length} of ${all} down`:`${live.length} left`;prog=1-live.length/all;if(!live.length&&ps.t>.5)return v2Done()}
   else if(T_==='interact'||T_==='collect'){let cur=null,n=0;for(const p of ps.pts){if(p.done){n++;continue}CAMP.marks.push(p);
       if(T_==='collect'){if(p.prop)p.prop.rotation.y+=dt;if(v2Near(p.x,p.z,1.8,p.y)){p.done=true;fx.remove(p.prop);fx.remove(p.b);sfx('gift');xpPop((ph.item||'Item')+' '+(n+1)+'/'+ps.pts.length)}continue}
-      if(v2Near(p.x,p.z,ph.r||2.6,p.y)){const c=ph.contest!==false&&v2Contested(p.x,p.z,7);if(!c){p.t+=dt;cur=p}else{cur=p;status+='Clear the area first · '}
+      if(v2Near(p.x,p.z,ph.r||2.6,p.y)){cur=p;if(p.grab){p.grab=false;p.t=(ph.t||3)}
         if(p.t>=(ph.t||3)){p.done=true;fx.remove(p.b);sfx(ph.kind==='charge'?'bell':'jingle');if(p.prop){const u=p.prop.userData;if(u.ice){p.prop.remove(u.ice);u.fly=0}if(u.led)u.led.visible=true;if(ph.kind==='sack'||ph.kind==='plans'||ph.kind==='crate')fx.remove(p.prop)}xpPop((ph.doneEach||'Done')+(ps.pts.length>1?' '+(n+1)+'/'+ps.pts.length:''));if(ph.eachSay&&ph.eachSay[n])radio(ph.eachSay[n][0],ph.eachSay[n][1])}}
-      else p.t=Math.max(0,p.t-dt*.4)}
+      }
     for(const p of ps.pts)if(p.done&&p.prop&&p.prop.userData.fly!==undefined&&ph.kind==='deer'&&p.prop.userData.fly<6){const u=p.prop.userData;u.fly+=dt;p.prop.position.y+=u.fly*dt*2.4;p.prop.position.z-=dt*5}
     const left=ps.pts.filter(p=>!p.done);CAMP.obj=left[0]?{x:left[0].x,z:left[0].z,y:left[0].y}:null;if(cur&&!cur.done)CAMP.obj={x:cur.x,z:cur.z,y:cur.y};
-    sub=ps.pts.length>1?`${n} of ${ps.pts.length}`:'';prog=cur?cur.t/(ph.t||3):n/ps.pts.length;if(cur&&!cur.done&&!status)status=(ph.doing||'Working')+'… ';
+    sub=ps.pts.length>1?`${n} of ${ps.pts.length}`:'';prog=n/ps.pts.length;CAMP.grab=cur&&!cur.done?{p:cur,txt:ph.obj.replace(/^(Plant|Free|Rescue|Steal|Grab|Search|Cut|Take)\b/,'$1')}:null;
     if(!left.length)return v2Done()}
   else if(T_==='defend'||T_==='hold'){const [x,z,y]=ph.at;CAMP.obj={x,z,y};CAMP.marks.push(CAMP.obj);const r=T_==='hold'?5:(ph.r||12);const inside=v2Near(x,z,r,y);
     if(T_==='hold'){const c=v2Contested(x,z,5.5);if(inside&&!c)ps.prog+=dt;status=inside?(c?'Contested! Clear them out · ':'Holding… · '):'Get inside the circle · ';prog=ps.prog/(ph.t||12);if(ph.trickle)v2Trickle(dt,ph.trickle[0],ph.trickle[1],ph.from);if(ps.prog>=(ph.t||12))return v2Done()}
@@ -3163,11 +3234,15 @@ function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
     if(Math.hypot(a.pos.x-end[0],a.pos.z-end[1])<2)return v2Done()}
   else if(T_==='boss'){const b=ps.boss;if(b&&b.alive){$('bossBar').hidden=false;$('bossBar').querySelector('i').style.width=(b.hp/b.maxHp*100)+'%';CAMP.marks.push({x:b.pos.x,z:b.pos.z});CAMP.obj={x:b.pos.x,z:b.pos.z,y:b.pos.y};prog=1-b.hp/b.maxHp;
       if(!ps.half&&b.hp<b.maxHp*.5){ps.half=true;if(ph.half)radio(ph.half[0],ph.half[1],true);v2Wave(ph.halfAdds||4,ph.from)}
-      ps.mortarT-=dt;if(ps.mortarT<=0&&P.alive){ps.mortarT=rand(ps.half?5:7,ps.half?7:10);centerMsg('The Frost King calls a mortar barrage!');for(let k=0;k<(ps.half?4:3);k++)dropMortar(b,_a.set(P.pos.x+rand(-4,4),0,P.pos.z+rand(-4,4)),k*.55,BOSS_MORTAR)}}
+      ps.mortarT-=dt;if(ps.mortarT<=0&&P.alive){ps.mortarT=rand(ps.half?5:7,ps.half?7:10);centerMsg(ph.bossKind==='santa'?'Santa calls in a present drop!':'The Frost King calls a mortar barrage!');for(let k=0;k<(ps.half?4:3);k++)dropMortar(b,_a.set(P.pos.x+rand(-4,4),0,P.pos.z+rand(-4,4)),k*.55,BOSS_MORTAR)}}
     else{$('bossBar').hidden=true;return v2Done()}}
   else if(T_==='talk'){if(ps.t>(ph.t||6))return v2Done()}
+  else if(T_==='choice'){if(!CAMP.choosing&&ps.choiceAt&&G.time>=ps.choiceAt){ps.choiceAt=0;showChoice(ph)}status='Make your choice · '}
+  else if(T_==='traverse'){const t=ps.tp;CAMP.obj={x:t.x,z:t.z,y:t.y};CAMP.marks.push(CAMP.obj);if(ps.travDone)return v2Done();
+    if(!P.trav){if(t.grab){t.grab=false;fx.remove(ps.b);CAMP.grab=null;P.trav={path:ph.path,t:0,dur:ph.dur||5,kind:ph.kind||'climb'}}else CAMP.grab=v2Near(t.x,t.z,3,t.y)?{p:t,txt:ph.verb||ph.obj}:null}else{status=(ph.kind==='zip'?'Ziplining… ':'Climbing… ');CAMP.grab=null}}
   else if(T_==='vehicle'){return}
   // multi-floor buildings: when the objective is on another floor, the marker leads you to the stairs first
+  grabHud();
   {const st=v2Stairs(CAMP.obj);if(st){CAMP.obj=st;CAMP.marks=[st];status=(P.pos.y<CAMP.objY?'Take the stairs up':'Take the stairs down')+' · '+status}}
   campSet(ph.obj,status+(sub?sub+' · ':'')+cpTxt,prog)}
 function v2Stairs(o){if(!o||!MAP||MAP!==MAPS.citadel)return null;if(o.y===undefined)o={x:o.x,z:o.z,y:terrH(o.x,o.z)};CAMP.objY=o.y;
@@ -3202,6 +3277,36 @@ function briefEnd(){if(!BRIEF.on)return;BRIEF.on=false;clearInterval(BRIEF.timer
 $('brief').addEventListener('pointerdown',e=>{e.preventDefault();briefEnd()});
 addEventListener('keydown',e=>{if(BRIEF.on&&(e.code==='Space'||e.code==='Enter'||e.code==='Escape')){e.preventDefault();briefEnd()}});
 
+
+/* ---------- choices, the Nice / Naughty meter, scripted moves and endings ---------- */
+const MORAL_MAX=8;
+function moral(){return CPROG.moral||0}
+function moralTag(v){return v>=5?'Santa\'s Right Hand':v>=2?'Nice List':v>-2?'On the Fence':v>-5?'Naughty List':'Frost Legion Material'}
+function moralHTML(v,d){const k=clamp((MORAL_MAX-v)/(2*MORAL_MAX),0,1);return `<div class="mbar"><span class="mn">NICE</span><div class="mtrack"><i style="left:${(k*100).toFixed(1)}%"></i></div><span class="mk">NAUGHTY</span></div><div class="mlbl">${esc(moralTag(v))}${d?` · this mission <b class="${d>0?'nice':'naughty'}">${d>0?'+'+d+' Nice':(-d)+' Naughty'}</b>`:''}</div>`}
+// note: positive = Nice (Santa's side), negative = Naughty (the Frost King's side). The track runs Nice on the left.
+function missionFor(i){const m=MISSIONS[i];if(m.phasesK&&moral()<=-3)return Object.assign({},m,{phases:m.phasesK,brief:m.briefK,title:m.titleK||m.title,kingPath:true});return m}
+function v2NextIndex(ph){const m=CAMP.m,id=CAMP.nextId||ph.next;CAMP.nextId=null;if(id==='END')return m.phases.length;if(id){const k=m.phases.findIndex(p=>p.id===id);if(k>=0)return k}return CAMP.pi+1}
+// the choice card: two options, picked with a click / tap, 1 or 2, or the pad (D-pad + ✕)
+function showChoice(ph){const el=$('choice');if(document.pointerLockElement)document.exitPointerLock();mouseL=false;T.fire=false;
+  $('chQ').textContent=ph.q;$('chOpts').innerHTML=ph.opts.map((o,i)=>`<button class="chOpt ${o.moral>0?'nice':o.moral<0?'naughty':''}" data-i="${i}"><small>${o.moral>0?'Nice':o.moral<0?'Naughty':'Choice'} · ${i+1}</small><b>${esc(o.label)}</b><span>${esc(o.desc||'')}</span></button>`).join('');
+  el.hidden=false;CAMP.choosing=ph;el.querySelectorAll('.chOpt').forEach(b=>b.onclick=()=>pickChoice(+b.dataset.i));sfx('count');setTimeout(()=>{if(padActive)navFocus(el.querySelector('.chOpt'))},50)}
+function pickChoice(i){const ph=CAMP.choosing;if(!ph)return;const o=ph.opts[i];CAMP.choosing=null;$('choice').hidden=true;
+  CPROG.moral=clamp(moral()+(o.moral||0),-MORAL_MAX,MORAL_MAX);store('npo-camp-v2',CPROG);if(o.flag){CPROG.flags=CPROG.flags||{};CPROG.flags[o.flag]=true;store('npo-camp-v2',CPROG)}
+  if(o.moral)xpPop(o.moral>0?`Nice +${o.moral}`:`Naughty +${-o.moral}`);sfx(o.moral<0?'streak':'jingle');(o.say||[]).forEach((l,k)=>radio(l[0],l[1],k===0));
+  CAMP.nextId=o.next||null;if(o.ending)CAMP.ending=o.ending;v2Done();if(!touchMode&&!padActive){try{cv.requestPointerLock()}catch(e){}}}
+addEventListener('keydown',e=>{if(CAMP.choosing&&(e.code==='Digit1'||e.code==='Digit2')){e.preventDefault();pickChoice(e.code==='Digit1'?0:1)}});
+// climbing / zipline: press the interact button at the start and the move plays out
+function travTick(p,dt){const tr=p.trav;tr.t+=dt;const k=Math.min(1,tr.t/tr.dur),seg=(tr.path.length-1)*k,i=Math.min(tr.path.length-2,Math.floor(seg)),f=seg-i,a=tr.path[i],b=tr.path[i+1];
+  p.pos.set(lerp(a[0],b[0],f),lerp(a[1],b[1],f),lerp(a[2],b[2],f));p.vel.set(0,0,0);p.onGround=false;p.protT=Math.max(p.protT,.4);
+  if(tr.kind==='climb'){const sw=Math.floor(tr.t*2.4);if(sw!==tr.sw){tr.sw=sw;play('throw',{vol:.5,rate:.55});shake=Math.max(shake,.12);landDip=.08}}else{if(Math.random()<dt*20)puff(_a.set(p.pos.x,p.pos.y+2,p.pos.z),1,0xffffff,2,.05,.3)}
+  if(k>=1){p.trav=null;p.onGround=true;p.pos.y=groundAt(p.pos.x,p.pos.z,p.radius,p.pos.y+1);if(CAMP.state)CAMP.state.travDone=true;footstep(p,1)}}
+// avalanche wall for timed escapes
+function v2Avalanche(ps,av){const g=new THREE.Group();const m=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});for(let i=0;i<26;i++){const s=rr(6,13);const b=new THREE.Mesh(SPH,m);b.scale.set(s,s*.8,s);b.position.set(-100+i*8+rr(-3,3),rr(2,7),rr(-4,4));g.add(b)}fx.add(g);ps.meshes.push(g);ps.av={g,from:av.from,to:av.to};g.position.set(0,terrH(0,av.from),av.from)}
+const ENDINGS={hero:{t:'Christmas saved!',s:"You stayed on Santa's side from the first snowball to the last. The sleigh lifts off on time, and your name is at the very top of the Nice List."},
+  redemption:{t:'A Christmas miracle',s:"You walked the Frost King's road... and turned back at the last moment. Santa takes the sack, and his hand, and says: everybody deserves a second chance. Even you. Even the King."},
+  king:{t:'Long live the Frost King',s:"The sack stays in the Citadel. Christmas is cancelled, and every child gets a snow day instead. The Frost King names you his General. Somewhere, Holly is still very disappointed in you."}};
+function v2Skin(e,team,rig){if(!e.mesh||!MODELS.elf)return;const old=e.mesh;chars.remove(old);const nm=makeModelChar(team,'classic',rig||null);nm.position.copy(e.pos);e.mesh=nm;if(nm.userData.gunHolder&&e.w&&e.w[0])gunMesh(e.w[0].def,nm.userData.gunHolder)}
+
 /* ---------- the campaign script: seven missions, each a chain of checkpoints ---------- */
 const MSCRIPT={
 workshop:{brief:{loc:"Santa's Workshop · 90°N · Dec 24, 23:52",lines:[
@@ -3223,8 +3328,11 @@ workshop:{brief:{loc:"Santa's Workshop · 90°N · Dec 24, 23:52",lines:[
    waves:[{t:0,n:4},{t:22,n:5,say:['jingle',"Second wave! Find cover!"]},{t:46,n:6,say:['holly',"There's so many of them!"]},{t:64,n:4}]},
   {type:'clear',obj:'Retake the reindeer stables',at:[36,-2],
    say:[['holly',"The stables! Somebody's in the stables!"],['santa',"My reindeer! Go, go, go!"]],
-   enemies:[{at:[38,-4],n:2,home:true},{at:[30,8],n:1},{at:[42,4],n:1,hp:200,home:true,name:'Sgt. Sleet'},{at:[44,-6],n:1,home:true}],
+   enemies:[{at:[38,-4],n:2,home:true},{at:[30,8],n:1},{at:[42,4],n:1,hp:200,home:true,name:'Frost Corporal'},{at:[44,-6],n:1,home:true}],
    end:[['sleet',"Fall back! Fall back! We've got what we came for!"]]},
+  {type:'choice',q:"Sergeant Sleet is pinned under a fallen beam. His squad ran off without him.",opts:[
+    {label:'Lift the beam and let him go',desc:'Holly will like that. Maybe the Legion will remember it.',moral:1,say:[['sleet',"You... helped me? Nobody in the Legion ever helped me."]]},
+    {label:'Leave him and take his frost badge',desc:'A Legion badge might open some doors later.',moral:-1,flag:'badge',say:[['jingle',"Cold. But smart. Keep that badge."]]}]},
   {type:'interact',obj:'Search the stables',at:[40,-2],t:2.5,kind:'crate',doing:'Searching',doneEach:'Searched',contest:false,
    say:[['holly',"Rudolph? Dasher? Here, boys..."]],
    end:[['holly',"They're gone. Rudolph, Dasher, Blitzen... all of them!"],['pip',"Wait! I put tracking collars on the reindeer! Get to my lab, I can find them!"]]},
@@ -3236,7 +3344,7 @@ workshop:{brief:{loc:"Santa's Workshop · 90°N · Dec 24, 23:52",lines:[
    end:[['pip',"Got them! All three collars! The Frozen Lake. They're dragging them onto the ice!"]]},
   {type:'destroy',obj:'Destroy the ice cannons shelling the workshop',targets:[[-20,-44],[0,-47],[20,-44]],kind:'cannon',hp:380,tname:'Ice Cannon',trickle:[10,4],mortar:14,
    say:[['santa',"Those cannons are pounding my roof! Knock them out before they hit the sleigh!"],['jingle',"Three cannons, north field. Flank them. Don't charge them."]]},
-  {type:'goto',obj:"Get to Santa's sleigh",at:[8,-36],trickle:[12,3],
+  {type:'goto',obj:"Get to Santa's sleigh",at:[8,-36],trickle:[12,3],sayK:[['king',"A badge thief AND a sleigh guard? You're wasted on Santa, elf."]],
    say:[['santa',"The sleigh! Somebody check the sleigh!"]],
    end:[['king',"Thank you for the warm welcome, Santa. I'll be taking your sack. And your reindeer. Merry Christmas."],['santa',"My sack! He took the whole sack!"]]}]},
 
@@ -3280,9 +3388,14 @@ lake:{brief:{loc:'Frozen Lake · 12 km south · 00:40',lines:[
   {type:'clear',obj:'Corner the fleeing soldier at the lodge',at:[4,-38],
    enemies:[{at:[4,-36],n:2,home:true},{at:[10,-30],n:2,home:true}],
    end:[['flurry',"Okay! Okay! I surrender! Don't snowball me!"],['jingle',"Talk."],['flurry',"The battle plans. The King keeps them at the war camp on Reindeer Ridge. Everything's in them."]]},
-  {type:'escort',obj:'Escort Private Flurry to the boathouse',npc:'flurry',npcHp:500,allies:3,path:[[4,-36],[-8,-30],[-26,-14],[-29,4],[-22,22],[-10,34],[-4,38]],trickle:[13,3],
-   say:[['flurry',"If the King finds out I talked, I'm getting reassigned to the ice mines."],['holly',"You can sit next to me in the sled. I have snacks."]],
-   end:[['jingle',"Prisoner secured. Reindeer secured. Next stop, Reindeer Ridge."]]}]},
+  {type:'choice',q:"Private Flurry has surrendered. He's shaking, and he's told you everything he knows.",opts:[
+    {label:'Bring him home safely',desc:'Escort Flurry across the ice to the boathouse.',moral:1,say:[['holly',"You can sit next to me in the sled. I have snacks."]]},
+    {label:'Tie him to the dock and keep his radio',desc:"Listen in on the Frost King's private channel instead.",moral:-1,flag:'radio',next:'lakeRadio'}]},
+  {type:'escort',next:'END',obj:'Escort Private Flurry to the boathouse',npc:'flurry',npcHp:500,allies:3,path:[[4,-36],[-8,-30],[-26,-14],[-29,4],[-22,22],[-10,34],[-4,38]],trickle:[13,3],
+   say:[['flurry',"If the King finds out I talked, I'm getting reassigned to the ice mines."]],
+   end:[['jingle',"Prisoner secured. Reindeer secured. Next stop, Reindeer Ridge."]]},
+  {id:'lakeRadio',type:'interact',obj:"Tune in to the King's radio channel",at:[6,-36],kind:'terminal',t:1,doneEach:'Channel found',contest:false,trickle:[12,3],
+   end:[['king',"Whoever is wearing Flurry's radio... I've been watching you, elf. You're good. Perhaps too good for Santa."],['jingle',"Ignore him. We've got what we need. Reindeer Ridge."]]}]},
 
 stealth:{brief:{loc:'Reindeer Ridge · Frost Legion war camp · 01:20',lines:[
   "NORTH POLE COMMAND // INFILTRATION",
@@ -3307,19 +3420,23 @@ stealth:{brief:{loc:'Reindeer Ridge · Frost Legion war camp · 01:20',lines:[
    say:[['flurry',"Corporal, do you ever wonder if we're the bad guys?"],['sleet',"Every day, Flurry. Every single day. Wait. Flurry?"]],
    enemies:[{at:[30,-14],guard:true,patrol:[[30,-14],[30,14]]},{at:[38,-20],guard:true,patrol:[[38,-20],[44,-4]]},{at:[38,20],guard:true,patrol:[[38,20],[44,4]]}]},
   {type:'interact',obj:"Steal the battle plans from the commander's lodge",at:[53,-12],kind:'plans',t:3,doing:'Grabbing the plans',doneEach:'Plans stolen',stealth:true,alarmSquad:2,contest:false,
-   enemies:[{at:[46,-6],guard:true,patrol:[[46,-6],[46,6]]},{at:[50,-18],guard:true,patrol:[[50,-18],[57,-18]]},{at:[54,-15],guard:true}],
-   end:[['sleet',"Hey! Those are the King's doodles! Get that elf!"]]},
+   enemies:[{at:[46,-6],guard:true,patrol:[[46,-6],[46,6]]},{at:[50,-18],guard:true,patrol:[[50,-18],[57,-18]]},{at:[54,-15],guard:true}]},
+  {type:'choice',q:"The plans are yours. The charges are set, and Frost soldiers are asleep in the tents right next to the cannons.",opts:[
+    {label:'Wake them up first',desc:'Lob a snowball at the tents so they can run. The whole camp will wake up too.',moral:1,say:[['sleet',"Hey! Those are the King's doodles! Get that elf!"]]},
+    {label:'Blow the charges right now',desc:'No warning. The camp will be in chaos and nobody will chase you.',moral:-1,next:'snChaos'}]},
   {type:'clear',obj:'Fight your way out of the camp',at:[44,0],allies:2,
    say:[['jingle',"So much for quiet. We're coming to you. Hold tight!"]],
    enemies:[{at:[44,8],n:2},{at:[40,-10],n:2},{at:[50,4],n:1,name:'Sgt. Sleet',hp:220}]},
   {type:'defend',obj:'Hold the bridge while Pip sets off the charges',at:[-6,0],r:12,t:55,allies:3,clearAfter:true,from:[[40,14],[40,-10],[36,18],[36,-16]],
    say:[['pip',"Charges armed. I need fifty seconds for the bells to sync. Don't ask."]],
    waves:[{t:0,n:3},{t:16,n:3},{t:32,n:4},{t:46,n:3}],
-   end:[['pip',"Three, two, one... ho ho BOOM!"]],onEnd:()=>{for(const [x,z] of [[18,-34],[24,24]]){const p=_a.set(x,terrH(x,z)+1,z);puff(p,60,0xffffff,12,.3,1.4,6);sfx('boom',p)}for(const o of CAMP.v2meshes)fx.remove(o);CAMP.v2meshes=[]}},
-  {type:'goto',obj:"Run for Rudolph's sled",at:[-54,0],trickle:[6,6],from:[[54,14],[54,-10],[30,0]],
+   next:'snRun',end:[['pip',"Three, two, one... ho ho BOOM!"]],onEnd:()=>{for(const [x,z] of [[18,-34],[24,24]]){const p=_a.set(x,terrH(x,z)+1,z);puff(p,60,0xffffff,12,.3,1.4,6);sfx('boom',p)}for(const o of CAMP.v2meshes)fx.remove(o);CAMP.v2meshes=[]}},
+  {id:'snRun',type:'goto',obj:"Run for Rudolph's sled",at:[-54,0],trickle:[6,6],from:[[54,14],[54,-10],[30,0]],
    say:[['holly',"Run! Rudolph's warming up the sled!"]],
    enemies:[{at:[-26,8],n:2,home:true},{at:[-30,-10],n:1,home:true}],
-   end:[['jingle',"Plans are in the sled. Let's see what the King's been doodling."]]}]},
+   end:[['jingle',"Plans are in the sled. Let's see what the King's been doodling."]]},
+  {id:'snChaos',type:'talk',obj:'Get clear of the blast',t:4,next:'snRun',say:[['pip',"Okay. No countdown then. Ho ho BOOM!"],['holly',"Were there... people in those tents?"]],
+   onStart:()=>{for(const [x,z] of [[18,-34],[24,24]]){const p=_a.set(x,terrH(x,z)+1,z);puff(p,60,0xffffff,12,.3,1.4,6);sfx('boom',p)}for(const o of CAMP.v2meshes)fx.remove(o);CAMP.v2meshes=[]}}]},
 
 lane:{brief:{loc:'Candy Cane Lane · elf village · 02:15',lines:[
   "NORTH POLE COMMAND // URBAN OPERATION",
@@ -3329,7 +3446,7 @@ lane:{brief:{loc:'Candy Cane Lane · elf village · 02:15',lines:[
   "Enemy armor: two [[SNOW PLOW TANKS]].",
   "ORDERS: rescue civilians. Restore [[3 LIGHT STATIONS]]. Light [[THE TREE]]."]},
  phases:[
-  {type:'goto',obj:'Push into Candy Cane Lane',at:[-30,24],cp:[-48,46],yaw:-Math.PI/4,allies:3,
+  {type:'goto',obj:'Push into Candy Cane Lane',at:[-30,24],cp:[-48,46],yaw:-Math.PI/4,allies:3,sayK:[['king',"Candy Cane Lane. Lovely place. You and I are not so different, elf."],['jingle',"Station by station. Clear it, hold it, light it."]],
    say:[['jingle',"Station by station. Clear it, hold it, light it."],['holly',"If we win, I'm getting the biggest hot cocoa in the Lane. With the little marshmallows."]],
    enemies:[{at:[-30,18],n:3,home:true},{at:[-20,30],n:2,home:true}]},
   {type:'interact',obj:'Rescue the frozen shopkeepers',points:[[-24,32],[-8,30],[-34,6]],kind:'prisoner',t:2.5,doing:'Thawing',doneEach:'Shopkeeper rescued',
@@ -3341,7 +3458,10 @@ lane:{brief:{loc:'Candy Cane Lane · elf village · 02:15',lines:[
   {type:'clear',obj:'Take out the snipers on the rooftops',targetsOnly:true,trickle:[12,3],
    say:[['jingle',"Snipers. Three of them. Watch for the glint and stay out of the open."]],
    enemies:[{at:[-28,-6],target:true,name:'Frost Sniper',weapon:'icicle',static:true},{at:[2,-24],target:true,name:'Frost Sniper',weapon:'icicle',static:true},{at:[24,6],target:true,name:'Frost Sniper',weapon:'icicle',static:true},{at:[-4,-6],n:2}]},
-  {type:'hold',obj:'Capture light station B',at:[0,7],t:35,trickle:[6,6],enemies:[{at:[4,4],n:4,home:true}],
+  {type:'choice',q:"Two Frost soldiers are frozen solid in the fountain. The King left them there when they lost a fight.",opts:[
+    {label:'Thaw them out',desc:"It costs a minute. They might even fight beside you.",moral:1,flag:'thawed',say:[['flurry',"Brr! Thanks! We're with you, elves. The King left us to freeze!"]]},
+    {label:'Leave them in the ice',desc:"They're the enemy. No time for this.",moral:-1,say:[['holly',"We're really just going to leave them there?"]]}]},
+  {type:'hold',allies:()=>4+((CPROG.flags||{}).thawed?2:0),obj:'Capture light station B',at:[0,7],t:35,trickle:[6,6],enemies:[{at:[4,4],n:4,home:true}],
    say:[['sleet',"Hold the stations! The King said no overtime pay if we lose!"]],end:[['pip',"Power's back on that block. One more grid to go!"]]},
   {type:'destroy',obj:'Destroy the Snow Plow tanks',targets:[[20,-22],[-18,-24]],kind:'plow',hp:650,tname:'Snow Plow Tank',tweapon:'yule',trickle:[11,4],
    say:[['holly',"Is that a tank? That's a tank. Why do they have a tank?"],['jingle',"Grenades and heavy snow. Hit it from the sides."]],end:[['jingle',"Armor down. Push to the last station."]]},
@@ -3369,7 +3489,10 @@ yard:{brief:{loc:'Polar Express rail yard · 03:30',lines:[
   {type:'collect',obj:'Find the stolen gift sacks in the freight cars',points:[[-20,0],[18,0],[-6,11],[24,-11],[-28,-22]],kind:'sack',item:'Gift sack',allies:3,trickle:[9,5],
    say:[['santa',"Those sacks hold the presents for an entire continent. Treat them gently!"],['jingle',"Grab and go. Don't stop to read the tags."]],
    enemies:[{at:[-16,-4],n:3},{at:[16,-4],n:2},{at:[0,-12],n:2}],end:[['holly',"This one's heavy. I bet it's a bike!"]]},
-  {type:'defend',obj:'Protect Santa while he loads the sleigh',at:[0,36],r:12,t:60,clearAfter:true,
+  {type:'choice',q:"The Frost King cuts into your radio: \"Bring three of those sacks to my train, and I'll make you a General.\"",opts:[
+    {label:'Hang up on him',desc:'Every sack goes back to Santa.',moral:1,say:[['king',"Hmph. Your loss, elf."]]},
+    {label:'Slip him three sacks',desc:"Nobody will notice three sacks. Probably.",moral:-2,flag:'gave',say:[['king',"Excellent. I knew you'd see reason."]]}]},
+  {type:'defend',obj:'Protect Santa while he loads the sleigh',at:[0,36],r:12,t:60,clearAfter:true,sayK:[['santa',"Ho ho! Hand them up! Hmm. I could have sworn there were more sacks..."]],
    say:[['santa',"Ho ho! Hand them up! Quickly now, quickly!"]],
    waves:[{t:0,n:4},{t:20,n:5},{t:40,n:6,say:['sleet',"Somebody's stealing our stolen sacks!"]}]},
   {type:'clear',obj:'Storm the station platform',at:[0,-26],
@@ -3382,6 +3505,44 @@ yard:{brief:{loc:'Polar Express rail yard · 03:30',lines:[
    say:[['santa',"I'll walk, thank you! My knees could use the stretch."],['jingle',"Keep him covered. All sides."]],
    end:[['santa',"Every sack is home. Except the big one. My sack. He's taken it to his Citadel."]]}]},
 
+peak:{brief:{loc:'Frostpeak · 4,200 m · 03:10',lines:[
+  "NORTH POLE COMMAND // MOUNTAIN OPERATION",
+  "INTEL (from stolen plans): the blizzard is not weather. It is a [[MACHINE]].",
+  "The [[EVERWINTER ENGINE]] sits on the summit of [[FROSTPEAK]].",
+  "While it runs, Santa's sleigh [[CANNOT FLY]].",
+  "Route: forest valley, a [[9 METER ICE CLIFF]], a radar plateau in a whiteout.",
+  "ORDERS: climb. Hack the radar. Shut the Engine down. [[GET OFF THAT MOUNTAIN]]."]},
+ phases:[
+  {type:'clear',obj:'Clear the Frost outpost in the valley',at:[0,56],cp:[0,90],yaw:0,allies:2,
+   say:[['jingle',"Frostpeak. Big mountain, bad weather, worse company."],['holly',"I can't feel my ears. Do elves need ears? Asking for me."]],
+   enemies:[{at:[-14,56],n:2},{at:[16,50],n:2},{at:[0,64],n:1,hp:180,name:'Frost Commando'}],
+   end:[['jingle',"Outpost's clear. Keep moving north."]]},
+  {type:'goto',obj:'Reach the foot of the ice cliff',at:[0,35],trickle:[14,2],
+   say:[['jingle',"That's a nine meter wall of ice. Pip, tell me you packed the ice picks."],['pip',"Packed them, polished them, named them. Gerald and Gerald Two."]]},
+  {type:'traverse',kind:'climb',obj:'Climb the ice cliff',verb:'Climb the ice cliff',path:[[0,0,33.2],[0,4.8,32.7],[0,9.7,32.3],[0,9.8,29.2],[0,9.2,27.2]],dur:6,
+   end:[['holly',"You did it! Okay, now pull us up. Please. It's very slippery down here."]]},
+  {type:'interact',obj:'Hack the three radar terminals',points:[[-30,1.2],[30,-10.8],[0,-32.8]],t:1,doneEach:'Terminal hacked',stealth:true,blizzard:true,alarmSquad:2,regroup:true,allies:2,contest:false,
+   say:[['pip',"Whiteout up there. They can barely see their own mittens. Neither can you, so stay close to the beacons."],['jingle',"Three terminals. Quiet is good. Loud is fine. Dead is not."]],
+   enemies:[{at:[-24,6],guard:true,patrol:[[-24,6],[-36,-6]]},{at:[-34,-14],guard:true},{at:[24,-4],guard:true,patrol:[[24,-4],[36,-16]]},{at:[36,6],guard:true},{at:[-6,-28],guard:true,patrol:[[-6,-28],[8,-38]]},{at:[10,-24],guard:true},{at:[0,0],guard:true,patrol:[[0,0],[0,16],[-12,10]]}],
+   eachSay:[['pip',"One down. The radar's getting confused. Like me in the morning."],['pip',"Two! I can see the Engine's control codes now."],['pip',"Three! Their radar is blind. The Engine's door code is... one, two, three, four. Seriously?"]]},
+  {type:'goto',obj:'Get inside the Everwinter Engine',at:[0,-62],stealth:true,blizzard:true,alarmSquad:2,
+   enemies:[{at:[-10,-54],guard:true,patrol:[[-10,-54],[10,-54]]},{at:[12,-50],guard:true}]},
+  {type:'clear',obj:'Clear the Engine hall',at:[0,-70],allies:2,regroup:true,
+   say:[['king',"Who let an ELF into my weather machine?!"]],
+   enemies:[{at:[-6,-72],n:2},{at:[6,-74],n:1},{at:[0,-76],n:1,hp:220,name:'Engine Warden'}]},
+  {type:'choice',q:"The Everwinter Engine is humming. Pip can shut it down gently... or you could overload it. That would bury the King's camp on the mountain.",opts:[
+    {label:'Shut it down safely',desc:'Destroy the core and let the storm die out.',moral:1,next:'pkShut',say:[['pip',"Good call. Gentle and festive."]]},
+    {label:'Overload it',desc:"Bury the King's whole camp. The avalanche will be a lot faster.",moral:-1,flag:'overload',next:'pkOver',say:[['jingle',"That's a lot of snow coming down on a lot of soldiers."]]}]},
+  {id:'pkShut',type:'destroy',obj:'Shut down the weather core',targets:[[0,-70]],kind:'generator',hp:520,tname:'Everwinter Core',next:'pkZip',
+   end:[['pip',"Core is down! Uh oh. Did anyone else feel the mountain wobble?"]]},
+  {id:'pkOver',type:'interact',obj:'Overload the core',at:[0,-67],kind:'charge',t:1,doneEach:'Overload armed',contest:false,next:'pkZip',
+   end:[['pip',"Overload in sixty seconds! We need to be very not here!"]]},
+  {id:'pkZip',type:'goto',obj:'Outrun the avalanche to the zipline',at:[24,26],r:5,timer:20,avalanche:{from:-72,to:32},timerFail:'The avalanche caught you!',trickle:[9,3],from:[[-30,0],[30,-10],[0,-30]],
+   say:[['jingle',"The whole mountain is coming down! Zipline, east side of the cliff! Go!"]]},
+  {type:'traverse',kind:'zip',obj:'Ride the zipline down',verb:'Grab the zipline',path:[[24,10,27.9],[18,6.2,45],[12,1.4,61]],dur:4.5},
+  {type:'goto',obj:'Outrun the avalanche to the sleigh',at:[0,95],r:9,timer:16,avalanche:{from:46,to:104},timerFail:'The avalanche caught you!',regroup:true,
+   say:[['santa',"Ho ho! I can see you! RUN!"]],
+   end:[['santa',"Hold on tight! Up we go!"],['holly',"We're alive! We're alive and I'm never going skiing."]]}]},
 sleigh:{brief:{loc:'Airspace over the Igloo Citadel · 05:20',lines:[
   "NORTH POLE COMMAND // AIR OPERATION",
   "Santa's [[SACK]] confirmed inside the [[IGLOO CITADEL]].",
@@ -3396,6 +3557,9 @@ sleigh:{brief:{loc:'Airspace over the Igloo Citadel · 05:20',lines:[
   {type:'defend',obj:'Defend the crash site',at:[-50,0],r:12,t:70,allies:2,clearAfter:true,cp:[-50,0],from:[[-20,-20],[-20,20],[-10,0]],
    say:[['holly',"Everybody okay? Rudolph's okay! The sleigh is... less okay."],['santa',"I need a minute to fix the runners. Keep them off me!"]],
    waves:[{t:0,n:4},{t:20,n:5},{t:42,n:5}]},
+  {type:'choice',q:"A Frost glider pilot crashed right beside you. He's stuck upside down in a snowdrift.",opts:[
+    {label:'Dig him out',desc:'Takes a moment, but he gets home for Christmas.',moral:1,say:[['santa',"Ho ho! That's the spirit."]]},
+    {label:'Take his flare gun and leave him',desc:"He'd do the same to you.",moral:-1,say:[['holly',"He's waving at us... Okay. He's not waving anymore. He's sulking."]]}]},
   {type:'destroy',obj:'Knock out the mortar nests',targets:[[-32,-24],[-32,24]],kind:'cannon',hp:380,tname:'Mortar Nest',mortar:10,trickle:[10,4],from:[[-20,-20],[-20,20]],
    say:[['jingle',"Mortar nests, north and south. They'll flatten the sleigh. Go!"]]},
   {type:'goto',obj:"Reach the Citadel's west wall",at:[-22,0],trickle:[8,4],from:[[-18,-12],[-18,12]],
@@ -3430,22 +3594,46 @@ citadel:{brief:{loc:'Igloo Citadel · 05:58 · before sunrise',lines:[
    half:['king',"Guards! GUARDS! Somebody get up here!"]},
   {type:'interact',obj:"Take back Santa's sack",at:[-8,-8,8.8],kind:'sack',t:2,doing:'Grabbing the sack',doneEach:'Sack recovered',contest:false,
    say:[['santa',"My sack! Oh, I've missed you, old friend."]]},
-  {type:'goto',obj:'Get to the sleigh before sunrise',at:[-55,0],trickle:[7,5],
-   say:[['jingle',"Sun's coming up. Move it, rookie!"]]}]}
+  {type:'goto',obj:'Get to the sleigh before sunrise',at:[-55,0],trickle:[7,5],onEnd:()=>{CAMP.ending='hero'},
+   say:[['jingle',"Sun's coming up. Move it, rookie!"]]}],
+ titleK:'The Frost Throne',
+ briefK:{loc:'Igloo Citadel · 05:58 · before sunrise',lines:[
+  "FROST LEGION COMMAND // GENERAL'S ORDERS",
+  "To: [[GENERAL ELF X]]. From: [[THE FROST KING]]. Re: your promotion.",
+  "Intel: [[SANTA'S SQUAD]] is marching on the Citadel. Your old friends.",
+  "Assets: one stolen [[SACK]], three ice cannons, a very large window.",
+  "Holly and Jingle are leading the charge. They still think you'll [[COME BACK]].",
+  "ORDERS: hold the Citadel. Stop Santa. [[CANCEL CHRISTMAS]]."]},
+ phasesK:[
+  {type:'talk',obj:'Report to the Frost King',t:7,cp:[0,-8],yaw:Math.PI/2,allies:3,say:[['king',"So. You came after all. Welcome to the winning side, General."],['king',"Santa is coming. Hold my gate, and Christmas is ours."]]},
+  {type:'defend',obj:"Hold the Citadel gate against Santa's squad",at:[-17,-6],r:12,t:70,clearAfter:true,from:[[-55,-10],[-55,10],[-50,0]],
+   say:[['holly',"Is that... is that you up there?"]],waves:[{t:0,n:4},{t:22,n:5},{t:46,n:5}]},
+  {type:'destroy',obj:"Destroy Santa's candy cannons",targets:[[-40,-16],[-40,16]],kind:'cannon',hp:380,tname:'Candy Cannon',trickle:[10,4],from:[[-55,-10],[-55,10]]},
+  {type:'clear',obj:'Stop Holly and Jingle',targetsOnly:true,from:[[-55,-10],[-55,10]],
+   say:[['holly',"Why are you doing this?! You were one of us!"],['jingle',"Rookie. Put it down. It's not too late."]],
+   enemies:[{at:[-30,6],target:true,name:'Holly',hp:260},{at:[-30,-6],target:true,name:'Jingle',hp:320},{at:[-34,0],n:2}],
+   end:[['holly',"Just... think about what you're doing. Please."]]},
+  {type:'boss',obj:'Face Santa',bossKind:'santa',at:[-36,0,0],home:[[-36,0],[-30,8],[-30,-8],[-42,6],[-42,-6]],from:[[-55,-10],[-55,10]],hp:1300,halfAdds:3,
+   say:[['santa',"I'm not angry. I'm just very, very disappointed. Ho... ho."]],half:['santa',"Elves! To me!"]},
+  {type:'choice',q:"Santa is down. The sack is at your feet. The Frost King is holding out his hand.",opts:[
+    {label:'Give the sack back to Santa',desc:'Turn your back on the King. Christmas goes on.',moral:3,ending:'redemption',next:'kRedeem',say:[['king',"What are you doing? No. NO! Traitor!"],['santa',"Ho ho! I knew it. Run, my friend!"]]},
+    {label:'Hand the sack to the Frost King',desc:'Christmas is cancelled. Long live the King.',moral:-2,ending:'king',next:'kKing'}]},
+  {id:'kRedeem',type:'goto',noSkin:true,obj:"Get the sack to Santa's sleigh",at:[-55,0],trickle:[6,6],from:[[8,8],[-8,8],[8,-8],[-8,-8]],next:'END'},
+  {id:'kKing',type:'talk',obj:'Long live the Frost King',t:7,say:[['king',"Christmas is cancelled! Everyone gets a snow day instead! Ha ha ha!"],['holly',"This is the worst Christmas ever."]]}]},
 };
-for(const m of MISSIONS){const s=MSCRIPT[m.id];if(s){m.phases=s.phases;m.brief=s.brief}}
+for(const m of MISSIONS){const s=MSCRIPT[m.id];if(s){m.phases=s.phases;m.brief=s.brief;if(s.phasesK){m.phasesK=s.phasesK;m.briefK=s.briefK;m.titleK=s.titleK}}}
 
 function campOnKill(v,k){if(stealthMission())stealthOnKill(v);if(v.isPlayer&&v2On()){v2PlayerDown();return}if(v.isPlayer){CAMP.lives--;if(CAMP.lives<=0)setTimeout(()=>campFail(),1200);else centerMsg(CAMP.lives+(CAMP.lives===1?' life left':' lives left'))}
   else if(v.team===1&&k&&k.isPlayer)addXP(25,'Objectives')}
 function campWin(){if(G.over)return;if(v2On()&&CAMP.ph&&CAMP.ph.type==='vehicle'&&!CAMP.state.finished){v2Done();return}const i=G.camp.i,m=MISSIONS[i];if(!CPROG.done.includes(i))CPROG.done.push(i);store('npo-camp-v2',CPROG);addXP(m.xp,'Mission complete');
   G.over=true;mouseL=false;T.fire=false;if(document.pointerLockElement)document.exitPointerLock();$('bossBar').hidden=true;centerMsg('Mission complete');sfx('victory');
-  setTimeout(()=>{if(!G.running)return;campCleanupMarks();playCut('outro_'+m.id,()=>{G.over=false;campEnd(true)})},1600)}
+  setTimeout(()=>{if(!G.running)return;campCleanupMarks();if(CAMP.ending&&CAMP.ending!=='hero'){G.over=false;campEnd(true);return}playCut('outro_'+m.id,()=>{G.over=false;campEnd(true)})},1600)}
 function campCleanupMarks(){vehStop();radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];$('campHud').hidden=true}
 function campFail(){if(G.over)return;if(v2On()&&CAMP.ph&&CAMP.ph.type==='vehicle'){G.overPending=false;centerMsg('The sleigh went down! Back to the checkpoint…');v2Restart();return}campEnd(false)}
 function campEnd(win){const i=G.camp.i,m=MISSIONS[i];G.over=true;if(win)chars.visible=false;mouseL=false;T.fire=false;if(document.pointerLockElement)document.exitPointerLock();$('bossBar').hidden=true;
   const xp=G.xp||{},gained=Object.values(xp).reduce((a,b)=>a+b,0),lv0=PROG.lv;PROG.xp+=gained;while(PROG.xp>=xpNeed(PROG.lv)&&PROG.lv<60){PROG.xp-=xpNeed(PROG.lv);PROG.lv++}store('npo-prog-v1',PROG);G.xp={};
-  $('endTitle').textContent=win?(i===MISSIONS.length-1?'Christmas saved!':'Mission complete'):'Mission failed';
-  $('endSub').textContent=win?m.outro:'The Frost Legion overwhelmed your squad. Regroup and try again.';
+  const en=win&&i===MISSIONS.length-1?ENDINGS[CAMP.ending||'hero']:null;$('endTitle').textContent=win?(en?en.t:'Mission complete'):'Mission failed';
+  $('endSub').innerHTML=esc(win?(en?en.s:(moral()<=-2&&m.outroK?m.outroK:m.outro)):'The Frost Legion overwhelmed your squad. Regroup and try again.')+(m.phases?'<div class="mwrap">'+moralHTML(moral(),moral()-(CAMP.moral0||0))+'</div>':'');
   $('endBoard').innerHTML='';$('endXp').innerHTML=Object.entries(xp).map(([k,v])=>`<span>${k}</span><span>+${v}</span>`).join('')+`<span class="tot">Total XP</span><span class="tot">+${gained}</span>`;
   $('endRank').innerHTML=rankHTML(PROG.lv,PROG.xp)+(PROG.lv>lv0?`<div></div><div id="lvUp">Level up! ${rankName(PROG.lv)} · Level ${PROG.lv}${unlocksAt(PROG.lv,lv0)}</div>`:'');$('endStats').innerHTML='';
   const next=win&&i<MISSIONS.length-1;$('againBtn').hidden=false;$('againBtn').textContent=win?(next?'Next mission':'Play the finale again'):'Retry mission';$('menuBtn').textContent='Campaign menu';
@@ -3700,7 +3888,7 @@ function guardIcon(b){if(!b.mesh)return;let s=b.mesh.userData.qs;if(!s){s=new TH
   const k=b.alerted?'!':String(Math.round((b.sus||0)*10));s.visible=b.alive&&(b.alerted?G.time-b.alertAt<4:(b.sus||0)>.05);if(s.material.map!==qTex(k)){s.material.map=qTex(k);s.material.needsUpdate=true}}
 function stealthBot(b,dt){if(b.alerted)return false;const st=CAMP.state;
   let see=0;const p=P;
-  if(p&&p.alive){const dx=p.pos.x-b.pos.x,dz=p.pos.z-b.pos.z,dy=p.pos.y-b.pos.y,d=Math.hypot(dx,dz);const range=(p.crouch>.5?10:19)*((b.sus||0)>.3?1.3:1)*(p.sprinting?1.25:1);
+  if(p&&p.alive){const dx=p.pos.x-b.pos.x,dz=p.pos.z-b.pos.z,dy=p.pos.y-b.pos.y,d=Math.hypot(dx,dz);const range=(p.crouch>.5?10:19)*(G.blizzardT>0?.6:1)*((b.sus||0)>.3?1.3:1)*(p.sprinting?1.25:1);
     if(d<range&&Math.abs(dy)<9){const ang=Math.abs(angDiff(b.yaw,Math.atan2(-dx,-dz)));
       if(ang<.95){_eye.set(b.pos.x,b.pos.y+1.5,b.pos.z);_te.set(p.pos.x,p.pos.y+(p.crouch>.5?.8:1.35),p.pos.z);if(los(_eye,_te))see=(1-d/range)*1.4+.22}
       else if(d<2.2&&p.crouch<.5&&Math.hypot(p.vel.x,p.vel.z)>3)see=.45}}
@@ -3949,7 +4137,7 @@ const VOTE={on:false,opts:[],t:0,T:15,local:true,mine:null,bot:[0,0,0,0],bv:[0,0
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 function openVote(opts){
   const leader=!NET.on||NET.isHost;
-  if(!opts){let ks=shuffle(Object.keys(MAPS));if(VOTE.lastMap&&ks.length>3)ks=ks.filter(k=>k!==VOTE.lastMap);opts=ks.slice(0,3).concat(['random'])}
+  if(!opts){let ks=shuffle(mpMapKeys());if(VOTE.lastMap&&ks.length>3)ks=ks.filter(k=>k!==VOTE.lastMap);opts=ks.slice(0,3).concat(['random'])}
   if(G.running){if(NET.on)NET.inGame=false;quitToMenu()}
   Object.assign(VOTE,{on:true,opts:opts.slice(),T:NET.on?15:10,local:leader,mine:null,bot:[0,0,0,0],bv:[0,0,0,0],botT:.8,done:false});VOTE.t=VOTE.T;
   if(NET.on&&NET.isHost){NET.cfg.st='vote';NET.cfg.vo=VOTE.opts;NET.cfg.vl=VOTE.t;NET.cfg.bv=VOTE.bot;pushPresence()}
@@ -3983,7 +4171,7 @@ function voteTick(dt){
 }
 function finishVote(){
   const c=voteCounts();let best=-1,idx=[];for(let i=0;i<4;i++){if(c[i]>best){best=c[i];idx=[i]}else if(c[i]===best)idx.push(i)}
-  VOTE.winIdx=pick(idx);VOTE.done=true;let key=VOTE.opts[VOTE.winIdx];if(key==='random')key=pick(Object.keys(MAPS));VOTE.lastMap=key;renderVote(true);sfx('jingle');
+  VOTE.winIdx=pick(idx);VOTE.done=true;let key=VOTE.opts[VOTE.winIdx];if(key==='random')key=pick(mpMapKeys());VOTE.lastMap=key;renderVote(true);sfx('jingle');
   setTimeout(()=>{closeVote();if(NET.on&&NET.isHost)hostStart(key);else if(!NET.on){SETTINGS.map=key;saveSettings();startMatch()}},1400);
 }
 $('vSkip').onclick=()=>{if(VOTE.local&&!VOTE.done)VOTE.t=Math.min(VOTE.t,.01)};
@@ -4124,7 +4312,7 @@ function update(dt){
   updateHud(dt);if(G.veh)vehHud();
 }
 function updatePlayer(dt){
-  const p=P,w=p.w[p.cur],def=w.def;
+  const p=P,w=p.w[p.cur],def=w.def;if(p.trav){travTick(p,dt);return}
   let fx=0,fz=0;if(held('forward'))fz+=1;if(held('back'))fz-=1;if(held('right'))fx+=1;if(held('left'))fx-=1;
   const tz=SETTINGS.sens*lerp(1,SETTINGS.adsMul,p.adsAmt)/(1+(def.zoom-1)*p.adsAmt);if(keys.ArrowLeft)p.yaw+=2.4*dt*tz;if(keys.ArrowRight)p.yaw-=2.4*dt*tz;if(keys.ArrowUp)p.pitch=Math.min(1.45,p.pitch+1.6*dt*tz);if(keys.ArrowDown)p.pitch=Math.max(-1.45,p.pitch-1.6*dt*tz);
   if(touchMode){fx+=T.jx;fz+=T.jy}
@@ -4247,7 +4435,7 @@ function gdLoop(t){const stage=$('gunStage'),cv=GD.r&&GD.r.domElement;if(!stage|
 function statBars(d){const dmg=Math.min(1,d.dmg*d.pellets/120),rate=Math.min(1,d.rpm/850),range=Math.min(1,d.speed/175),mob=clamp((d.mobility-.8)/.27,0,1);
   return `<div class="stat">Damage<i style="--v:${dmg*100}%"></i></div><div class="stat">Fire rate<i style="--v:${rate*100}%"></i></div><div class="stat">Range<i style="--v:${range*100}%"></i></div><div class="stat">Mobility<i style="--v:${mob*100}%"></i></div>`}
 function renderMaps(){const on=NET.on,t=on?voteTally():{},mine=on?NET.vote:SETTINGS.map,lead=on?voteWinner():null;
-  const html=Object.entries(MAPS).map(([k,m])=>`<button class="card ${mine===k?'on':''} ${lead===k?'lead':''}" data-k="${k}"><div class="sw">${m.sw.map(c=>`<i style="background:#${c.toString(16).padStart(6,'0')}"></i>`).join('')}</div><b>${m.name}</b><span>${m.desc}</span>${on?`<div class="votes">${t[k]?`<em>${t[k]} vote${t[k]>1?'s':''}</em>`:''}${lead===k&&t[k]?' Leading':''}</div>`:''}</button>`).join('');
+  const html=Object.entries(MAPS).filter(([k,m])=>!m.campaign).map(([k,m])=>`<button class="card ${mine===k?'on':''} ${lead===k?'lead':''}" data-k="${k}"><div class="sw">${m.sw.map(c=>`<i style="background:#${c.toString(16).padStart(6,'0')}"></i>`).join('')}</div><b>${m.name}</b><span>${m.desc}</span>${on?`<div class="votes">${t[k]?`<em>${t[k]} vote${t[k]>1?'s':''}</em>`:''}${lead===k&&t[k]?' Leading':''}</div>`:''}</button>`).join('');
   const el=$('mapList');if(el._v===html)return;el._v=html;el.innerHTML=html;
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(NET.on){NET.vote=b.dataset.k;pushPresence();renderParty();return}SETTINGS.map=b.dataset.k;saveSettings();renderMaps();loadMap(SETTINGS.map)})}
 function bindSeg(id,key,cb){const el=$(id);el.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',String(SETTINGS[key])===b.dataset.v);b.onclick=()=>{SETTINGS[key]=b.dataset.v;saveSettings();el.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));cb&&cb()}})}
@@ -4264,7 +4452,9 @@ const GS_SLOTS=['Optic','Muzzle','Barrel','Underbarrel','Magazine'];
 const SLOT_ICON={Primary:'🔫',Secondary:'🍬',Equipment:'💣',Perk:'⭐',Optic:'🔭',Muzzle:'🧦',Barrel:'📏',Underbarrel:'✊',Magazine:'❄',Camo:'🎨'};
 function statRows(base,eff){const f=d=>({Damage:Math.min(1,d.dmg*d.pellets/120),'Fire rate':Math.min(1,d.rpm/850),Range:Math.min(1,d.speed/175),Accuracy:clamp(1-d.spread*14,0,1),Mobility:clamp((d.mobility-.8)/.27,0,1),Control:clamp(1-(d.rv||.02)*18,0,1),'Aim accuracy':clamp(1-(d.ads||.02)*30,0,1),'Aim speed':clamp(1.4-(d.adst||.22)*2.6,0,1),Zoom:clamp(((d.zoom||1)-1)/2.2,0,1)});
   const A=f(base),B=f(eff);return Object.keys(A).map(k=>{const d=B[k]-A[k];return `<div class="srow"><span>${k}</span><i><b style="width:${(Math.min(A[k],B[k])*100).toFixed(1)}%"></b>${d>.004?`<u class="up" style="left:${(A[k]*100).toFixed(1)}%;width:${(d*100).toFixed(1)}%"></u>`:d<-.004?`<u class="dn" style="left:${(B[k]*100).toFixed(1)}%;width:${(-d*100).toFixed(1)}%"></u>`:''}</i></div>`}).join('')}
-function renderEditor(){
+// re-rendering the editor must not throw you back to the top of the page
+function renderEditor(){const t=document.getElementById('tab-classes'),pk=document.querySelector('#tab-classes .picker'),st=t?t.scrollTop:0,ps=pk?pk.scrollTop:0;renderEditor0();if(t)t.scrollTop=st;const pk2=document.querySelector('#tab-classes .picker');if(pk2)pk2.scrollTop=ps}
+function renderEditor0(){
   const c=CLASSES[editSlot];const lv=PROG.lv,lock=n=>lv<n,eff=effDef(c),P0=PRIMARIES[c.primary];
   const attIn=slot=>c.att.find(a=>ATTACH[a].slot===slot);
   const card=(slot,val,sub,key,locked)=>`<button class="ccard ${edPick===key?'on':''}" data-pick="${key}"><em>${SLOT_ICON[slot]||''} ${slot}</em><b>${esc(val)}</b>${sub?`<span>${esc(sub)}</span>`:''}</button>`;
@@ -4372,6 +4562,6 @@ loadMap(SETTINGS.map);vm.visible=false;
 requestAnimationFrame(frame);
 </script>
 
-<script>if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+<script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!window.__rl&&!(window.G&&G.running)){window.__rl=1;location.reload()}});addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}</script>
 </body>
 </html>
