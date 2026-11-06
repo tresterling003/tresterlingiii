@@ -69,6 +69,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #adsRet b::before{left:50%;top:-7px;width:1.5px;height:6px;margin-left:-.75px}#adsRet b::after{top:50%;left:-7px;height:1.5px;width:6px;margin-top:-.75px}
 #adsRet.iron i{width:4px;height:4px;left:-2px;top:-2px;background:#ffe27a;box-shadow:0 0 4px rgba(255,220,120,.9)}#adsRet.iron b{display:none}
 #adsRet.iron{}
+#adsRet.red i{width:4px;height:4px;left:-2px;top:-2px;background:#ff4d6a;box-shadow:0 0 4px 1px rgba(255,60,90,.9)}#adsRet.red b{left:-20px;top:-20px;width:40px;height:40px;border:2px solid rgba(255,70,100,.85);box-shadow:0 0 6px rgba(255,50,80,.6),inset 0 0 4px rgba(255,50,80,.4)}#adsRet.red b::before,#adsRet.red b::after{display:none}
+#adsRet.scope2{display:none}
+#scope2Ov{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 30vmin,rgba(10,12,16,.96) 30.4vmin,#0b0d12 33vmin,rgba(0,0,0,.55) 36vmin,rgba(0,0,0,.55) 100%)}
+#scope2Ov::before,#scope2Ov::after{content:'';position:absolute;left:50%;top:50%;background:rgba(10,12,16,.85)}#scope2Ov::before{width:60vmin;height:1.5px;margin:-.75px 0 0 -30vmin}#scope2Ov::after{width:1.5px;height:60vmin;margin:-30vmin 0 0 -.75px;background:linear-gradient(rgba(10,12,16,.85) 0 45%,transparent 45% 55%,rgba(10,12,16,.85) 55%)}
+#scope2Ov i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:#ff3048;box-shadow:0 0 5px 2px rgba(255,40,60,.7)}
 #crosshair i{position:absolute;background:#fff;box-shadow:0 0 2px #000}
 #crosshair i:nth-child(1),#crosshair i:nth-child(2){width:2px;height:9px;left:-1px}
 #crosshair i:nth-child(3),#crosshair i:nth-child(4){height:2px;width:9px;top:-1px}
@@ -636,7 +641,7 @@ body.camp #topbar{display:none}
   </div>
   <canvas id="minimap" width="200" height="200"></canvas>
   <div id="killfeed"></div>
-  <div id="crosshair"><i></i><i></i><i></i><i></i></div><div id="adsRet" class="iron"><i></i><b></b></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div><div id="adsRet" class="iron"><i></i><b></b></div><div id="scope2Ov"><i></i></div>
   <div id="hitmarker"></div>
   <div id="reddot"></div>
   <div id="aimName"></div>
@@ -2328,8 +2333,10 @@ function buildGun(def,shadow){
     if(L>.3){mk(BOX,grip,0,.03,.1,.05,.026,.12,g,false)}                                        // cheek rest
   }
   const att=def.att||[];
-  if(att.includes('reddot')&&!md.scope){mk(BOX,metal,0,.085,-rl*.6,.035,.04,.07,g,false);mk(CIRCLE,new THREE.MeshBasicMaterial({color:C(0x9fd8ff),transparent:true,opacity:.12,depthWrite:false}),0,.09,-rl*.6+.036,.012,.012,1,g,false)}
-  if(att.includes('scope2')&&!md.scope){const sc=mk(CYL,mat(0x15171c,{metal:.6,rough:.3}),0,.095,-rl*.55,.026,.2,.026,g,false);sc.rotation.x=Math.PI/2;mk(CIRCLE,new THREE.MeshBasicMaterial({color:C(0x7fd0ff),transparent:true,opacity:.14,depthWrite:false}),0,.095,-rl*.55+.101,.022,.022,1,g,false)}
+  if(att.includes('reddot')&&!md.scope){const z=-rl*.6,y=.112;mk(BOX,metal,0,y-.032,z,.05,.012,.07,g,false);mk(BOX,metal,0,y-.055,z,.034,.04,.05,g,false);mk(BOX,metal,0,y+.026,z,.05,.008,.07,g,false);for(const sx of [-.022,.022])mk(BOX,metal,sx,y-.003,z,.006,.05,.07,g,false);mk(BOX,metal,0,y-.045,z,.03,.02,.05,g,false);
+    const gl=mk(BOX,new THREE.MeshBasicMaterial({color:C(0x9fe0ff),transparent:true,opacity:.07,depthWrite:false}),0,y-.003,z+.03,.038,.046,.002,g,false);gl.renderOrder=7}
+  if(att.includes('scope2')&&!md.scope){const tm=mat(0x15171c,{metal:.6,rough:.3});tm.side=THREE.DoubleSide;const tube=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.2,24,1,true),tm);tube.position.set(0,.09,-rl*.55);tube.rotation.x=Math.PI/2;g.add(tube);
+    for(const dz of [-.1,.1]){const rg=mk(new THREE.TorusGeometry(.029,.006,8,28),tm,0,.09,-rl*.55+dz,1,1,1,g,false)}mk(BOX,tm,0,.055,-rl*.55,.02,.03,.06,g,false);const kn=mk(CYL,tm,0,.122,-rl*.55,.012,.016,.012,g,false)}
   if(att.includes('longbar')&&!md.tube){const lb=mk(CYL,metal,0,.004,-L*1.2,.017,L*.3,.017,g,false);lb.rotation.x=Math.PI/2}
   if(att.includes('grip')){mk(BOX,grip,0,-.085,-rl*.85,.035,.09,.04,g,false)}
   if(att.includes('laser')){mk(BOX,metal,.045,-.03,-rl*.9,.025,.025,.06,g,false);mk(SPH,mat(0xff2e44,{emissive:0xff0022,emissiveIntensity:2}),.045,-.03,-rl*.9-.032,.008,.008,.008,g,false)}
@@ -2349,10 +2356,10 @@ function buildViewmodel(){
   // real sights: a red-dot housing if equipped, otherwise rear notch + front post. ADS lines this up with the screen centre.
   const top=vm.userData.top,L=def.model.len,att=def.att||[],sm=mat(0x22262e,{metal:.7,rough:.35}),glowM=new THREE.MeshBasicMaterial({color:0xffd23d});let sy;
   if(def.scope){sy=top+.02}
-  else if(att.includes('reddot')||att.includes('scope2')){sy=.09;const ring=mk(new THREE.TorusGeometry(.028,.006,8,24),sm,0,sy,-L*.3,1,1,1,g,false);ring.renderOrder=5;mk(BOX,sm,0,sy-.03,-L*.3,.02,.03,.03,g,false).renderOrder=5}
+  else if(att.includes('reddot')||att.includes('scope2')){sy=att.includes('reddot')?.109:.09}
   else{sy=top+.03;for(const sx of [-.017,.017]){const r=mk(BOX,sm,sx,top+.017,-L*.08,.012,.034,.014,g,false);r.renderOrder=5}mk(BOX,sm,0,top+.012,-L*.08,.046,.012,.016,g,false).renderOrder=5;
     const fp=mk(BOX,sm,0,top+.02,-L*.93,.008,.04,.01,g,false);fp.renderOrder=5;const dot=mk(SPH,glowM,0,sy,-L*.93,.0055,.0055,.0055,g,false);dot.renderOrder=6}
-  vm.userData.sightY=sy;vm.userData.dot=!def.scope&&(att.includes('reddot')||att.includes('scope2'))?'red':def.scope?'':'iron';
+  vm.userData.sightY=sy;vm.userData.dot=def.scope?'':att.includes('scope2')?'scope2':att.includes('reddot')?'red':'iron';
   const r=$('adsRet');if(r)r.className=vm.userData.dot;
 }
 
@@ -2436,7 +2443,8 @@ function updateHud(dt){
   const spr=lerp(d.spread*(1+Math.hypot(P.vel.x,P.vel.z)/7)*(P.onGround?1:2)*(1+Math.min(1,P.bloom||0)*.6),d.ads,Math.pow(P.adsAmt,2));const gap=4+spr*260;
   const gr=Math.round(gap);if(gr!==chGap){chGap=gr;const ch=$('crosshair').children;ch[0].style.top=(-gr-9)+'px';ch[1].style.top=gr+'px';ch[2].style.left=(-gr-9)+'px';ch[3].style.left=gr+'px'}
   $('crosshair').style.opacity=scoped||P.sprinting||G.veh?(G.veh?1:0):(P.adsAmt>.35?Math.max(0,1-(P.adsAmt-.35)*3):1);
-  {const r=$('adsRet');const on=!scoped&&!G.veh&&!G.hub&&P.alive&&P.adsAmt>.72&&P.reloadT<=0;r.style.opacity=on?Math.min(1,(P.adsAmt-.72)*5):0}
+  {const r=$('adsRet');const on=!scoped&&!G.veh&&!G.hub&&P.alive&&P.adsAmt>.72&&P.reloadT<=0;r.style.opacity=on?Math.min(1,(P.adsAmt-.72)*5):0;
+   const s2=on&&vm.userData.dot==='scope2';const k=s2?Math.min(1,(P.adsAmt-.72)*4):0;$('scope2Ov').style.opacity=k;if(vm.userData.g)vm.userData.g.visible=!(s2&&P.adsAmt>.9)}
   renderStreaks();mmT-=dt;if(mmT<=0){mmT=1/12;drawMinimap()}
   if(showBoard)renderBoard();
 }
@@ -4145,7 +4153,7 @@ function updatePlayer(dt){
   // recoil recovery once you let go of the trigger, bloom cools down
   if(!trigger||G.time-(p.lastShot||0)>.12){const k=Math.min(1,dt*7);const back=(p.climb||0)*k*.35;p.pitch-=back;p.climb=(p.climb||0)*(1-k);p.sprayN=0}
   p.bloom=Math.max(0,(p.bloom||0)-dt*(trigger?1.2:3.5));
-  $('reddot').style.opacity=p.adsAmt>.75&&!def.scope&&!def.model.tube?Math.min(1,(p.adsAmt-.75)*4):0;
+  $('reddot').style.opacity=0;
   // lean / peek: hold a lean key; the camera slides out and tilts, stopping short of walls
   const leanWant=(held('leanR')||T.leanR?1:0)-(held('leanL')||T.leanL?1:0);p.leanT=lerp(p.leanT||0,p.sprinting?0:leanWant,Math.min(1,dt*10));
   if(meleeQ){meleeQ=false;playerMelee()}
