@@ -89,6 +89,14 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #scope::before{left:50%;top:18vh;bottom:18vh;width:2px;margin-left:-1px}
 #scope::after{top:50%;left:calc(50% - 32vmin);right:calc(50% - 32vmin);height:2px;margin-top:-1px}
 #centerMsg{position:absolute;left:0;right:0;top:24%;text-align:center;font-family:var(--display);font-size:clamp(22px,4vw,40px);color:var(--gold);text-shadow:0 2px 0 #000,0 0 18px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;text-wrap:balance;padding-inline:16px}
+#kcOv{position:fixed;inset:0;z-index:40;pointer-events:auto;cursor:pointer}#kcOv .kcBar{position:absolute;left:0;right:0;height:13vh;background:#000;display:flex;align-items:center;padding:0 5vw;gap:20px}
+#kcOv .top{top:0;justify-content:center}#kcOv .top b{font-family:var(--display);font-size:clamp(20px,3.6vw,40px);letter-spacing:.14em;color:#fff;animation:medalIn .5s both}#kcOv .top b::before,#kcOv .top b::after{content:'';display:inline-block;width:6vw;height:3px;background:var(--santa);vertical-align:middle;margin:0 18px}
+#kcOv .bot{bottom:0;justify-content:space-between}#kcOv .kcWho{display:flex;flex-direction:column;border-left:4px solid var(--santa);padding-left:12px}#kcOv .kcWho small{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#9fb3c8}#kcOv .kcWho b{font-family:var(--display);font-size:clamp(18px,2.6vw,30px);color:#fff}#kcOv .kcWho span{color:var(--gold);font-weight:700;font-size:14px}#kcOv .kcSkip{color:#7f93a8;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+body.killcam #hud,body.killcam #touch{display:none!important}
+#scoreFeed{position:absolute;left:calc(50% + 34px);top:calc(50% + 10px);display:flex;flex-direction:column;gap:2px;pointer-events:none;font-family:var(--display);text-shadow:0 2px 0 rgba(0,0,0,.7)}
+#scoreFeed div{font-size:15px;color:#fff;white-space:nowrap;animation:sfIn .22s cubic-bezier(.2,1.6,.4,1) both}#scoreFeed div b{color:var(--gold);margin-right:6px;font-size:17px}#scoreFeed div.medal2{color:var(--gold)}#scoreFeed div.medal2 b{color:#fff}#scoreFeed div.out{animation:sfOut .3s ease-in forwards}
+@keyframes sfIn{from{opacity:0;transform:translateX(-14px) scale(1.4)}to{opacity:1;transform:none}}@keyframes sfOut{to{opacity:0;transform:translateY(-8px)}}
+body.touch #scoreFeed{left:calc(50% + 26px)}body.touch #scoreFeed div{font-size:12px}body.touch #scoreFeed div b{font-size:13px}
 #xpPop{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-weight:800;font-size:22px;color:var(--gold);text-shadow:0 1px 0 #000;opacity:0;white-space:nowrap}
 #prompt{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-weight:700;font-size:18px;letter-spacing:.1em;background:var(--panel);padding:2px 12px;text-transform:uppercase}
 #vitals{position:absolute;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(280px,42vw);background:var(--panel);padding:8px 12px;border-left:4px solid var(--santa)}
@@ -629,7 +637,7 @@ body.camp #topbar{display:none}
   <div id="frostOverlay"></div>
   <div id="scope"></div>
   <div id="centerMsg"></div>
-  <div id="xpPop"></div>
+  <div id="xpPop"></div><div id="scoreFeed"></div>
   <div id="ribbon"></div>
   <div id="campHud" hidden><div id="campObj"></div><div id="campSub"></div><div id="campProg"><i></i></div></div>
   <div id="bossBar" hidden><b>The Frost King</b><div><i></i></div></div>
@@ -807,6 +815,7 @@ body.camp #topbar{display:none}
   </div>
 </div>
 
+<div id="kcOv" hidden><div class="kcBar top"><b>Final Killcam</b></div><div class="kcBar bot"><div class="kcWho"><small>Final kill by</small><b id="kcName"></b><span id="kcWpn"></span></div><span class="kcSkip">Space / tap to skip</span></div></div>
 <div id="end" class="overlay" hidden>
   <div class="box">
     <h2 id="endTitle">Victory</h2>
@@ -1791,7 +1800,7 @@ function damage(t,amt,src,wname,head,at){
   if(!t.alive||t.protT>0)return;
   if(src&&src!==t&&src.team===t.team)return;
   if(t.stealthGuard&&!t.alerted&&src&&src.isPlayer){amt*=3.5;if(t.hp-amt>0)guardAlert(t)}
-  t.hp-=amt;t.lastHurt=G.time;
+  t.hp-=amt;t.lastHurt=G.time;if(src&&src.isPlayer&&src!==t)t.pHurtT=G.time;
   if(src&&src.isPlayer&&src!==t){hitMarker(head);sfx(head?'head':'hit')}
   if(t.isPlayer){flashVignette(Math.min(1,amt/50));sfx('hurt');if(src&&src!==t)showDmgDir(src.pos);else if(at)showDmgDir(at)}
   if(t.bot&&src&&src!==t&&!t.bot.target&&src.alive){t.bot.target=src;t.bot.react=DIFF[G.diff].react*.6}
@@ -1806,9 +1815,13 @@ function kill(v,k,wname,head){
     k.kills++;k.score+=100;k.streak++;
     if(G.mode==='tdm'&&!NET.on){G.scores[k.team]++}
     if(k.isPlayer){onPlayerKill(v,head)}
+    else if(P&&k.team===P.team&&v.team!==P.team&&G.time-(v.pHurtT||-99)<6){P.score+=50;addXP(50,'Assists');scorePop(50,'Assist')}
+    if(G.mode==='tdm'&&!G.camp&&P){const ls=Math.sign(G.scores[P.team]-G.scores[1-P.team]);if(G.leadSign!==undefined&&ls!==G.leadSign&&ls!==0)announce(ls>0?"We've taken the lead.":"We've lost the lead.");G.leadSign=ls;
+      if(G.scores[P.team]===G.limit-5&&!G.near0){G.near0=true;announce('Five more and we win it!')}if(G.scores[1-P.team]===G.limit-5&&!G.near1){G.near1=true;announce("They're five away. Dig in!")}}
   }
   if(G.mode==='gift'){dropGift(v)}
   addFeed(suicide?null:k,v,wname||'snow',head);
+  if(!suicide&&!G.camp)KC.last={t:G.time,k,v,w:String(wname||'snow'),head};
   if(G.camp)campOnKill(v,k);
   if(v.isPlayer){showDeath(k,wname);G.killer=k&&k!==v?k:null;if(v.mesh){const u=v.mesh.userData;v.mesh.position.copy(v.pos);v.mesh.rotation.set(0,v.yaw,0);v.mesh.visible=true;if(u.mixer){u.mixer.stopAllAction();u.cur=''}}
     const tag=$('deathCamTag');tag.hidden=!G.killer;if(G.killer)tag.textContent='Frozen by '+(G.killer.isPlayer?'you':G.killer.name);}
@@ -1822,10 +1835,10 @@ function onPlayerKill(v,head){
   let msg=head?'Head-flake!':'';const s=P.streak;
   const now=G.time;P.multi=(now-(P.lastKillT||-9)<3)?(P.multi||1)+1:1;P.lastKillT=now;
   if(P.multi===2)msg='Double kill';else if(P.multi===3)msg='Triple kill';else if(P.multi>3)msg='Snowstorm!';
-  addXP(100,'Eliminations');if(head)addXP(50,'Head-flakes');
+  addXP(100,'Eliminations');if(head)addXP(50,'Head-flakes');scorePop(100,'Frozen');if(head)scorePop(50,'Head-flake');
   P.score+=head?50:0;let medal=P.multi===2?'Double Kill':P.multi===3?'Triple Kill':P.multi>3?'Snowstorm!':'';if(!medal&&s===1&&G.firstBlood!==false){medal='First Frost';G.firstBlood=false}
-  if(medal)addXP(50,'Medals');if(!medal&&head)medal='';showRibbon(v.isPlayer?'You':v.name,head,medal);if(medal)msg='';
-  for(const st of STREAKS)if(s===st.n){P.streaks.push(st.id);addXP(150,'Killstreaks');msg=st.name+(touchMode?' ready! Tap it':padActive?' ready! Press '+btnName('lb'):' ready! Press F');sfx('jingle')}
+  if(medal){addXP(50,'Medals');scorePop(50,medal,true);announce({'Double Kill':'Double kill!','Triple Kill':'Triple kill!','Snowstorm!':'Snowstorm!','First Frost':'First frost!'}[medal]||'',true)}if(!medal&&head)medal='';showRibbon(v.isPlayer?'You':v.name,head,medal);if(medal)msg='';
+  for(const st of STREAKS)if(s===st.n){P.streaks.push(st.id);addXP(150,'Killstreaks');scorePop(0,st.name+' ready',true);announce('Killstreak ready.');msg=st.name+(touchMode?' ready! Tap it':padActive?' ready! Press '+btnName('lb'):' ready! Press F');sfx('jingle')}
   if(msg)centerMsg(msg);
   sfx('kill');
 }
@@ -1849,13 +1862,14 @@ function useStreak(){
   if(id==='drone'){camera.getWorldDirection(_dir);const o=_a.copy(camera.position).addScaledVector(_dir,1.2);const v=_b.copy(_dir).multiplyScalar(14);launchDrone(P,o,v);publishShot(P,'dr',o,v,0);centerMsg('Frosty Drone away')}
   if(id==='mortar'){const en=shuffle(G.ents.filter(e=>e.alive&&e.team!==P.team));for(let i=0;i<3;i++){const t=en[i%Math.max(1,en.length)];const x=t?t.pos.x+rand(-2,2):rand(-20,20),z=t?t.pos.z+rand(-2,2):rand(-20,20);const o=_a.set(x,0,z);dropMortar(P,o,i*.6);publishShot(P,'mo',o,_b.set(i*.6,0,0),0)}centerMsg('Peppermint Mortar incoming')}
   if(id==='recon'){G.uavT=25;centerMsg('Reindeer Recon online');sfx('jingle')}
+  announce({recon:'Reindeer Recon is up.',sentry:'Snowman sentry deployed.',sleigh:'Sleigh strike inbound!',drone:'Frosty drone away.',blizzard:'Blizzard incoming!',mortar:'Peppermint mortars, inbound!'}[id],true);
   if(id==='sleigh'){const en=G.ents.filter(e=>e.alive&&e.team!==P.team);let cx=0,cz=0;
     if(en.length){for(const e of en){cx+=e.pos.x;cz+=e.pos.z}cx/=en.length;cz/=en.length}
     const a=Math.random()*Math.PI*2,seed=Math.random()*1e9|0;callSleigh(P,cx,cz,a,seed);publishShot(P,'sl',_a.set(cx,0,cz),_b.set(a,0,0),seed);centerMsg('Sleigh Strike inbound')}
   if(id==='blizzard'){doBlizzard(P);publishShot(P,'bz',_a.set(0,0,0),_b.set(0,0,0),0)}
 }
 function doBlizzard(owner){G.blizzardT=8;sfx('wind');for(const e of G.ents)if(!e.remote&&e.team!==owner.team&&e.alive)e.frozenT=8;
-  if(owner===P)centerMsg('Blizzard! Enemies frozen');else if(owner.team!==P.team)centerMsg('Enemy Blizzard! You are frozen');else centerMsg(owner.name+' called in a Blizzard')}
+  if(owner===P)centerMsg('Blizzard! Enemies frozen');else if(owner.team!==P.team){centerMsg('Enemy Blizzard! You are frozen');announce('Enemy blizzard! Brace yourselves!',true)}else centerMsg(owner.name+' called in a Blizzard')}
 function callSleigh(owner,cx,cz,a,seed){
   const dx=Math.cos(a),dz=Math.sin(a);
   const g=new THREE.Group();sleigh(0,0,g);g.scale.setScalar(1.6);
@@ -1893,6 +1907,12 @@ function updateSleighs(dt){
 }
 
 /* ================= MOVEMENT ================= */
+// mantle: climb onto anything from knee to chest height in front of you (with room to stand on top)
+function tryMantle(p){const fx=-Math.sin(p.yaw),fz=-Math.cos(p.yaw);
+  for(const d of [.7,1.0]){const x=p.pos.x+fx*d,z=p.pos.z+fz*d;const top=groundAt(x,z,.18,p.pos.y+1.7);if(!(top>p.pos.y+.6&&top<p.pos.y+2.25))continue;
+    let ok=true;for(const b of cellAt(x,z)){if(b.minY<top+1.65&&b.maxY>top+.05&&x+.32>b.minX&&x-.32<b.maxX&&z+.32>b.minZ&&z-.32<b.maxZ){ok=false;break}}
+    if(!ok)continue;p.mantle={t:0,d:.22+.1*(top-p.pos.y),fx:p.pos.x,fz:p.pos.z,fy:p.pos.y,tx:x,tz:z,ty:top};landDip=.14;footstep(p,.9);play('throw',{vol:.25,rate:.5});return true}
+  return false}
 function moveEntity(e,dt){
   e.vel.y-=22*dt;
   e.pos.x+=e.vel.x*dt;e.pos.z+=e.vel.z*dt;
@@ -2157,7 +2177,7 @@ function playerMelee(){
 function playerNade(){if(!P||!P.alive||P.frozenT>0||G.hub)return;camera.getWorldDirection(_a);throwNade(P,_a,17)}
 const _dir=new THREE.Vector3(),_right=new THREE.Vector3(),_org=new THREE.Vector3(),_tgt=new THREE.Vector3(),_v=new THREE.Vector3();
 function playerFire(){
-  const w=P.w[P.cur],d=w.def;w.ammo--;P.cd=60/d.rpm;P.lastFire=G.time;if(stealthMission())stealthNoise();
+  const w=P.w[P.cur],d=w.def;w.ammo--;P.cd=60/d.rpm;P.lastFire=G.time;P.punch=Math.min(4,(P.punch||0)+(d.pellets>1||d.rpm<200?2.4:.9));MFL.intensity=d.sup?.5:1.6;if(stealthMission())stealthNoise();
   camera.getWorldDirection(_dir);_right.set(Math.cos(P.yaw),0,-Math.sin(P.yaw));
   _org.copy(camera.position).addScaledVector(_dir,.45).addScaledVector(_right,.14*(1-P.adsAmt)).add(_v.set(0,-.1*(1-P.adsAmt),0));
   let t=rayWorld(camera.position,_dir,250);
@@ -2331,6 +2351,15 @@ function hitMarker(head,killed){hmT=killed?.4:.18;buzz(killed?40:head?25:12);con
 function flashVignette(a){vigT=Math.max(vigT,.35+a*.5);buzz(35)}
 function showDmgDir(src){const dx=src.x-P.pos.x,dz=src.z-P.pos.z;const f=dx*-Math.sin(P.yaw)+dz*-Math.cos(P.yaw),r=dx*Math.cos(P.yaw)+dz*-Math.sin(P.yaw);$('dmgDir').style.transform=`rotate(${Math.atan2(r,f)}rad)`;dmgT=1}
 function centerMsg(s){const el=$('centerMsg');el.textContent=s;el.style.opacity=1;cmT=2.2}
+// Call-of-Duty style score feed beside the crosshair: +100 Frozen, +50 Head-flake, medals...
+function scorePop(pts,label,medal){const box=$('scoreFeed');if(!box)return;const d=document.createElement('div');if(medal)d.className='medal2';d.innerHTML=(pts?'<b>+'+pts+'</b>':'')+esc(label);box.appendChild(d);
+  while(box.children.length>4)box.firstChild.remove();setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),320)},1700)}
+// match announcer: a gruff radio voice for medals, streaks, the clock and the result (multiplayer and quick matches only)
+const ANN={until:0,next:null};
+function announce(txt,prio){if(!G.running||G.camp||G.hub||!voHas('cmd',txt))return;const now=performance.now();
+  if(now<ANN.until&&!prio){ANN.next=txt;return}if(prio)voStop();ANN.next=null;const e=VOX.idx[voKey('cmd',txt)];ANN.until=now+(e[1]+.25)*1000;
+  voSay('cmd',txt,()=>{ANN.until=0;if(ANN.next){const n=ANN.next;ANN.next=null;announce(n)}},1.05,true)}
+const ANN_LINES=["Team Snowball. First squad to forty freezes wins. Move out!","Gift Grab. Freeze them, grab their gifts. Go!","First frost!","Double kill!","Triple kill!","Snowstorm!","Reindeer Recon is up.","Snowman sentry deployed.","Sleigh strike inbound!","Frosty drone away.","Blizzard incoming!","Peppermint mortars, inbound!","Enemy blizzard! Brace yourselves!","Killstreak ready.","One minute remaining.","We've taken the lead.","We've lost the lead.","Five more and we win it!","They're five away. Dig in!","Victory!","Defeat.","Draw.","Final killcam."];
 function xpPop(s){const el=$('xpPop');el.textContent=s;xpT=1.2}
 let ribT=null;
 function showRibbon(name,head,medal){const box=$('ribbon');box.innerHTML='';
@@ -2523,7 +2552,7 @@ function startMatch(net){
   if(!(net&&net.map))net=null;
   const camp=G.campStart;G.campStart=null;G.camp=camp?camp:null;const hub=G.hubStart;G.hubStart=false;
   clearMatch();G.hub=!!hub;loadMap(hub?'workshop':camp?camp.map:net?net.map:SETTINGS.map);
-  G.mode=net||camp?'tdm':SETTINGS.mode;G.diff=net?net.diff:SETTINGS.diff;G.limit=G.mode==='gift'?30:40;G.timeLeft=net?(net.tl||480):480;G.scores=[0,0];G.uavT=0;G.blizzardT=0;G.over=false;G.paused=false;G.time=0;
+  G.mode=net||camp?'tdm':SETTINGS.mode;G.diff=net?net.diff:SETTINGS.diff;G.limit=G.mode==='gift'?30:40;G.timeLeft=net?(net.tl||480):480;G.scores=[0,0];G.leadSign=0;G.near0=G.near1=false;G.uavT=0;G.blizzardT=0;G.over=false;G.paused=false;G.time=0;
   const n=+SETTINGS.size;const cls=CLASSES[SETTINGS.cls]||CLASSES[0];
   P=makeEntity(net?NET.team:0,true,net?myNick():'You',cls);P.id=net?NET.myId:'you';P.streaks=[];P.adsAmt=0;addEnt(P);
   botN=Math.random()*20|0;
@@ -2533,6 +2562,8 @@ function startMatch(net){
   if(hub){P.pos.set(-10,0,5);P.yaw=-Math.PI/2;P.pitch=0;P.protT=1e9;P.vel.set(0,0,0)}
   if(net&&NET.isHost)hostBalance();
   document.body.classList.toggle('camp',!!camp);$('campHud').hidden=!camp;$('bossBar').hidden=true;if(camp){G.timeLeft=1e9;const mm=MISSIONS[camp.i];if(mm&&mm.env)applyEnv(Object.assign({},MAP.env,mm.env));campBegin()}
+  else if(!hub){voPreload(ANN_LINES.map(t=>['cmd',t]));ANN.until=0;ANN.next=null;const mode=G.mode;setTimeout(()=>{if(G.running&&!G.over)announce(mode==='gift'?'Gift Grab. Freeze them, grab their gifts. Go!':'Team Snowball. First squad to forty freezes wins. Move out!',true)},700)}
+  KC.buf=[];KC.last=null;KC.done=false;KC.on=false;
   $('goal').textContent=(net?'Online':G.mode==='gift'?'Gift Grab':'Team Snowball')+' · first to '+G.limit;
   $('menu').hidden=true;$('end').hidden=true;$('pause').hidden=true;$('death').hidden=true;$('hud').hidden=false;
   if(isTouch)setupTouchOnce();
@@ -2558,10 +2589,11 @@ function showDeath(k,wn){
   setTimeout(()=>{if(!P.alive&&G.running&&!G.over)$('death').hidden=false},700);
 }
 function endMatch(msg){
+  if(!msg&&!NET.on&&!G.camp&&!KC.on&&!KC.done&&KC.last&&G.time-KC.last.t<6&&KC.buf.length>30){G.over=true;mouseL=false;T.fire=false;if(document.pointerLockElement)document.exitPointerLock();startKillcam(()=>endMatch(msg));return}
   G.over=true;mouseL=false;T.fire=false;if(document.pointerLockElement)document.exitPointerLock();
   if(NET.on&&NET.isHost){NET.cfg.st='end';NET.cfg.sc=G.scores.slice();pushPresence()}
   const win=G.scores[0]>G.scores[1]?0:G.scores[1]>G.scores[0]?1:-1;
-  $('endTitle').textContent=msg?msg:win===P.team?'Victory':win===-1?'Draw':'Defeat';
+  $('endTitle').textContent=msg?msg:win===P.team?'Victory':win===-1?'Draw':'Defeat';if(!msg)announce(win===P.team?'Victory!':win===-1?'Draw.':'Defeat.',true);
   $('againBtn').hidden=NET.on&&(!NET.isHost||!!msg);$('menuBtn').textContent=NET.on?'Back to lobby':'Main menu';
   $('endSub').textContent=`Santa's Squad ${G.scores[0]} · Frost Legion ${G.scores[1]}`;
   // XP for the match, then the scoreboard and level progress
@@ -3540,7 +3572,7 @@ function frame(now){fitView();
   netTick(dt);voteTick(dt);document.body.classList.toggle('ingame',G.running);
   if(touchMode){const show=G.running&&!G.over&&!G.paused&&P&&P.alive&&$('voteScr').hidden&&!padActive&&!CUT.on;const tl=$('touch');if(tl.hidden===show){tl.hidden=!show;if(!show)resetTouchState()}}
   if(CUT.on){cutTick(dt);for(const f of lobby.figs)f.visible=false}
-  else{if(G.running&&(!G.paused||NET.on)){if(!G.over)update(dt);else{updateParts(dt);updateProjs(dt)}}
+  else{if(G.running&&(!G.paused||NET.on)){if(KC.on)kcTick(dt);else if(!G.over)update(dt);else{updateParts(dt);updateProjs(dt)}}
   if(!G.running){menuT+=dt;vm.visible=false;if(TITLE.on){gvExit();titleTick(dt);for(const f of lobby.figs)f.visible=false}else if(gvActive())gvScene(dt);else{gvExit();menuScene(dt)}}else{gvExit();for(const f of lobby.figs)f.visible=false}}
   audioTick(dt);
   // snow follows camera
@@ -3551,6 +3583,46 @@ function frame(now){fitView();
   if(HIGH){sun.position.set(cp.x+SUN_OFF.x,SUN_OFF.y,cp.z+SUN_OFF.z);sun.target.position.set(cp.x,0,cp.z)}
   renderFrame();
 }
+/* ================= FINAL KILLCAM ================= */
+// A rolling 8 s recording of every player and snowball; when the match ends on a kill, it is replayed over the killer's shoulder.
+const KC={buf:[],last:null,on:false,done:false,acc:0,balls:[]};
+function kcRecord(dt){if(G.camp||G.hub)return;KC.acc+=dt;if(KC.acc<1/30)return;KC.acc=0;
+  KC.buf.push({t:G.time,e:G.ents.map(e=>[e,e.pos.x,e.pos.y,e.pos.z,e.yaw,e.pitch,e.alive?1:0,Math.hypot(e.vel.x,e.vel.z),e.crouch||0]),p:G.projs.map(q=>[q.pos.x,q.pos.y,q.pos.z,q.def.size||.09])});
+  while(KC.buf.length&&KC.buf[0].t<G.time-8)KC.buf.shift()}
+function startKillcam(done){const L=KC.last;KC.on=true;KC.cb=done;KC.t0=Math.max(KC.buf[0].t,L.t-3.6);KC.t1=Math.min(KC.buf[KC.buf.length-1].t,L.t+1.5);KC.pt=KC.t0;KC.hit=false;
+  $('kcName').textContent=L.k.isPlayer?'You':L.k.name;$('kcWpn').textContent=L.w+(L.head?' · Head-flake':'');$('kcOv').hidden=false;document.body.classList.add('killcam');
+  for(const q of G.projs)if(q.mesh)q.mesh.visible=false;vm.visible=false;if(Math.abs(camera.fov-62)>.01){camera.fov=62;camera.updateProjectionMatrix()}
+  announce('Final killcam.',true);KC.camInit=false}
+function kcFinish(){if(!KC.on)return;KC.on=false;KC.done=true;$('kcOv').hidden=true;document.body.classList.remove('killcam');for(const b of KC.balls)b.visible=false;const cb=KC.cb;KC.cb=null;cb&&cb()}
+$('kcOv').addEventListener('pointerdown',e=>{e.preventDefault();kcFinish()});
+addEventListener('keydown',e=>{if(KC.on&&(e.code==='Space'||e.code==='Enter'||e.code==='Escape')){e.preventDefault();kcFinish()}});
+const _kq=new THREE.Vector3(),_kr=new THREE.Vector3(),_kd=new THREE.Vector3();
+function kcTick(dt){const L=KC.last,near=Math.abs(KC.pt-L.t);const slow=KC.pt>L.t-.55&&KC.pt<L.t+.35?.28:1;KC.pt+=dt*slow;
+  if(KC.pt>=KC.t1){kcFinish();return}
+  const B=KC.buf;let i=0;while(i<B.length-2&&B[i+1].t<KC.pt)i++;const A=B[i],C=B[i+1]||A;const a=C.t>A.t?clamp((KC.pt-A.t)/(C.t-A.t),0,1):0;
+  const seen=new Set();let kr=null;
+  for(let j=0;j<A.e.length;j++){const r=A.e[j],e=r[0];const r2=C.e.find(x=>x[0]===e)||r;seen.add(e);if(!e.mesh)continue;const m=e.mesh,u=m.userData;
+    const alive=r2[6]&&r[6];const x=lerp(r[1],r2[1],a),y=lerp(r[2],r2[2],a),z=lerp(r[3],r2[3],a),yaw=r[4]+angDiff(r[4],r2[4])*a;
+    if(e===L.k)kr={x,y,z,yaw,pitch:lerp(r[5],r2[5],a)};
+    const dying=e===L.v&&KC.pt>=L.t;
+    if(!alive&&!dying){m.visible=false;continue}
+    m.visible=true;m.position.set(x,y,z);m.rotation.set(0,yaw,0);
+    if(u.mixer)animChar({alive:!dying,isPlayer:false,remote:true,crouch:r[8],frozenT:0,vel:{y:0}},u,r[7],dt*slow);
+    else if(dying){m.rotation.x=-Math.min(Math.PI/2,(KC.pt-L.t)*5)}
+    if(u.marker)u.marker.visible=false;if(u.spawnShield)u.spawnShield.visible=false;if(u.ice)u.ice.visible=false;if(u.tag)u.tag.visible=false}
+  for(const e of G.ents)if(!seen.has(e)&&e.mesh)e.mesh.visible=false;
+  // snowballs in flight
+  for(let k=0;k<A.p.length;k++){let b=KC.balls[k];if(!b){b=new THREE.Mesh(SPH,M.white);fx.add(b);KC.balls.push(b)}const q=A.p[k],q2=C.p[k]&&Math.hypot(C.p[k][0]-q[0],C.p[k][2]-q[2])<6?C.p[k]:q;b.visible=true;b.position.set(lerp(q[0],q2[0],a),lerp(q[1],q2[1],a),lerp(q[2],q2[2],a));b.scale.setScalar(q[3])}
+  for(let k=A.p.length;k<KC.balls.length;k++)KC.balls[k].visible=false;
+  if(!KC.hit&&KC.pt>=L.t){KC.hit=true;const vp=_kq.set(L.v.pos.x,L.v.pos.y+1,L.v.pos.z);const vr=A.e.find(x=>x[0]===L.v);if(vr)vp.set(vr[1],vr[2]+1,vr[3]);puff(vp,26,0xffffff,6,.15,.9);sfx('kill');hitMarker(L.head,true);flashVignette(.25)}
+  updateParts(dt*slow);
+  // over-the-shoulder camera on the killer, easing toward the victim as the shot lands
+  if(kr){if(L.k.mesh)L.k.mesh.visible=true;const cp=Math.cos(kr.pitch);const dir=_kd.set(-Math.sin(kr.yaw)*cp,Math.sin(kr.pitch),-Math.cos(kr.yaw)*cp);
+    const eye=_kq.set(kr.x,kr.y+1.55,kr.z);const right=_kr.set(Math.cos(kr.yaw),0,-Math.sin(kr.yaw));
+    const off=new THREE.Vector3().copy(dir).multiplyScalar(-2.4).addScaledVector(right,.95);off.y+=.8;const ol=off.length();off.divideScalar(ol);const h=Math.max(.5,Math.min(ol,rayWorld(eye,off,ol)-.25));
+    const want=new THREE.Vector3().copy(eye).addScaledVector(off,h);if(!KC.camInit||near>3.5&&KC.pt-KC.t0<.05){camera.position.copy(want);KC.camInit=true}else camera.position.lerp(want,Math.min(1,dt*6));
+    const look=new THREE.Vector3().copy(eye).addScaledVector(dir,25);const vr=A.e.find(x=>x[0]===L.v);if(vr&&KC.pt>L.t-1.2){const k=clamp((KC.pt-(L.t-1.2))/1,0,.6);look.lerp(_kq.set(vr[1],vr[2]+1.1,vr[3]),k)}
+    camera.up.set(0,1,0);camera.lookAt(look)}}
 function deadVisual(e){if(!e.mesh)return;const u=e.mesh.userData;
   if(u.mixer){if(e.deadT>2.6)e.mesh.visible=false}
   else{e.mesh.rotation.x=Math.max(-Math.PI/2,-e.deadT*5);e.mesh.position.y=e.pos.y+Math.min(.3,e.deadT);if(e.deadT>1.6)e.mesh.visible=false}}
@@ -3584,7 +3656,7 @@ function update(dt){
   G.time+=dt;
   if(G.countdown>0){G.countdown-=dt;const n=Math.ceil(G.countdown-.6);if(n!==G.cdShown){G.cdShown=n;const el=$('countdown');el.classList.remove('pop');void el.offsetWidth;
       if(n>0){el.textContent=n;sfx('count')}else{el.textContent='Snow!';sfx('go');centerMsg(MAP.name)}el.classList.add('pop')}}
-  if((!NET.on||NET.isHost)&&G.countdown<=0){G.timeLeft-=dt;if(G.timeLeft<=0){G.timeLeft=0;checkEnd()}}
+  if((!NET.on||NET.isHost)&&G.countdown<=0){if(G.timeLeft>60&&G.timeLeft-dt<=60&&!G.camp)announce('One minute remaining.');G.timeLeft-=dt;if(G.timeLeft<=0){G.timeLeft=0;checkEnd()}}
   if(NET.on&&NET.inGame){netSync();if(G.over)return}
   G.uavT=Math.max(0,G.uavT-dt);
   if(G.blizzardT>0){G.blizzardT-=dt;scene.fog.near=lerp(scene.fog.near,8,dt*2);scene.fog.far=lerp(scene.fog.far,60,dt*2)}else{scene.fog.near=lerp(scene.fog.near,FOG_BASE[0],dt);scene.fog.far=lerp(scene.fog.far,FOG_BASE[1],dt)}
@@ -3604,6 +3676,7 @@ function update(dt){
     if(e.isPlayer){if(!G.paused)updatePlayer(dt);else{P.vel.x*=.8;P.vel.z*=.8;moveEntity(P,dt)}}else updateBot(e,dt);
     if(e.pos.y<-5){e.pos.set(0,5,0)}
   }
+  kcRecord(dt);
   // bot visuals
   for(const e of G.ents){if(!e.mesh||!e.mesh.visible)continue;const m=e.mesh,u=m.userData;const sp=Math.hypot(e.vel.x,e.vel.z);
     if(u.mixer){if(e.alive){m.position.copy(e.pos);m.rotation.set(0,e.yaw,0)}animChar(e,u,sp,dt);
@@ -3641,6 +3714,11 @@ function updatePlayer(dt){
   const trigger=!!(mouseL||T.fire||PAD.fire)&&!G.hub;
   const sprintKey=held('sprint')||keys.ShiftRight||(touchMode&&(SETTINGS.tlayout==='classic'?T.jy>.82&&Math.abs(T.jx)<.5:T.sprint))||(padActive&&PAD.sprint);
   p.sprinting=!sliding&&sprintKey&&fz>0&&!crouchIn&&!trigger&&p.reloadT<=0&&!(mouseR||T.ads||PAD.ads);
+  // tactical sprint: double-tap sprint (or keep sprinting a moment on touch) for a short burst of extra speed
+  {const sk=!!sprintKey;if(sk&&!p.skPrev){if(G.time-(p.skTap||-9)<.4||G.time-(p.sprSeen||-9)<.3)p.tacWant=true;p.skTap=G.time}p.skPrev=sk;if(p.sprinting)p.sprSeen=G.time;
+   if(touchMode&&p.sprinting){p.sprintHeld=(p.sprintHeld||0)+dt;if(p.sprintHeld>1.1&&!p.tacUsed){p.tacWant=true;p.tacUsed=true}}else{p.sprintHeld=0;p.tacUsed=false}
+   p.tacCd=(p.tacCd||0)-dt;if(p.tacWant&&p.sprinting&&p.tacCd<=0){p.tacT=3.2;p.tacCd=5;footstep(p,1);play('throw',{vol:.3,rate:.6})}p.tacWant=false;
+   if(!p.sprinting)p.tacT=0;else p.tacT=(p.tacT||0)-dt}
   if(sprintKey&&fz>0&&crouchOn&&!(p.slideT>0)&&!crouchEdge)crouchOn=false;
   if(p.sprinting)p.sprintOut=.12*(def.mobility>=1?.8:1.15);else p.sprintOut=Math.max(0,(p.sprintOut||0)-dt);
   const adsWant=(mouseR||T.ads||PAD.ads||(touchMode&&SETTINGS.fireAds&&trigger&&!def.model.tube))&&!p.sprinting&&p.swapT<=0&&p.frozenT<=0;
@@ -3652,13 +3730,18 @@ function updatePlayer(dt){
   // lean / peek: hold a lean key; the camera slides out and tilts, stopping short of walls
   const leanWant=(held('leanR')||T.leanR?1:0)-(held('leanL')||T.leanL?1:0);p.leanT=lerp(p.leanT||0,p.sprinting?0:leanWant,Math.min(1,dt*10));
   if(meleeQ){meleeQ=false;playerMelee()}
-  let speed=6.2*def.mobility*(1-.3*Math.abs(p.leanT||0))*(p.cls.perk==='bells'?1.12:1)*(p.sprinting?1.55:1)*(1-.45*p.crouch)*(1-.4*p.adsAmt)*(p.slowT>0?.5:1);
+  if(p.mantle){const m=p.mantle;m.t+=dt;const k=Math.min(1,m.t/m.d),ky=Math.min(1,k/.6),kx=Math.max(0,(k-.3)/.7);
+    p.pos.x=lerp(m.fx,m.tx,kx);p.pos.z=lerp(m.fz,m.tz,kx);p.pos.y=lerp(m.fy,m.ty,1-(1-ky)*(1-ky));p.vel.set(0,0,0);p.onGround=false;jumpQ=false;
+    if(k>=1){p.mantle=null;p.pos.y=m.ty;p.onGround=true;footstep(p,.6)}return}
+  let speed=6.2*def.mobility*(1-.3*Math.abs(p.leanT||0))*(p.cls.perk==='bells'?1.12:1)*(p.sprinting?(p.tacT>0?1.85:1.55):1)*(1-.45*p.crouch)*(1-.4*p.adsAmt)*(p.slowT>0?.5:1);
   if(p.frozenT>0)speed=0;
   const fl=Math.hypot(fx,fz);if(fl>1){fx/=fl;fz/=fl}
   const sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);
   let wx=(-sy*fz+cy*fx)*speed,wz=(-cy*fz-sy*fx)*speed;
   if(sliding){const ss=6.2*1.75*Math.pow(p.slideT/.75,.6)+2;wx=p.slideX*ss;wz=p.slideZ*ss;p.vel.x+=(wx-p.vel.x)*Math.min(1,dt*10);p.vel.z+=(wz-p.vel.z)*Math.min(1,dt*10)}
   else accelerate(p,wx,wz,dt);
+  if(jumpQ)p.jumpAt=G.time;
+  if(fz>0&&p.frozenT<=0&&!sliding&&((jumpQ&&p.onGround)||(!p.onGround&&p.vel.y<4&&G.time-(p.jumpAt||-9)<.7))&&tryMantle(p)){jumpQ=false}
   if(jumpQ&&p.onGround&&p.frozenT<=0){crouchOn=false;if(T.crouch){T.crouch=false;$('tbCrouch').classList.remove('on')}PAD.crouch=false;p.vel.y=7.8;p.onGround=false;footstep(p,.7)}jumpQ=false;
   const wasGround=p.onGround,vy=p.vel.y;
   moveEntity(p,dt);
@@ -3672,6 +3755,8 @@ function updatePlayer(dt){
   if(w.ammo===0&&p.reloadT<=0&&p.cd<=0&&!trigger)startReload(p);
 }
 let landDip=0,camRoll=0,swayX=0,swayY=0,fovK=75,dcPos=new THREE.Vector3(),dcInit=false;
+// muzzle flash: a cold blue-white flicker on every shot (always in the scene so it never forces a shader rebuild)
+const MFL=new THREE.PointLight(0xd6ecff,0,8,2);MFL.position.set(.22,-.12,-1.3);camera.add(MFL);if(!camera.parent)scene.add(camera);
 function updateCamera(dt){
   const p=P,def=p.w[p.cur].def;
   shake=Math.max(0,shake-dt*1.6);
@@ -3693,7 +3778,7 @@ function updateCamera(dt){
   const lv=p.vel.x*Math.cos(p.yaw)-p.vel.z*Math.sin(p.yaw);camRoll=lerp(camRoll,(p.slideT>0?.07:0)-lv*.006*(1-ads),Math.min(1,dt*8));
   camera.position.x+=rand(-1,1)*shake*.03;camera.position.y+=rand(-1,1)*shake*.03;   // shake moves the view, never your aim
   camera.rotation.set(p.pitch+p.recoil,p.yaw,camRoll*.6-(p.leanT||0)*.2);
-  const zz=Math.max(def.zoom||1,1.18);const tf=(SETTINGS.fov+(p.sprinting?7:0))/(1+(zz-1)*p.adsAmt);fovK=lerp(fovK,tf,Math.min(1,dt*10));if(Math.abs(camera.fov-fovK)>.01){camera.fov=fovK;camera.updateProjectionMatrix()}
+  const zz=Math.max(def.zoom||1,1.18);p.punch=(p.punch||0)*Math.exp(-dt*14);MFL.intensity=Math.max(0,MFL.intensity-dt*16);const tf=(SETTINGS.fov+(p.sprinting?(p.tacT>0?15:7):0)-p.punch*(1-p.adsAmt*.6))/(1+(zz-1)*p.adsAmt);fovK=lerp(fovK,tf,Math.min(1,dt*10));if(Math.abs(camera.fov-fovK)>.01){camera.fov=fovK;camera.updateProjectionMatrix()}
   vm.visible=true;
   vmKick=Math.max(0,vmKick-dt*8);swayX*=Math.exp(-dt*9);swayY*=Math.exp(-dt*9);
   const sightY=(vm.userData.sightY!==undefined?vm.userData.sightY:(vm.userData.top||.07)+.03)*vm.scale.y;
