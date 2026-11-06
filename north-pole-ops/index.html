@@ -960,8 +960,8 @@ const DEFAULT_CLASSES=[
 let CLASSES=store('npo-classes-v1');
 // Gunsmith: attachments (pick up to 3) and weapon camos, unlocked by player level
 const ATTACH={
-  reddot:{name:'Holly Red Dot',slot:'Optic',lv:2,desc:'Clear red-dot sight with a slight 1.25x zoom. 40% tighter aim-down-sights accuracy and quicker to aim.',mod:d=>{d.zoom=Math.max(d.zoom||1,1)+.25;d.ads*=.6;d.adst*=.92}},
-  scope2:{name:'Ice Scope 2x',slot:'Optic',lv:10,desc:'2x zoom for long lanes and 50% tighter aim-down-sights accuracy. 25% slower to aim.',mod:d=>{d.zoom+=.7;d.adst*=1.25;d.ads*=.5}},
+  reddot:{name:'Holly Holo Sight',slot:'Optic',lv:2,desc:'Holographic sight with a glowing ring-and-dot reticle and a slight 1.25x zoom. 40% tighter aim-down-sights accuracy and quicker to aim.',mod:d=>{d.zoom=Math.max(d.zoom||1,1)+.25;d.ads*=.6;d.adst*=.92}},
+  scope2:{name:'Ice Scope 3x',slot:'Optic',lv:10,desc:'A real 3x magnified view inside the scope, with a crosshair and range ticks. 50% tighter aim-down-sights accuracy. 25% slower to aim.',mod:d=>{d.zoom+=.2;d.adst*=1.25;d.ads*=.5}},
   longbar:{name:'Long Barrel',slot:'Barrel',lv:3,desc:'Faster, flatter shots and longer range. Slightly heavier.',mod:d=>{d.speed*=1.18;d.range*=1.3;d.mobility*=.97}},
   shortbar:{name:'Stubby Barrel',slot:'Barrel',lv:9,desc:'Lighter and quicker to aim. Shorter range.',mod:d=>{d.mobility*=1.04;d.adst*=.85;d.range*=.8}},
   grip:{name:'Mitten Grip',slot:'Underbarrel',lv:4,desc:'25% less recoil.',mod:d=>{d.rv*=.75;d.rh*=.75}},
@@ -2354,6 +2354,47 @@ function camoMat(id){if(CAMO_MAT[id])return CAMO_MAT[id];let m;
   else if(id==='aurora')m=pat((g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'#1fd18a');gr.addColorStop(.5,'#5a3fd0');gr.addColorStop(1,'#1fb0d1');g.fillStyle=gr;g.fillRect(0,0,w,h)},{roughness:.3,emissive:new THREE.Color(0x0a2a2a)});
   else if(id==='diamond')m=mat(0xcff6ff,{metal:.9,rough:.08,emissive:0x0a2030});
   return CAMO_MAT[id]=m}
+/* ---------- optics: an EOTech-style holographic sight and a picture-in-picture magnified scope ----------
+   The scope uses the standard render-target ("PiP") technique: a second camera renders a magnified view
+   into a texture shown only inside the eyepiece, while the rest of the screen stays at normal zoom. */
+let GUN_FOR_VM=false;
+const HOLO_TEX=(()=>{const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.translate(128,128);g.strokeStyle='#ff3a5c';g.fillStyle='#ff3a5c';g.shadowColor='#ff2050';g.shadowBlur=14;
+  g.lineWidth=7;g.beginPath();g.arc(0,0,78,0,7);g.stroke();for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5]){g.save();g.rotate(a);g.fillRect(-3.5,-96,7,16);g.restore()}g.beginPath();g.arc(0,0,8,0,7);g.fill();
+  const t=new THREE.CanvasTexture(c);return t})();
+function optHolo(g,z,metal){const y=.112,hm=mat(0x1b1e24,{metal:.55,rough:.38}),dark=mat(0x0d0f12,{rough:.6});
+  mk(BOX,hm,0,y-.05,z,.036,.03,.075,g,false);mk(BOX,hm,0,y-.066,z,.05,.01,.06,g,false);                  // body + rail clamp
+  mk(BOX,dark,.03,y-.064,z+.01,.012,.012,.03,g,false);                                                        // clamp knob
+  mk(BOX,hm,0,y-.032,z,.056,.008,.064,g,false);                                                              // window floor
+  for(const sx of [-.026,.026])mk(BOX,hm,sx,y-.004,z,.006,.05,.064,g,false);                                 // hood sides
+  mk(BOX,hm,0,y+.024,z,.058,.007,.064,g,false);                                                              // hood top
+  mk(BOX,dark,0,y-.05,z+.04,.03,.022,.006,g,false);for(const bx of [-.008,.008])mk(BOX,mat(0x444a55),bx,y-.05,z+.044,.006,.006,.003,g,false); // rear buttons
+  const glass=new THREE.Mesh(new THREE.PlaneGeometry(.044,.05),new THREE.MeshBasicMaterial({color:0x9fd8ff,transparent:true,opacity:.07,depthWrite:false}));glass.position.set(0,y-.004,z-.022);g.add(glass);
+  if(GUN_FOR_VM){const ret=new THREE.Mesh(new THREE.PlaneGeometry(.03,.03),new THREE.MeshBasicMaterial({map:HOLO_TEX,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}));ret.position.set(0,y-.003,z-.0215);ret.renderOrder=8;g.add(ret)}}
+const SCOPE={rt:null,cam:null,mat:null};
+function scopeMat(){if(SCOPE.mat)return SCOPE.mat;const sz=HIGH?640:384;SCOPE.rt=new THREE.WebGLRenderTarget(sz,sz);SCOPE.cam=new THREE.PerspectiveCamera(20,1,.05,500);
+  SCOPE.mat=new THREE.ShaderMaterial({uniforms:{tMap:{value:SCOPE.rt.texture},uLive:{value:0}},toneMapped:false,
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:`uniform sampler2D tMap;uniform float uLive;varying vec2 vUv;
+      void main(){vec2 p=vUv-.5;float r=length(p);if(r>.5)discard;
+        vec3 c=mix(vec3(.05,.08,.11),texture2D(tMap,vUv).rgb,uLive);
+        c*=1.-smoothstep(.34,.5,r)*.9;                                   // dark ring where the tube edge is
+        float lw=.0035;float hx=(1.-smoothstep(lw,lw*1.9,abs(p.y)))*step(.045,abs(p.x));float hy=(1.-smoothstep(lw,lw*1.9,abs(p.x)))*step(.045,abs(p.y));
+        float thick=step(.24,abs(p.x))*(1.-smoothstep(lw*2.6,lw*3.6,abs(p.y)))+step(.24,abs(p.y))*(1.-smoothstep(lw*2.6,lw*3.6,abs(p.x)));
+        float ticks=0.;for(int i=1;i<4;i++){float d=float(i)*.06;ticks+=(1.-smoothstep(.002,.004,abs(abs(p.x)-d)))*(1.-smoothstep(.012,.016,abs(p.y)))*step(abs(p.x),.2);ticks+=(1.-smoothstep(.002,.004,abs(abs(p.y)-d)))*(1.-smoothstep(.012,.016,abs(p.x)))*step(abs(p.y),.2);}
+        c=mix(c,vec3(.015),clamp(max(max(hx,hy),max(thick,ticks)),0.,1.)*.9);
+        float dot=1.-smoothstep(.007,.013,r);c=mix(c,vec3(1.,.18,.25),dot);c+=vec3(1.,.1,.2)*(1.-smoothstep(.0,.03,r))*.25;
+        gl_FragColor=vec4(c,1.);}`});return SCOPE.mat}
+function optScope(g,z){const tm=mat(0x16181d,{metal:.65,rough:.3}),acc=mat(0x2b2f37,{metal:.6,rough:.35}),y=.09,L=.22;
+  // body: objective bell, tube, ocular bell (a lathe profile, like a real riflescope)
+  const prof=[[0,-L/2],[.031,-L/2],[.033,-L/2+.012],[.029,-L/2+.05],[.021,-L/2+.075],[.021,L/2-.06],[.026,L/2-.035],[.028,L/2-.01],[.026,L/2],[0,L/2]].map(([r,h])=>new THREE.Vector2(r,h));
+  const body=new THREE.Mesh(new THREE.LatheGeometry(prof,28),tm);body.rotation.x=Math.PI/2;body.position.set(0,y,z);g.add(body);
+  mk(CYL,acc,0,y+.026,z,.01,.02,.01,g,false);const st=mk(CYL,acc,.026,y,z,.01,.02,.01,g,false);st.rotation.z=Math.PI/2;            // turrets
+  for(const dz of [-.05,.05]){mk(BOX,acc,0,y-.03,z+dz,.022,.03,.016,g,false);const rg=new THREE.Mesh(new THREE.TorusGeometry(.023,.004,6,20),acc);rg.position.set(0,y,z+dz);g.add(rg)} // ring mounts
+  const front=new THREE.Mesh(new THREE.CircleGeometry(.028,24),new THREE.MeshBasicMaterial({color:0x2a5b80,transparent:true,opacity:.85}));front.position.set(0,y,z-L/2-.001);front.rotation.y=Math.PI;g.add(front);
+  const eye=new THREE.Mesh(new THREE.CircleGeometry(.025,32),GUN_FOR_VM?scopeMat():new THREE.MeshBasicMaterial({color:0x10202c}));eye.position.set(0,y,z+L/2+.001);eye.renderOrder=6;g.add(eye)}
+function scopePass(){if(!SCOPE.mat||!G.running||!P||!P.alive||vm.userData.dot!=='scope2'||P.adsAmt<.2||CUT.on||G.veh){if(SCOPE.mat)SCOPE.mat.uniforms.uLive.value=0;return}
+  const cam=SCOPE.cam;camera.updateMatrixWorld();cam.position.setFromMatrixPosition(camera.matrixWorld);cam.quaternion.setFromRotationMatrix(camera.matrixWorld);cam.fov=SETTINGS.fov/3.2;cam.near=.1;cam.far=camera.far;cam.updateProjectionMatrix();
+  const vv=vm.visible;vm.visible=false;renderer.setRenderTarget(SCOPE.rt);renderer.render(scene,cam);renderer.setRenderTarget(null);vm.visible=vv;SCOPE.mat.uniforms.uLive.value=1}
 function buildGun(def,shadow){
   // a multi-part snowball blaster pointing down -Z, sized in metres
   const md=def.model,L=md.len,g=new THREE.Group(),sh=shadow!==false;
@@ -2389,10 +2430,8 @@ function buildGun(def,shadow){
     if(L>.3){mk(BOX,grip,0,.03,.1,.05,.026,.12,g,false)}                                        // cheek rest
   }
   const att=def.att||[];
-  if(att.includes('reddot')&&!md.scope){const z=-rl*.6,y=.112;mk(BOX,metal,0,y-.032,z,.05,.012,.07,g,false);mk(BOX,metal,0,y-.055,z,.034,.04,.05,g,false);mk(BOX,metal,0,y+.026,z,.05,.008,.07,g,false);for(const sx of [-.022,.022])mk(BOX,metal,sx,y-.003,z,.006,.05,.07,g,false);mk(BOX,metal,0,y-.045,z,.03,.02,.05,g,false);
-    const gl=mk(BOX,new THREE.MeshBasicMaterial({color:C(0x9fe0ff),transparent:true,opacity:.07,depthWrite:false}),0,y-.003,z+.03,.038,.046,.002,g,false);gl.renderOrder=7}
-  if(att.includes('scope2')&&!md.scope){const tm=mat(0x15171c,{metal:.6,rough:.3});tm.side=THREE.DoubleSide;const tube=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.2,24,1,true),tm);tube.position.set(0,.09,-rl*.55);tube.rotation.x=Math.PI/2;g.add(tube);
-    for(const dz of [-.1,.1]){const rg=mk(new THREE.TorusGeometry(.029,.006,8,28),tm,0,.09,-rl*.55+dz,1,1,1,g,false)}mk(BOX,tm,0,.055,-rl*.55,.02,.03,.06,g,false);const kn=mk(CYL,tm,0,.122,-rl*.55,.012,.016,.012,g,false)}
+  if(att.includes('reddot')&&!md.scope)optHolo(g,-rl*.6,metal);
+  if(att.includes('scope2')&&!md.scope)optScope(g,-rl*.55);
   if(att.includes('longbar')&&!md.tube){const lb=mk(CYL,metal,0,.004,-L*1.2,.017,L*.3,.017,g,false);lb.rotation.x=Math.PI/2}
   if(att.includes('grip')){mk(BOX,grip,0,-.085,-rl*.85,.035,.09,.04,g,false)}
   if(att.includes('laser')){mk(BOX,metal,.045,-.03,-rl*.9,.025,.025,.06,g,false);mk(SPH,mat(0xff2e44,{emissive:0xff0022,emissiveIntensity:2}),.045,-.03,-rl*.9-.032,.008,.008,.008,g,false)}
@@ -2403,7 +2442,7 @@ function buildGun(def,shadow){
 const meleeVM=new THREE.Group();(function(){const c=mk(CYL,M.cane,0,0,-.25,.03,.6,.03,meleeVM,false);c.rotation.x=Math.PI/2;const h=mk(TORUS,M.cane,0,.0,-.55,.32,.32,.32,meleeVM,false);h.rotation.y=Math.PI/2;mk(SPH,mat(0xd7263d,{rough:.9}),0,-.02,.02,.065,.07,.08,meleeVM,false)})();meleeVM.visible=false;camera.add(meleeVM);
 function buildViewmodel(){
   while(vm.children.length)vm.remove(vm.children[0]);
-  const def=P.w[P.cur].def,g=buildGun(def,false);
+  const def=P.w[P.cur].def;GUN_FOR_VM=true;const g=buildGun(def,false);GUN_FOR_VM=false;
   // mitten + fur cuff
   mk(SPH,mat(0xd7263d,{rough:.9}),0,-.12,.0,.065,.07,.08,g,false);mk(CYL,M.white,0,-.13,.08,.07,.06,.07,g,false).rotation.x=Math.PI/2;
   mk(SPH,mat(0xd7263d,{rough:.9}),0,-.03,-def.model.len*.62,.055,.05,.065,g,false);
@@ -2412,7 +2451,7 @@ function buildViewmodel(){
   // real sights: a red-dot housing if equipped, otherwise rear notch + front post. ADS lines this up with the screen centre.
   const top=vm.userData.top,L=def.model.len,att=def.att||[],sm=mat(0x22262e,{metal:.7,rough:.35}),glowM=new THREE.MeshBasicMaterial({color:0xffd23d});let sy;
   if(def.scope){sy=top+.02}
-  else if(att.includes('reddot')||att.includes('scope2')){sy=att.includes('reddot')?.109:.09}
+  else if(att.includes('reddot')||att.includes('scope2')){sy=att.includes('reddot')?.108:.09}
   else{sy=top+.03;for(const sx of [-.017,.017]){const r=mk(BOX,sm,sx,top+.017,-L*.08,.012,.034,.014,g,false);r.renderOrder=5}mk(BOX,sm,0,top+.012,-L*.08,.046,.012,.016,g,false).renderOrder=5;
     const fp=mk(BOX,sm,0,top+.02,-L*.93,.008,.04,.01,g,false);fp.renderOrder=5;const dot=mk(SPH,glowM,0,sy,-L*.93,.0055,.0055,.0055,g,false);dot.renderOrder=6}
   vm.userData.sightY=sy;vm.userData.dot=def.scope?'':att.includes('scope2')?'scope2':att.includes('reddot')?'red':'iron';
@@ -2500,7 +2539,7 @@ function updateHud(dt){
   const gr=Math.round(gap);if(gr!==chGap){chGap=gr;const ch=$('crosshair').children;ch[0].style.top=(-gr-9)+'px';ch[1].style.top=gr+'px';ch[2].style.left=(-gr-9)+'px';ch[3].style.left=gr+'px'}
   $('crosshair').style.opacity=scoped||P.sprinting||G.veh?(G.veh?1:0):(P.adsAmt>.35?Math.max(0,1-(P.adsAmt-.35)*3):1);
   {const r=$('adsRet');const on=!scoped&&!G.veh&&!G.hub&&P.alive&&P.adsAmt>.72&&P.reloadT<=0;r.style.opacity=on?Math.min(1,(P.adsAmt-.72)*5):0;
-   const s2=on&&vm.userData.dot==='scope2';const k=s2?Math.min(1,(P.adsAmt-.72)*4):0;$('scope2Ov').style.opacity=k;if(vm.userData.g)vm.userData.g.visible=!(s2&&P.adsAmt>.9)}
+   $('scope2Ov').style.opacity=0;if(vm.userData.g)vm.userData.g.visible=true;if(vm.userData.dot==='red'||vm.userData.dot==='scope2')r.style.opacity=0}
   renderStreaks();mmT-=dt;if(mmT<=0){mmT=1/12;drawMinimap()}
   if(showBoard)renderBoard();
 }
@@ -4089,7 +4128,7 @@ function gradeFor(env){if(!gradePass||!env)return;const u=gradePass.uniforms;con
   u.uSat.value=storm?1.0:night?1.08:1.14;u.uCon.value=night?1.1:1.06;u.uVig.value=night?.42:.3;
   const t=new THREE.Color(env.sun);u.uGain.value.set(.94+t.r*.08,.94+t.g*.08,.94+t.b*.08);u.uLift.value.set(night?.0:.012,night?.006:.006,night?.03:.014)}
 let bloomSlow=0,bloomLast=0;
-function renderFrame(){const now=performance.now(),ft=now-(bloomLast||now);bloomLast=now;
+function renderFrame(){const now=performance.now(),ft=now-(bloomLast||now);bloomLast=now;scopePass();
   if(composer&&SETTINGS.bloom!=='off'){if(ft>30&&ft<250){bloomSlow+=ft/1000;if(bloomSlow>2.5){composer=null;console.log('bloom auto-off (slow frames)')}}else bloomSlow=Math.max(0,bloomSlow-.01);
     if(composer){try{if(gradePass)gradePass.uniforms.uTime.value=(now%10000)/1000;if(composer._pr!==renderer.getPixelRatio()){composer._pr=renderer.getPixelRatio();composer.setPixelRatio(composer._pr)}composer.render();return}catch(e){composer=null}}}
   renderer.render(scene,camera)}
@@ -4397,7 +4436,7 @@ function updateCamera(dt){
   vm.visible=true;
   vmKick=Math.max(0,vmKick-dt*8);swayX*=Math.exp(-dt*9);swayY*=Math.exp(-dt*9);
   const sightY=(vm.userData.sightY!==undefined?vm.userData.sightY:(vm.userData.top||.07)+.03)*vm.scale.y;
-  let x=lerp(.24,0,ads),y=lerp(-.24,-sightY,ads)+(Math.abs(Math.sin(bobT))*-.025*bob-landDip*.3)*(1-ads*.85),z=lerp(-.45,-.3,ads)+vmKick*.07*(1-ads*.6);
+  let x=lerp(.24,0,ads),y=lerp(-.24,-sightY,ads)+(Math.abs(Math.sin(bobT))*-.025*bob-landDip*.3)*(1-ads*.85),z=lerp(-.45,vm.userData.dot==='scope2'?-.13:vm.userData.dot==='red'?-.24:-.3,ads)+vmKick*.07*(1-ads*.6);
   x+=(Math.sin(bobT)*.02*bob+swayX)*(1-ads*.92);y+=swayY*(1-ads*.92);
   let rx=(vmKick*.18+swayY*1.5)*(1-ads*.85),ry=swayX*2*(1-ads*.9),rz=-swayX*1.5*(1-ads*.9);
   if(p.sprinting){rx=-.35;ry=.5;y-=.06;x+=.04}
