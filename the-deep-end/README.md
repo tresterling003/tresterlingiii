@@ -2,7 +2,7 @@
 
 A first-person horror game set in flooded, endlessly tiled poolrooms. You keep to the narrow walkways under grids of fluorescent lights while something hunts you through the water.
 
-To play, open `index.html` in a browser on your phone or computer. The water, the creatures and the sound are all generated in code. three.js loads from a CDN.
+**Play it on your phone:** https://claude.ai/artifact/1Ww5ycq4qRUVwKXKxNAZhW. You can also open `index.html` from any web host. The models are packed as base64 JSON in `assets/`.
 
 ## How it plays
 - **The Swimmer** is a tall, emaciated pale figure with a stretched, screaming human face. It wades through the water and hunts by sound. Wading makes noise, and running makes a lot more. It can't climb onto dry tiles, so sneak through the water and get out when you hear it coming. Your flashlight helps it see you.

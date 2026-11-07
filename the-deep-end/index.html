@@ -745,11 +745,21 @@ Builder.prototype.mesh=function(mat){
 
 /* ---------- giant marble head (scanned bust) ---------- */
 let HEAD=null;
+// models ship as base64 inside JSON so they can be served from any static host
+async function loadGLB(url){
+  const j=await (await fetch(url)).json();
+  const str=atob(j.glb),buf=new Uint8Array(str.length);for(let i=0;i<str.length;i++)buf[i]=str.charCodeAt(i);
+  // decode embedded textures through <img> (allowed by strict page policies) rather than fetch(blob:)
+  const cib=window.createImageBitmap;try{window.createImageBitmap=undefined}catch(e){}
+  const p=new GLTFLoader().parseAsync(buf.buffer,'');
+  try{window.createImageBitmap=cib}catch(e){}
+  return await p;
+}
 const HEAD_NORMAL=new THREE.TextureLoader().load('assets/head_normal.jpg');
 const headMat=causticify(new THREE.MeshStandardMaterial({map:MARBLE,normalMap:HEAD_NORMAL,color:0xd2d0cb,roughness:.58,metalness:0,envMapIntensity:.55,normalScale:new THREE.Vector2(1.2,1.2)}),1);
 async function loadHead(){
   try{
-    const g=await new GLTFLoader().loadAsync('assets/head.glb');
+    const g=await loadGLB('assets/head.json');
     let mesh=null;g.scene.traverse(o=>{if(o.isMesh&&!mesh)mesh=o});
     const geo=mesh.geometry.clone();
     const m=new THREE.Mesh(geo,headMat);m.updateMatrixWorld();
@@ -825,7 +835,7 @@ let XBOT=null,FACE=null;
 async function loadBody(){
   try{
     // body: Mixamo "Michelle"; animations: Mixamo "Soldier" idle/walk/run (both from the three.js examples)
-    const [g,anims]=await Promise.all([new GLTFLoader().loadAsync('assets/body.glb'),fetch('assets/anims.json').then(r=>r.json())]);
+    const [g,anims]=await Promise.all([loadGLB('assets/body.json'),fetch('assets/anims.json').then(r=>r.json())]);
     const clips={};for(const j of anims){const c=THREE.AnimationClip.parse(j);clips[c.name.toLowerCase()]=c}
     // the body's armature is authored upside-down relative to the animation source; flip it to match
     const arm=g.scene.getObjectByName('Character');if(arm)arm.rotation.x=-Math.PI/2;
