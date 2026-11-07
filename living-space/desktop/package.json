@@ -75,7 +75,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "artifactName": "Living-Space-Setup-${version}.${ext}"
     },
     "linux": {
       "target": [
@@ -89,7 +90,10 @@
       "icon": "build/icon.png",
       "category": "Utility"
     },
-    "publish": null
+    "publish": null,
+    "portable": {
+      "artifactName": "Living-Space-Portable-${version}.${ext}"
+    }
   },
   "repository": "github:tresterling003/tresterlingiii"
 }

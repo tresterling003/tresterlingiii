@@ -83,5 +83,5 @@ jobs:
             **Living Space** downloads.
             - `living-space.html` — open in any browser (offline room).
             - macOS: `.dmg` — unsigned: right-click the app → Open the first time.
-            - Windows: `…Setup….exe` installer (adds `Living Space.scr`), or the portable `.exe`.
+            - Windows: `Living-Space-Setup-….exe` installer (adds `Living Space.scr`), or `Living-Space-Portable-….exe` (no install).
             - Linux: `.AppImage` — `chmod +x` and run.
