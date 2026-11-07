@@ -1,18 +1,30 @@
 # The Deep End
 
-A first-person horror game about water you can't see the bottom of. You wander endless tiled poolrooms under grids of fluorescent lights, keep to the narrow walkways, and try not to think about what's underneath.
+A first-person horror game set in flooded, endlessly tiled poolrooms. You keep to the narrow walkways under grids of fluorescent lights while something hunts you through the water.
 
-Open `index.html` in a browser (phone or desktop). Everything is in that one file: the 3D scene, the water, the statues and all the sound are generated in code. It loads three.js from a CDN.
+To play, open `index.html` in a browser on your phone or computer. The water, the creatures and the sound are all generated in code. three.js loads from a CDN.
+
+## How it plays
+- **The Swimmer** is a pale thing that crawls through the water and hunts by sound. Wading makes noise, and running makes a lot more. It can't climb onto dry tiles, so sneak through the water and get out when you hear it coming. Your flashlight helps it see you.
+- **The Lifeguard** is a tall figure that stands on far-off tiles and watches you. It's gone before you can reach it.
+- **Watchers** are giant marble heads that open their eyes and turn toward you when you look away.
+- **Heart rate** rises near deep water, in the dark and when you're noticed. If it gets too high, you black out.
+- **Objectives:** each level has a goal, like restoring power with fuses, turning valves, outrunning rising water or finding the stairs. There are checkpoints along the way, and a summary at the end of each level.
+- **Recordings:** nine tapes left by the last maintenance worker tell the story. You can reread them from the menu.
 
 ## Levels
-0. **The Shallows**: flooded tile corridors, a pool drain far below, and eyes painted on the walls.
-1. **The Causeway**: one walkway across open black water. There are gaps to jump, and something pale swims under it.
-2. **The Watchers**: a flooded hall of giant marble heads. They only move when you look away. Turn three valves to open the gate.
-3. **The Rising**: a tile maze where the water keeps rising and the lights go out behind you. Find the stairs.
-4. **The Deep End**: the last walkway, where the stairs only go down.
+0. The Shallows
+1. The Causeway
+2. The Lifeguard
+3. The Watchers
+4. The Rising
+5. The Deep End
 
 ## Controls
-- **Keyboard and mouse:** WASD to move, mouse to look, Shift to run, Space to jump, E to use, F for the flashlight, Esc to pause.
-- **Touch:** drag on the left side to move, drag on the right side to look, and use the on-screen buttons to run, jump, use and turn on the light.
+- **Keyboard and mouse:** WASD to move, mouse to look, Shift to run, C to sneak, Space to jump, E to use, F for the flashlight, Esc to pause.
+- **Touch:** drag on the left side to move, drag on the right side to look, and use the on-screen buttons for light, use, sneak, run and jump.
 
-Your heart rate goes up near deep water, in the dark, and when something is watching you. If it maxes out, you black out. If you fall in, you go under.
+If it runs slowly, lower **Graphics** in the pause menu (High, Medium or Low).
+
+## Credits
+The statue head is the "Lee Perry-Smith" head scan by Lee Perry-Smith (Infinite Realities), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). I took it from the three.js example models.
