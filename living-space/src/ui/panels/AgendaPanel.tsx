@@ -16,7 +16,7 @@ export function AgendaPanel() {
   const [sel, setSel] = useState<CalendarEvent | null>(null);
   const isDemo = mode === "demo";
   const d = new Date(now);
-  const needsConnect = !isDemo && cal.error && ["not_connected", "not_configured", "reauth_required"].includes(cal.error.code);
+  const needsConnect = !isDemo && cal.error && ["not_connected", "not_configured", "reauth_required", "standalone"].includes(cal.error.code);
   const events = cal.data ? sortEvents(cal.data.events) : [];
   const st = eventStatuses(events, now);
 

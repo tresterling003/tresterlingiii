@@ -4,6 +4,9 @@ import { api, ApiError, poll, type PollHandle } from "../poll";
 import { world } from "../store";
 import { cue } from "../actions";
 import type { SourceAdapter } from "./types";
+import { isStandalone } from "../platform";
+import { fetchWeatherDirect } from "../openmeteo-client";
+import { load, save } from "../persist";
 
 /** Real weather from Open-Meteo via the server's cached proxy. Needs a saved location. */
 export function weatherAdapter(): SourceAdapter {
@@ -19,7 +22,16 @@ export function weatherAdapter(): SourceAdapter {
     try {
       const q = new URLSearchParams({ lat: String(location.latitude), lon: String(location.longitude), units });
       const prevKind = world.get().weather.data?.kind;
-      const data = await api<WeatherSnapshot>(`/api/weather?${q}`, { signal });
+      let data: WeatherSnapshot;
+      if (isStandalone()) {
+        // No server: call Open-Meteo directly, with a 10-minute local cache.
+        const key = `${location.latitude.toFixed(2)},${location.longitude.toFixed(2)},${units}`;
+        const hit = load<{ key: string; data: WeatherSnapshot } | null>("weatherDirect", null);
+        data = hit && hit.key === key && Date.now() - hit.data.fetchedAt < 10 * 60_000 ? hit.data : await fetchWeatherDirect(location.latitude, location.longitude, units, signal);
+        save("weatherDirect", { key, data });
+      } else {
+        data = await api<WeatherSnapshot>(`/api/weather?${q}`, { signal });
+      }
       world.set({ weather: { status: "ready", data, error: null, updatedAt: Date.now() } });
       if (data.kind === "thunderstorm" && prevKind !== "thunderstorm") cue("storm");
     } catch (e) {

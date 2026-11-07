@@ -23,7 +23,7 @@ export function WelcomePanel() {
         <button type="button" className="btn btn-primary justify-start !min-h-[56px] text-left" onClick={() => choose("live")} data-autofocus>
           <span>
             <span className="block">Set up my real day</span>
-            <span className="block text-sm font-normal opacity-90">{g?.configured ? "Connect Google & choose your location" : "Choose your location (Google needs server setup)"}</span>
+            <span className="block text-sm font-normal opacity-90">{g?.standalone ? "Real weather, notes and Pip (Gmail needs the hosted version)" : g?.configured ? "Connect Google & choose your location" : "Choose your location (Google needs server setup)"}</span>
           </span>
         </button>
         <button type="button" className="btn justify-start !min-h-[56px] text-left" onClick={() => choose("demo")}>

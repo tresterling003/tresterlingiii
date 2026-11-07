@@ -1,0 +1,95 @@
+{
+  "name": "living-space-desktop",
+  "productName": "Living Space",
+  "version": "1.0.0",
+  "description": "Living Space as a desktop app and screensaver.",
+  "main": "main.js",
+  "private": true,
+  "author": "Living Space",
+  "scripts": {
+    "prepare-room": "node -e \"require('fs').copyFileSync('../dist/living-space.html','app/room.html')\"",
+    "start": "npm run prepare-room && electron .",
+    "dist": "npm run prepare-room && electron-builder --publish never",
+    "dist:mac": "npm run prepare-room && electron-builder --mac --publish never",
+    "dist:win": "npm run prepare-room && electron-builder --win --publish never",
+    "dist:linux": "npm run prepare-room && electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.livingspace.desktop",
+    "productName": "Living Space",
+    "artifactName": "Living-Space-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*",
+      "build/tray*.png",
+      "build/icon.png"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.lifestyle",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "extendInfo": {
+        "LSUIElement": false
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Utility"
+    },
+    "publish": null
+  },
+  "repository": "github:tresterling003/tresterlingiii"
+}

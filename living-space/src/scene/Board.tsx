@@ -6,7 +6,7 @@ import { eventStatuses, sortEvents, type EventStatus } from "@/domain/calendar";
 export const SHEET = { x: 906, y: 147, w: 342, h: 297, head: 87, row: 42, firstRow: 249, rows: 4 };
 export const NOTES = { x: 1287, y: 105, w: 168, h: 84, gap: 93, max: 2 };
 
-export type SheetState = "ready" | "loading" | "error" | "offline" | "sample";
+export type SheetState = "ready" | "loading" | "error" | "offline" | "sample" | "standalone";
 
 export interface SheetModel {
   weekday: string;
@@ -43,7 +43,7 @@ export function sheetModel(now: number, events: CalendarEvent[] | null, state: S
     rows: visible.map((e) => ({ id: e.id, time: e.allDay ? "All day" : shortTime(e.start), title: e.title, status: statuses.get(e.id) ?? "upcoming" })),
     more: sorted.length - visible.length,
     empty: Boolean(events && sorted.length === 0),
-    message: events ? null : state === "loading" ? "Fetching…" : state === "error" || state === "offline" ? "Not connected" : null,
+    message: events ? null : state === "loading" ? "Fetching…" : state === "standalone" ? "Hosted app only" : state === "error" || state === "offline" ? "Not connected" : null,
     sample: state === "sample",
   };
 }

@@ -130,6 +130,16 @@ export function SourceStatus({
 }
 
 export function ConnectGoogle({ code, missing }: { code: string; missing?: string[] }) {
+  if (code === "standalone")
+    return (
+      <div className="border-[3px] border-dashed border-ink/40 p-4 text-[16px]">
+        <p className="font-display text-lg mb-1">This is the offline copy of Living Space</p>
+        <p className="mb-2">Your real Gmail and Google Calendar need the hosted version, which keeps your Google sign-in safely on its server.</p>
+        <p className="text-sm text-ink-soft">
+          In the desktop app, choose <b>Room source → My hosted Living Space</b> from the tray menu and link your account. Weather, sticky notes and {"Pip"} work right here.
+        </p>
+      </div>
+    );
   if (code === "not_configured")
     return (
       <div className="border-[3px] border-dashed border-ink/40 p-4 text-[16px]">

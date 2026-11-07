@@ -21,8 +21,8 @@ export interface Resource<T> {
 const idle = <T,>(): Resource<T> => ({ status: "idle", data: null, error: null, updatedAt: 0 });
 
 export interface ConnectionStatus {
-  google: { configured: boolean; missing: string[]; connected: boolean; email: string | null; canMarkRead: boolean };
-  alerts: { configured: boolean; paired: boolean; needsStorage?: boolean };
+  google: { configured: boolean; missing: string[]; connected: boolean; email: string | null; canMarkRead: boolean; standalone?: boolean };
+  alerts: { configured: boolean; paired: boolean; needsStorage?: boolean; standalone?: boolean };
 }
 
 export type CueKind = "mail" | "computer" | "phone" | "storm" | "pet" | "wake";

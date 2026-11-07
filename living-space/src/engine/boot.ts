@@ -10,6 +10,7 @@ import { taskRemindersAdapter } from "./adapters/tasks";
 import { demoAdapter } from "./adapters/demo";
 import { loadStatus } from "./adapters/status";
 import { toast } from "./actions";
+import { isStandalone, isScreensaver } from "./platform";
 
 /** Environment controller bootstrap: clock, connectivity, and the right set of adapters for the mode. */
 export function boot(): () => void {
@@ -20,10 +21,19 @@ export function boot(): () => void {
   window.addEventListener("offline", online);
 
   let mode = world.get().mode;
+  const standalone = isStandalone();
   const startFor = async (m: "demo" | "live") => {
     resetTransient();
-    await loadStatus();
+    if (standalone) {
+      // Offline build: there is no server to hold Google tokens or receive Shortcut alerts.
+      world.set({ status: { google: { configured: false, missing: [], connected: false, email: null, canMarkRead: false, standalone: true }, alerts: { configured: false, paired: false, standalone: true } } });
+      if (m === "live") {
+        const unavailable = { code: "standalone", message: "This offline copy can't reach Gmail or Google Calendar." };
+        world.set({ mail: { status: "error", data: null, error: unavailable, updatedAt: 0 }, calendar: { status: "error", data: null, error: unavailable, updatedAt: 0 } });
+      }
+    } else await loadStatus();
     if (m === "demo") startAdapters([demoAdapter(), taskRemindersAdapter()]);
+    else if (standalone) startAdapters([weatherAdapter(), taskRemindersAdapter()]);
     else startAdapters([weatherAdapter(), gmailAdapter(), calendarAdapter(), alertsAdapter(), taskRemindersAdapter()]);
   };
   startFor(mode);
@@ -43,7 +53,7 @@ export function boot(): () => void {
     history.replaceState(null, "", location.pathname);
   }
   // OAuth round-trip result.
-  const c = p.get("connect");
+  const c = standalone || isScreensaver() ? null : p.get("connect");
   if (c) {
     const msg: Record<string, string> = {
       ok: "Google connected. Your mail and today's plans are on their way.",

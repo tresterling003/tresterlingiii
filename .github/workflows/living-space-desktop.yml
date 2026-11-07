@@ -1,0 +1,87 @@
+# Builds Living Space downloads:
+#   • living-space.html                     — the whole room in one file (any OS, any browser)
+#   • macOS  .dmg / .zip (universal)        — unsigned
+#   • Windows installer .exe (+ Living Space.scr screen saver) and portable .exe
+#   • Linux  .AppImage
+# Every run uploads them as workflow artifacts. Pushing a tag like `living-space-v1.0.0`
+# also publishes them on a GitHub Release.
+name: Living Space downloads
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths: ["living-space/**", ".github/workflows/living-space-desktop.yml"]
+    tags: ["living-space-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+          - os: windows-latest
+            target: --win
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: living-space
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            living-space/package-lock.json
+            living-space/desktop/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:html
+      - run: npm ci
+        working-directory: living-space/desktop
+      - name: Package desktop app
+        working-directory: living-space/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # unsigned builds (no Apple/Windows certificates)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run prepare-room && npx electron-builder ${{ matrix.target }} --publish never
+      - name: Collect files
+        shell: bash
+        run: |
+          mkdir -p out
+          cp desktop/release/*.dmg desktop/release/*.zip desktop/release/*.exe desktop/release/*.AppImage out/ 2>/dev/null || true
+          if [ "${{ runner.os }}" = "Linux" ]; then cp dist/living-space.html out/; fi
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: living-space-${{ runner.os }}
+          path: living-space/out/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/living-space-v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: files/*
+          name: Living Space ${{ github.ref_name }}
+          body: |
+            **Living Space** downloads.
+            - `living-space.html` — open in any browser (offline room).
+            - macOS: `.dmg` — unsigned: right-click the app → Open the first time.
+            - Windows: `…Setup….exe` installer (adds `Living Space.scr`), or the portable `.exe`.
+            - Linux: `.AppImage` — `chmod +x` and run.

@@ -123,6 +123,12 @@ svg.px * {
   outline-offset: 3px;
 }
 
+/* Screensaver / wallpaper: the room is purely ambient — nothing reacts to the pointer. */
+.ambient .hotspots,
+.ambient .zones {
+  display: none;
+}
+
 /* Mobile zone navigation */
 .zones {
   position: fixed;

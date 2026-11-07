@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import { useWorld } from "@/engine/store";
 import { dismissToast, openPanel } from "@/engine/actions";
 import { PixelIcon } from "./PixelIcon";
@@ -22,6 +23,7 @@ export function Hud() {
             <span className="hidden sm:inline">Dev</span>
           </button>
         )}
+        <FullscreenButton />
         <button type="button" className="hud-tag" onClick={() => openPanel("settings")} aria-label={`Settings${warn ? " — something needs attention" : ""}`}>
           <PixelIcon name="menu" size={21} />
           <span className="hidden sm:inline">Home</span>
@@ -59,5 +61,47 @@ function Toasts() {
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Fullscreen + keep-awake, so a browser tab (or the downloaded HTML file) can act as an
+ * always-on ambient display. Uses the Screen Wake Lock API where available.
+ */
+function FullscreenButton() {
+  const [on, setOn] = useState(false);
+  const lock = useRef<{ release(): Promise<void> } | null>(null);
+  useEffect(() => {
+    const sync = async () => {
+      const fs = Boolean(document.fullscreenElement);
+      setOn(fs);
+      if (fs && !lock.current && "wakeLock" in navigator) {
+        lock.current = await (navigator as unknown as { wakeLock: { request(t: "screen"): Promise<{ release(): Promise<void> }> } }).wakeLock.request("screen").catch(() => null);
+      }
+      if (!fs && lock.current) {
+        await lock.current.release().catch(() => undefined);
+        lock.current = null;
+      }
+    };
+    document.addEventListener("fullscreenchange", sync);
+    // Wake locks drop when the tab is hidden; re-acquire on return.
+    const vis = () => document.visibilityState === "visible" && document.fullscreenElement && ((lock.current = null), sync());
+    document.addEventListener("visibilitychange", vis);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("visibilitychange", vis);
+    };
+  }, []);
+  if (typeof document === "undefined" || !document.fullscreenEnabled || window.livingSpaceDesktop) return null;
+  return (
+    <button
+      type="button"
+      className="hud-tag"
+      aria-pressed={on}
+      aria-label={on ? "Exit fullscreen" : "Fullscreen and keep the screen awake"}
+      onClick={() => (on ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}
+    >
+      <PixelIcon name={on ? "shrink" : "expand"} size={21} />
+    </button>
   );
 }

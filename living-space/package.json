@@ -2,14 +2,15 @@
   "name": "living-space",
   "version": "0.1.0",
   "private": true,
-  "description": "Living Space — a cozy Tamagotchi-style home that turns your real day into events in an animated room.",
+  "description": "Living Space \u2014 a cozy Tamagotchi-style home that turns your real day into events in an animated room.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "build:html": "node scripts/build-standalone.mjs"
   },
   "dependencies": {
     "@fontsource/pixelify-sans": "^5.3.0",
@@ -27,6 +28,7 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
+    "esbuild": "^0.21.5",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.6.3",

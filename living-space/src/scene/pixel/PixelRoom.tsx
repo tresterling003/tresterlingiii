@@ -367,7 +367,7 @@ function drawSheetText(ctx: CanvasRenderingContext2D, m: SheetModel) {
   const rowStyle = T(11, O, 500);
   const timeStyle = T(11, O, 600);
   const firstY = px(SHEET.firstRow, "y");
-  if (m.message) drawText(ctx, m.message, cx, firstY + 18, { ...rowStyle, align: "center", color: "#7A6352" });
+  if (m.message) drawText(ctx, fit(m.message, wPx - 8, rowStyle), cx, firstY + 18, { ...rowStyle, align: "center", color: "#7A6352" });
   if (m.empty) drawText(ctx, "No plans today", cx, firstY + 18, { ...rowStyle, align: "center" });
   const timeW = Math.max(24, ...m.rows.map((r) => textWidth(r.time, timeStyle))) + 5;
   m.rows.forEach((r, i) => {

@@ -19,7 +19,7 @@ export function InboxPanel() {
   const [openId, setOpenId] = useState<string | null>(null);
   const isDemo = mode === "demo";
   const data = mail.data;
-  const needsConnect = !isDemo && mail.error && ["not_connected", "not_configured", "reauth_required"].includes(mail.error.code);
+  const needsConnect = !isDemo && mail.error && ["not_connected", "not_configured", "reauth_required", "standalone"].includes(mail.error.code);
 
   const markRead = async (id: string) => {
     setBusy(id);

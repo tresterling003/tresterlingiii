@@ -8,6 +8,8 @@ import { THEMES, DEFAULT_THEME } from "@/scene/theme";
 import type { SavedLocation } from "@/domain/types";
 import { Panel } from "../Panel";
 import { InstallGuide } from "../InstallGuide";
+import { desktopShell, isStandalone } from "@/engine/platform";
+import { geocodeDirect } from "@/engine/openmeteo-client";
 
 export function SettingsPanel() {
   const s = useWorld((x) => x);
@@ -15,9 +17,11 @@ export function SettingsPanel() {
   const a = s.status?.alerts;
   return (
     <Panel title="Home settings" skin="card" width={560}>
-      <Section title="Put it on your phone">
-        <InstallGuide />
-      </Section>
+      {!isStandalone() && !desktopShell() && (
+        <Section title="Put it on your phone">
+          <InstallGuide />
+        </Section>
+      )}
 
       <Section title="Mode">
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Data mode">
@@ -33,7 +37,7 @@ export function SettingsPanel() {
       <Section title="Connections">
         <Row
           name="Google (Gmail + Calendar)"
-          state={!g ? "Server unreachable" : !g.configured ? "Not configured on server" : g.connected ? `Connected · ${g.email}` : "Not connected"}
+          state={g?.standalone ? "Needs the hosted version" : !g ? "Server unreachable" : !g.configured ? "Not configured on server" : g.connected ? `Connected · ${g.email}` : "Not connected"}
           ok={!!g?.connected}
         >
           {g?.configured && !g.connected && <a className="btn btn-sm btn-primary" href="/api/auth/google">Connect</a>}
@@ -55,9 +59,10 @@ export function SettingsPanel() {
             </>
           )}
         </Row>
-        {g && !g.configured && <p className="text-sm text-ink-soft -mt-1 mb-2">Missing: <span className="font-mono">{g.missing.join(", ")}</span>. See README.</p>}
+        {g?.connected && !desktopShell() && <DesktopLink />}
+        {g && !g.configured && !g.standalone && <p className="text-sm text-ink-soft -mt-1 mb-2">Missing: <span className="font-mono">{g.missing.join(", ")}</span>. See README.</p>}
         <Row name="Weather (Open-Meteo)" state={s.settings.location ? s.settings.location.name : "No location set"} ok={!!s.settings.location} />
-        <Row name="Shortcut alerts" state={!a?.configured ? "Not configured on server" : a.paired ? "This device is paired" : "Not paired (open the phone)"} ok={!!a?.paired} />
+        <Row name="Shortcut alerts" state={a?.standalone ? "Needs the hosted version" : !a?.configured ? "Not configured on server" : a.paired ? "This device is paired" : "Not paired (open the phone)"} ok={!!a?.paired} />
       </Section>
 
       <Section title="Location">
@@ -138,8 +143,8 @@ function LocationPicker() {
     setBusy(true);
     setErr(null);
     try {
-      const r = await api<{ results: { name: string; latitude: number; longitude: number }[] }>(`/api/geocode?q=${encodeURIComponent(q)}`);
-      setResults(r.results);
+      if (isStandalone()) setResults(await geocodeDirect(q.trim()));
+      else setResults((await api<{ results: { name: string; latitude: number; longitude: number }[] }>(`/api/geocode?q=${encodeURIComponent(q)}`)).results);
     } catch (e2) {
       setErr((e2 as Error).message);
     } finally {
@@ -186,6 +191,56 @@ function LocationPicker() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Generates the code that links the desktop app to this signed-in session. */
+function DesktopLink() {
+  const [code, setCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  if (!code)
+    return (
+      <div className="py-2">
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              setCode((await api<{ code: string }>("/api/auth/desktop-link", { method: "POST" })).code);
+            } catch (e) {
+              toast({ title: "Couldn't create a link code", body: (e as Error).message, tone: "error" });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Link the desktop app…
+        </button>
+      </div>
+    );
+  return (
+    <div className="py-2 text-sm">
+      <p className="mb-2">
+        In the desktop app's tray menu choose <b>Link Google account…</b> and paste this code. Treat it like a password: anyone with it can see your mail through
+        Living Space. Disconnecting Google above stops every linked copy.
+      </p>
+      <div className="flex gap-2 items-center">
+        <input className="field font-mono !text-[15px]" readOnly value={code} onFocus={(e) => e.currentTarget.select()} aria-label="Desktop link code" />
+        <button
+          type="button"
+          className="btn btn-sm shrink-0"
+          onClick={async () => {
+            await navigator.clipboard.writeText(code).catch(() => undefined);
+            setCopied(true);
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }

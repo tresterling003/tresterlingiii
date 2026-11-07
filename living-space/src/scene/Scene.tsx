@@ -73,7 +73,7 @@ export function Scene() {
     const t = setTimeout(() => force((n) => n + 1), 12_500);
     return () => clearTimeout(t);
   }, [s.pulses.computer, s.pulses.phone]);
-  const calState = !s.online && !s.calendar.data ? "offline" : demo ? "sample" : s.calendar.status === "error" ? "error" : s.calendar.status === "ready" ? "ready" : "loading";
+  const calState = s.calendar.error?.code === "standalone" ? "standalone" : !s.online && !s.calendar.data ? "offline" : demo ? "sample" : s.calendar.status === "error" ? "error" : s.calendar.status === "ready" ? "ready" : "loading";
   const sheet = useMemo(() => sheetModel(s.now, s.calendar.data?.events ?? null, calState), [s.now, s.calendar.data, calState]);
   const focusedId = s.ui.focusObject as HotspotId | null;
 

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Living Space</title>
+<style>
+  body { margin: 0; padding: 22px; font: 16px/1.45 ui-monospace, Menlo, Consolas, monospace; background: #fbf5e8; color: #4a3428; }
+  h1 { font-size: 19px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; font-size: 14px; }
+  input { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; border: 3px solid #4a3428; background: #fffdf7; color: #4a3428; }
+  .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+  button { font: inherit; padding: 8px 16px; border: 3px solid #4a3428; background: #fbf5e8; color: #4a3428; box-shadow: 0 4px 0 #4a3428; cursor: pointer; }
+  button.primary { background: #d9694f; color: #fffdf7; }
+  .err { color: #b8513b; min-height: 1.2em; font-size: 14px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1 id="title"></h1>
+<p id="text"></p>
+<input id="value" autocomplete="off" spellcheck="false">
+<div class="err" id="err"></div>
+<div class="row"><button id="cancel">Cancel</button><button class="primary" id="ok">OK</button></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById("title").textContent = q.get("title") || "";
+  document.getElementById("text").textContent = q.get("text") || "";
+  const input = document.getElementById("value");
+  input.value = q.get("value") || "";
+  input.placeholder = q.get("placeholder") || "";
+  input.focus();
+  input.select();
+  const done = (v) => { location.hash = "result=" + encodeURIComponent(JSON.stringify(v)); };
+  document.getElementById("ok").onclick = () => done(input.value.trim());
+  document.getElementById("cancel").onclick = () => done(null);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") done(input.value.trim()); if (e.key === "Escape") done(null); });
+</script>
+</body>
+</html>

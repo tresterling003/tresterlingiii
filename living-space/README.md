@@ -20,6 +20,52 @@ Production: `npm run build && npm start`. Tests: `npm test`. Typecheck: `npm run
 
 On first launch you can pick **“Set up my real day”** (live mode) or **“Look around with sample data”** (demo mode). Switch any time under **Home → Mode**.
 
+## Download it: a single HTML file or a desktop app / screensaver
+
+### `living-space.html`: the whole room in one file
+`npm run build:html` writes `dist/living-space.html`, about 0.5 MB with the code, styles and pixel fonts inlined. Double-click it to open it in any browser; it works offline.
+- Pip, sticky notes, demo mode and **real weather** all work. The file calls Open-Meteo directly, so no server is needed.
+- Gmail and Google Calendar **need the hosted version**, because the Google sign-in has to live on a server. The offline copy says so plainly and never shows fake mail.
+- The ⛶ button (top right) goes fullscreen **and keeps the screen awake**, so a spare monitor or tablet can show the room all day.
+- Add `?screensaver` to the address for a menu-free ambient room.
+
+### Desktop app: menu-bar / tray app with screensaver and live wallpaper (`desktop/`)
+Living Space runs in your menu bar (macOS) or system tray (Windows/Linux). Closing the window keeps it running. From the tray menu you can:
+
+| | |
+|---|---|
+| **Screensaver after idle** | After 1–60 minutes without keyboard or mouse input (default 5), the room fades in fullscreen on **every display**. Any key, click or mouse movement dismisses it. *Keep screen awake while showing* stops the display from sleeping; *Pause for 1 hour* is for movies and presentations. |
+| **Show screensaver now** | Start it straight away. |
+| **Live wallpaper** | The room sits on your desktop behind all windows (macOS and Linux; Windows doesn't let apps do this). |
+| **Windows screen saver** | The installer also puts **`Living Space.scr`** in the install folder. Right-click it → **Install** to pick Living Space in Windows' Screen Saver settings. It handles `/s` and `/c`. |
+| **Start at login** | Starts hidden in the tray, ready to show the screensaver. |
+| **Room source** | **Built-in (offline)** is the HTML room above. **My hosted Living Space** loads your deployed site, with real Gmail and Calendar. |
+| **Link Google account…** | Google doesn't allow sign-in inside desktop apps' built-in browsers. Instead: connect Google on your website → **Home → Connections → Link the desktop app…** → copy the code → paste it here. The code is the site's *encrypted* session cookie (no readable token inside). Treat it like a password. Disconnecting Google on the site revokes every linked copy. |
+
+You may still want to set the OS's own screensaver/sleep timer *longer* than Living Space's, so the system doesn't take over first.
+
+**Getting the installers:** every push that touches `living-space/` runs **Actions → “Living Space downloads”**. The run's *Artifacts* section has:
+- macOS `.dmg` (universal)
+- the Windows installer and portable `.exe`
+- the Linux `.AppImage`
+- `living-space.html`
+
+Pushing a tag `living-space-v1.0.0` publishes them on a GitHub Release.
+
+The builds are **unsigned** (no Apple or Microsoft certificates):
+- **macOS:** right-click the app → **Open** the first time. On macOS 15 and later: System Settings → Privacy & Security → **Open Anyway**.
+- **Windows:** SmartScreen → **More info → Run anyway**.
+
+**Build locally:**
+
+```bash
+cd living-space
+npm install && npm run build:html          # dist/living-space.html
+cd desktop && npm install
+npm start                                  # run the app
+npm run dist:mac | dist:win | dist:linux   # installers in desktop/release/
+```
+
 ## Put it on your phone
 
 Living Space installs from your browser as an app (a PWA). It gets a home-screen icon, opens full-screen with no browser bars, and works offline. There's no app store; the phone only needs to reach it at an **https://** address.
@@ -156,6 +202,9 @@ These ran in this environment:
 **Not verifiable here:** a real Google sign-in (needs your OAuth client) and live Open-Meteo responses (this sandbox's network blocks the host; parsing is unit-tested against the documented response shape).
 
 ## Limitations
+
+- The desktop builds aren't code-signed (that needs paid Apple/Microsoft developer certificates), so each OS warns on first launch.
+- macOS has no API for a third-party app to register as a true system screensaver (`.saver`), so Living Space uses its own idle timer; on Windows the `.scr` is a real screen saver.
 
 - Shortcut alerts are stored in Redis when `UPSTASH_REDIS_REST_*` / `KV_REST_API_*` is set (needed on Vercel), otherwise in a JSON file in `DATA_DIR` (self-hosting).
 - Gmail is polled, not pushed. Gmail push via Pub/Sub would give instant delivery but needs a public webhook and a GCP topic.

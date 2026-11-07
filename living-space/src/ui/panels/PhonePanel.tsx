@@ -63,7 +63,9 @@ export function PhonePanel() {
         <p className="text-ink-soft mb-3">A web page can't read your iPhone's notifications, messages or calls, so this phone doesn't pretend to.</p>
         {!isDemo && (
           <>
-            {st?.needsStorage ? (
+            {st?.standalone ? (
+              <p className="text-sm">Shortcut alerts arrive through the hosted version's server, so this offline copy only shows reminders from your notes.</p>
+            ) : st?.needsStorage ? (
               <p className="text-sm">Shortcut alerts need storage on this host: add an Upstash Redis database (Vercel → Storage) so <code className="font-mono">KV_REST_API_URL</code> is set.</p>
             ) : !st?.configured ? (
               <p className="text-sm">Shortcut alerts are off: set <code className="font-mono">ALERTS_INGEST_TOKEN</code> on the server to turn them on.</p>
