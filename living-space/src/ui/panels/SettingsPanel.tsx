@@ -7,6 +7,7 @@ import { toast } from "@/engine/actions";
 import { THEMES, DEFAULT_THEME } from "@/scene/theme";
 import type { SavedLocation } from "@/domain/types";
 import { Panel } from "../Panel";
+import { InstallGuide } from "../InstallGuide";
 
 export function SettingsPanel() {
   const s = useWorld((x) => x);
@@ -14,6 +15,10 @@ export function SettingsPanel() {
   const a = s.status?.alerts;
   return (
     <Panel title="Home settings" skin="card" width={560}>
+      <Section title="Put it on your phone">
+        <InstallGuide />
+      </Section>
+
       <Section title="Mode">
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Data mode">
           {(["live", "demo"] as const).map((m) => (

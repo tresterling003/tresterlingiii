@@ -35,8 +35,14 @@ export function boot(): () => void {
     }
   });
 
-  // OAuth round-trip result.
   const p = new URLSearchParams(location.search);
+  // Home-screen shortcuts (long-press the app icon): /?open=agenda etc.
+  const open = p.get("open");
+  if (open === "agenda" || open === "inbox") {
+    world.set({ onboarded: true, ui: { open, origin: null, focusObject: null } });
+    history.replaceState(null, "", location.pathname);
+  }
+  // OAuth round-trip result.
   const c = p.get("connect");
   if (c) {
     const msg: Record<string, string> = {

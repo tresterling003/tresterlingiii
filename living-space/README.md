@@ -20,6 +20,31 @@ Production: `npm run build && npm start`. Tests: `npm test`. Typecheck: `npm run
 
 On first launch you can pick **“Set up my real day”** (live mode) or **“Look around with sample data”** (demo mode). Switch any time under **Home → Mode**.
 
+## Put it on your phone
+
+Living Space installs from your browser as an app (a PWA). It gets a home-screen icon, opens full-screen with no browser bars, and works offline. There's no app store; the phone only needs to reach it at an **https://** address.
+
+### 1. Deploy it (free, about 5 minutes, Vercel)
+
+1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New → Project** → import `tresterlingiii`.
+2. Set **Root Directory** to `living-space`. The framework is detected as Next.js.
+3. Under **Environment Variables**, add at least:
+   - `SESSION_SECRET`: 32+ random characters (`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`)
+   - `APP_URL`: your Vercel address, e.g. `https://living-space-yourname.vercel.app` (you can fill this in after the first deploy and redeploy)
+4. **Deploy.** Open the URL; the room works in demo mode and with weather straight away.
+5. Optional:
+   - **Gmail + Calendar:** add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see “Connecting Google”). Add `${APP_URL}/api/auth/google/callback` as the redirect URI.
+   - **Shortcut alerts:** add `ALERTS_INGEST_TOKEN`, then **Storage → Upstash for Redis → Connect** to the project. The `KV_REST_API_*` variables are picked up automatically; serverless hosts have no writable disk, so alerts stay off until storage exists.
+   - Set `APP_OWNER_EMAIL` so only your Google account can sign in.
+
+### 2. Install
+
+- **iPhone (Safari):** open your URL → **Share** → **Add to Home Screen** → **Add**.
+- **Android (Chrome):** open your URL → **Install app** (or menu ⋮ → *Install app*).
+- **From a computer:** open **Home → Put it on your phone** in the room. It shows a QR code to scan, plus the right steps for whatever device you're on.
+
+Long-pressing the installed icon offers shortcuts to **Today's plans** and **Mail**.
+
 ## Modes
 
 | | Demo | Live |
@@ -125,7 +150,7 @@ These ran in this environment:
 
 ## Limitations
 
-- The alert store is a JSON file. On serverless hosts with an ephemeral filesystem (for example Vercel), swap `FileAlertsStore` for Postgres/KV; the interface is three methods.
+- Shortcut alerts are stored in Redis when `UPSTASH_REDIS_REST_*` / `KV_REST_API_*` is set (needed on Vercel), otherwise in a JSON file in `DATA_DIR` (self-hosting).
 - Gmail is polled, not pushed. Gmail push via Pub/Sub would give instant delivery but needs a public webhook and a GCP topic.
 - Tasks, pet and settings are saved per device in `localStorage`; there's no cross-device sync yet.
 - The art is a cohesive hand-built vector set (see `DESIGN.md`), not commissioned illustration. The scene components are the asset pipeline: swap any prop's SVG while keeping its footprint in `layout.ts`.

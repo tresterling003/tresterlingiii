@@ -6,8 +6,8 @@ import { env } from "./env";
 /**
  * Server-side store for alerts pushed by authorised senders (Apple Shortcuts etc).
  *
- * The interface is deliberately tiny so the JSON-file implementation can be swapped for
- * Postgres/Redis/KV when deploying to a serverless host with an ephemeral filesystem.
+ * Two implementations: Redis over REST (used automatically when UPSTASH_REDIS_REST_* or
+ * KV_REST_API_* is set, e.g. on Vercel) and a JSON file in DATA_DIR (self-hosting / local).
  */
 export interface StoredAlert {
   id: string;
@@ -67,9 +67,40 @@ class FileAlertsStore implements AlertsStore {
   }
 }
 
+/** Redis via the Upstash REST protocol (works on Vercel/serverless). One list, newest first. */
+class RedisAlertsStore implements AlertsStore {
+  private key = "livingspace:alerts";
+  private async cmd<T>(...args: (string | number)[]): Promise<T> {
+    const res = await fetch(env.redisUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.redisToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+      cache: "no-store",
+    });
+    const json = (await res.json()) as { result?: T; error?: string };
+    if (!res.ok || json.error) throw new Error(`Redis: ${json.error ?? res.status}`);
+    return json.result as T;
+  }
+  async list(since = 0) {
+    const raw = await this.cmd<string[]>("LRANGE", this.key, 0, MAX - 1);
+    return raw.map((r) => JSON.parse(r) as StoredAlert).filter((a) => a.at > since).sort((a, b) => b.at - a.at);
+  }
+  async add(a: StoredAlert) {
+    await this.cmd("LPUSH", this.key, JSON.stringify(a));
+    await this.cmd("LTRIM", this.key, 0, MAX - 1);
+  }
+  async remove(id: string) {
+    const raw = await this.cmd<string[]>("LRANGE", this.key, 0, MAX - 1);
+    for (const r of raw) if ((JSON.parse(r) as StoredAlert).id === id) await this.cmd("LREM", this.key, 0, r);
+  }
+  async clear() {
+    await this.cmd("DEL", this.key);
+  }
+}
+
 let store: AlertsStore | null = null;
 export function alertsStore(): AlertsStore {
-  return (store ??= new FileAlertsStore());
+  return (store ??= env.redisUrl && env.redisToken ? new RedisAlertsStore() : new FileAlertsStore());
 }
 
 /** Fixed-window rate limit per key (in-memory; good enough for a single-user app). */

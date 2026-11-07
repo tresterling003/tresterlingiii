@@ -2,10 +2,12 @@
 import { useWorld, world } from "@/engine/store";
 import { closePanel, openPanel } from "@/engine/actions";
 import { Panel } from "../Panel";
+import { useInstall } from "../useInstall";
 
 export function WelcomePanel() {
   const g = useWorld((s) => s.status?.google);
   const name = useWorld((s) => s.pet.name);
+  const install = useInstall();
   const choose = (mode: "demo" | "live") => {
     world.set({ mode, onboarded: true });
     if (mode === "live") openPanel("settings");
@@ -31,6 +33,11 @@ export function WelcomePanel() {
           </span>
         </button>
       </div>
+      {install.platform !== "desktop" && !install.installed && !install.localOnly && (
+        <button type="button" className="btn btn-sm btn-ghost mt-4 -ml-2" onClick={() => { world.set({ onboarded: true }); openPanel("settings"); }}>
+          Add Living Space to your home screen →
+        </button>
+      )}
     </Panel>
   );
 }

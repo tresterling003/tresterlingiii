@@ -22,7 +22,7 @@ const idle = <T,>(): Resource<T> => ({ status: "idle", data: null, error: null, 
 
 export interface ConnectionStatus {
   google: { configured: boolean; missing: string[]; connected: boolean; email: string | null; canMarkRead: boolean };
-  alerts: { configured: boolean; paired: boolean };
+  alerts: { configured: boolean; paired: boolean; needsStorage?: boolean };
 }
 
 export type CueKind = "mail" | "computer" | "phone" | "storm" | "pet" | "wake";

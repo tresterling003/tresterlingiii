@@ -1,5 +1,5 @@
 import { ok } from "@/lib/server/http";
-import { alertsConfigured, googleConfigured, missingGoogleConfig } from "@/lib/server/env";
+import { alertsConfigured, alertsStorageReady, googleConfigured, missingGoogleConfig } from "@/lib/server/env";
 import { readDevicePaired, readSession } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +15,6 @@ export async function GET() {
       email: s?.email ?? null,
       canMarkRead: s?.scopes.includes("https://www.googleapis.com/auth/gmail.modify") ?? false,
     },
-    alerts: { configured: alertsConfigured(), paired: alertsConfigured() && readDevicePaired() },
+    alerts: { configured: alertsConfigured(), needsStorage: !alertsStorageReady(), paired: alertsConfigured() && readDevicePaired() },
   });
 }
