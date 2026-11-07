@@ -4,6 +4,13 @@ A 3D adventure game you play in the browser. It gives young children (about ages
 
 > This is a recreational, educational game. It is **not** a medical device or a speech assessment, and it does not replace a speech-language pathologist.
 
+## Play it
+
+**Live:** https://tresterling003.github.io/tresterlingiii/voice-quest/play/ (served by GitHub Pages from `main` once merged).
+Open it in Chrome or Edge on a computer. The browser asks for microphone permission at the first speaking moment.
+
+To update the live copy after code changes: `npm run build:live`, then commit the `play/` folder.
+
 ## Quick start
 
 ```bash

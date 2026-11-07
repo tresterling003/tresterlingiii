@@ -10,6 +10,10 @@
   <body>
     <div id="app"></div>
     <div id="loading"><div class="ld-star">⭐</div><div>Loading the Christmas Kingdom…</div></div>
+    <script>
+      // On GitHub Pages this folder holds the source; the playable build lives in ./play/
+      if (location.hostname.endsWith('github.io') && !/\/play\/?/.test(location.pathname)) location.replace('./play/');
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

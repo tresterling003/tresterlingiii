@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "mic-check": "node scripts/mic-check.mjs"
+    "mic-check": "node scripts/mic-check.mjs",
+    "build:live": "tsc --noEmit && vite build --outDir play --emptyOutDir"
   },
   "dependencies": {
     "three": "^0.170.0"
