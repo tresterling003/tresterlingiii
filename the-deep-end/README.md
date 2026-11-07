@@ -4,6 +4,9 @@ A first-person horror game set in flooded, endlessly tiled poolrooms. You keep t
 
 **Play it on your phone:** https://claude.ai/artifact/1Ww5ycq4qRUVwKXKxNAZhW. You can also open `index.html` from any web host. The models are packed as base64 JSON in `assets/`.
 
+## Explore mode
+Endless, backrooms-style poolrooms. Each depth is a new procedurally generated maze of tiled halls, flooded corridors, pillar rooms and bottomless pools. Find the dark doorway down, and listen for the low hum that gets louder near it. Deeper levels are darker and wetter. Under the water you'll find huge rusted propellers that start turning when you come close, open intake pipes, chains that go down further than the pool does, and pale drowned figures that turn to face you. There are also blackouts, footsteps that follow you, things standing at the edge of your vision, and notes from someone who came before. The menu shows the deepest depth you've reached.
+
 ## How it plays
 - **The Swimmer** is a tall, emaciated pale figure with a stretched, screaming human face. It wades through the water and hunts by sound. Wading makes noise, and running makes a lot more. It can't climb onto dry tiles, so sneak through the water and get out when you hear it coming. Your flashlight helps it see you.
 - **The Lifeguard** is a tall figure that stands on far-off tiles and watches you. It's gone before you can reach it.
