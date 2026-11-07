@@ -59,9 +59,9 @@ export function InboxPanel() {
               {data.messages.map((m) => {
                 const open = openId === m.id;
                 return (
-                  <li key={m.id} className="rounded-xl border-2 border-ink/80 bg-[#fffdf7] shadow-[0_2px_0_#4A342855]">
+                  <li key={m.id} className="rounded-xl border-[3px] border-ink/80 bg-[#fffdf7] shadow-[0_2px_0_#4A342855]">
                     <button type="button" className="w-full text-left px-4 py-3 flex gap-3 items-start rounded-xl" aria-expanded={open} onClick={() => setOpenId(open ? null : m.id)}>
-                      <span className="mt-1 w-9 h-9 shrink-0 rounded-full bg-teal-soft border-2 border-ink grid place-items-center font-display text-[15px]" aria-hidden>
+                      <span className="mt-1 w-9 h-9 shrink-0 rounded-full bg-teal-soft border-[3px] border-ink grid place-items-center font-display text-[15px]" aria-hidden>
                         {m.from.trim().charAt(0).toUpperCase() || "?"}
                       </span>
                       <span className="flex-1 min-w-0">

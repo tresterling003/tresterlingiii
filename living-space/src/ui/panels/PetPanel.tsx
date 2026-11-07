@@ -72,7 +72,7 @@ function Meter({ label, value, color }: { label: string; value: number; color: s
         <span>{label}</span>
         <span>{Math.round(value)}</span>
       </div>
-      <div className="h-4 rounded-full border-2 border-ink bg-paper-warm overflow-hidden" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value)} aria-label={label}>
+      <div className="h-4 rounded-full border-[3px] border-ink bg-paper-warm overflow-hidden" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value)} aria-label={label}>
         <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${value}%`, background: color }} />
       </div>
     </div>

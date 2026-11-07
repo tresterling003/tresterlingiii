@@ -1,133 +1,95 @@
-"use client";
-import { memo } from "react";
 import { O, P } from "./palette";
 import type { CalendarEvent, Task } from "@/domain/types";
-import { eventStatuses, formatEventTime, sortEvents } from "@/domain/calendar";
+import { eventStatuses, sortEvents, type EventStatus } from "@/domain/calendar";
 
-interface SheetProps {
-  now: number;
-  events: CalendarEvent[] | null;
-  state: "ready" | "loading" | "error" | "offline" | "sample";
+/** Sheet geometry (world units). Wider than before so pixel text stays readable. */
+export const SHEET = { x: 906, y: 147, w: 342, h: 297, head: 87, row: 42, firstRow: 249, rows: 4 };
+export const NOTES = { x: 1287, y: 105, w: 168, h: 84, gap: 93, max: 2 };
+
+export type SheetState = "ready" | "loading" | "error" | "offline" | "sample";
+
+export interface SheetModel {
+  weekday: string;
+  date: string;
+  rows: { id: string; time: string; title: string; status: EventStatus }[];
+  more: number;
+  empty: boolean;
+  message: string | null;
+  sample: boolean;
 }
 
-const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
+/** "9:00 AM" → "9a", "11:30 AM" → "11:30a" (compact for the pixel sheet). */
+export function shortTime(ms: number): string {
+  const d = new Date(ms);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const hh = h % 12 || 12;
+  return `${hh}${m ? ":" + String(m).padStart(2, "0") : ""}${h < 12 ? "a" : "p"}`;
+}
 
-/** The pinned daily planner sheet. Big type; shows up to four lines, the rest in the agenda. */
-export const DailySheet = memo(function DailySheet({ now, events, state }: SheetProps) {
+export function sheetModel(now: number, events: CalendarEvent[] | null, state: SheetState): SheetModel {
   const d = new Date(now);
-  const weekday = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
-  const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const statuses = events ? eventStatuses(events, now) : new Map();
+  const statuses = events ? eventStatuses(events, now) : new Map<string, EventStatus>();
   const sorted = events ? sortEvents(events) : [];
-  // Prefer showing what's current/upcoming; keep one recent past item for context.
-  const firstLive = sorted.findIndex((e) => statuses.get(e.id) !== "past" && !e.allDay);
+  // Prefer what's current/upcoming; keep one recent past item for context.
   const timed = sorted.filter((e) => !e.allDay);
   const allDay = sorted.filter((e) => e.allDay);
-  const startIdx = Math.max(0, (firstLive === -1 ? timed.length : timed.indexOf(sorted[firstLive])) - 1);
-  const visible = [...allDay.slice(0, 1), ...timed.slice(startIdx)].slice(0, 4);
-  const more = sorted.length - visible.length;
+  const firstLive = timed.findIndex((e) => statuses.get(e.id) !== "past");
+  const startIdx = Math.max(0, (firstLive === -1 ? timed.length : firstLive) - 1);
+  const visible = [...allDay.slice(0, 1), ...timed.slice(startIdx)].slice(0, SHEET.rows);
+  return {
+    weekday: d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase(),
+    date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    rows: visible.map((e) => ({ id: e.id, time: e.allDay ? "All day" : shortTime(e.start), title: e.title, status: statuses.get(e.id) ?? "upcoming" })),
+    more: sorted.length - visible.length,
+    empty: Boolean(events && sorted.length === 0),
+    message: events ? null : state === "loading" ? "Fetching…" : state === "error" || state === "offline" ? "Not connected" : null,
+    sample: state === "sample",
+  };
+}
+
+/** Paper, header band, ruled lines and highlight bars. Text is drawn by the pixel renderer. */
+export function DailySheet({ model }: { model: SheetModel }) {
+  const { x, y, w, h, head, row, firstRow } = SHEET;
   return (
-    <g className="obj obj-calendar">
-      <g transform="rotate(-1.5 990 266)">
-        <rect x={912} y={158} width={158} height={222} fill="#2a1a10" opacity={0.15} transform="translate(4 5)" />
-        <rect x={912} y={158} width={158} height={222} fill={P.paper} stroke={O} strokeWidth={2.5} />
-        <rect x={912} y={158} width={158} height={44} fill={P.tomato} stroke={O} strokeWidth={2.5} />
-        <text x={991} y={178} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={13} fontWeight={600} fill={P.paper} letterSpacing={1.5}>
-          TODAY
-        </text>
-        <text x={991} y={195} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={12} fill={P.paper}>
-          {clip(`${weekday} · ${date}`, 22)}
-        </text>
-        {Array.from({ length: 6 }, (_, i) => (
-          <line key={i} x1={920} y1={232 + i * 28} x2={1062} y2={232 + i * 28} stroke="#D9C6A3" strokeWidth={1.5} />
-        ))}
-        {state === "loading" && !events && <text x={991} y={262} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize={14} fill={O} opacity={0.6}>Fetching…</text>}
-        {(state === "error" || state === "offline") && !events && (
-          <text x={991} y={262} textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize={13} fill={O} opacity={0.7}>Not connected</text>
-        )}
-        {events && sorted.length === 0 && (
-          <g>
-            <text x={991} y={258} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={16} fill={O}>No plans today</text>
-            <path d="M972 286 q19 14 38 0" fill="none" stroke={O} strokeWidth={2.5} strokeLinecap="round" />
-          </g>
-        )}
-        {visible.map((e, i) => {
-          const st = statuses.get(e.id);
-          const y = 226 + i * 28;
-          return (
-            <g key={e.id} opacity={st === "past" ? 0.45 : 1}>
-              {st === "next" && <rect x={916} y={y - 16} width={150} height={24} rx={4} fill={P.honey} opacity={0.55} />}
-              {st === "now" && <rect x={916} y={y - 16} width={150} height={24} rx={4} fill="#BFE3CF" />}
-              <text x={922} y={y} fontFamily="Nunito, sans-serif" fontSize={13} fontWeight={800} fill={O}>
-                {e.allDay ? "All day" : formatEventTime(e).replace(/\s?([AP]M)/i, (m) => m.trim().toLowerCase())}
-              </text>
-              <text x={982} y={y} fontFamily="Nunito, sans-serif" fontSize={13} fontWeight={600} fill={O}>
-                {clip(e.title, 11)}
-              </text>
-            </g>
-          );
-        })}
-        {more > 0 && <text x={922} y={370} textAnchor="start" fontFamily="Nunito, sans-serif" fontSize={12} fontWeight={700} fill={P.tomato}>+{more} more</text>}
-        {state === "sample" && (
-          <g transform="translate(1032 362) rotate(-12)">
-            <rect x={-30} y={-10} width={60} height={18} rx={3} fill="none" stroke={P.tomato} strokeWidth={2} />
-            <text x={0} y={4} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={11} fill={P.tomato} letterSpacing={1}>SAMPLE</text>
-          </g>
-        )}
-      </g>
-      <circle cx={991} cy={160} r={7} fill={P.teal} stroke={O} strokeWidth={2} />
+    <g>
+      <rect x={x + 6} y={y + 6} width={w} height={h} fill="#2a1a10" opacity={0.18} />
+      <rect x={x} y={y} width={w} height={h} fill={P.paper} stroke={O} strokeWidth={3} />
+      <rect x={x} y={y} width={w} height={head} fill={P.tomato} stroke={O} strokeWidth={3} />
+      {Array.from({ length: SHEET.rows }, (_, i) => (
+        <rect key={i} x={x + 6} y={firstRow + i * row + 36} width={w - 12} height={3} fill="#E3D3B4" />
+      ))}
+      {model.rows.map((r, i) =>
+        r.status === "next" || r.status === "now" ? (
+          <rect key={r.id} x={x + 3} y={firstRow + i * row} width={w - 6} height={36} fill={r.status === "now" ? "#BFE3CF" : "#F2D68F"} />
+        ) : null,
+      )}
+      {model.sample && <rect x={x + w - 126} y={y + h - 42} width={117} height={36} fill="none" stroke={P.tomato} strokeWidth={3} />}
+      <circle cx={x + w / 2} cy={y + 3} r={8} fill={P.teal} stroke={O} strokeWidth={3} />
     </g>
   );
-});
-
-/** Greedy word wrap for SVG text (avoids foreignObject, which misrenders under transforms on iOS Safari). */
-export function wrap(text: string, max: number, lines: number): string[] {
-  const out: string[] = [];
-  let cur = "";
-  for (const w of text.split(/\s+/)) {
-    const word = w.length > max ? w.slice(0, max - 1) + "…" : w;
-    if ((cur + " " + word).trim().length <= max) cur = (cur + " " + word).trim();
-    else {
-      out.push(cur);
-      cur = word;
-    }
-  }
-  if (cur) out.push(cur);
-  if (out.length > lines) {
-    const kept = out.slice(0, lines);
-    kept[lines - 1] = kept[lines - 1].slice(0, max - 1) + "…";
-    return kept;
-  }
-  return out;
 }
 
 const NOTE_COLORS = ["#F6E1AE", "#CFE3DF", "#F2C3B5", "#DCE8C8"];
 
-export const StickyNotes = memo(function StickyNotes({ tasks }: { tasks: Task[] }) {
-  const open = tasks.filter((t) => !t.done).slice(0, 3);
-  const notes = open.length ? open : [];
+export function noteSlots(tasks: Task[]) {
+  const open = tasks.filter((t) => !t.done).slice(0, NOTES.max);
+  return open.length
+    ? open.map((t, i) => ({ text: t.text, x: NOTES.x, y: NOTES.y + i * NOTES.gap, color: NOTE_COLORS[i % 4] }))
+    : [{ text: "", x: NOTES.x, y: NOTES.y, color: NOTE_COLORS[0] }];
+}
+
+export function StickyNotes({ tasks }: { tasks: Task[] }) {
   return (
-    <g className="obj obj-notes">
-      {notes.length === 0 && (
-        <g transform="translate(1100 176) rotate(4)">
-          <rect x={0} y={0} width={100} height={92} fill="#2a1a10" opacity={0.12} transform="translate(3 4)" />
-          <rect x={0} y={0} width={100} height={92} fill={NOTE_COLORS[0]} stroke={O} strokeWidth={2.2} />
-          <text x={50} y={40} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={14} fill={O}>Add a</text>
-          <text x={50} y={60} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={14} fill={O}>note +</text>
-        </g>
-      )}
-      {notes.map((t, i) => (
-        <g key={t.id} transform={`translate(${1098 + (i % 2) * 8} ${168 + i * 68}) rotate(${[4, -3, 2][i]})`}>
-          <rect x={0} y={0} width={104} height={76} fill="#2a1a10" opacity={0.12} transform="translate(3 4)" />
-          <rect x={0} y={0} width={104} height={76} fill={NOTE_COLORS[i % 4]} stroke={O} strokeWidth={2.2} />
-          {wrap(t.text, 12, 3).map((line, li) => (
-            <text key={li} x={8} y={26 + li * 18} fontFamily="Fredoka, sans-serif" fontSize={14} fill={O}>
-              {line}
-            </text>
-          ))}
-          <circle cx={52} cy={2} r={5} fill={P.tomato} stroke={O} strokeWidth={1.5} />
+    <g>
+      {noteSlots(tasks).map((n, i) => (
+        <g key={i}>
+          <rect x={n.x + 4} y={n.y + 5} width={NOTES.w} height={NOTES.h} fill="#2a1a10" opacity={0.15} />
+          <rect x={n.x} y={n.y} width={NOTES.w} height={NOTES.h} fill={n.color} stroke={O} strokeWidth={3} />
+          <rect x={n.x} y={n.y} width={NOTES.w} height={9} fill="#000" opacity={0.06} />
+          <circle cx={n.x + NOTES.w / 2} cy={n.y + 3} r={6} fill={P.tomato} stroke={O} strokeWidth={3} />
         </g>
       ))}
     </g>
   );
-});
+}

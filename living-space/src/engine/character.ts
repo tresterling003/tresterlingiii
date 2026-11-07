@@ -146,7 +146,7 @@ export class ResidentController {
         this.flash({ pose: "hop", bubble: "heart", expression: "happy" }, 1300, null, () => this.schedule(rand(2000, 4000)));
         break;
       case "wake":
-        this.flash({ pose: "sit", bubble: "none", expression: "sleepy" }, 2200, null, () => this.run(this.planFor("idle")));
+        this.flash({ behavior: "idle", pose: "sit", bubble: "none", expression: "sleepy" }, 2200, null, () => this.run(this.planFor("idle")));
         break;
     }
   }

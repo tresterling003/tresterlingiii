@@ -58,7 +58,7 @@ export function TasksPanel() {
 
 function TaskRow({ id, text, due, done, overdue, today }: { id: string; text: string; due: string | null; done: boolean; overdue: boolean; today: boolean }) {
   return (
-    <li className={`flex items-center gap-3 rounded-lg bg-[#fffbea] border-2 border-ink/70 px-3 py-2 ${done ? "opacity-60" : ""}`}>
+    <li className={`flex items-center gap-3 rounded-lg bg-[#fffbea] border-[3px] border-ink/70 px-3 py-2 ${done ? "opacity-60" : ""}`}>
       <input id={`t-${id}`} type="checkbox" checked={done} onChange={() => toggleTask(id)} className="w-6 h-6 accent-[#4f8c8c] shrink-0" />
       <label htmlFor={`t-${id}`} className="flex-1 min-w-0 cursor-pointer">
         <span className={`block text-[16px] ${done ? "line-through" : ""}`}>{text}</span>

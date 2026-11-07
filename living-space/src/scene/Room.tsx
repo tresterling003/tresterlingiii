@@ -1,4 +1,3 @@
-"use client";
 import { O, SW, P } from "./palette";
 import { WORLD } from "./layout";
 import type { RoomTheme } from "./theme";
@@ -85,45 +84,44 @@ export function RoomShell({ theme }: { theme: RoomTheme }) {
       {/* Wall clock (above the desk) */}
       <WallClockFace />
 
-      {/* Framed picture above desk */}
-      <g transform="translate(1282 112)">
-        <rect x={0} y={0} width={124} height={96} rx={4} fill={P.woodHi} {...stroke} />
-        <rect x={12} y={12} width={100} height={72} fill="#BFDCE6" stroke={O} strokeWidth={2} />
-        <path d="M12 84 L42 46 L60 64 L78 38 L112 84 Z" fill="#7C9C86" stroke={O} strokeWidth={2} />
-        <path d="M78 38 L70 48 L84 50 Z" fill={P.white} />
-        <circle cx={94} cy={30} r={7} fill={P.honey} />
-      </g>
-
-      {/* Bookshelf above desk */}
+      {/* Small shelf under the clock */}
       <g>
-        <ellipse cx={1405} cy={310} rx={150} ry={10} fill="#2a1a10" opacity={0.12} />
+        <ellipse cx={1525} cy={310} rx={60} ry={8} fill="#2a1a10" opacity={0.12} />
         {[
-          [1278, 40, P.teal], [1302, 46, P.tomato], [1330, 36, P.honey], [1352, 44, "#7C9C86"], [1378, 30, P.woodHi],
+          [1482, 40, P.teal], [1506, 46, P.tomato], [1530, 34, P.honey],
         ].map(([x, h, c], i) => (
-          <rect key={i} x={x as number} y={298 - (h as number)} width={i === 2 ? 20 : 22} height={h as number} rx={3} fill={c as string} {...stroke} />
+          <rect key={i} x={x as number} y={298 - (h as number)} width={21} height={h as number} fill={c as string} {...stroke} />
         ))}
-        <rect x={1414} y={276} width={52} height={22} rx={4} fill={P.paper} {...stroke} />
-        <path d="M1480 298 q6 -36 22 -36 q16 0 22 36 Z" fill={P.pot} {...stroke} />
-        <path d="M1502 262 q-14 -22 -4 -36 M1502 262 q10 -26 24 -26 M1502 262 q2 -30 -2 -42" fill="none" stroke={P.leafDark} strokeWidth={5} strokeLinecap="round" />
-        <rect x={1260} y={298} width={290} height={14} rx={3} fill={P.woodHi} {...stroke} />
-        <path d="M1286 312 l10 18 h8 l-2 -18 M1524 312 l-10 18 h-8 l2 -18" fill={P.wood} {...stroke} />
+        <path d="M1554 298 q6 -36 18 -36 q12 0 18 36 Z" fill={P.pot} {...stroke} />
+        <path d="M1572 262 q-12 -22 -4 -36 M1572 262 q8 -24 20 -26 M1572 262 q2 -30 -2 -40" fill="none" stroke={P.leafDark} strokeWidth={6} strokeLinecap="round" />
+        <rect x={1473} y={298} width={126} height={15} fill={P.woodHi} {...stroke} />
+        <path d="M1491 313 l9 18 h8 l-2 -18 M1581 313 l-9 18 h-8 l2 -18" fill={P.wood} {...stroke} />
       </g>
 
-      {/* Corkboard frame (sheet + notes are their own objects) */}
-      <g>
-        <rect x={888} y={132} width={338} height={266} rx={8} fill={P.woodHi} {...stroke} />
-        <rect x={902} y={146} width={310} height={238} rx={4} fill={P.cork} stroke={O} strokeWidth={2} />
-        {Array.from({ length: 40 }, (_, i) => (
-          <circle key={i} cx={910 + ((i * 97) % 296)} cy={152 + ((i * 53) % 226)} r={1.6} fill={P.corkDark} />
-        ))}
-      </g>
+      {/* Corkboard for today's planner sheet */}
+      <Cork x={888} y={132} w={378} h={330} />
+      {/* Little corkboard for sticky notes, above the desk */}
+      <Cork x={1275} y={93} w={192} h={213} />
+    </g>
+  );
+}
+
+function Cork({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  return (
+    <g>
+      <rect x={x + 6} y={y + 9} width={w} height={h} fill="#2a1a10" opacity={0.15} />
+      <rect x={x} y={y} width={w} height={h} fill={P.woodHi} {...stroke} />
+      <rect x={x + 12} y={y + 12} width={w - 24} height={h - 24} fill={P.cork} stroke={O} strokeWidth={3} />
+      {Array.from({ length: Math.round((w * h) / 2200) }, (_, i) => (
+        <rect key={i} x={x + 18 + ((i * 97) % (w - 36))} y={y + 18 + ((i * 53) % (h - 36))} width={3} height={3} fill={P.corkDark} />
+      ))}
     </g>
   );
 }
 
 function WallClockFace() {
   return (
-    <g transform="translate(1480 162)">
+    <g transform="translate(1510 162)">
       <circle r={40} fill={P.woodHi} {...stroke} />
       <circle r={32} fill={P.paper} stroke={O} strokeWidth={2} />
       {Array.from({ length: 12 }, (_, i) => {
@@ -139,9 +137,9 @@ export function WallClockHands({ minutes }: { minutes: number }) {
   const h = ((minutes / 60) % 12) * 30;
   const m = (minutes % 60) * 6;
   return (
-    <g transform="translate(1480 162)">
-      <line x1={0} y1={0} x2={0} y2={-15} stroke={O} strokeWidth={4} strokeLinecap="round" transform={`rotate(${h})`} style={{ transition: "transform 1s" }} />
-      <line x1={0} y1={0} x2={0} y2={-24} stroke={O} strokeWidth={2.5} strokeLinecap="round" transform={`rotate(${m})`} />
+    <g transform="translate(1510 162)">
+      <line x1={0} y1={0} x2={0} y2={-15} stroke={O} strokeWidth={5} strokeLinecap="round" transform={`rotate(${h})`} />
+      <line x1={0} y1={0} x2={0} y2={-24} stroke={O} strokeWidth={3} strokeLinecap="round" transform={`rotate(${m})`} />
       <circle r={3.5} fill={P.tomato} stroke={O} strokeWidth={1.5} />
     </g>
   );
@@ -158,10 +156,9 @@ export function FairyLights({ glow }: { glow: number }) {
   const colors = [P.honey, P.tomato, "#F2D785", P.glow];
   return (
     <g>
-      <path d={d} fill="none" stroke={O} strokeWidth={2} opacity={0.75} />
+      <path d={d} fill="none" stroke={O} strokeWidth={3} />
       {pts.map((p, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y + 4} r={14} fill={colors[i % 4]} opacity={glow * 0.35} className="bulb-glow" style={{ animationDelay: `${(i % 5) * 0.7}s` }} />
           <ellipse cx={p.x} cy={p.y + 3} rx={5} ry={7} fill={colors[i % 4]} stroke={O} strokeWidth={1.5} style={{ opacity: 0.55 + glow * 0.45 }} />
         </g>
       ))}

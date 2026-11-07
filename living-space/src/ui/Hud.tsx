@@ -1,6 +1,7 @@
 "use client";
 import { useWorld } from "@/engine/store";
 import { dismissToast, openPanel } from "@/engine/actions";
+import { PixelIcon } from "./PixelIcon";
 
 const DEVTOOLS = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_ENABLE_DEVTOOLS === "true";
 
@@ -17,14 +18,14 @@ export function Hud() {
       <div className="fixed z-30 flex gap-2 items-start" style={{ top: "calc(10px + var(--safe-t))", right: "calc(12px + var(--safe-r))" }}>
         {DEVTOOLS && (
           <button type="button" className="hud-tag" onClick={() => openPanel("dev")} aria-label="Open dev tools">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden><path d="M14 6l4-4 4 4-4 4M3 21l9-9M16 8l-3 3" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <PixelIcon name="wrench" size={21} />
             <span className="hidden sm:inline">Dev</span>
           </button>
         )}
         <button type="button" className="hud-tag" onClick={() => openPanel("settings")} aria-label={`Settings${warn ? " — something needs attention" : ""}`}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+          <PixelIcon name="menu" size={21} />
           <span className="hidden sm:inline">Home</span>
-          {warn && <span className="w-2.5 h-2.5 rounded-full bg-honey border-2 border-paper" aria-hidden />}
+          {warn && <span className="w-3 h-3 bg-honey shadow-[0_0_0_3px_#4A3428]" aria-hidden />}
         </button>
       </div>
       <div className="fixed z-30 flex flex-col gap-2 items-start pointer-events-none" style={{ top: "calc(12px + var(--safe-t))", left: "calc(12px + var(--safe-l))" }}>
@@ -52,7 +53,7 @@ function Toasts() {
         >
           <span className={`toast-dot toast-${t.tone}`} aria-hidden />
           <span className="flex-1 min-w-0">
-            <span className="block font-display text-[16px] leading-5 truncate">{t.title}</span>
+            <span className="block font-display text-[18px] leading-6 truncate">{t.title}</span>
             {t.body && <span className="block text-[13px] text-ink-soft">{t.body}</span>}
           </span>
         </button>

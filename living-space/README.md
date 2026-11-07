@@ -1,6 +1,6 @@
 # Living Space
 
-A cozy, Tamagotchi-style home that turns your real day into events in an animated room.
+A cozy, retro pixel-art, Tamagotchi-style home that turns your real day into events in an animated room.
 Letters arrive at the door (Gmail), today's plans hang on the board (Google Calendar), the window shows your real sky (Open-Meteo), and devices on the desk light up when connected services report activity. A small resident, **Pip**, lives there and goes about its day.
 
 The whole app *is* the room. There are no dashboard cards: every piece of information lives in an object you can click.
@@ -117,7 +117,14 @@ src/
   app/api/         Route handlers
 ```
 
-**Rendering choice.** The room is hand-built SVG layered in the DOM, with CSS animation for ambient motion. PixiJS wasn't needed: the scene has a few hundred vector shapes and one moving character. With SVG, every object stays crisp at any device pixel ratio. Each interactive object is a real `<button>`, so keyboard, screen readers and focus rings come for free. Ambient motion is compositor-friendly transforms. The only JavaScript frame loop is the resident's walk, and it stops when Pip stops.
+**Rendering: a real pixel grid.** Every prop is authored as a small vector SVG component (`src/scene/*.tsx`), but nothing is shown as vector. `src/scene/pixel/` rasterises each prop into a sprite at **one pixel per 3 world units** and composites the sprites onto a single 1001×630 canvas. The canvas is then scaled up with `image-rendering: pixelated`, so the whole room, Pip and the weather share one chunky pixel grid on every browser, including iOS Safari (no SVG-filter tricks).
+- **Sprites** are cached by their inputs: theme, unread count, Pip's pose and frame, and so on. Only something that changes is re-rasterised.
+- **Animation** steps at a handheld-style 12 fps: Pip's walk cycle, blinking, the zzz, rain, snow, lightning, clouds, steam and dust. Movement redraws every frame while Pip walks, and reduced motion drops to about 2 fps with no particles.
+- **Text** in the room (planner sheet, notes, MAIL, badges) is drawn in Pixelify Sans at 11 px, the size at which the font lands exactly on the pixel grid. The anti-aliasing is then thresholded away so letters are hard pixels.
+- **Light** is posterised: the sky is drawn in flat bands, and the lamp, monitor and fairy-light glows are stepped rings, not smooth gradients.
+- Each interactive object is still a real `<button>` over the canvas, so keyboard, screen readers and focus work as before. A focused or hovered object gets blinking pixel corner brackets.
+
+The menus follow the same rules: square notched pixel frames instead of rounded corners, hard drop shadows, a dithered backdrop, stepped animations, Pixelify Sans everywhere, and VT323 on the computer screen. The home-screen icon is pixel art too (`npm run icons`). Rasterising the art in the browser adds `react-dom/server` to the client bundle (about 184 kB first load).
 
 **Adding a source.** Implement `SourceAdapter` (`src/engine/adapters/types.ts`). Write your own store slice, and/or call `pushActivity()` with `channel: "computer" | "phone"`. Then register the adapter in `boot.ts`. The computer lists exactly the adapters that are running, so it never claims sources that aren't integrated.
 
@@ -153,5 +160,5 @@ These ran in this environment:
 - Shortcut alerts are stored in Redis when `UPSTASH_REDIS_REST_*` / `KV_REST_API_*` is set (needed on Vercel), otherwise in a JSON file in `DATA_DIR` (self-hosting).
 - Gmail is polled, not pushed. Gmail push via Pub/Sub would give instant delivery but needs a public webhook and a GCP topic.
 - Tasks, pet and settings are saved per device in `localStorage`; there's no cross-device sync yet.
-- The art is a cohesive hand-built vector set (see `DESIGN.md`), not commissioned illustration. The scene components are the asset pipeline: swap any prop's SVG while keeping its footprint in `layout.ts`.
+- The art is a cohesive hand-built set rasterised to pixels (see `DESIGN.md`), not hand-placed pixel art from an artist. The scene components are the asset pipeline: swap any prop's SVG, or drop in a hand-drawn PNG sprite, keeping its footprint in `layout.ts`.
 - iPhone layouts were tested with Playwright's iPhone 13 profile in Chromium, not real Safari. Check on a device before relying on it.

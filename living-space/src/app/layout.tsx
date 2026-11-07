@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/nunito";
-import "@fontsource/fredoka/500.css";
-import "@fontsource/fredoka/600.css";
+import "@fontsource/pixelify-sans/400.css";
+import "@fontsource/pixelify-sans/500.css";
+import "@fontsource/pixelify-sans/600.css";
+import "@fontsource/pixelify-sans/700.css";
+import "@fontsource/vt323/400.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

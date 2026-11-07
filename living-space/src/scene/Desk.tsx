@@ -1,11 +1,9 @@
-"use client";
-import { memo } from "react";
 import { O, SW, P } from "./palette";
 
 const stroke = { stroke: O, strokeWidth: SW, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
 
 /** Desk body sits on the back-wall plane; the character always passes in front of it. */
-export const Desk = memo(function Desk() {
+export function Desk() {
   return (
     <g>
       <ellipse cx={1362} cy={694} rx={230} ry={16} fill="#2a1a10" opacity={0.2} />
@@ -25,15 +23,14 @@ export const Desk = memo(function Desk() {
       {/* Mug with gentle steam */}
       <rect x={1452} y={512} width={26} height={32} rx={5} fill={P.teal} {...stroke} />
       <path d="M1478 520 q12 0 12 10 q0 10 -12 10" fill="none" stroke={O} strokeWidth={SW} />
-      <path className="steam" d="M1460 506 q-6 -10 2 -20 q6 -8 0 -16" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round" opacity={0.6} />
-      <path className="steam" style={{ animationDelay: "1.4s" }} d="M1470 506 q-6 -10 2 -20 q6 -8 0 -16" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round" opacity={0.5} />
+
       {/* Notebook */}
       <path d="M1496 543 l6 -10 h44 l-4 10 Z" fill={P.tomato} {...stroke} />
     </g>
   );
-});
+}
 
-export const DeskLamp = memo(function DeskLamp({ on }: { on: number }) {
+export function DeskLamp({ on }: { on: number }) {
   return (
     <g>
       <ellipse cx={1528} cy={543} rx={22} ry={6} fill={P.metal} {...stroke} />
@@ -46,75 +43,51 @@ export const DeskLamp = memo(function DeskLamp({ on }: { on: number }) {
       </g>
     </g>
   );
-});
-
-interface ScreenProps {
-  awake: boolean;
-  unseen: number;
-  glowKey: number;
-  lighting: number;
 }
 
-export const Computer = memo(function Computer({ awake, unseen, glowKey }: ScreenProps) {
+export function Computer({ awake }: { awake: boolean }) {
   return (
-    <g className="obj obj-computer">
-      {/* Stand */}
+    <g>
       <path d="M1350 520 l-8 22 h48 l-8 -22 Z" fill={P.metal} {...stroke} />
-      {/* Bezel */}
-      <rect x={1272} y={378} width={190} height={144} rx={12} fill="#EDE4D3" {...stroke} />
-      <rect x={1286} y={390} width={162} height={112} rx={6} fill={P.screen} stroke={O} strokeWidth={2.5} />
-      <g className={awake ? "screen-on" : "screen-off"}>
-        <rect x={1286} y={390} width={162} height={112} rx={6} fill="#24414A" />
-        {/* Wallpaper: a tiny hill horizon */}
-        <path d="M1286 470 q40 -22 82 -6 t80 -10 v48 h-162 Z" fill="#3E6B5E" />
-        <rect x={1296} y={400} width={60} height={8} rx={3} fill={P.glow} opacity={0.8} />
-        <rect x={1296} y={414} width={92} height={6} rx={3} fill={P.glow} opacity={0.45} />
-        <rect x={1296} y={426} width={74} height={6} rx={3} fill={P.glow} opacity={0.45} />
-        {/* Scanline flicker */}
-        <rect x={1286} y={390} width={162} height={112} rx={6} fill="url(#scan)" className="flicker" />
-      </g>
-      {awake && <rect key={glowKey} x={1286} y={390} width={162} height={112} rx={6} fill={P.glow} className="screen-pulse" />}
-      <defs>
-        <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
-          <rect width="4" height="2" fill="#000" opacity="0.12" />
-        </pattern>
-      </defs>
-      {/* Power LED */}
-      <circle cx={1440} cy={512} r={3.5} fill={awake ? P.glow : "#7E8B84"} />
-      {unseen > 0 && (
-        <g transform="translate(1458 384)"><g className="badge-pop">
-          <circle r={14} fill={P.tomato} stroke={O} strokeWidth={2.5} />
-          <text y={5} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={14} fontWeight={600} fill={P.paper}>{unseen > 9 ? "9+" : unseen}</text>
-        </g></g>
+      <rect x={1272} y={378} width={190} height={144} rx={9} fill="#EDE4D3" {...stroke} />
+      <rect x={1286} y={390} width={162} height={112} fill={awake ? "#24414A" : P.screen} stroke={O} strokeWidth={3} />
+      {awake && (
+        <g>
+          <path d="M1287 470 q40 -22 82 -6 t78 -10 v47 h-160 Z" fill="#3E6B5E" />
+          <rect x={1296} y={400} width={60} height={9} fill={P.glow} opacity={0.85} />
+          <rect x={1296} y={415} width={93} height={6} fill={P.glow} opacity={0.5} />
+          <rect x={1296} y={427} width={75} height={6} fill={P.glow} opacity={0.5} />
+          {Array.from({ length: 18 }, (_, i) => (
+            <rect key={i} x={1287} y={392 + i * 6} width={160} height={3} fill="#000" opacity={0.1} />
+          ))}
+        </g>
       )}
+      {!awake && <path d="M1300 400 l24 0 l-24 24 Z" fill="#fff" opacity={0.08} />}
+      <rect x={1437} y={509} width={6} height={6} fill={awake ? P.glow : "#7E8B84"} />
     </g>
   );
-});
+}
 
-export const Phone = memo(function Phone({ lit, unseen, buzzKey }: { lit: boolean; unseen: number; buzzKey: number }) {
+export function Phone({ lit }: { lit: boolean }) {
   return (
-    <g className="obj obj-phone">
-      {/* Wooden stand */}
+    <g>
       <path d="M1194 544 h52 l-6 -14 h-40 Z" fill={P.woodDark} {...stroke} />
-      <g key={buzzKey} className={buzzKey ? "buzz" : ""} style={{ transformOrigin: "1220px 520px" }}>
-        <rect x={1200} y={474} width={40} height={66} rx={8} fill="#3A3330" {...stroke} transform="rotate(-6 1220 507)" />
-        <rect x={1205} y={481} width={30} height={50} rx={4} fill={lit ? "#CFEFE2" : "#26302F"} transform="rotate(-6 1220 507)" style={{ transition: "fill .4s" }} />
-        {lit && (
-          <g transform="rotate(-6 1220 507)">
-            <rect x={1208} y={490} width={24} height={9} rx={2.5} fill={P.paper} stroke={O} strokeWidth={1} />
-            <rect x={1208} y={503} width={18} height={4} rx={2} fill={P.teal} opacity={0.6} />
-          </g>
-        )}
-      </g>
-      {unseen > 0 && (
-        <g transform="translate(1244 476)"><g className="badge-pop">
-          <circle r={11} fill={P.tomato} stroke={O} strokeWidth={2.2} />
-          <text y={4.5} textAnchor="middle" fontFamily="Fredoka, sans-serif" fontSize={12} fontWeight={600} fill={P.paper}>{unseen > 9 ? "9+" : unseen}</text>
-        </g></g>
+      <rect x={1200} y={474} width={40} height={66} rx={6} fill="#3A3330" {...stroke} />
+      <rect x={1206} y={481} width={28} height={50} fill={lit ? "#CFEFE2" : "#26302F"} />
+      {lit && (
+        <g>
+          <rect x={1209} y={490} width={22} height={9} fill={P.paper} stroke={O} strokeWidth={2} />
+          <rect x={1209} y={503} width={16} height={4} fill={P.teal} />
+        </g>
       )}
     </g>
   );
-});
+}
+
+/** Small round notification badge (the number is drawn as pixel text). */
+export function Badge({ r }: { r: number }) {
+  return <circle cx={0} cy={0} r={r} fill={P.tomato} stroke={O} strokeWidth={3} />;
+}
 
 /** Foreground desk chair (depth-sorted against the resident). */
 export function Chair() {
@@ -124,18 +97,18 @@ export function Chair() {
       <path d="M1330 760 v52 M1290 818 l40 -10 l40 10" fill="none" stroke={O} strokeWidth={6} strokeLinecap="round" />
       <circle cx={1290} cy={820} r={6} fill={P.metal} stroke={O} strokeWidth={2} />
       <circle cx={1370} cy={820} r={6} fill={P.metal} stroke={O} strokeWidth={2} />
-      <rect x={1270} y={736} width={120} height={28} rx={12} fill={P.honey} {...stroke} />
-      <rect x={1280} y={640} width={100} height={100} rx={22} fill={P.honey} {...stroke} />
+      <rect x={1270} y={736} width={120} height={28} rx={9} fill={P.honey} {...stroke} />
+      <rect x={1280} y={640} width={100} height={100} rx={15} fill={P.honey} {...stroke} />
       <rect x={1294} y={656} width={72} height={66} rx={14} fill="#EDC56E" stroke={O} strokeWidth={2} />
     </g>
   );
 }
 
-export function FloorPlant({ still }: { still: boolean }) {
+export function FloorPlant() {
   return (
     <g>
       <ellipse cx={456} cy={742} rx={54} ry={10} fill="#2a1a10" opacity={0.22} />
-      <g className={still ? "" : "sway"} style={{ transformOrigin: "456px 690px" }}>
+      <g>
         {[
           "M456 690 C430 640 392 630 380 590 C420 596 446 620 456 690",
           "M456 690 C470 630 500 600 540 596 C530 640 490 660 456 690",

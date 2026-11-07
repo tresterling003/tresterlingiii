@@ -27,7 +27,7 @@ export function ComputerPanel() {
     <Panel title="Desk computer" skin="screen" width={600} sample={isDemo}>
       <div role="tablist" aria-label="Computer sections" className="flex gap-1 mb-4 flex-wrap">
         {tabs.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} type="button" onClick={() => setTab(id)} className={`px-3 min-h-[40px] rounded-lg font-display text-[15px] border-2 ${tab === id ? "bg-screen-glow text-screen border-screen-glow" : "border-[#3b5560] text-[#cfe9df] hover:bg-[#28414b]"}`}>
+          <button key={id} role="tab" aria-selected={tab === id} type="button" onClick={() => setTab(id)} className={`px-3 min-h-[40px] rounded-lg font-display text-[15px] border-[3px] ${tab === id ? "bg-screen-glow text-screen border-screen-glow" : "border-[#3b5560] text-[#cfe9df] hover:bg-[#28414b]"}`}>
             {label}
           </button>
         ))}
@@ -39,11 +39,11 @@ export function ComputerPanel() {
           ) : (
             <ul className="flex flex-col gap-2">
               {comp.slice(0, 30).map((a) => (
-                <li key={a.id} className="flex gap-3 items-start rounded-lg bg-[#24414a] px-3 py-2.5 font-mono text-[14px]">
+                <li key={a.id} className="flex gap-3 items-start rounded-lg bg-[#24414a] px-3 py-2.5 font-mono text-[21px] leading-6">
                   <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${a.read ? "bg-[#567]" : "bg-screen-glow"}`} aria-hidden />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[#e6f4ee]">{a.title}</span>
-                    <span className="block text-[12px] text-[#9fbdb2]">{a.sourceLabel} · {relativeTime(a.at, s.now)}{a.sample ? " · sample" : ""}</span>
+                    <span className="block text-[17px] text-[#9fbdb2]">{a.sourceLabel} · {relativeTime(a.at, s.now)}{a.sample ? " · sample" : ""}</span>
                   </span>
                   {a.source === "gmail" && <button type="button" className="text-[13px] underline text-screen-glow" onClick={() => openPanel("inbox")}>View</button>}
                 </li>
@@ -87,7 +87,7 @@ export function ComputerPanel() {
             ["Forecast", "https://open-meteo.com/", "#e3b04b"],
           ].map(([name, href, c]) => (
             <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-[#24414a] p-4 flex flex-col items-center gap-2 hover:bg-[#2c4c56] min-h-[96px] justify-center">
-              <span className="w-10 h-10 rounded-xl border-2 border-ink" style={{ background: c }} aria-hidden />
+              <span className="w-10 h-10 rounded-xl border-[3px] border-ink" style={{ background: c }} aria-hidden />
               <span className="font-display">{name}</span>
             </a>
           ))}
@@ -97,7 +97,7 @@ export function ComputerPanel() {
             ["Settings", "settings", "#b7c7a8"],
           ].map(([name, id, c]) => (
             <button key={name} type="button" onClick={() => openPanel(id as never)} className="rounded-xl bg-[#24414a] p-4 flex flex-col items-center gap-2 hover:bg-[#2c4c56] min-h-[96px] justify-center">
-              <span className="w-10 h-10 rounded-xl border-2 border-ink" style={{ background: c }} aria-hidden />
+              <span className="w-10 h-10 rounded-xl border-[3px] border-ink" style={{ background: c }} aria-hidden />
               <span className="font-display">{name}</span>
             </button>
           ))}

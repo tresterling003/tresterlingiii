@@ -2,7 +2,7 @@
   "name": "living-space",
   "version": "0.1.0",
   "private": true,
-  "description": "Living Space \u2014 a cozy Tamagotchi-style home that turns your real day into events in an animated room.",
+  "description": "Living Space — a cozy Tamagotchi-style home that turns your real day into events in an animated room.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,8 +12,8 @@
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/nunito": "^5.3.0",
-    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/pixelify-sans": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0",
     "next": "^14.2.15",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",

@@ -93,7 +93,7 @@ function G({ title, children }: { title: string; children: React.ReactNode }) {
 }
 function B({ on, children, active }: { on: () => void; children: React.ReactNode; active?: boolean }) {
   return (
-    <button type="button" onClick={on} className={`px-3 min-h-[36px] rounded-lg border-2 text-[13px] font-mono ${active ? "bg-screen-glow text-screen border-screen-glow" : "border-[#3b5560] text-[#cfe9df] hover:bg-[#28414b]"}`}>
+    <button type="button" onClick={on} className={`px-3 min-h-[36px] rounded-lg border-[3px] text-[13px] font-mono ${active ? "bg-screen-glow text-screen border-screen-glow" : "border-[#3b5560] text-[#cfe9df] hover:bg-[#28414b]"}`}>
       {children}
     </button>
   );

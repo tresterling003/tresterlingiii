@@ -20,14 +20,16 @@ export function WeatherPanel() {
       <Panel title={isDemo ? "Outside (sample)" : loc ? loc.name.split(",")[0] : "Outside"} skin="postcard" width={500} sample={isDemo}>
         {w.data ? (
           <>
-            <div className="flex items-end gap-4 h-[96px] -mt-2 mb-4 text-paper" style={{ textShadow: "0 2px 0 rgba(74,52,40,.5)" }}>
-              <span className="font-display text-[64px] leading-none font-semibold">{Math.round(w.data.temperature)}°</span>
-              <span className="pb-2">
+            <div className="flex items-end h-[96px] -mt-2 mb-4">
+              <div className="flex items-center gap-4 bg-ink text-paper px-4 py-2 pbox">
+              <span className="font-display text-[56px] leading-none font-bold">{Math.round(w.data.temperature)}°</span>
+              <span>
                 <span className="block font-display text-xl">{w.data.description}</span>
                 <span className="block text-[15px]">
                   {w.data.apparent != null && `Feels like ${Math.round(w.data.apparent)}°`}
                 </span>
               </span>
+              </div>
             </div>
             <dl className="grid grid-cols-3 gap-2 mb-4">
               {[
@@ -35,7 +37,7 @@ export function WeatherPanel() {
                 ["Low", w.data.low != null ? `${Math.round(w.data.low)}${deg}` : "—"],
                 ["Rain chance", w.data.precipChance != null ? `${w.data.precipChance}%` : "—"],
               ].map(([k, v]) => (
-                <div key={k} className="rounded-xl border-2 border-ink bg-[#fffdf7] px-3 py-2 text-center">
+                <div key={k} className="rounded-xl border-[3px] border-ink bg-[#fffdf7] px-3 py-2 text-center">
                   <dt className="text-xs uppercase tracking-wider text-ink-soft">{k}</dt>
                   <dd className="font-display text-xl">{v}</dd>
                 </div>
@@ -45,7 +47,7 @@ export function WeatherPanel() {
             {w.data.hourly.length > 0 && (
               <ol className="flex gap-2 overflow-x-auto scroll-soft pb-2 -mx-1 px-1" aria-label="Next hours">
                 {w.data.hourly.slice(0, 12).map((h) => (
-                  <li key={h.time} className="shrink-0 w-[64px] rounded-xl border-2 border-ink/70 bg-paper-warm text-center py-2">
+                  <li key={h.time} className="shrink-0 w-[64px] rounded-xl border-[3px] border-ink/70 bg-paper-warm text-center py-2">
                     <div className="text-xs text-ink-soft">{new Date(h.time).toLocaleTimeString(undefined, { hour: "numeric" })}</div>
                     <div className="font-display text-lg">{Math.round(h.temperature)}°</div>
                     <div className="text-[11px] leading-tight px-1">{describeWmo(h.code).description}</div>

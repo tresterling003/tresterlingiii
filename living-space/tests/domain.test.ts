@@ -7,7 +7,7 @@ import { buildSnapshot, shortForecast } from "@/domain/openmeteo";
 import { tickVitals, applyAction, DEFAULT_VITALS } from "@/domain/pet";
 import { computeCamera, clampX } from "@/scene/useCamera";
 import { HOTSPOTS } from "@/scene/layout";
-import { wrap } from "@/scene/Board";
+import { sheetModel, shortTime } from "@/scene/Board";
 import type { CalendarEvent, MailMessage } from "@/domain/types";
 
 const msg = (id: string, t: number): MailMessage => ({ id, threadId: id, from: "A", fromEmail: "a@x", subject: "s", snippet: "", receivedAt: t, url: "" });
@@ -155,7 +155,19 @@ describe("scene layout", () => {
     expect(p.scale).toBeGreaterThan(0.6);
     expect(clampX(-500, p)).toBeGreaterThan(0);
   });
-  it("wraps sticky note text", () => {
-    expect(wrap("Call the plumber about the kitchen sink", 12, 3)).toEqual(["Call the", "plumber", "about the…"]);
+  it("pixel planner sheet uses compact times and focuses on what's next", () => {
+    const base = new Date(2026, 10, 7).getTime();
+    const h = (x: number) => base + x * 3_600_000;
+    expect(shortTime(h(9))).toBe("9a");
+    expect(shortTime(h(17.5))).toBe("5:30p");
+    expect(shortTime(h(12))).toBe("12p");
+    const ev = (id: string, s: number) => ({ id, title: id, allDay: false, start: h(s), end: h(s + 1), location: null, description: null, url: null });
+    const m = sheetModel(h(13.5), [ev("a", 8), ev("b", 10), ev("c", 13), ev("d", 15), ev("e", 18), ev("f", 20), ev("g", 21)], "ready");
+    expect(m.rows.map((r) => r.id)).toEqual(["b", "c", "d", "e"]);
+    expect(m.rows[1].status).toBe("now");
+    expect(m.rows[2].status).toBe("next");
+    expect(m.more).toBe(3);
+    expect(sheetModel(h(9), [], "ready").empty).toBe(true);
+    expect(sheetModel(h(9), null, "error").message).toBe("Not connected");
   });
 });

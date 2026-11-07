@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useInstall } from "./useInstall";
+import { PixelIcon } from "./PixelIcon";
 
 /** "Put Living Space on your phone": native prompt where supported, clear steps on iOS, QR code on desktop. */
 export function InstallGuide() {
@@ -15,7 +16,7 @@ export function InstallGuide() {
   if (i.installed)
     return (
       <p className="text-[15px]">
-        <span className="inline-block w-2.5 h-2.5 rounded-full bg-sage border-2 border-ink mr-2" aria-hidden />
+        <span className="inline-block w-2.5 h-2.5 rounded-full bg-sage border-[3px] border-ink mr-2" aria-hidden />
         Installed. You're running Living Space as an app.
       </p>
     );
@@ -67,7 +68,7 @@ export function InstallGuide() {
       )}
       {qr && (
         <div className="flex gap-4 items-center">
-          <div className="w-[132px] h-[132px] shrink-0 rounded-lg border-2 border-ink overflow-hidden bg-paper" role="img" aria-label={`QR code for ${i.url}`} dangerouslySetInnerHTML={{ __html: qr }} />
+          <div className="w-[132px] h-[132px] shrink-0 rounded-lg border-[3px] border-ink overflow-hidden bg-paper" role="img" aria-label={`QR code for ${i.url}`} dangerouslySetInnerHTML={{ __html: qr }} />
           <p className="text-sm text-ink-soft">
             Scan with your phone's camera to open <b className="break-all">{i.url.replace(/^https:\/\//, "")}</b>, then add it to your home screen.
           </p>
@@ -80,7 +81,7 @@ export function InstallGuide() {
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <li className="flex gap-3 items-start">
-      <span className="w-7 h-7 shrink-0 rounded-full border-2 border-ink bg-honey-soft grid place-items-center font-display text-sm" aria-hidden>
+      <span className="w-8 h-8 shrink-0 border-[3px] border-ink bg-honey-soft grid place-items-center font-display text-sm" aria-hidden>
         {n}
       </span>
       <span className="pt-0.5">{children}</span>
@@ -90,18 +91,16 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
 
 function ShareIcon() {
   return (
-    <svg className="inline -mt-1 mx-0.5" width="18" height="20" viewBox="0 0 18 22" aria-label="Share icon">
-      <path d="M9 1v13M5 5l4-4 4 4" fill="none" stroke="#2F7DF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 9H3v12h12V9h-3" fill="none" stroke="#2F7DF6" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
+    <span className="inline-block align-middle mx-0.5 text-[#2F7DF6]">
+      <PixelIcon name="share" size={18} label="Share icon" />
+    </span>
   );
 }
 
 function PlusIcon() {
   return (
-    <svg className="inline -mt-1 mx-0.5" width="18" height="18" viewBox="0 0 18 18" aria-hidden>
-      <rect x="1" y="1" width="16" height="16" rx="4" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M9 5v8M5 9h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <span className="inline-block align-middle mx-0.5">
+      <PixelIcon name="plus" size={18} />
+    </span>
   );
 }

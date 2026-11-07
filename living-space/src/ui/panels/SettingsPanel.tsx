@@ -22,7 +22,7 @@ export function SettingsPanel() {
       <Section title="Mode">
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Data mode">
           {(["live", "demo"] as const).map((m) => (
-            <button key={m} type="button" role="radio" aria-checked={s.mode === m} onClick={() => world.set({ mode: m })} className={`rounded-xl border-[2.5px] px-3 py-3 text-left ${s.mode === m ? "border-ink bg-honey-soft shadow-[0_3px_0_#4A3428]" : "border-ink/40"}`}>
+            <button key={m} type="button" role="radio" aria-checked={s.mode === m} onClick={() => world.set({ mode: m })} className={`rounded-xl border-[3px] px-3 py-3 text-left ${s.mode === m ? "border-ink bg-honey-soft shadow-[0_3px_0_#4A3428]" : "border-ink/40"}`}>
               <span className="block font-display text-[17px]">{m === "live" ? "My real day" : "Demo"}</span>
               <span className="block text-sm text-ink-soft">{m === "live" ? "Connected services only" : "Clearly-marked sample data"}</span>
             </button>
@@ -82,9 +82,9 @@ export function SettingsPanel() {
                 type="button"
                 aria-pressed={on}
                 onClick={() => world.set((w) => ({ settings: { ...w.settings, theme: { ...w.settings.theme, ...DEFAULT_THEME, ...t.patch, id: t.id, residentBody: w.settings.theme.residentBody, residentBelly: w.settings.theme.residentBelly, residentSprout: w.settings.theme.residentSprout } } }))}
-                className={`rounded-xl border-[2.5px] p-2 flex items-center gap-3 ${on ? "border-ink shadow-[0_3px_0_#4A3428]" : "border-ink/40"}`}
+                className={`rounded-xl border-[3px] p-2 flex items-center gap-3 ${on ? "border-ink shadow-[0_3px_0_#4A3428]" : "border-ink/40"}`}
               >
-                <span className="w-12 h-10 rounded-md border-2 border-ink overflow-hidden flex flex-col" aria-hidden>
+                <span className="w-12 h-10 rounded-md border-[3px] border-ink overflow-hidden flex flex-col" aria-hidden>
                   <span className="flex-1" style={{ background: th.wallpaper }} />
                   <span className="h-2" style={{ background: th.wainscot }} />
                   <span className="h-2.5" style={{ background: th.floor }} />
@@ -112,7 +112,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Row({ name, state, ok, children }: { name: string; state: string; ok: boolean; children?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-paper-line last:border-0 flex-wrap">
-      <span className={`w-3 h-3 rounded-full border-2 border-ink ${ok ? "bg-sage" : "bg-paper-edge"}`} aria-hidden />
+      <span className={`w-3 h-3 rounded-full border-[3px] border-ink ${ok ? "bg-sage" : "bg-paper-edge"}`} aria-hidden />
       <span className="flex-1 min-w-[180px]">
         <span className="block font-semibold">{name}</span>
         <span className="block text-sm text-ink-soft break-all">{state}</span>

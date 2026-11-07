@@ -42,7 +42,7 @@ export function PhonePanel() {
       ) : (
         <ul className="flex flex-col gap-2">
           {alerts.slice(0, 40).map((a) => (
-            <li key={a.id} className="rounded-2xl bg-white/90 border border-ink/15 px-4 py-3 shadow-sm flex gap-3">
+            <li key={a.id} className="rounded-2xl bg-white/90 border border-ink/15 px-4 py-3 flex gap-3">
               <span className="flex-1 min-w-0">
                 <span className="flex gap-2 text-xs text-ink-soft">
                   <span className="uppercase tracking-wider font-bold flex-1 truncate">{a.sourceLabel}</span>
@@ -57,7 +57,7 @@ export function PhonePanel() {
         </ul>
       )}
 
-      <div className="mt-5 rounded-2xl border-2 border-dashed border-ink/30 p-4 text-[14px]">
+      <div className="mt-5 rounded-2xl border-[3px] border-dashed border-ink/30 p-4 text-[14px]">
         <p className="font-display text-[16px] mb-1">What shows up here</p>
         <p className="mb-2">Reminders from your sticky notes and calendar, plus alerts you send from Apple Shortcuts or other automations.</p>
         <p className="text-ink-soft mb-3">A web page can't read your iPhone's notifications, messages or calls, so this phone doesn't pretend to.</p>

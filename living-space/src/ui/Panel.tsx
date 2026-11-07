@@ -2,6 +2,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { closePanel } from "@/engine/actions";
 import { useWorld } from "@/engine/store";
+import { PixelIcon } from "./PixelIcon";
 
 export type PanelSkin = "paper" | "letter" | "screen" | "phone" | "note" | "card" | "postcard";
 
@@ -73,13 +74,11 @@ export function Panel({ title, skin, children, width = 520, headerExtra, sample 
           style={{ maxWidth: width, maxHeight: "min(86dvh, 760px)", transformOrigin: `${ox} ${oy}` }}
         >
           <div className="skin-head flex items-center gap-3 px-5 pt-4 pb-3">
-            <h2 className="font-display text-[22px] leading-7 font-semibold flex-1 min-w-0 truncate">{title}</h2>
+            <h2 className="font-display text-[25px] leading-7 font-bold flex-1 min-w-0 truncate">{title}</h2>
             {sample && <span className="stamp text-tomato">Sample data</span>}
             {headerExtra}
             <button type="button" className="btn btn-sm btn-ghost !min-w-[44px] !min-h-[44px] -mr-2" onClick={closePanel} aria-label="Close">
-              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
-                <path d="M3 3l12 12M15 3L3 15" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-              </svg>
+              <PixelIcon name="close" size={21} />
             </button>
           </div>
           <div className="skin-body scroll-soft overflow-y-auto px-5 pb-5 flex-1 min-h-0">{children}</div>
@@ -133,7 +132,7 @@ export function SourceStatus({
 export function ConnectGoogle({ code, missing }: { code: string; missing?: string[] }) {
   if (code === "not_configured")
     return (
-      <div className="rounded-xl border-2 border-dashed border-ink/40 p-4 text-[15px]">
+      <div className="border-[3px] border-dashed border-ink/40 p-4 text-[16px]">
         <p className="font-display text-lg mb-1">Live Google data isn't set up on this server yet</p>
         <p className="mb-2">Add these to <code className="font-mono text-sm">.env.local</code> and restart:</p>
         <ul className="list-disc pl-5 font-mono text-sm mb-2">{(missing ?? ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SESSION_SECRET"]).map((m) => <li key={m}>{m}</li>)}</ul>
@@ -141,7 +140,7 @@ export function ConnectGoogle({ code, missing }: { code: string; missing?: strin
       </div>
     );
   return (
-    <div className="rounded-xl border-2 border-dashed border-ink/40 p-4 text-[15px]">
+    <div className="border-[3px] border-dashed border-ink/40 p-4 text-[16px]">
       <p className="mb-3">{code === "reauth_required" ? "Google access expired or was revoked." : "Connect your Google account to see your real mail and today's plans."}</p>
       <a className="btn btn-primary" href="/api/auth/google">
         {code === "reauth_required" ? "Reconnect Google" : "Connect Google"}
