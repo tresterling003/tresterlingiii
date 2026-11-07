@@ -5,7 +5,7 @@ A first-person horror game set in flooded, endlessly tiled poolrooms. You keep t
 To play, open `index.html` in a browser on your phone or computer. The water, the creatures and the sound are all generated in code. three.js loads from a CDN.
 
 ## How it plays
-- **The Swimmer** is a pale thing that crawls through the water and hunts by sound. Wading makes noise, and running makes a lot more. It can't climb onto dry tiles, so sneak through the water and get out when you hear it coming. Your flashlight helps it see you.
+- **The Swimmer** is a tall, emaciated pale figure with a stretched, screaming human face. It wades through the water and hunts by sound. Wading makes noise, and running makes a lot more. It can't climb onto dry tiles, so sneak through the water and get out when you hear it coming. Your flashlight helps it see you.
 - **The Lifeguard** is a tall figure that stands on far-off tiles and watches you. It's gone before you can reach it.
 - **Watchers** are giant marble heads that open their eyes and turn toward you when you look away.
 - **Heart rate** rises near deep water, in the dark and when you're noticed. If it gets too high, you black out.
@@ -27,4 +27,5 @@ To play, open `index.html` in a browser on your phone or computer. The water, th
 If it runs slowly, lower **Graphics** in the pause menu (High, Medium or Low).
 
 ## Credits
-The statue head is the "Lee Perry-Smith" head scan by Lee Perry-Smith (Infinite Realities), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). I took it from the three.js example models.
+- The Swimmer's body is the Mixamo "Michelle" character, animated with walk, run and idle cycles from the Mixamo "Soldier" character. Both come from the three.js example models and are retargeted and distorted in code.
+- The statue head, which is also the Swimmer's face, is the "Lee Perry-Smith" head scan by Lee Perry-Smith (Infinite Realities), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). It also comes from the three.js example models.

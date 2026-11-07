@@ -172,6 +172,7 @@ import {Pass, FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {DecalGeometry} from 'three/addons/geometries/DecalGeometry.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 /* =====================================================================
    Helpers
@@ -495,8 +496,9 @@ const STARE=canvasTex(256,128,(c,w,h)=>{
 const TEARS=canvasTex(64,256,(c,w,h)=>{c.clearRect(0,0,w,h);const r=rng(5);for(let i=0;i<3;i++){const x=20+r()*24;const g=c.createLinearGradient(0,0,0,h);g.addColorStop(0,'rgba(5,6,6,.95)');g.addColorStop(.7,'rgba(5,6,6,.7)');g.addColorStop(1,'rgba(5,6,6,0)');c.strokeStyle=g;c.lineWidth=4+r()*6;c.beginPath();c.moveTo(x,0);for(let y=0;y<h;y+=16)c.lineTo(x+(r()-.5)*5,y);c.stroke()}});
 
 /* ---------- materials ---------- */
-function causticify(mat,grime=0){
+function causticify(mat,grime=0,desat=false){
   mat.onBeforeCompile=(sh)=>{
+    if(desat)sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n{float l=dot(diffuseColor.rgb,vec3(.3,.59,.11));diffuseColor.rgb=vec3(pow(l,.75))*1.25;}');
     sh.uniforms.uTime=U.time;sh.uniforms.uWaterY=U.waterY;sh.uniforms.uCaus=U.caus;
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;')
       .replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;');
@@ -516,7 +518,7 @@ function causticify(mat,grime=0){
       }
       #include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey=()=>'caus'+grime;
+  mat.customProgramCacheKey=()=>'caus'+grime+(desat?'d':'');
   return mat;
 }
 const tileMat=causticify(new THREE.MeshStandardMaterial({map:TT.map,normalMap:TT.normal,roughnessMap:TT.rough,roughness:1,metalness:0,vertexColors:true,normalScale:new THREE.Vector2(.9,.9)}),1);
@@ -818,6 +820,111 @@ function poseFigure(f,crawl,phase,t,extra={}){
   }
 }
 
+/* ---------- rigged creatures: Mixamo "Xbot" skeleton + animations (three.js examples), distorted ---------- */
+let XBOT=null,FACE=null;
+async function loadBody(){
+  try{
+    // body: Mixamo "Michelle"; animations: Mixamo "Soldier" idle/walk/run (both from the three.js examples)
+    const [g,anims]=await Promise.all([new GLTFLoader().loadAsync('assets/body.glb'),fetch('assets/anims.json').then(r=>r.json())]);
+    const clips={};for(const j of anims){const c=THREE.AnimationClip.parse(j);clips[c.name.toLowerCase()]=c}
+    // the body's armature is authored upside-down relative to the animation source; flip it to match
+    const arm=g.scene.getObjectByName('Character');if(arm)arm.rotation.x=-Math.PI/2;
+    let tex=null;g.scene.traverse(o=>{if(o.isSkinnedMesh&&o.material.map)tex=o.material.map});
+    XBOT={scene:g.scene,clips,tex};
+  }catch(e){console.warn('body model failed',e);XBOT=null}
+}
+// the scanned face, cropped at the neck, with a morph target that drops the jaw and sinks the eyes
+function faceGeometry(){
+  if(FACE||!HEAD)return FACE;
+  const src=HEAD.geo,pos=src.attributes.position,idx=src.index;
+  const keep=[];
+  if(idx){for(let i=0;i<idx.count;i+=3){const a=idx.getX(i),b=idx.getX(i+1),c=idx.getX(i+2);if(pos.getY(a)>-1.5&&pos.getY(b)>-1.5&&pos.getY(c)>-1.5)keep.push(a,b,c)}}
+  const g=src.clone();if(idx)g.setIndex(keep);
+  const m=new Float32Array(pos.count*3);
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    const front=sstep(.2,1.3,z),mid=sstep(1.8,.9,Math.abs(x));
+    const jaw=sstep(.36,.06,y)*front*mid;
+    const eye=Math.exp(-((Math.abs(x)-.62)**2)/(2*.24*.24)-((y-1.66)**2)/(2*.18*.18))*front;
+    const cheek=Math.exp(-((Math.abs(x)-.95)**2)/(2*.3*.3)-((y-.7)**2)/(2*.35*.35))*front;
+    m[i*3]=x*(1-cheek*.12);m[i*3+1]=y-jaw*1.7-cheek*.15;m[i*3+2]=z-eye*.42-cheek*.25;
+  }
+  g.morphAttributes.position=[new THREE.Float32BufferAttribute(m,3)];g.morphTargetsRelative=false;
+  FACE=g;return g;
+}
+const MOUTH=canvasTex(128,256,(c,w,h)=>{const g=c.createRadialGradient(64,128,4,64,128,64);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(.75,'rgba(2,2,2,.98)');g.addColorStop(1,'rgba(0,0,0,0)');
+  c.setTransform(1,0,0,2,0,-128);c.fillStyle=g;c.beginPath();c.arc(64,128,64,0,7);c.fill()});
+let creatureSkin=null;
+const faceMat=causticify(new THREE.MeshStandardMaterial({color:0xa9b2ae,normalMap:HEAD_NORMAL,roughness:.3,metalness:0,envMapIntensity:.9}),1);
+
+function makeCreature(kind){
+  const dark=kind==='lifeguard';
+  if(!XBOT){ // fallback: simple procedural figure
+    const f=makeFigure(dark?shadeMat:skinMat,{hair:!dark});
+    return {root:f.root,fallback:f,update(dt,mode,t){poseFigure(f,mode==='idle'||dark?0:1,t*4,t,{tilt:.5})},scream(){},faceWorld(v){return f.head.getWorldPosition(v)}};
+  }
+  const root=new THREE.Group();
+  const model=SkeletonUtils.clone(XBOT.scene);model.rotation.y=Math.PI;root.add(model);
+  if(!creatureSkin)creatureSkin=causticify(new THREE.MeshStandardMaterial({map:XBOT.tex,color:0xc4ccc9,roughness:.32,metalness:0,envMapIntensity:.9}),1,true);
+  const bones={};
+  model.traverse(o=>{
+    if(o.isBone)bones[o.name.replace('mixamorig','')]=o;
+    if(o.isSkinnedMesh){o.frustumCulled=false;o.material=dark?shadeMat:creatureSkin}
+  });
+  // stretch the skeleton: arms down past the knees, long fingers, a neck that is far too long
+  const stretch={LeftForeArm:1.35,RightForeArm:1.35,LeftHand:1.5,RightHand:1.5,LeftLeg:1.1,RightLeg:1.1,LeftFoot:1.08,RightFoot:1.08,Neck:1.2,Head:dark?2.2:3.1,Spine2:1.12,LeftShoulder:1.15,RightShoulder:1.15};
+  const fixed=[];
+  for(const[n,k]of Object.entries(stretch))if(bones[n])fixed.push([bones[n],bones[n].position.clone().multiplyScalar(k)]);
+  for(const b of Object.keys(bones))if(/Hand(Index|Middle|Ring|Pinky)[123]$/.test(b))fixed.push([bones[b],bones[b].position.clone().multiplyScalar(1.9)]);
+  const hip=bones.Hips,hipRest=hip.position.clone();
+  root.scale.setScalar(dark?1.35:1.18);
+  const mixer=new THREE.AnimationMixer(model);
+  const acts={};
+  for(const n of['idle','walk','run']){const a=mixer.clipAction(XBOT.clips[n]);a.play();a.setEffectiveWeight(n==='idle'?1:0);acts[n]=a}
+  const w={idle:1,walk:0,run:0};
+  // replace the mannequin head with the scanned face
+  let face=null,faceMesh=null,mouth=null;const hairs=[];
+  if(!dark&&HEAD&&bones.Neck){
+    face=new THREE.Group();bones.Neck.add(face);
+    faceMesh=new THREE.Mesh(faceGeometry(),faceMat);faceMesh.morphTargetInfluences=[.45];
+    faceMesh.position.set(0,.15,-.35);face.add(faceMesh);face.scale.setScalar(5.6);
+    const hole=new THREE.MeshBasicMaterial({color:0x000000});
+    for(const p of HEAD.eyes){const e=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),hole);e.scale.set(.3,.2,.12);e.position.set(p.x,p.y-.04,p.z-.34);faceMesh.add(e);
+      const pu=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),new THREE.MeshBasicMaterial({color:0xdfe6e3}));pu.position.set(p.x*.92,p.y-.02,p.z-.24);faceMesh.add(pu)}
+    mouth=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:MOUTH,transparent:true,depthWrite:false}));faceMesh.add(mouth);
+    const hm=new THREE.MeshStandardMaterial({color:0x040506,roughness:.32,metalness:.1});const r=rng(8);
+    // long wet hair: strands from the crown, hanging over the sides and back (and a few across the face)
+    for(let i=0;i<70;i++){const a=r()*Math.PI*2,front=Math.cos(a)>.55;if(front&&r()<.75)continue;
+      const len=(front?3.2:4.5)+r()*4.5,rad=.07+r()*.06;
+      const h=new THREE.Mesh(new THREE.CylinderGeometry(rad,.02,len,5),hm);
+      const sx=Math.sin(a)*(front?.55:1.55),sz=Math.cos(a)*(front?1.5:1.3)+.1;
+      h.position.set(sx,3.75-len/2+r()*.3,sz);h.rotation.z=-Math.sin(a)*.08;h.rotation.x=Math.cos(a)*.08;faceMesh.add(h);hairs.push(h)}
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(1.95,20,14,0,Math.PI*2,0,Math.PI*.5),hm);cap.scale.set(1,.55,1.05);cap.position.set(0,2.95,-.15);faceMesh.add(cap);
+  }
+  const c={root,model,bones,mixer,acts,w,face,faceMesh,mouth,fixed,dark,tw:0,twT:1,twR:new THREE.Euler(),scr:.45,
+    update(dt,mode,t,speed=1){
+      for(const k of['idle','walk','run']){w[k]=lerp(w[k],k===mode?1:0,1-Math.pow(.002,dt));acts[k].setEffectiveWeight(w[k])}
+      acts.walk.timeScale=.75*speed;acts.run.timeScale=1.25*speed;acts.idle.timeScale=.6;
+      mixer.update(dt);
+      for(const[b,p]of fixed)b.position.copy(p);
+      hip.position.set(hipRest.x,-hipRest.y,-hipRest.z+(mode==='run'?Math.abs(Math.sin(t*9))*3:mode==='walk'?Math.abs(Math.sin(t*6.5))*1.5:0));
+      if(bones.Head&&face){bones.Head.scale.setScalar(.001);face.position.copy(bones.Head.position);face.quaternion.copy(bones.Head.quaternion)}
+      // twitches: sudden jerks of the head and shoulders
+      this.twT-=dt;if(this.twT<0){this.twT=(mode==='run'?.25:.7)+Math.random()*(mode==='run'?.6:2.2);this.tw=.13;this.twR.set((Math.random()-.5)*.9,(Math.random()-.5)*1.1,(Math.random()-.5)*1.3)}
+      const k=this.tw>0?1:0;this.tw-=dt;
+      const tgt=face||bones.Head;
+      if(tgt){tgt.rotation.z+=(dark?.3:.42)+Math.sin(t*1.7)*.05+k*this.twR.z;tgt.rotation.x+=k*this.twR.x-(mode==='run'?.15:.35);tgt.rotation.y+=k*this.twR.y}
+      if(bones.Spine2&&k)bones.Spine2.rotation.z+=this.twR.z*.25;
+      if(bones.Spine1)bones.Spine1.rotation.x+=mode==='run'?.35:.18;
+      if(faceMesh){faceMesh.morphTargetInfluences[0]=lerp(faceMesh.morphTargetInfluences[0],this.scr,1-Math.pow(.001,dt));
+        const j=faceMesh.morphTargetInfluences[0];mouth.position.set(0,.3-j*.85,2.36-j*.12);mouth.scale.set(.75+j*.3,.15+j*1.8,1)}
+    },
+    scream(v){this.scr=v},
+    faceWorld(v){return (face||bones.Head).getWorldPosition(v)}
+  };
+  return c;
+}
+
 /* ---------- the pale thing (open-water leviathan) ---------- */
 function makeBeast(){
   const grp=new THREE.Group(),segs=[],N=30,sg=new THREE.SphereGeometry(1,22,14);
@@ -966,7 +1073,7 @@ function buildLevel(idx){
   if(L.beast){world.beast=makeBeast();root.add(world.beast.grp);const bb=world.beast;bb.theta=R()*6;
     bb.head.set(L.beast.cx,-L.beast.depth,L.beast.cz);for(const s of bb.segs)s.p.copy(bb.head)}
   if(L.swimmer)world.sw=makeSwimmer(L.swimmer);
-  if(world.lgSpots.length){const f=makeFigure(shadeMat);f.root.scale.setScalar(1.28);f.root.visible=false;root.add(f.root);poseFigure(f,0,0,0,{tilt:.25});
+  if(world.lgSpots.length){const f=makeCreature('lifeguard');f.root.visible=false;root.add(f.root);
     world.lifeguard={f,on:false,look:0,cool:6+R()*6,spot:null}}
   world.notes=(L.notes||[]).map(([r,c,t])=>({x:c*C+C/2,z:r*C+C/2,t,shown:false}));
   U.ceil.value=ceil;U.fogD.value=L.fog;scene.fog.density=L.fog;U.chop.value=L.chop||.8;
@@ -1002,7 +1109,7 @@ function addEye(x,z,dr,dc,y,size,open,fixed){
    The swimmer: hunts by sound through any water, cannot climb dry tiles
    ===================================================================== */
 function makeSwimmer(cfg){
-  const f=makeFigure(skinMat,{hair:true});root.add(f.root);
+  const f=makeCreature('swimmer');root.add(f.root);
   let sp=null;
   for(let r=0;r<L.H;r++)for(let c=0;c<L.W;c++)if('WX'.includes(L.g[r][c]))sp=[r,c];
   const pos=sp?new THREE.Vector3(sp[1]*C+C/2,0,sp[0]*C+C/2):L.start.clone();
@@ -1111,13 +1218,13 @@ function updateSwimmer(dt){
     }
     if(speed>0)swMove(sw,dt,speed);
   }
-  sw.crawl=lerp(sw.crawl,targetCrawl,1-Math.pow(.05,dt));
   const[r,c]=cellOf(sw.pos.x,sw.pos.z);const fh=hAt(r,c);
-  let y=fh==null?lerp(w-.42,w-.38,sw.crawl):lerp(fh+.85,Math.max(fh+.3,w-.1),sw.crawl);
+  const y=fh==null?w-(sw.state==='stare'?1.25:1.5):fh;
   if(sw.state!=='dive')sw.y=lerp(sw.y,y,1-Math.pow(.02,dt));
   f.root.position.set(sw.pos.x,sw.y,sw.pos.z);f.root.rotation.y=sw.yaw;
-  sw.phase+=dt*(speed*2.4+.4);
-  poseFigure(f,sw.crawl,sw.phase,t,{tilt:.55,nod:sw.state==='stare'?.15:0});
+  const mode=speed<=0||sw.state==='dive'?'idle':sw.state==='chase'?'run':'walk';
+  f.scream(sw.state==='chase'?.85:sw.state==='stare'?.65:.4);
+  f.update(dt,mode,t,sw.cfg.passive?.6:clamp(speed/(sw.state==='chase'?4:1.6),.5,1.4));
   sw.splashT-=dt;if(speed>0&&sw.splashT<0){sw.splashT=sw.state==='chase'?.22:.5;ripple(sw.pos.x+Math.sin(sw.yaw)*.6,sw.pos.z+Math.cos(sw.yaw)*.6,sw.state==='chase'?1.4:.8);
     if(pd<34)SFX.swimSplash(sw.pos.x,sw.pos.z,sw.state==='chase'?1:.45,pd)}
   if(A.gurgleG)A.gurgleG.gain.value=lerp(A.gurgleG.gain.value,clamp(1-pd/14,0,1)*.32,.1);
@@ -1481,9 +1588,9 @@ function updateWorld(dt,pl){
   if(lg&&state==='play'){
     if(!lg.on){lg.cool-=dt;if(lg.cool<0){
       const opts=world.lgSpots.filter(s=>{const d=Math.hypot(s.x-P.pos.x,s.z-P.pos.z);return d>20&&d<75&&!inView(tmpV.set(s.x,s.y+1.4,s.z),1.1)});
-      if(opts.length){const s=opts[Math.random()*opts.length|0];lg.spot=s;lg.on=true;lg.look=0;lg.f.root.visible=true;lg.f.root.position.set(s.x,s.y+1.08,s.z)}else lg.cool=3}}
+      if(opts.length){const s=opts[Math.random()*opts.length|0];lg.spot=s;lg.on=true;lg.look=0;lg.f.root.visible=true;lg.f.root.position.set(s.x,s.y,s.z)}else lg.cool=3}}
     else{const s=lg.spot,d=Math.hypot(s.x-P.pos.x,s.z-P.pos.z);
-      lg.f.root.rotation.y=Math.atan2(P.pos.x-s.x,P.pos.z-s.z);
+      lg.f.root.rotation.y=Math.atan2(P.pos.x-s.x,P.pos.z-s.z);lg.f.update(dt,'idle',t);
       const seen=inView(tmpV.set(s.x,s.y+1.6,s.z),.9)&&losClear(P.pos.x,P.pos.z,s.x,s.z);
       if(seen){lg.look+=dt;dread+=.05;if(lg.look>.25&&!lg.whistled){lg.whistled=true;SFX.whistle(s.x,s.z)}}
       if(d<15||lg.look>2.6){lg.on=false;lg.whistled=false;lg.f.root.visible=false;lg.cool=14+Math.random()*20;world.flick=Math.max(world.flick,.5);SFX.whisper(s.x,s.z)}}
@@ -1546,10 +1653,11 @@ function frame(now){
   }else if(state==='dying'){
     if(P.dying==='caught'&&world.sw){
       const f=world.sw.f;const fx2=-Math.sin(P.yaw),fz2=-Math.cos(P.yaw);
-      const dist=lerp(1.5,.5,sstep(0,.3,stateT));
-      f.root.visible=true;f.root.position.set(camera.position.x+fx2*dist,camera.position.y-.97,camera.position.z+fz2*dist);
-      f.root.rotation.y=P.yaw;poseFigure(f,0,0,U.time.value,{armsUp:true,tilt:Math.sin(stateT*30)*.15});
-      f.mouth.scale.set(1.3,3.4,1);
+      const dist=lerp(1.6,.42,sstep(0,.32,stateT));
+      f.root.visible=true;f.root.rotation.y=P.yaw;f.scream(1.15);f.twT=Math.min(f.twT,.05);
+      f.update(dt,'run',U.time.value,1.6);f.root.updateMatrixWorld(true);
+      const fw=f.faceWorld(tmpV);const tx=camera.position.x+fx2*dist,ty=camera.position.y-.08,tz=camera.position.z+fz2*dist;
+      f.root.position.x+=tx-fw.x;f.root.position.y+=ty-fw.y;f.root.position.z+=tz-fw.z;
       P.pitch=lerp(P.pitch,-.04,dt*8);camera.rotation.set(P.pitch,P.yaw+(Math.random()-.5)*.03,(Math.random()-.5)*.04);
       fxU.uGlitch.value=Math.max(0,1-stateT*.6);fxU.uFade.value=stateT>.9?1:0;
       $('flashOv').style.opacity=stateT<.12?.85:0;
@@ -1564,7 +1672,7 @@ function frame(now){
     if(stateT>(P.dying==='caught'?1.6:4.6)&&$('death').hidden){$('death').hidden=false;
       $('deathT').textContent={drown:'YOU WENT UNDER',faint:'YOU COULDN’T BREATHE',caught:'IT FOUND YOU'}[P.dying];
       $('deathP').textContent=(isTouch?'tap':'click')+(P.check?' to return to the checkpoint':' to wake up');
-      if(world.sw)world.sw.f.mouth.scale.set(.9,1.6,1)}
+    }
   }else if(state==='exiting'){
     const[ir,ic]=L.exitIn;P.pos.x-=ic*dt*1.6;P.pos.z-=ir*dt*1.6;P.bob+=dt*4;
     camera.position.set(P.pos.x,P.eyeSm+P.eye+Math.sin(P.bob)*.04,P.pos.z);
@@ -1591,13 +1699,13 @@ function frame(now){
 }
 
 /* ---------- boot ---------- */
-await loadHead();
+await Promise.all([loadHead(),loadBody()]);
 goTitle();
 $('loading').hidden=true;
 document.addEventListener('pointerdown',audioInit,{once:true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='play')pauseGame();if(A.ctx){document.hidden?A.ctx.suspend():A.ctx.resume()}});
 requestAnimationFrame(frame);
-window.__deep={LEVELS,parseLevel,P,U,startLevel,get L(){return L},get state(){return state},world,camera,respawn,get qIdx(){return qIdx},setQ(i){qIdx=i;resize()}};
+window.__deep={setState(s){state=s},LEVELS,parseLevel,P,U,startLevel,get L(){return L},get state(){return state},world,camera,respawn,get qIdx(){return qIdx},setQ(i){qIdx=i;resize()}};
 </script>
 </body>
 </html>
