@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as TX from './textures.js';
-import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, roomAt, segBlocked, rng } from '../shared/level.js';
+import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, BUCKET, TEACHER_DESK, POOL_BASIN, roomAt, groundY, segBlocked, rng } from '../shared/level.js';
 
 const BAKE = { scale: { value: 1 } };
 // static lighting is baked per vertex from every ceiling fixture, with walls occluding; it is added as indirect diffuse.
@@ -96,6 +96,12 @@ export function buildWorld(scene, renderer, opts = {}) {
     service: std({ map: conc.map, normalMap: conc.normalMap, roughness: 0.7, color: 0x8a8880 }),
   };
   floorMats.storage = floorMats.service;
+  const lcorrT = TX.vctPlain([178, 176, 166], 12, [120, 60, 50]), lockT = TX.vctPlain([150, 168, 178], 13), deckT = TX.vctChecker([226, 230, 232], [120, 170, 196], 14);
+  floorMats.lcorr = std({ map: lcorrT.map, normalMap: lcorrT.normalMap, roughnessMap: lcorrT.roughnessMap, roughness: 1, envMapIntensity: 0.4 });
+  floorMats.lockers = std({ map: lockT.map, normalMap: lockT.normalMap, roughnessMap: lockT.roughnessMap, roughness: 1, envMapIntensity: 0.4 });
+  floorMats.pool = std({ map: deckT.map, normalMap: deckT.normalMap, roughness: 0.35, envMapIntensity: 0.7 });
+  floorMats.gym = std({ map: TX.woodGrain([196, 150, 98], 21), roughness: 0.38, envMapIntensity: 0.8 });
+  floorMats.stair = floorMats.service;
   const wallSets = {
     hall: TX.paintedWall({ upper: [226, 220, 204], lower: [146, 166, 132], stripe: [52, 84, 58], bandTop: 1.1, ceil: 2.95, seed: 4 }),
     class: TX.paintedWall({ upper: [228, 219, 190], lower: [196, 184, 150], stripe: [120, 96, 60], bandTop: 1.0, ceil: 2.95, seed: 5 }),
@@ -104,6 +110,11 @@ export function buildWorld(scene, renderer, opts = {}) {
     service: TX.paintedWall({ upper: [150, 148, 140], lower: [104, 102, 96], bandTop: 1.0, ceil: 2.7, seed: 8, block: true }),
   };
   wallSets.storage = wallSets.service;
+  wallSets.stair = TX.paintedWall({ upper: [180, 182, 176], lower: [120, 124, 120], bandTop: 1.0, ceil: 3, seed: 15, block: true });
+  wallSets.lcorr = TX.paintedWall({ upper: [214, 210, 196], lower: [64, 94, 140], stripe: [200, 170, 60], bandTop: 1.1, ceil: 3, seed: 16, block: true });
+  wallSets.gym = TX.paintedWall({ upper: [222, 214, 190], lower: [120, 36, 40], stripe: [230, 190, 60], bandTop: 2.0, ceil: 7.5, seed: 17, block: true });
+  wallSets.lockers = TX.paintedWall({ upper: [226, 230, 228], lower: [70, 110, 150], bandTop: 1.3, ceil: 2.8, seed: 18, block: true });
+  wallSets.pool = TX.paintedWall({ upper: [204, 226, 230], lower: [90, 150, 176], stripe: [30, 80, 120], bandTop: 1.4, ceil: 6.5, seed: 19, block: true });
   const wallMats = {}; for (const k in wallSets) { const w = wallSets[k]; wallMats[k] = std({ map: w.map, normalMap: w.normalMap, roughnessMap: w.roughnessMap, roughness: 1, envMapIntensity: 0.25 }); }
   const ceilT = TX.ceilingTiles(); const ceilMat = std({ map: ceilT.map, normalMap: ceilT.normalMap, roughness: 0.95 });
   const M = {
@@ -135,11 +146,20 @@ export function buildWorld(scene, renderer, opts = {}) {
     concreteDark: std({ map: conc.map, color: 0x6a6862, roughness: 0.9 }),
   };
   // ---------- floors and ceilings ----------
+  const floorRect = (fm, x0, z0, x1, z1, y, size) => col.add(quadGrid(new THREE.Vector3(x0, y, z1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), x1 - x0, z1 - z0, steps(x1 - x0, 0.5), steps(z1 - z0, 0.5), (q) => [q.x / size, -q.z / size]), fm);
   for (const [id, r] of Object.entries(ROOMS)) {
-    const fm = floorMats[id], size = id === 'hall' || id === 'class' || id === 'office' ? 2.4 : 4;
-    col.add(quadGrid(new THREE.Vector3(r.x0, 0, r.z1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), r.x1 - r.x0, r.z1 - r.z0, steps(r.x1 - r.x0, 0.5), steps(r.z1 - r.z0, 0.5), (q) => [q.x / size, -q.z / size]), fm);
-    const cm = id === 'service' || id === 'storage' || id === 'closet' ? M.concreteDark : ceilMat;
-    col.add(quadGrid(new THREE.Vector3(r.x0, r.ceil, r.z0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), r.x1 - r.x0, r.z1 - r.z0, steps(r.x1 - r.x0, 0.6), steps(r.z1 - r.z0, 0.6), (q) => [q.x / 2.4, q.z / 2.4]), cm);
+    const fm = floorMats[id], size = id === 'gym' ? 3 : ['hall', 'class', 'office', 'lcorr', 'lockers', 'pool'].includes(id) ? 2.4 : 4;
+    if (r.stair) {
+      floorRect(fm, -2, r.z0, 0, r.z1, 0, 4); floorRect(fm, -12, r.z0, -10, r.z1, -4, 4);
+      for (let k = 0; k < 16; k++) { const x1 = -2 - k * 0.5, top = -(k + 1) * 0.25; col.box(M.concreteDark, x1 - 0.25, (top - 4) / 2, (r.z0 + r.z1) / 2, 0.5, top + 4, r.z1 - r.z0); col.box(M.steel, x1 - 0.03, top + 0.005, (r.z0 + r.z1) / 2, 0.06, 0.012, r.z1 - r.z0 - 0.02); }
+      for (const z of [r.z0 + 0.12, r.z1 - 0.12]) { const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, Math.hypot(8, 4), 8), M.steel); rail.position.set(-6, -2 + 0.95, z); rail.rotation.z = Math.atan2(8, -4) + Math.PI; rail.rotation.z = -Math.PI / 2 + Math.atan2(4, 8); scene.add(rail); }
+      col.add(quadGrid(new THREE.Vector3(r.x0, 3.0, r.z0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), r.x1 - r.x0, r.z1 - r.z0, steps(r.x1 - r.x0, 0.6), steps(r.z1 - r.z0, 0.6), (q) => [q.x / 2.4, q.z / 2.4]), M.concreteDark);
+      continue;
+    }
+    if (id === 'pool') { const B = POOL_BASIN; floorRect(fm, r.x0, r.z0, r.x1, B.z0, r.y, size); floorRect(fm, r.x0, B.z1, r.x1, r.z1, r.y, size); floorRect(fm, r.x0, B.z0, B.x0, B.z1, r.y, size); floorRect(fm, B.x1, B.z0, r.x1, B.z1, r.y, size); }
+    else floorRect(fm, r.x0, r.z0, r.x1, r.z1, r.y, size);
+    const cm = ['service', 'storage', 'closet', 'gym', 'pool'].includes(id) ? M.concreteDark : ceilMat;
+    col.add(quadGrid(new THREE.Vector3(r.x0, r.y + r.ceil, r.z0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), r.x1 - r.x0, r.z1 - r.z0, steps(r.x1 - r.x0, 0.6), steps(r.z1 - r.z0, 0.6), (q) => [q.x / 2.4, q.z / 2.4]), cm);
   }
   // ---------- walls ----------
   const faceWall = (x0, z0, x1, z1, y0, y1, nx, nz, roomHint) => {
@@ -156,8 +176,9 @@ export function buildWorld(scene, renderer, opts = {}) {
     const u = new THREE.Vector3(x1 - x0, 0, z1 - z0).normalize(), v = new THREE.Vector3(0, 1, 0);
     let o = new THREE.Vector3(x0, y0, z0), uu = u;
     if (new THREE.Vector3().crossVectors(u, v).dot(new THREE.Vector3(nx, 0, nz)) < 0) { o = new THREE.Vector3(x1, y0, z1); uu = u.clone().negate(); }
-    const vs = [0]; for (const y of [0.1, 0.35, 0.8, 1.1, 1.2, 2.0, ceil - 0.35]) if (y > y0 + 0.01 && y < y1 - 0.01) vs.push(y - y0); vs.push(y1 - y0);
-    col.add(quadGrid(o, uu, v, len, y1 - y0, steps(len, 0.5), vs, (q) => [(q.x + q.z) / ws.uSize, q.y / ws.ceil]), wallMats[room]);
+    const ry0 = ROOMS[room].y, vs = [0]; for (const y0r of [0.1, 0.35, 0.8, 1.1, 1.2, 2.0, ceil - 0.35]) { const y = y0r + ry0; if (y > y0 + 0.01 && y < y1 - 0.01) vs.push(y - y0); } vs.push(y1 - y0);
+    const ry = ROOMS[room].y;
+    col.add(quadGrid(o, uu, v, len, y1 - y0, steps(len, 0.5), vs, (q) => [(q.x + q.z) / ws.uSize, (q.y - ry) / ws.ceil]), wallMats[room]);
   };
   const faces = (w, y0, y1) => {
     faceWall(w.x0, w.z0, w.x1, w.z0, y0, y1, 0, -1); faceWall(w.x0, w.z1, w.x1, w.z1, y0, y1, 0, 1);
@@ -165,11 +186,13 @@ export function buildWorld(scene, renderer, opts = {}) {
   };
   for (const w of WALLS) {
     if (w.glass) { faces(w, 0, 1.05); faces(w, 2.15, w.h); continue; }
-    faces(w, 0, w.h);
+    faces(w, w.y0, w.y0 + w.h);
   }
   for (const d of DOORS) { // lintel above every doorway
-    const h = d.id === 'd_service' ? 2.7 : 2.95, top = d.id === 'd_closet' ? 2.6 : d.id === 'd_office' ? 2.95 : h;
-    if (d.axis === 'x') faces({ x0: d.a0, z0: d.z - T / 2, x1: d.a1, z1: d.z + T / 2 }, 2.12, top); else faces({ x0: d.x - T / 2, z0: d.a0, x1: d.x + T / 2, z1: d.a1 }, 2.12, top);
+    // up to the top of the wall the doorway is cut through
+    let top = null; for (const w of WALLS) { const touch = d.axis === 'x' ? Math.abs((w.z0 + w.z1) / 2 - d.z) < 0.15 && (Math.abs(w.x1 - d.a0) < 0.05 || Math.abs(w.x0 - d.a1) < 0.05) : Math.abs((w.x0 + w.x1) / 2 - d.x) < 0.15 && (Math.abs(w.z1 - d.a0) < 0.05 || Math.abs(w.z0 - d.a1) < 0.05); if (touch) top = Math.max(top ?? -99, w.y0 + w.h); }
+    if (top == null) top = d.y + 2.95;
+    if (d.axis === 'x') faces({ x0: d.a0, z0: d.z - T / 2, x1: d.a1, z1: d.z + T / 2 }, d.y + 2.12, top); else faces({ x0: d.x - T / 2, z0: d.a0, x1: d.x + T / 2, z1: d.a1 }, d.y + 2.12, top);
   }
   // ---------- windows: classroom glass onto the hallway ----------
   for (const w of WINDOWS) {
@@ -184,12 +207,13 @@ export function buildWorld(scene, renderer, opts = {}) {
     const len = d.a1 - d.a0, ht = 2.1, isX = d.axis === 'x';
     // frame
     const fz = isX ? d.z : null, fx = isX ? null : d.x;
-    const jamb = (a) => isX ? col.box(M.trim, a, ht / 2, fz, 0.06, ht, T + 0.06) : col.box(M.trim, fx, ht / 2, a, T + 0.06, ht, 0.06);
+    const dy = d.y;
+    const jamb = (a) => isX ? col.box(M.trim, a, dy + ht / 2, fz, 0.06, ht, T + 0.06) : col.box(M.trim, fx, dy + ht / 2, a, T + 0.06, ht, 0.06);
     jamb(d.a0 - 0.03); jamb(d.a1 + 0.03);
-    isX ? col.box(M.trim, (d.a0 + d.a1) / 2, ht + 0.03, fz, len + 0.12, 0.06, T + 0.06) : col.box(M.trim, fx, ht + 0.03, (d.a0 + d.a1) / 2, T + 0.06, 0.06, len + 0.12);
+    isX ? col.box(M.trim, (d.a0 + d.a1) / 2, dy + ht + 0.03, fz, len + 0.12, 0.06, T + 0.06) : col.box(M.trim, fx, dy + ht + 0.03, (d.a0 + d.a1) / 2, T + 0.06, 0.06, len + 0.12);
     // the leaf, hinged at a0
     const pivot = new THREE.Group();
-    if (isX) pivot.position.set(d.a0, 0, d.z); else pivot.position.set(d.x, 0, d.a0);
+    if (isX) pivot.position.set(d.a0, d.y, d.z); else pivot.position.set(d.x, d.y, d.a0);
     const leafMat = d.kind === 'classroom' ? M.doorWood : d.kind === 'steel' ? M.darkSteel : d.kind === 'service' ? M.steel : M.cabinet;
     const leaf = new THREE.Group(); pivot.add(leaf);
     const th = d.kind === 'steel' ? 0.07 : 0.045, wdt = len - 0.04;
@@ -222,7 +246,7 @@ export function buildWorld(scene, renderer, opts = {}) {
     // room sign beside the door (hallway side)
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.14), new THREE.MeshStandardMaterial({ map: TX.textCanvas(256, 104, (x, w, h) => { x.fillStyle = d.kind === 'steel' ? '#26346a' : '#3b3a36'; x.fillRect(0, 0, w, h); x.fillStyle = '#f1efe6'; x.font = `bold ${d.label.length > 4 ? 26 : 54}px Helvetica, Arial`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(d.label, w / 2, h / 2 + 2); }), roughness: 0.4 }));
     if (isX) { const side = d.z > 1 ? -1 : 1; sign.position.set(d.a1 + 0.3, 1.6, d.z + side * (T / 2 + 0.005)); if (side < 0) sign.rotation.y = Math.PI; }
-    else { sign.position.set(d.x - T / 2 - 0.005, 1.6, d.a1 + 0.3); sign.rotation.y = -Math.PI / 2; }
+    else { const east = d.x - T / 2 - 0.005, west = d.x + T / 2 + 0.005; if (d.y < 0) { sign.position.set(west, d.y + 1.6, d.a1 + 0.3); sign.rotation.y = Math.PI / 2; } else if (d.id === 'd_stair') { sign.position.set(west, 1.6, d.a1 + 0.35); sign.rotation.y = Math.PI / 2; } else { sign.position.set(east, 1.6, d.a1 + 0.3); sign.rotation.y = -Math.PI / 2; } }
     scene.add(sign);
   }
   // ---------- lockers (instanced) ----------
@@ -289,7 +313,9 @@ export function buildWorld(scene, renderer, opts = {}) {
       out.fixtures.push({ L, mat: b.material, base: 4 }); continue;
     }
     if (L.emergency) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.12), new THREE.MeshStandardMaterial({ color: 0x330000, emissive: 0xff2010, emissiveIntensity: 2.5 })); b.position.set(L.x, L.y - 0.1, L.z); scene.add(b); out.fixtures.push({ L, mat: b.material, base: 2.5 }); continue; }
-    const ceil = L.y + 0.02, rot = L.room === 'hall' || L.room === 'service' ? Math.PI / 2 : 0;
+    if (L.high) { const g = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, 0.35, 20, 1, true), new THREE.MeshStandardMaterial({ color: 0x9aa0a4, metalness: 0.7, roughness: 0.35, side: THREE.DoubleSide })); g.position.set(L.x, L.y + 0.2, L.z); scene.add(g); const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 3), M.black); rod.position.set(L.x, L.y + 1.8, L.z); scene.add(rod);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.4, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: L.color, emissiveIntensity: 0 })); lens.position.set(L.x, L.y + 0.03, L.z); scene.add(lens); out.fixtures.push({ L, mat: lens.material, base: 4 }); continue; }
+    const ceil = L.y + 0.02, rot = L.room === 'hall' || L.room === 'service' || L.room === 'lcorr' ? Math.PI / 2 : 0;
     col.box(M.white, L.x, ceil - 0.025, L.z, rot ? 1.24 : 0.64, 0.05, rot ? 0.64 : 1.24);
     const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 1.16).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ map: diff, color: 0xffffff, emissive: L.color, emissiveMap: diff, emissiveIntensity: 0, roughness: 0.3 }));
     lens.rotation.y = rot; lens.position.set(L.x, ceil - 0.052, L.z); scene.add(lens);
@@ -307,8 +333,9 @@ export function buildWorld(scene, renderer, opts = {}) {
   for (let x = 4.5; x < 40; x += 9) { const g = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.58).rotateX(Math.PI / 2), M.grille); g.position.set(x, 2.947, 1.8); scene.add(g); }
   // ---------- hallway dressing ----------
   // chained exit doors at the west end, with an EXIT sign that still glows
-  for (const s of [0, 1]) { col.box(M.steel, 0.12, 1.05, 1.0 + s * 0.8, 0.05, 2.1, 0.78); col.box(M.chrome, 0.16, 1.0, 1.0 + s * 0.8 + (s ? -0.3 : 0.3), 0.03, 0.04, 0.5); }
-  for (let k = 0; k < 9; k++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.009, 6, 12), M.chrome); l.position.set(0.2, 1.0 + Math.sin(k * 0.6) * 0.02, 1.15 + k * 0.07); l.rotation.y = k % 2 ? Math.PI / 2 : 0; scene.add(l); }
+  out.chain = new THREE.Group(); scene.add(out.chain);
+  for (let k = 0; k < 14; k++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.009, 6, 12), M.chrome); l.position.set(0.16, 1.0 + Math.sin(k * 0.45) * 0.03, 1.35 + k * 0.065); l.rotation.y = k % 2 ? Math.PI / 2 : 0; out.chain.add(l); }
+  { const lk = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.06), new THREE.MeshStandardMaterial({ color: 0xb08a2a, metalness: 0.9, roughness: 0.3 })); lk.position.set(0.17, 0.92, 1.8); out.chain.add(lk); }
   { const ex = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.42), new THREE.MeshStandardMaterial({ map: TX.textCanvas(256, 110, (x, w, h) => { x.fillStyle = '#f2f0ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#d8231d'; x.font = 'bold 74px Helvetica'; x.textAlign = 'center'; x.fillText('EXIT', w / 2, 82); }), emissive: 0xff3a30, emissiveIntensity: 0.6, emissiveMap: null })); ex.position.set(0.16, 2.35, 1.8); scene.add(ex); }
   // painted-over room plate (Room 014): a faint outline; made legible as a clue on Day 2
   const plate014 = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.13), new THREE.MeshStandardMaterial({ map: TX.textCanvas(256, 110, (x, w, h) => { x.fillStyle = '#e2ddcc'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(120,110,80,.35)'; x.lineWidth = 6; x.strokeRect(10, 10, w - 20, h - 20); x.fillStyle = 'rgba(110,100,70,.22)'; x.font = 'bold 60px Helvetica'; x.textAlign = 'center'; x.fillText('014', w / 2, 78); }), roughness: 0.9 }));
@@ -408,8 +435,13 @@ export function buildWorld(scene, renderer, opts = {}) {
   col.box(M.wood, 41.0, 0.6, -4.0, 0.7, 0.04, 0.5, 0.6);
   // ---------- bins (emptying points) ----------
   for (const b of BINS) { const g = new THREE.Group(); const can = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.21, 0.72, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0x3a5e46, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide })); can.position.y = 0.36; g.add(can); const liner = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16).rotateX(-Math.PI / 2), M.black); liner.position.y = 0.55; g.add(liner); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.015, 6, 20).rotateX(Math.PI / 2), M.darkSteel); rim.position.y = 0.72; g.add(rim); g.position.set(b.x, 0, b.z); scene.add(g); out.interact.push({ kind: 'bin', id: b.id, x: b.x, y: 0.7, z: b.z }); }
+  // ---------- athletics floor ----------
+  buildAthletics(scene, col, M, std, out);
+  // bucket in the closet: rinse the mop here; the teacher's desk can be searched
+  out.interact.push({ kind: 'bucket', x: BUCKET.x, y: 0.4, z: BUCKET.z });
+  out.interact.push({ kind: 'desk', x: TEACHER_DESK.x, y: 0.7, z: TEACHER_DESK.z });
   // ---------- interactables for doors ----------
-  for (const d of DOORS) { const c = d.axis === 'x' ? { x: (d.a0 + d.a1) / 2, z: d.z } : { x: d.x, z: (d.a0 + d.a1) / 2 }; out.interact.push({ kind: 'door', id: d.id, x: d.id === 'd_office' ? 21.3 : c.x, y: 1.05, z: c.z }); }
+  for (const d of DOORS) { const c = d.axis === 'x' ? { x: (d.a0 + d.a1) / 2, z: d.z } : { x: d.x, z: (d.a0 + d.a1) / 2 }; out.interact.push({ kind: 'door', id: d.id, x: d.id === 'd_office' ? 21.3 : c.x, y: d.y + 1.05, z: c.z }); }
   out.interact.push({ kind: 'bolt', x: 21.85, y: 1.32, z: 3.72 });
 
   col.finish(scene);
@@ -473,4 +505,74 @@ export function makeMopModel() {
   for (let i = 0; i < 70; i++) { const a = r() * 6.283, d = Math.sqrt(r()) * 0.1; m.compose(new THREE.Vector3(Math.cos(a) * d * 0.4, 0.02, Math.sin(a) * d), new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.sin(a) * 1.1 * d * 10, 0, -Math.cos(a) * 1.1 * d * 10)), new THREE.Vector3(1, 0.6 + r() * 0.5, 1)); strands.setMatrixAt(i, m); }
   head.add(strands);
   return { root, head, handle, strands, strandMat };
+}
+
+// ======================= athletics floor props =======================
+function buildAthletics(scene, col, M, std, out) {
+  const Y = -4;
+  // court lines over the maple floor
+  const lines = TX.textCanvas(2048, 1400, (x, w, h) => { x.clearRect(0, 0, w, h); x.strokeStyle = 'rgba(250,250,250,.9)'; x.lineWidth = 8; const sx = w / 23.6, sz = h / 16.9;
+    x.strokeRect(1 * sx, 1 * sz, 21.6 * sx, 14.9 * sz); x.beginPath(); x.moveTo(11.8 * sx, 1 * sz); x.lineTo(11.8 * sx, 15.9 * sz); x.stroke(); x.beginPath(); x.arc(11.8 * sx, 8.45 * sz, 1.8 * sx, 0, 7); x.stroke();
+    x.strokeStyle = 'rgba(160,30,40,.85)'; for (const cx of [1, 22.6]) { x.beginPath(); x.arc(cx * sx, 8.45 * sz, 6.75 * sx, cx < 5 ? -Math.PI / 2 : Math.PI / 2, cx < 5 ? Math.PI / 2 : Math.PI * 1.5); x.stroke(); }
+    x.fillStyle = 'rgba(120,28,36,.85)'; x.font = 'bold 120px Arial'; x.textAlign = 'center'; x.fillText('BOBCATS', w / 2, h / 2 + 40); });
+  const lm = new THREE.Mesh(new THREE.PlaneGeometry(23.6, 16.9).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: lines, transparent: true, depthWrite: false, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -1 }));
+  lm.position.set(-28, Y + 0.002, -2.45); scene.add(lm);
+  // bleachers: stepped rows along the north wall
+  for (let k = 0; k < 5; k++) { col.box(M.woodDark, -28, Y + 0.2 + k * 0.38, -11.25 - k * 0.55, 21, 0.06, 0.5); col.box(M.darkSteel, -28, Y + 0.1 + k * 0.38, -11.3 - k * 0.55, 21, 0.2 + k * 0.38 * 0, 0.05); }
+  for (let k = 0; k < 5; k++) col.box(M.darkSteel, -28, Y + (k * 0.38) / 2 + 0.1, -11.25 - k * 0.55, 21, k * 0.38 + 0.2, 0.04);
+  // hoops on both end walls
+  for (const [x, dir] of [[-39.7, 1], [-16.3, -1]]) { col.box(M.steel, x + dir * 0.5, Y + 3.0, -5.5, 1.0, 0.08, 0.08); col.box(M.white, x + dir * 1.0, Y + 3.3, -5.5, 0.04, 1.05, 1.8); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.012, 6, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xd2501c, metalness: 0.6, roughness: 0.4 })); rim.position.set(x + dir * 1.28, Y + 3.05, -5.5); scene.add(rim); const net = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.14, 0.4, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true })); net.position.set(x + dir * 1.28, Y + 2.84, -5.5); scene.add(net); }
+  // mats, ball cart, scoreboard
+  col.box(M.plasticBlue, -36, Y + 0.3, 4.15, 4, 0.6, 3.3, 0, 0.04);
+  col.box(M.darkSteel, -18, Y + 0.5, 4.0, 1.2, 0.04, 0.8); for (let k = 0; k < 10; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), M.plasticOrange); b.position.set(-18.45 + (k % 5) * 0.22, Y + 0.65 + Math.floor(k / 5) * 0.2, 3.85 + (k % 2) * 0.25); scene.add(b); }
+  { const sb = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.4), new THREE.MeshStandardMaterial({ map: TX.textCanvas(512, 224, (x, w, h) => { x.fillStyle = '#111'; x.fillRect(0, 0, w, h); x.fillStyle = '#d33'; x.font = 'bold 30px monospace'; x.fillText('HOME', 40, 50); x.fillText('GUEST', 360, 50); x.font = 'bold 70px monospace'; x.fillText('14', 50, 130); x.fillText('00', 370, 130); x.fillStyle = '#fc3'; x.font = 'bold 44px monospace'; x.fillText('00:00', 190, 200); }), emissive: 0xffffff, emissiveIntensity: 0.25 })); sb.position.set(-28, Y + 5.2, -13.89); scene.add(sb); }
+  // locker room: blue lockers, benches, sinks and mirror
+  const blue = std({ color: 0x2c5a8c, roughness: 0.45, metalness: 0.35 });
+  for (let x = -25.7; x < -16.6; x += 0.4) col.box(blue, x + 0.2, Y + 0.95, 6.7, 0.38, 1.9, 0.48);
+  for (let x = -25.7; x < -18.6; x += 0.4) col.box(blue, x + 0.2, Y + 0.95, 15.57, 0.38, 1.9, 0.5);
+  for (const z of [10.2, 13.2]) { col.box(M.wood, -21, Y + 0.43, z, 6, 0.05, 0.36); for (const x of [-23.6, -21, -18.4]) col.box(M.darkSteel, x, Y + 0.2, z, 0.05, 0.4, 0.3); }
+  for (const z of [12.2, 13.4, 14.6]) { col.box(M.white, -16.35, Y + 0.85, z, 0.4, 0.15, 0.5); }
+  { const mir = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.9), new THREE.MeshStandardMaterial({ color: 0x9aa8ad, metalness: 1, roughness: 0.05 })); mir.position.set(-16.12, Y + 1.6, 13.4); mir.rotation.y = -Math.PI / 2; scene.add(mir); }
+  // the natatorium: basin, water, lane ropes, ladders, lifeguard chair
+  const B = POOL_BASIN, tile = std({ map: TX.vctChecker([230, 236, 240], [70, 140, 190], 22).map, roughness: 0.25 });
+  const bx = (B.x0 + B.x1) / 2, bz = (B.z0 + B.z1) / 2, bw = B.x1 - B.x0, bd = B.z1 - B.z0;
+  col.box(tile, bx, Y - B.depth, bz, bw, 0.05, bd);
+  for (const [x, z, sx, sz] of [[bx, B.z0, bw, 0.05], [bx, B.z1, bw, 0.05], [B.x0, bz, 0.05, bd], [B.x1, bz, 0.05, bd]]) col.box(tile, x, Y - B.depth / 2, z, sx, B.depth, sz);
+  for (const [x, z, sx, sz] of [[bx, B.z0 - 0.15, bw + 0.6, 0.3], [bx, B.z1 + 0.15, bw + 0.6, 0.3], [B.x0 - 0.15, bz, 0.3, bd], [B.x1 + 0.15, bz, 0.3, bd]]) col.box(M.white, x, Y + 0.02, z, sx, 0.05, sz);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(bw, bd).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2e7f9a, transparent: true, opacity: 0.72, roughness: 0.04, metalness: 0.1, envMapIntensity: 1.4, normalMap: waterNormal(), normalScale: new THREE.Vector2(0.4, 0.4) }));
+  water.position.set(bx, B.water, bz); scene.add(water); out.water = water;
+  for (let k = 1; k < 5; k++) { const z = B.z0 + k * bd / 5; const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, bw, 8).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: k % 2 ? 0xd23c3c : 0x2c62c8, roughness: 0.5 })); rope.position.set(bx, B.water + 0.03, z); scene.add(rope); }
+  for (const z of [B.z0 + 0.6, B.z1 - 0.6]) for (const s of [-0.2, 0.2]) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.02, 6, 16, Math.PI), M.chrome); l.position.set(B.x1 + 0.05, Y + 0.2, z + s); l.rotation.y = Math.PI / 2; scene.add(l); }
+  col.box(M.white, -28.85, Y + 1.1, 15.1, 0.6, 0.05, 0.6); for (const [a, b] of [[-29.1, 14.85], [-28.6, 14.85], [-29.1, 15.35], [-28.6, 15.35]]) col.box(M.white, a, Y + 0.55, b, 0.05, 1.1, 0.05); col.box(M.white, -28.85, Y + 1.5, 15.38, 0.6, 0.8, 0.05);
+  { const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.5), new THREE.MeshStandardMaterial({ map: TX.textCanvas(512, 160, (x, w, h) => { x.fillStyle = '#f2f0ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#b11'; x.font = 'bold 54px Arial'; x.textAlign = 'center'; x.fillText('NO RUNNING', w / 2, 70); x.fillStyle = '#123'; x.font = '30px Arial'; x.fillText('POOL CLOSED 6/11/98', w / 2, 125); }), roughness: 0.7 })); sign.position.set(-36, Y + 2.2, 23.89); sign.rotation.y = Math.PI; scene.add(sign); }
+}
+function waterNormal() {
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d'), img = x.createImageData(N, N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const a = Math.sin(i / N * 6.283 * 3 + Math.sin(j / N * 6.283 * 2) * 1.5), b = Math.cos(j / N * 6.283 * 4 + Math.sin(i / N * 6.283 * 3)); const k = (j * N + i) * 4; img.data[k] = 128 + a * 50; img.data[k + 1] = 128 + b * 50; img.data[k + 2] = 255; img.data[k + 3] = 255; }
+  x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return t;
+}
+// ======================= janitor cart and robot vacuum =======================
+export function makeCartModel() {
+  const g = new THREE.Group(), grey = new THREE.MeshStandardMaterial({ color: 0x3c4146, roughness: 0.5, metalness: 0.3 }), yel = new THREE.MeshStandardMaterial({ color: 0xe0b51e, roughness: 0.4 });
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.04, 0.5), grey); frame.position.y = 0.2; g.add(frame);
+  const top = frame.clone(); top.position.y = 0.85; g.add(top);
+  for (const [x, z] of [[-0.48, -0.23], [0.48, -0.23], [-0.48, 0.23], [0.48, 0.23]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7), grey); p.position.set(x, 0.53, z); g.add(p); const w = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x111111 })); w.position.set(x, 0.05, z); g.add(w); }
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.5).rotateX(Math.PI / 2), grey); handle.position.set(-0.52, 0.98, 0); g.add(handle);
+  // trash bag hoop on one end, mop bucket with wringer on the other
+  const bag = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.7, 14), new THREE.MeshStandardMaterial({ color: 0x18191a, roughness: 0.65 })); bag.position.set(0.25, 0.57, 0); g.add(bag);
+  const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.17, 0.3, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0xe0b51e, roughness: 0.4, side: THREE.DoubleSide })); bucket.position.set(-0.25, 0.37, 0); g.add(bucket);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(0.18, 16).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5b5638, roughness: 0.05 })); water.position.set(-0.25, 0.48, 0); g.add(water);
+  const wring = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.14), yel); wring.position.set(-0.25, 0.56, 0.12); g.add(wring);
+  const spray = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 10), new THREE.MeshStandardMaterial({ color: 0x2c8ad8 })); spray.position.set(0.35, 0.98, 0.12); g.add(spray);
+  return g;
+}
+export function makeRoombaModel() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.08, 28), new THREE.MeshStandardMaterial({ color: 0x24272a, roughness: 0.35, metalness: 0.2 })); body.position.y = 0.05; g.add(body);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.01, 28), new THREE.MeshStandardMaterial({ color: 0x5d6064, roughness: 0.2, metalness: 0.6 })); lid.position.y = 0.095; g.add(lid);
+  const bump = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 6, 28, Math.PI), new THREE.MeshStandardMaterial({ color: 0x111111 })); bump.rotation.x = Math.PI / 2; bump.position.y = 0.04; g.add(bump);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), new THREE.MeshStandardMaterial({ color: 0x113311, emissive: 0x33ff66, emissiveIntensity: 2 })); led.position.set(0, 0.1, -0.08); g.add(led);
+  const brush = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.005, 3), new THREE.MeshStandardMaterial({ color: 0x777777 })); brush.position.set(0.12, 0.01, -0.1); g.add(brush);
+  g.userData = { led, brush };
+  return g;
 }

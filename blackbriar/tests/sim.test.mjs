@@ -24,13 +24,15 @@ t('cannot collect without a vacuum or from across the building', () => {
   s.inv.a.vacuum = true; s.players.get('a').x = 200; s.handle('a', { t: 'col', ids: [10] }); assert.equal(s.collected[10], 0);
 });
 
-t('mop strokes are exact, order-independent and survive save/load', () => {
+t('mop strokes are exact and survive save/load; the server echoes the exact cells', () => {
   const P = PATCHES.find(p => p.id === 'class_mud');
   const mk = () => { const s = new Sim(); s.join('a', 'A'); s.inv.a.mop = true; const p = s.players.get('a'); p.x = 13; p.z = -4; return s; };
   const s1 = mk(), s2 = mk();
   const A = { t: 'mop', patch: P.id, pts: [[12.5, -4, 120], [12.7, -4.1, 120]] }, B = { t: 'mop', patch: P.id, pts: [[12.6, -4, 200]] };
-  s1.handle('a', A); s1.handle('a', B); s2.handle('a', B); s2.handle('a', A);
+  s1.handle('a', A); s1.handle('a', B); s2.handle('a', A); s2.handle('a', B);
   assert.deepEqual(s1.masks[P.id], s2.masks[P.id]);
+  const echo = s1.out.filter(o => o.ev.t === 'maskset'); assert.ok(echo.length >= 2);
+  assert.ok(s1.inv.a.mopDirt > 0, 'the mop picked up dirt');
   const saved = JSON.parse(JSON.stringify(s1.serialize())); const s3 = new Sim(saved);
   assert.deepEqual(s3.masks[P.id], s1.masks[P.id]); assert.equal(s3.maskSum[P.id], s1.maskSum[P.id]);
 });
@@ -91,3 +93,29 @@ t('caught before 4:00 alone: wake in office, cleaning kept', () => {
 });
 
 console.log(`\n${pass} passed`);
+
+t('a filthy mop smears; rinsing fixes it; re-cleaned floor does not pay twice', () => {
+  const s = new Sim(); s.join('a', 'A'); s.inv.a.mop = true; const p = s.players.get('a'); p.x = 13; p.z = -4;
+  s.inv.a.mopDirt = 1; const before = s.maskSum.hall_dust;
+  p.x = 10; p.z = 1.8; s.handle('a', { t: 'mop', patch: 'hall_dust', pts: [[10, 1.8, 255]] });
+  // first, clean a spot fully with a clean mop, then smear it, then clean again
+  for (let k = 0; k < 8; k++) { s.inv.a.mopDirt = 0; s.handle('a', { t: 'mop', patch: 'hall_dust', pts: [[12, 1.8, 255]] }); }
+  const m1 = s.money; s.inv.a.mopDirt = 1; s.handle('a', { t: 'mop', patch: 'hall_dust', pts: [[12, 1.8, 0]] });
+  assert.ok(s.maskSum.hall_dust > 0); s.inv.a.mopDirt = 0; s.handle('a', { t: 'mop', patch: 'hall_dust', pts: [[12, 1.8, 255], [12, 1.8, 255]] });
+  assert.ok(s.money - m1 < 1e-9, 'no pay for re-cleaning a smear');
+  p.x = 3.2; p.z = 5.0; s.inv.a.mopDirt = 0.9; s.handle('a', { t: 'rinse' }); assert.equal(s.inv.a.mopDirt, 0);
+});
+t('stairwell key, Lost & Found, robot vacuum, clocking out', () => {
+  const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a');
+  p.x = 0.5; p.z = 1.8; s.handle('a', { t: 'door', id: 'd_stair' }); assert.equal(s.doors.d_stair.open, false);
+  p.x = 9.8; p.z = -6.9; s.handle('a', { t: 'desk' }); assert.ok(s.keys.stairkey);
+  p.x = 0.5; p.z = 1.8; s.handle('a', { t: 'door', id: 'd_stair' }); assert.equal(s.doors.d_stair.open, true);
+  s.found.push({ n: 'Walkman', v: 7 }); p.x = 25.5; p.z = 5.6; const m0 = s.money; s.handle('a', { t: 'sell' }); assert.equal(s.money, m0 + 7);
+  s.money = 200; s.handle('a', { t: 'buy', skill: 'roomba1' }); assert.equal(s.roombas.length, 1);
+  const r = s.roombas[0]; p.x = r.x; p.z = r.z; s.handle('a', { t: 'roomba', id: 'roomba1' }); assert.equal(r.holder, 'a');
+  p.x = 20; p.z = 1.8; p.yaw = Math.PI / 2; s.handle('a', { t: 'st', p: [20, 0, 1.8], yw: Math.PI / 2, pt: 0 }); s.handle('a', { t: 'roomba', id: 'roomba1' });
+  assert.equal(r.state, 'run'); const left = s.collected.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < 600; i++) s.tick(0.1); assert.ok(s.collected.reduce((a, b) => a + b, 0) > left, 'robot collected debris');
+  p.x = 25.5; p.z = 5.6; s.handle('a', { t: 'clockout' }); assert.equal(s.phase, 'summary'); assert.equal(s.summary.clockedOut, true);
+});
+console.log('extra tests passed');

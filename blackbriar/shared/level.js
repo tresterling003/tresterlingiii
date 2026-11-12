@@ -13,12 +13,26 @@ export const ROOMS = {
   office: { name: 'Maintenance Office', x0: 20, z0: 3.6, x1: 27, z1: 10, ceil: 2.7 },
   service: { name: 'Service Corridor', x0: 40, z0: -6, x1: 44, z1: 12, ceil: 2.7 },
   storage: { name: 'Storage', x0: 44, z0: 6, x1: 50, z1: 12, ceil: 2.7 },
+  stair: { name: 'West Stairwell', x0: -12, z0: 0.4, x1: 0, z1: 3.2, ceil: 3.0, y: 0, stair: true },
+  lcorr: { name: 'Athletics Corridor', x0: -16, z0: -6, x1: -12, z1: 12, ceil: 3.0, y: -4 },
+  gym: { name: 'Gymnasium', x0: -40, z0: -14, x1: -16, z1: 6.25, ceil: 7.5, y: -4 },
+  lockers: { name: 'Locker Room', x0: -26, z0: 6.25, x1: -16, z1: 16, ceil: 2.8, y: -4 },
+  pool: { name: 'Natatorium', x0: -46, z0: 6.25, x1: -26, z1: 24, ceil: 6.5, y: -4 },
 };
+for (const r of Object.values(ROOMS)) if (r.y == null) r.y = 0;
+export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair'], athletics: ['lcorr', 'gym', 'lockers', 'pool'] };
+// walking height: the stairwell descends 4 m over 8 m of steps (x -2 -> -10)
+export function groundY(x, z) {
+  const r = roomAt(x, z); if (!r) return x < -0.05 && z > 0 && z < 3.6 ? 0 : (x < -12 ? -4 : 0);
+  const R = ROOMS[r]; if (!R.stair) return R.y;
+  return x >= -2 ? 0 : x <= -10 ? -4 : (x + 2) / 2;
+}
+export const POOL_BASIN = { x0: -41, z0: 10, x1: -31, z1: 21, depth: 1.8, water: -4.35 };
 export function roomAt(x, z) {
   for (const [id, r] of Object.entries(ROOMS)) if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return id;
   return null;
 }
-export function progressRoom(id) { return id === 'storage' ? 'service' : id; }
+export function progressRoom(id) { return id === 'storage' ? 'service' : id === 'stair' ? 'lcorr' : id; }
 
 // ---------- doors ----------
 // axis 'x': the door lies in a wall of constant z, spanning x0..x1. axis 'z': wall of constant x, spanning z0..z1.
@@ -27,22 +41,27 @@ export const DOORS = [
   { id: 'd_closet', axis: 'x', z: 3.6, a0: 3.5, a1: 4.5, hinge: 0, swing: 1, kind: 'closet', label: 'JANITOR' },
   { id: 'd_office', axis: 'x', z: 3.6, a0: 21.0, a1: 22.0, hinge: 0, swing: 1, kind: 'steel', label: 'MAINTENANCE', bolt: true },
   { id: 'd_service', axis: 'z', x: 40, a0: 1.3, a1: 2.3, hinge: 0, swing: 1, kind: 'service', label: 'SERVICE' },
+  { id: 'd_stair', axis: 'z', x: 0, a0: 1.2, a1: 2.4, hinge: 0, swing: -1, kind: 'steel', label: 'STAIRS', lock: 'stairkey' },
+  { id: 'd_gym', axis: 'z', x: -16, a0: -2.0, a1: -0.8, hinge: 0, swing: 1, kind: 'classroom', label: 'GYM', y: -4 },
+  { id: 'd_lockers', axis: 'z', x: -16, a0: 9.0, a1: 10.0, hinge: 0, swing: 1, kind: 'closet', label: 'LOCKERS', y: -4 },
+  { id: 'd_pool', axis: 'z', x: -26, a0: 10.0, a1: 11.0, hinge: 0, swing: 1, kind: 'service', label: 'POOL', y: -4 },
 ];
+for (const d of DOORS) if (d.y == null) d.y = 0;
 export const WINDOWS = [
   { axis: 'x', z: 0, a0: 12.0, a1: 16.0, y0: 1.05, y1: 2.15 }, // classroom interior glass onto the hallway
 ];
 
 // ---------- walls (axis-aligned boxes) ----------
-function hwall(z, x0, x1, gaps, h) { // wall along x at constant z
+function hwall(z, x0, x1, gaps, h, y0 = 0) { // wall along x at constant z
   const out = []; let x = x0;
-  for (const [g0, g1] of [...gaps].sort((a, b) => a[0] - b[0])) { if (g0 > x) out.push({ x0: x, z0: z - T / 2, x1: g0, z1: z + T / 2, h }); x = g1; }
-  if (x < x1) out.push({ x0: x, z0: z - T / 2, x1, z1: z + T / 2, h });
+  for (const [g0, g1] of [...gaps].sort((a, b) => a[0] - b[0])) { if (g0 > x) out.push({ x0: x, z0: z - T / 2, x1: g0, z1: z + T / 2, h, y0 }); x = g1; }
+  if (x < x1) out.push({ x0: x, z0: z - T / 2, x1, z1: z + T / 2, h, y0 });
   return out;
 }
-function vwall(x, z0, z1, gaps, h) {
+function vwall(x, z0, z1, gaps, h, y0 = 0) {
   const out = []; let z = z0;
-  for (const [g0, g1] of [...gaps].sort((a, b) => a[0] - b[0])) { if (g0 > z) out.push({ x0: x - T / 2, z0: z, x1: x + T / 2, z1: g0, h }); z = g1; }
-  if (z < z1) out.push({ x0: x - T / 2, z0: z, x1: x + T / 2, z1, h });
+  for (const [g0, g1] of [...gaps].sort((a, b) => a[0] - b[0])) { if (g0 > z) out.push({ x0: x - T / 2, z0: z, x1: x + T / 2, z1: g0, h, y0 }); z = g1; }
+  if (z < z1) out.push({ x0: x - T / 2, z0: z, x1: x + T / 2, z1, h, y0 });
   return out;
 }
 export const WALLS = [
@@ -50,7 +69,7 @@ export const WALLS = [
   ...hwall(0, -0.1, 40.1, [[9, 10], [12, 16]], 2.95),
   { x0: 12, z0: -T / 2, x1: 16, z1: T / 2, h: 2.95, glass: true },
   ...hwall(3.6, -0.1, 40.1, [[3.5, 4.5], [21, 22]], 2.95),
-  ...vwall(0, 0, 3.6, [], 2.95),
+  ...vwall(0, 0, 3.6, [[1.2, 2.4]], 2.95),
   ...vwall(40, -6, 12, [[1.3, 2.3]], 2.95),
   // classroom
   ...vwall(8, -9.1, 0, [], 2.95), ...vwall(18, -9.1, 0, [], 2.95), ...hwall(-9, 7.9, 18.1, [], 2.95),
@@ -61,7 +80,17 @@ export const WALLS = [
   // service corridor + storage
   ...hwall(-6, 39.9, 44.1, [], 2.7), ...vwall(44, -6, 6, [], 2.7), ...hwall(6, 44, 50.1, [], 2.7),
   ...vwall(50, 6, 12.1, [], 2.7), ...hwall(12, 39.9, 50.1, [], 2.7),
+  // west stairwell: 7 m tall shaft from the athletics floor (-4) up past the hallway ceiling
+  ...hwall(0.4, -12, 0, [], 7, -4), ...hwall(3.2, -12, 0, [], 7, -4),
+  // athletics floor (base -4)
+  ...vwall(-12, -6.1, 12.1, [[0.4, 3.2]], 3, -4), ...hwall(-6, -16.1, -11.9, [], 3, -4), ...hwall(12, -16.1, -11.9, [], 3, -4),
+  ...vwall(-16, -14.1, 16.1, [[-2.0, -0.8], [9.0, 10.0]], 7.5, -4),
+  ...hwall(-14, -40.1, -15.9, [], 7.5, -4), ...vwall(-40, -14.1, 6.25, [], 7.5, -4),
+  ...hwall(6.25, -46.1, -15.9, [], 7.5, -4),
+  ...vwall(-26, 6.25, 24.1, [[10.0, 11.0]], 6.5, -4), ...hwall(16, -26.1, -15.9, [], 2.8, -4),
+  ...vwall(-46, 6.25, 24.1, [], 6.5, -4), ...hwall(24, -46.1, -25.9, [], 6.5, -4),
 ];
+for (const w of WALLS) if (w.y0 == null) w.y0 = 0;
 
 // ---------- furniture and fixtures with collision ----------
 export const LOCKER_W = 0.4, LOCKER_D = 0.45, LOCKER_H = 1.86;
@@ -91,6 +120,21 @@ export const SEARCHABLE = {
   L152: { item: null, note: 'Empty. The coat hook is bent upward.' },
   L161: { item: null, note: 'Taped inside the door: a 1998 class schedule. Period 7 is blank.' },
 };
+// lost property worth something at the Lost & Found terminal
+export const LOOT_ITEMS = [['Yo-yo', 1], ['Calculator', 4], ['Walkman', 7], ['Pager', 5], ['Class ring', 12], ['Varsity patch', 3], ['Trading cards', 6], ['Mood ring', 2], ['Disposable camera', 4], ['Discman', 9], ['Virtual pet', 8], ['Gold chain', 15]];
+// many more lockers can be opened: loose change, lost property, or nothing (deterministic)
+(() => {
+  const R = rng(4242);
+  const notes = ['Empty.', 'Empty, apart from old gum.', 'A crumpled hall pass.', 'Textbooks, swollen with damp.', 'A photo strip, faces scratched out.'];
+  for (const L of LOCKERS) {
+    if (SEARCHABLE[L.id] || R() > 0.3) continue;
+    const t = R();
+    if (t < 0.55) { const c = [0.25, 0.5, 0.75, 1, 1.35, 2, 3.1][R() * 7 | 0]; SEARCHABLE[L.id] = { item: 'coins:' + c, note: `Loose change: $${c.toFixed(2)}.` }; }
+    else if (t < 0.82) { const [n, v] = LOOT_ITEMS[R() * LOOT_ITEMS.length | 0]; SEARCHABLE[L.id] = { item: 'loot:' + n + ':' + v, note: `${n}. Lost & Found pays $${v}.` }; }
+    else SEARCHABLE[L.id] = { item: null, note: notes[R() * notes.length | 0] };
+  }
+})();
+export const TEACHER_DESK = { x: 9.8, z: -7.55 };
 export const FURNITURE = (() => {
   const f = [];
   for (const [side, a0, a1] of LOCKER_RUNS) {
@@ -119,6 +163,17 @@ export const FURNITURE = (() => {
   f.push({ kind: 'sshelf', x0: 45.0, z0: 7.4, x1: 49.0, z1: 7.85, h: 2.1 });
   f.push({ kind: 'sshelf', x0: 45.0, z0: 9.7, x1: 49.0, z1: 10.15, h: 2.1 });
   f.push({ kind: 'boxes', x0: 40.2, z0: 8.4, x1: 41.0, z1: 9.6, h: 1.0 });
+  // athletics floor
+  f.push({ kind: 'bleachers', x0: -38.5, z0: -13.8, x1: -17.5, z1: -11.0, h: 1.9, y0: -4 });
+  f.push({ kind: 'mats', x0: -38.0, z0: 2.5, x1: -34.0, z1: 5.8, h: 0.6, y0: -4 });
+  f.push({ kind: 'ballcart', x0: -18.6, z0: 3.6, x1: -17.4, z1: 4.4, h: 1.0, y0: -4 });
+  f.push({ kind: 'benchL', x0: -24.0, z0: 10.0, x1: -18.0, z1: 10.4, h: 0.45, y0: -4 });
+  f.push({ kind: 'benchL', x0: -24.0, z0: 13.0, x1: -18.0, z1: 13.4, h: 0.45, y0: -4 });
+  f.push({ kind: 'blockers', x0: -25.9, z0: 6.45, x1: -16.4, z1: 6.95, h: 1.9, y0: -4 });
+  f.push({ kind: 'blockers', x0: -25.9, z0: 15.3, x1: -18.5, z1: 15.85, h: 1.9, y0: -4 });
+  f.push({ kind: 'pool', x0: -41, z0: 10, x1: -31, z1: 21, h: 0.05, y0: -4 });
+  f.push({ kind: 'lifeguard', x0: -29.3, z0: 14.6, x1: -28.4, z1: 15.6, h: 2.2, y0: -4 });
+  for (const f0 of f) if (f0.y0 == null) f0.y0 = 0;
   return f;
 })();
 export const BINS = [ // emptying points
@@ -127,6 +182,9 @@ export const BINS = [ // emptying points
   { id: 'bin_hall', x: 39.2, z: 3.0, room: 'hall' },
 ];
 export const TOOL_RACK = { x: 5.4, z: 5.1 };
+export const BUCKET = { x: 3.2, z: 5.0 };
+export const CART_HOME = { x: 4.0, z: 2.6, yaw: Math.PI / 2 };
+export const ROOMBA_DOCK = { x: 24.2, z: 9.0 };
 export const COMPUTER = { x: 26.1, z: 5.6 };
 export const COT = { x: 20.6, z: 7.6 };
 export const VENT = { x: 42.0, z: -5.85, y: 0.45 };
@@ -148,11 +206,18 @@ export const LIGHTS = (() => {
   L.push({ x: 42, z: -4.5, y: 2.6, state: 'on', room: 'service', color: 0xff3020, i: 0.35, emergency: true });
   L.push({ x: 42, z: 5.5, y: 2.68, state: 'flicker', room: 'service', color: 0xe8f0ff, i: 0.8 });
   L.push({ x: 47, z: 9, y: 2.68, state: 'off', room: 'storage', color: 0xe8f0ff, i: 0.8 });
+  // stairwell + athletics floor
+  L.push({ x: -1, z: 1.8, y: 2.95, state: 'on', room: 'stair', color: 0xf0f2ff, i: 0.8 });
+  L.push({ x: -11, z: 1.8, y: -1.05, state: 'flicker', room: 'stair', color: 0xf0f2ff, i: 0.8 });
+  for (const z of [-3, 4, 10]) L.push({ x: -14, z, y: -1.05, state: z === 4 ? 'off' : 'on', room: 'lcorr', color: 0xf2f4ff, i: 0.9 });
+  for (const x of [-35, -28, -21]) for (const z of [-8, 1]) L.push({ x, z, y: 3.4, state: x === -28 && z === 1 ? 'flicker' : 'on', room: 'gym', color: 0xfff4e0, i: 2.2, high: true });
+  for (const x of [-23, -19]) L.push({ x, z: 11.5, y: -1.25, state: x === -19 ? 'flicker' : 'on', room: 'lockers', color: 0xe8f4ff, i: 0.8 });
+  for (const x of [-42, -34]) for (const z of [11, 19]) L.push({ x, z, y: 2.4, state: x === -42 && z === 19 ? 'off' : 'on', room: 'pool', color: 0xe8f8ff, i: 1.6, high: true });
   return L;
 })();
 
 // ---------- the Monitor's waypoints ----------
-export const PATROL = [[47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
+export const PATROL = [[-14, 4], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
 export const WATCH_POINTS = [
   { x: 14, z: -0.9, yaw: 0, note: 'classroom glass' },        // inside 112, looking out through the glass
   { x: 14, z: 1.0, yaw: Math.PI, note: 'hall at glass' },     // hallway, looking in
@@ -168,11 +233,13 @@ export const CLUES = {
   attendance: { title: 'Attendance sheet, Period 7', where: 'Locker 117', text: 'Room 014, 11 June 1998. Fourteen names, every one marked ABSENT in a different pen from the register.\nEach mark is initialled R.V.' },
   vent_voice: { title: 'A voice in the vent', where: 'Service corridor grille', text: 'Through the grille, very faint, someone is reading a register. "Arden. Bell. Castellano. Dorsey..." Each name is followed by a pause, as if waiting for an answer.' },
   room014: { title: 'Work order: Room 014', where: 'contracts.exe', text: 'New assignment: Room 014, deep clean, priority. The floor plan has no Room 014.' },
+  key: { title: 'Stairwell key', where: "Teacher's desk, Room 112", text: 'A key ring tagged STAIRWELL W - ATHLETICS. It fits the chained doors at the west end of the hall.' },
   plate014: { title: 'Painted-over room plate', where: 'Hallway, west end', text: 'Under a coat of wall paint, the outline of a brass plate: 014. Beside the chained doors.' },
 };
 
 // ---------- debris (deterministic, stable ids) ----------
-export const DEBRIS_KINDS = ['dust', 'crumb', 'scrap', 'confetti', 'lint'];
+export const DEBRIS_KINDS = ['dust', 'crumb', 'scrap', 'confetti', 'lint', 'coin'];
+const insideFurnitureLow = () => false;
 export function insideFurniture(x, z, pad = 0.05) {
   for (const f of FURNITURE) if (x > f.x0 - pad && x < f.x1 + pad && z > f.z0 - pad && z < f.z1 + pad) return true;
   for (const w of WALLS) if (x > w.x0 - pad && x < w.x1 + pad && z > w.z0 - pad && z < w.z1 + pad) return true;
@@ -187,6 +254,12 @@ export const DEBRIS = (() => {
     { room: 'service', x0: 40.25, z0: -5.75, x1: 43.75, z1: 11.75, n: 520 },
     { room: 'service', x0: 44.1, z0: 6.25, x1: 49.75, z1: 11.75, n: 260 },
     { room: 'closet', x0: 2.25, z0: 3.85, x1: 5.75, z1: 6.55, n: 140 },
+    { room: 'lcorr', x0: -15.75, z0: -5.75, x1: -12.25, z1: 11.75, n: 380 },
+    { room: 'gym', x0: -39.6, z0: -10.8, x1: -16.4, z1: 5.9, n: 1500 },
+    { room: 'lockers', x0: -25.7, z0: 7.1, x1: -16.3, z1: 15.1, n: 520 },
+    { room: 'pool', x0: -45.6, z0: 6.6, x1: -26.4, z1: 9.8, n: 260 },
+    { room: 'pool', x0: -45.6, z0: 21.2, x1: -26.4, z1: 23.6, n: 220 },
+    { room: 'pool', x0: -30.8, z0: 9.8, x1: -26.4, z1: 21.2, n: 200 },
   ];
   for (const a of areas) {
     // clumps make satisfying drifts; the rest is scattered
@@ -201,7 +274,7 @@ export const DEBRIS = (() => {
       if (x < a.x0 || x > a.x1 || z < a.z0 || z > a.z1) continue;
       if (insideFurniture(x, z, 0.04)) continue;
       const k = R();
-      const kind = k < 0.42 ? 0 : k < 0.62 ? 1 : k < 0.8 ? 2 : k < 0.9 ? 3 : 4;
+      const kind = k < 0.012 ? 5 : k < 0.42 ? 0 : k < 0.62 ? 1 : k < 0.8 ? 2 : k < 0.9 ? 3 : 4; // 5 = a dropped coin
       out.push({ id: out.length, x, z, kind, rot: R() * 6.283, s: 0.7 + R() * 0.7, c: R(), room: a.room });
       made++;
     }
@@ -216,6 +289,11 @@ export const PATCHES = [
   { id: 'hall_mud', type: 'mud', room: 'hall', x0: 26, z0: 0.9, x1: 37, z1: 2.7, res: 10 },
   { id: 'class_mud', type: 'mud', room: 'class', x0: 10.2, z0: -7.3, x1: 16.9, z1: -1.4, res: 10 },
   { id: 'service_dust', type: 'dust', room: 'service', x0: 40.2, z0: -5.8, x1: 43.8, z1: 11.8, res: 4 },
+  { id: 'class_dust', type: 'dust', room: 'class', x0: 8.2, z0: -8.8, x1: 17.8, z1: -0.2, res: 4 },
+  { id: 'gym_dust', type: 'dust', room: 'gym', x0: -39.8, z0: -10.9, x1: -16.2, z1: 6.05, res: 3 },
+  { id: 'gym_mud', type: 'mud', room: 'gym', x0: -31, z0: -6, x1: -24, z1: 1, res: 8 },
+  { id: 'lockers_mud', type: 'mud', room: 'lockers', x0: -24.5, z0: 10.6, x1: -17.5, z1: 12.8, res: 10 },
+  { id: 'pool_mud', type: 'mud', room: 'pool', x0: -45.6, z0: 6.5, x1: -26.4, z1: 9.8, res: 6 },
 ];
 for (const p of PATCHES) { p.w = Math.round((p.x1 - p.x0) * p.res); p.h = Math.round((p.z1 - p.z0) * p.res); }
 function vnoise(R) { // tiny value-noise generator for blob shapes
@@ -227,14 +305,14 @@ export function initialMask(p) {
   const R = rng(p.id.length * 977 + p.w * 31), n = vnoise(R), m = new Uint8Array(p.w * p.h);
   for (let j = 0; j < p.h; j++) for (let i = 0; i < p.w; i++) {
     const x = p.x0 + (i + 0.5) / p.res, z = p.z0 + (j + 0.5) / p.res;
-    if (insideFurniture(x, z, -0.02)) continue; // never ask the player to clean under a desk leg
+    if (insideFurniture(x, z, -0.02) && !insideFurnitureLow(x, z)) continue; // never ask the player to clean under a desk leg
     let v = 0;
     if (p.type === 'dust') {
       const edge = Math.min(Math.abs(z - p.z0), Math.abs(p.z1 - z));
       v = 0.35 + 0.5 * n(x * 0.9, z * 0.9) + (edge < 0.4 ? 0.25 : 0);
-    } else if (p.id === 'class_mud') {
+    } else if (p.type === 'mud' && p.id !== 'hall_mud') {
       const cx = (p.x0 + p.x1) / 2, cz = (p.z0 + p.z1) / 2;
-      const d = Math.hypot((x - cx) / 3.0, (z - cz) / 2.6);
+      const d = Math.hypot((x - cx) / ((p.x1 - p.x0) * 0.45), (z - cz) / ((p.z1 - p.z0) * 0.44));
       v = (1.25 - d) * 1.6 + (n(x * 1.6, z * 1.6) - 0.5) * 1.3;
       v = Math.max(0, Math.min(1, v));
     } else if (p.id === 'hall_mud') {
@@ -299,7 +377,7 @@ export function wallsBetween(x0, z0, x1, z1, rects) { // count of wall/door slab
 }
 
 // ---------- navigation grid for the Monitor ----------
-export const NAV = { x0: -1, z0: -10, cell: 0.5, w: 104, h: 46 };
+export const NAV = { x0: -47, z0: -15, cell: 0.5, w: 196, h: 80 };
 export function buildNav(r = 0.32) {
   const g = new Uint8Array(NAV.w * NAV.h); // 0 open, 1 blocked, 2+i = door i gap
   const rects = [...WALLS, ...FURNITURE];

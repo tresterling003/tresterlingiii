@@ -1,9 +1,9 @@
 // AFTER HOURS: BLACKBRIAR HIGH — client
 import * as THREE from 'three';
 import { CONFIG } from '../shared/config.js';
-import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, rng } from '../shared/level.js';
-import { Sim, clockText, gameClock, vacStats, inOffice } from '../shared/sim.js';
-import { buildWorld, makeVacuumModel, makeMopModel } from './world.js';
+import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng } from '../shared/level.js';
+import { Sim, clockText, gameClock, vacStats, mopStats, inOffice } from '../shared/sim.js';
+import { buildWorld, makeVacuumModel, makeMopModel, makeCartModel, makeRoombaModel } from './world.js';
 import { loadModels, makeMonitor, makeWorker } from './models.js';
 import { Audio3D } from './audio.js';
 import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo } from './net.js';
@@ -69,6 +69,7 @@ const KIND = [
   { geo: new THREE.PlaneGeometry(0.06, 0.04).rotateX(-Math.PI / 2), mat: new THREE.MeshStandardMaterial({ color: 0xe9e4d6, roughness: 0.9, side: THREE.DoubleSide }), h: 0.004 }, // paper scrap
   { geo: new THREE.PlaneGeometry(0.014, 0.014).rotateX(-Math.PI / 2), mat: new THREE.MeshStandardMaterial({ roughness: 0.6, side: THREE.DoubleSide }), h: 0.003 }, // confetti
   { geo: new THREE.TorusGeometry(0.012, 0.004, 4, 8).rotateX(Math.PI / 2).scale(1.3, 1, 0.8), mat: new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 1 }), h: 0.004 }, // lint
+  { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.002, 16), mat: new THREE.MeshStandardMaterial({ color: 0xd8b04a, metalness: 1, roughness: 0.22, emissive: 0x332200, emissiveIntensity: 0.4 }), h: 0.0015 }, // dropped coin
 ];
 const CONF = [0xd94a3a, 0x3a8ad9, 0xe8c341, 0x4bb36a, 0xb855c9];
 let DB = null; // { meshes, slot:[kind,index], pos: Float32Array x,y,z, hidden: Uint8Array, grid: Map }
@@ -83,7 +84,7 @@ function buildDebris() {
     const mi = meshes.length; meshes.push(im); scene.add(im);
     list.forEach((d, i) => {
       slot[d.id * 2] = mi; slot[d.id * 2 + 1] = i;
-      pos[d.id * 3] = d.x; pos[d.id * 3 + 1] = KIND[d.kind].h * d.s; pos[d.id * 3 + 2] = d.z; rot[d.id] = d.rot;
+      pos[d.id * 3] = d.x; pos[d.id * 3 + 1] = groundY(d.x, d.z) + KIND[d.kind].h * d.s; pos[d.id * 3 + 2] = d.z; rot[d.id] = d.rot;
       if (kind === 3) im.setColorAt(i, col.setHex(CONF[(d.c * 5) | 0]));
       if (kind === 2) im.setColorAt(i, col.setHSL(0.1, 0.25, 0.82 + d.c * 0.12));
       if (kind === 0) im.setColorAt(i, col.setHSL(0.09, 0.08, 0.38 + d.c * 0.18));
@@ -119,18 +120,18 @@ function buildMasks() {
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU; uniform sampler2D uMask; uniform sampler2D uWet;')
         .replace('#include <map_fragment>', `#include <map_fragment>
           float mk = texture2D(uMask, vMU).r; float wt = texture2D(uWet, vMU).r;
-          ${isMud ? 'diffuseColor.a = smoothstep(0.03, 0.4, mk) * (0.75 + 0.25*mk);' : 'diffuseColor.a = smoothstep(0.02, 0.6, mk) * 0.62;'}
+          ${isMud ? 'diffuseColor.a = clamp(mk * 1.15, 0.0, 0.97); diffuseColor.rgb *= 0.75 + 0.25 * (1.0 - mk);' : 'diffuseColor.a = clamp(mk * 0.85, 0.0, 0.78);'}
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*0.55, wt);`)
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.08, texture2D(uWet, vMU).r);');
     };
     const geo = new THREE.PlaneGeometry(p.x1 - p.x0, p.z1 - p.z0).rotateX(-Math.PI / 2);
     // texture row j is z-major from z0: flip the plane's v so row 0 sits at z0
     const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
-    const mesh = new THREE.Mesh(geo, mat); mesh.position.set((p.x0 + p.x1) / 2, 0.0025, (p.z0 + p.z1) / 2); mesh.receiveShadow = true; mesh.renderOrder = 1; scene.add(mesh);
+    const mesh = new THREE.Mesh(geo, mat); mesh.position.set((p.x0 + p.x1) / 2, groundY((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2) + 0.0025, (p.z0 + p.z1) / 2); mesh.receiveShadow = true; mesh.renderOrder = 1; scene.add(mesh);
     // the wet sheen is drawn even where the floor is already clean
     const wmat = new THREE.MeshStandardMaterial({ color: 0x0b0f12, transparent: true, depthWrite: false, roughness: 0.04, metalness: 0.2, envMapIntensity: 1.6, polygonOffset: true, polygonOffsetFactor: -3 });
     wmat.onBeforeCompile = (sh) => { sh.uniforms.uWet = { value: wet }; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvMU = uv;'); sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU; uniform sampler2D uWet;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a = texture2D(uWet, vMU).r * 0.32;'); };
-    const wmesh = new THREE.Mesh(geo, wmat); wmesh.position.copy(mesh.position); wmesh.position.y = 0.003; wmesh.renderOrder = 2; scene.add(wmesh);
+    const wmesh = new THREE.Mesh(geo, wmat); wmesh.position.copy(mesh.position); wmesh.position.y += 0.0005; wmesh.renderOrder = 2; scene.add(wmesh);
     MASKS[p.id] = { p, tex, wet, data, wetT: 0 };
     syncMaskTex(p.id);
   }
@@ -139,12 +140,20 @@ function buildMasks() {
   scr.position.set(CLUE_SPOT.x, 0.0015, CLUE_SPOT.z); scr.rotation.y = 0.1; scene.add(scr);
 }
 function syncMaskTex(id) { const M = MASKS[id]; M.tex.image.data.set(M.data); M.tex.needsUpdate = true; }
-function applyMop(patchId, pts, r) {
+function applyMop(patchId, pts, r, smear = 0) {
   const M = MASKS[patchId]; if (!M) return;
-  mirror.erase(M.p, pts, r); M.data = mirror.masks[patchId];
+  const res = mirror.erase(M.p, pts, r, smear); M.data = mirror.masks[patchId];
   const P = M.p, wd = M.wet.image.data;
   for (const [x, z] of pts) { const ci = (x - P.x0) * P.res, cj = (z - P.z0) * P.res, rr = r * P.res * 1.15; for (let j = Math.max(0, Math.floor(cj - rr)); j <= Math.min(P.h - 1, Math.ceil(cj + rr)); j++) for (let i = Math.max(0, Math.floor(ci - rr)); i <= Math.min(P.w - 1, Math.ceil(ci + rr)); i++) if (Math.hypot(i + 0.5 - ci, j + 0.5 - cj) < rr) wd[j * P.w + i] = 255; }
   M.wetDirty = true; M.dirty = true;
+  return res;
+}
+// the server's exact values for the cells a stroke touched
+function applyMaskSet(m) {
+  const M = MASKS[m.patch]; if (!M) return; const P = M.p, str = atob(m.d), data = mirror.masks[m.patch];
+  let delta = 0;
+  for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) { const k = (m.j0 + j) * P.w + m.i0 + i, v = str.charCodeAt(j * m.w + i); delta += v - data[k]; data[k] = v; }
+  mirror.maskSum[m.patch] += delta; M.data = data; M.dirty = true;
 }
 let wetTimer = 0;
 function updateMasks(dt) {
@@ -180,7 +189,7 @@ const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), fwd = new THREE.Vec
 // pose a stick tool in world space: grip near the hand, head on the floor where the worker aims
 function aimFloor(px, py, pz, yaw, pitch, minD, maxD, rects) {
   const dir = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-  let t = dir.y < -0.05 ? (0.02 - py) / dir.y : 1e9;
+  const fy = groundY(px, pz); let t = dir.y < -0.05 ? (fy + 0.02 - py) / dir.y : 1e9;
   let hx = px + dir.x * t, hz = pz + dir.z * t, hd = Math.hypot(hx - px, hz - pz);
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
   if (!(hd < maxD)) { hx = px + fx * maxD; hz = pz + fz * maxD; hd = maxD; }
@@ -190,16 +199,16 @@ function aimFloor(px, py, pz, yaw, pitch, minD, maxD, rects) {
   return [hx, hz];
 }
 function poseVac(model, gripWorld, headX, headZ, yaw) {
-  model.head.position.set(headX, 0, headZ); model.head.rotation.set(0, yaw + Math.PI, 0);
+  const fy = groundY(headX, headZ); model.head.position.set(headX, fy, headZ); model.head.rotation.set(0, yaw + Math.PI, 0);
   model.pod.position.copy(gripWorld);
-  const a = tmp.set(headX + Math.sin(yaw) * 0.03, 0.1, headZ + Math.cos(yaw) * 0.03), b = gripWorld;
+  const a = tmp.set(headX + Math.sin(yaw) * 0.03, fy + 0.1, headZ + Math.cos(yaw) * 0.03), b = gripWorld;
   model.wand.position.copy(a).add(b).multiplyScalar(0.5); model.wand.scale.set(1, a.distanceTo(b), 1);
   model.wand.quaternion.setFromUnitVectors(tmp2.set(0, 1, 0), b.clone().sub(a).normalize());
   model.pod.lookAt(b.clone().multiplyScalar(2).sub(a));
 }
 function poseMop(model, gripWorld, headX, headZ, yaw) {
-  model.head.position.set(headX, 0, headZ); model.head.rotation.set(0, yaw, 0);
-  const a = tmp.set(headX, 0.08, headZ), b = gripWorld;
+  const fy = groundY(headX, headZ); model.head.position.set(headX, fy, headZ); model.head.rotation.set(0, yaw, 0);
+  const a = tmp.set(headX, fy + 0.08, headZ), b = gripWorld;
   model.handle.position.copy(a).add(b).multiplyScalar(0.5); model.handle.scale.set(1, a.distanceTo(b) / 1.3, 1);
   model.handle.quaternion.setFromUnitVectors(tmp2.set(0, 1, 0), b.clone().sub(a).normalize());
 }
@@ -207,18 +216,24 @@ function poseMop(model, gripWorld, headX, headZ, yaw) {
 // ======================= interaction targets =======================
 function interactTargets() {
   const list = W.interact.slice();
+  list.push({ kind: 'cart', x: cart.x, y: groundY(cart.x, cart.z) + 0.9, z: cart.z });
+  const cy = groundY(cart.x, cart.z), cxF = Math.cos(cart.yaw), czF = -Math.sin(cart.yaw);
+  list.push({ kind: 'cartbin', x: cart.x + cxF * 0.25, y: cy + 0.7, z: cart.z + czF * 0.25 }, { kind: 'cartbucket', x: cart.x - cxF * 0.25, y: cy + 0.4, z: cart.z - czF * 0.25 });
+  for (const r of rbSnap) if (!r[5] || r[5] === pid) list.push({ kind: 'roomba', id: r[0], x: r[1], y: groundY(r[1], r[2]) + 0.1, z: r[2], state: r[4], mine: r[5] === pid, bag: r[6] });
   for (const c of crewSnap) if (c.pid !== pid && c.dn) list.push({ kind: 'revive', pid: c.pid, name: c.name, x: c.x, y: 0.4, z: c.z });
   return list;
 }
 function pickTarget() {
   const cp = camera.position; camera.getWorldDirection(fwd); let best = null, bs = 0;
+  if (cart.holder === pid) return { kind: 'cart' }; // while pushing, E lets go
+  const carried = rbSnap.find(r => r[5] === pid); if (carried) return { kind: 'roomba', id: carried[0], mine: true };
   const rects = solidRects(mirror.doors).filter(r => r.door || (r.h > 2.5 && !r.glass));
   for (const it of interactTargets()) {
     if (it.kind === 'plate' && day < 2) continue;
     if (it.kind === 'bolt' && (mirror.doors.d_office.open || !inOffice(P))) continue;
     const dx = it.x - cp.x, dy = it.y - cp.y, dz = it.z - cp.z, d = Math.hypot(dx, dy, dz);
     const range = it.kind === 'door' ? 2.1 : it.kind === 'bin' ? 1.8 : 1.9; if (d > range) continue;
-    const cos = (dx * fwd.x + dy * fwd.y + dz * fwd.z) / d; if (cos < (it.kind === 'computer' || it.kind === 'rack' || it.kind === 'cot' ? 0.78 : 0.86)) continue;
+    const cos = (dx * fwd.x + dy * fwd.y + dz * fwd.z) / d; if (cos < (['computer', 'rack', 'cot', 'door', 'cart', 'bucket', 'cartbucket', 'cartbin', 'roomba'].includes(it.kind) ? 0.78 : 0.86)) continue;
     if (it.kind !== 'door' && it.kind !== 'bolt' && segBlocked(cp.x, cp.z, it.x - (dx / d) * 0.3, it.z - (dz / d) * 0.3, rects)) continue;
     const s = cos - d * 0.03; if (s > bs) { bs = s; best = it; }
   }
@@ -237,6 +252,11 @@ function promptFor(it) {
     case 'vent': return `${K} Listen at the grille`;
     case 'plate': return `${K} Examine the painted-over plate`;
     case 'revive': return `Hold ${K} to help ${it.name} up`;
+    case 'cart': return cart.holder === pid ? `${K} Let go of the cart` : cart.holder ? 'Someone is pushing this cart' : `${K} Push the janitor cart`;
+    case 'cartbin': return myBag ? `${K} Empty the vacuum into the cart (${myBag})` : null;
+    case 'cartbucket': case 'bucket': return inv.mop ? `${K} Rinse the mop (${Math.round(mopDirt * 100)}% dirty)` : null;
+    case 'roomba': return it.mine ? `${K} Set the robot vacuum down here` : it.state === 'full' ? `${K} Pick up and empty the robot (${it.bag})` : `${K} Pick up the robot vacuum`;
+    case 'desk': return `${K} Search the teacher's desk`;
   }
 }
 let reviveHold = 0;
@@ -252,6 +272,11 @@ function interact(it, held) {
     case 'cot': net.send({ t: 'wait' }); break;
     case 'vent': net.send({ t: 'vent' }); audio.ventVoice({ x: VENT.x, y: VENT.y, z: VENT.z }); break;
     case 'plate': net.send({ t: 'plate' }); break;
+    case 'cart': net.send({ t: 'cart' }); break;
+    case 'cartbin': net.send({ t: 'empty' }); break;
+    case 'cartbucket': case 'bucket': net.send({ t: 'rinse' }); break;
+    case 'roomba': net.send({ t: 'roomba', id: it.id }); break;
+    case 'desk': net.send({ t: 'desk' }); break;
   }
 }
 
@@ -367,7 +392,8 @@ function applySave(s) {
   applyCollected(mirror.collected);
   for (const id in mirror.doors) setDoor(id, mirror.doors[id], true);
   for (const id in W.lockers) setLocker(id, mirror.lockers[id] || { open: false }, true);
-  inv = Object.assign({ vacuum: false, mop: false }, s.inv[pid] || {});
+  inv = Object.assign({ vacuum: false, mop: false }, s.inv[pid] || {}); mopDirt = inv.mopDirt || 0;
+  keys2 = s.keys || {}; found = s.found || []; if (s.cart) cart = { ...s.cart, holder: null };
   updatePlate();
 }
 function onMessage(m) {
@@ -388,19 +414,26 @@ function onMessage(m) {
       shiftT = m.shiftT; money = m.money; crewSnap = m.players;
       if (m.phase !== phase) phase = m.phase;
       if (m.mon) { monSnap.push({ t: performance.now(), ...m.mon }); if (monSnap.length > 20) monSnap.shift(); }
+      if (m.cart && m.cart[3] !== pid) { cart.x = m.cart[0]; cart.z = m.cart[1]; cart.yaw = m.cart[2]; cart.holder = m.cart[3]; } else if (m.cart) cart.holder = m.cart[3];
+      if (m.rb) rbSnap = m.rb;
       for (const c of m.players) { if (c.pid === pid) { P.downed = !!c.dn; P.out = !!c.out; P.dnT = c.dnT; myBag = c.bag; continue; } remotePush(c); }
       for (const [id, r] of REMOTE) if (!m.players.find(c => c.pid === id)) { scene.remove(r.w.root); scene.remove(r.tool.root); REMOTE.delete(id); }
       break;
     }
     case 'col': { for (const id of m.ids) { mirror.collected[id] = 1; hideDebris(id); } break; }
-    case 'mop': applyMop(m.patch, m.pts, m.r); break;
+    case 'maskset': applyMaskSet(m); break;
+    case 'mopdirt': mopDirt = m.v; if (m.rinsed) { mopWarned = false; toast('Mop rinsed and wrung out.'); audio.noise({ f: 700, f2: 300, q: 0.7, v: 0.12, d: 0.9, wet: 0.4 }); } break;
+    case 'cart': cart = { x: m.x, z: m.z, yaw: m.yaw, holder: m.holder }; break;
+    case 'keys': keys2 = m.keys; updatePlate(); toast('Found a key ring tagged STAIRWELL W. The chained doors at the west end of the hall.'); break;
+    case 'found': found = m.found; break;
+    case 'sold': toast(`Lost & Found paid $${m.total.toFixed(2)} for ${m.n} item${m.n > 1 ? 's' : ''}.`); audio.reward(); renderOSApp(); break;
     case 'door': setDoor(m.id, { open: m.open, bolted: m.bolted }); mirror.doors[m.id] = { open: m.open, bolted: m.bolted }; break;
     case 'locker': setLocker(m.id, m); mirror.lockers[m.id] = { open: m.open, searched: m.searched }; if (m.note && m.by === pid) toast(m.note); break;
     case 'inv': inv = m.inv; audio.pickup(); if (inv.vacuum && P.tool === 'none') P.tool = 'vacuum'; toast(inv.mop && inv.vacuum ? 'Picked up the mop. Press 2 to use it.' : 'Picked up the vacuum. Press 1 to use it. Left mouse runs it.'); break;
     case 'bag': myBag = m.bag; if (m.emptied) { toast(`Emptied ${m.emptied} pieces.`); } break;
     case 'bagfull': if (performance.now() - (bagFullT || 0) > 4000) { bagFullT = performance.now(); toast('Vacuum is full. Empty it at a bin (closet, office or the end of the hall).'); } break;
     case 'toast': toast(m.msg); break;
-    case 'sfx': { const pos = { x: m.x, y: 1.2, z: m.z }; if (m.k === 'doorbang') { audio.bang(pos); shake = 0.5; } if (m.k === 'rattle') audio.rattle(pos); if (m.k === 'empty') audio.empty(pos); break; }
+    case 'sfx': { const pos = { x: m.x, y: 1.2, z: m.z }; if (m.k === 'doorbang') { audio.bang(pos); shake = 0.5; } if (m.k === 'rattle') audio.rattle(pos); if (m.k === 'empty') audio.empty(pos); if (m.k === 'rinse') audio.empty(pos); if (m.k === 'bump') audio.tone({ f: 300, v: 0.03, d: 0.04, pos, type: 'triangle' }); if (m.k === 'beep') for (let i = 0; i < 3; i++) audio.tone({ f: 1800, v: 0.05, d: 0.08, delay: i * 0.15, pos }); break; }
     case 'pa': if (!CALM) showPA(m.text); break;
     case 'disc': { discoveries.push({ id: m.id, day, by: m.by }); const c = CLUES[m.id]; centerMsg('EVIDENCE: ' + c.title.toUpperCase(), (m.by ? m.by + ' found it. ' : '') + 'Saved to the journal (Tab).', 4); audio.sting(); updatePlate(); break; }
     case 'buy': upgrades = m.upgrades; money = m.money; mirror.purchased.push(m.skill); toast(`${CONFIG.skills[m.skill].name} installed.`); renderOSApp(); break;
@@ -415,18 +448,48 @@ function onMessage(m) {
     case 'out': if (m.pid === pid) centerMsg('MARKED PRESENT', 'You are out for the rest of this shift.', 6); else toast(`${nameOf(m.pid)} was marked present.`); break;
     case 'teleport': P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; break;
     case 'summary': summary = m.summary; showSummary(m.summary); break;
-    case 'newday': { applySave(m.save); day = m.day; phase = 'shift'; summary = null; closeUI(true); centerMsg(`NIGHT ${day}`, day === 2 ? 'A new work order is waiting on the computer.' : '', 4); requestLock(); break; }
+    case 'newday': { applySave(m.save); day = m.day; phase = 'shift'; summary = null; closeUI(true); nightCard(day); requestLock(); break; }
     case 'ping': { const r = REMOTE.get(m.pid); audio.ping({ x: m.x, y: 1, z: m.z }); showPing(m.x, m.y, m.z, m.pid === pid ? 'you' : nameOf(m.pid)); break; }
   }
 }
 let CALM = false;
+let mopDirt = 0, mopWarned = false, keys2 = {}, found = [], rbSnap = [], cart = { x: 4, z: 2.6, yaw: Math.PI / 2, holder: null };
+let CART_M = null; const RB_M = new Map();
+function playerRects() { const r = solidRects(mirror.doors); if (cart.holder !== pid) r.push({ x0: cart.x - 0.5, z0: cart.z - 0.5, x1: cart.x + 0.5, z1: cart.z + 0.5 }); return r; }
+// the cart rolls in front of whoever pushes it; everyone sees where it is
+function updateCart(dt) {
+  if (!W) return;
+  if (!CART_M) { CART_M = makeCartModel(); scene.add(CART_M); }
+  if (cart.holder === pid) {
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), tx = P.x + fx * 1.05, tz = P.z + fz * 1.05;
+    const walls = solidRects(mirror.doors);
+    [cart.x, cart.z] = moveCircle(cart.x, cart.z, (tx - cart.x) * Math.min(1, dt * 10), (tz - cart.z) * Math.min(1, dt * 10), 0.42, walls);
+    cart.yaw = P.yaw + Math.PI / 2;
+  }
+  CART_M.position.set(cart.x, groundY(cart.x, cart.z), cart.z); CART_M.rotation.y = cart.yaw;
+  const seen = new Set();
+  for (const r of rbSnap) {
+    seen.add(r[0]); let m = RB_M.get(r[0]); if (!m) { m = makeRoombaModel(); scene.add(m); RB_M.set(r[0], m); }
+    let x = r[1], z = r[2];
+    if (r[5] === pid) { x = P.x - Math.sin(P.yaw) * 0.45; z = P.z - Math.cos(P.yaw) * 0.45; m.position.set(x, P.gy + 0.95, z); }
+    else if (r[5]) { const h = crewSnap.find(c => c.pid === r[5]); if (h) m.position.set(h.x, groundY(h.x, h.z) + 0.95, h.z); }
+    else { m.position.x = lerp(m.position.x, x, 0.3); m.position.z = lerp(m.position.z, z, 0.3); m.position.y = groundY(x, z); }
+    m.rotation.y = r[3]; m.userData.led.material.emissive.setHex(r[4] === 'full' ? 0xff3322 : r[4] === 'run' ? 0x33ff66 : 0x3388ff); m.userData.brush.rotation.y += dt * (r[4] === 'run' ? 20 : 0);
+  }
+  for (const [id, m] of RB_M) if (!seen.has(id)) { scene.remove(m); RB_M.delete(id); }
+}
+function nightCard(n) {
+  const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;background:#000;z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1.2s;font-family:var(--hud)';
+  el.innerHTML = `<div style="font-size:12px;letter-spacing:.6em;color:#888">HALBERD FACILITIES</div><div style="font-size:clamp(40px,9vw,96px);font-weight:800;letter-spacing:.2em;margin-top:10px">NIGHT ${n}</div><div style="color:#888;margin-top:12px;letter-spacing:.2em">${n === 2 ? 'A new work order is waiting on the computer.' : 'Same building. Same dirt you left.'}</div>`;
+  document.body.appendChild(el); setTimeout(() => { el.style.opacity = 0; }, 2600); setTimeout(() => el.remove(), 3900);
+}
 let bagFullT = 0, monState = 'dormant', shake = 0;
 const nameOf = (id) => (crewSnap.find(c => c.pid === id) || {}).name || 'A crewmate';
 
 // ======================= doors / lockers visuals =======================
 function setDoor(id, st, snap) { const D = W.doors[id]; if (!D) return; const prev = D.target; D.target = st.open ? (D.d.swing || 1) * 1.65 : 0; D.bolted = st.bolted; if (snap) D.angle = D.target; else if (prev !== D.target) audio.door({ x: D.pivot.position.x, y: 1.2, z: D.pivot.position.z }, st.open, D.d.kind === 'steel'); if (D.bolt && !snap && D.boltOn !== st.bolted) audio.bolt({ x: 21.7, y: 1.3, z: 3.7 }, st.bolted); D.boltOn = st.bolted; }
 function setLocker(id, st, snap) { const L = W.lockers[id]; if (!L) return; L.target = st.open ? -1.9 : 0; if (snap) L.angle = L.target; else audio.locker({ x: L.L.x, y: 1.5, z: L.L.z }, st.open); if (L.item && st.searched) L.item.visible = false; }
-function updatePlate() { if (!W) return; const legible = day >= 2; W.plate014.material.color.setScalar(legible ? 1.25 : 1); W.plate014.scale.setScalar(legible ? 1.05 : 1); }
+function updatePlate() { if (!W) return; if (W.chain) W.chain.visible = !keys2.stairkey; const legible = day >= 2; W.plate014.material.color.setScalar(legible ? 1.25 : 1); W.plate014.scale.setScalar(legible ? 1.05 : 1); }
 
 // ======================= remote players =======================
 const REMOTE = new Map();
@@ -448,7 +511,7 @@ function updateRemotes(dt) {
   for (const [id, r] of REMOTE) {
     const s = sampleBuf(r.buf); if (!s) continue;
     const prev = r.last || s; const sp = Math.hypot(s.x - prev.x, s.z - prev.z) / Math.max(dt, 1e-3); r.last = s;
-    r.w.root.position.set(s.x, s.dn ? -0.6 : 0, s.z); r.w.root.rotation.set(s.dn ? -1.3 : 0, s.yw, 0);
+    r.w.root.position.set(s.x, groundY(s.x, s.z) + (s.dn ? -0.6 : 0), s.z); r.w.root.rotation.set(s.dn ? -1.3 : 0, s.yw, 0);
     r.w.update(dt, sp > 3.6 ? 'run' : sp > 0.3 ? 'walk' : 'idle', clamp(sp / (sp > 3.6 ? 5 : 2.8), 0.5, 1.5));
     r.w.root.visible = !s.out;
     r.stepD += sp * dt; if (r.stepD > 0.75) { r.stepD = 0; audio.step({ x: s.x, y: 0.1, z: s.z }, s.cr ? 0.3 : 0.8); }
@@ -456,8 +519,8 @@ function updateRemotes(dt) {
     r.tool.root.visible = showVac; r.mop.root.visible = showMop;
     if (showVac || showMop) {
       const yaw = s.yw, rx = Math.cos(yaw) * 0.22, rz = -Math.sin(yaw) * 0.22;
-      const grip = tmp2.set(s.x + rx - Math.sin(yaw) * 0.25, s.cr ? 0.7 : 1.0, s.z + rz - Math.cos(yaw) * 0.25).clone();
-      const [hx, hz] = aimFloor(s.x, 1.6, s.z, yaw, s.pt, 0.6, showMop ? 1.8 : 1.3, solidRects(mirror.doors));
+      const gy = groundY(s.x, s.z), grip = tmp2.set(s.x + rx - Math.sin(yaw) * 0.25, gy + (s.cr ? 0.7 : 1.0), s.z + rz - Math.cos(yaw) * 0.25).clone();
+      const [hx, hz] = aimFloor(s.x, gy + 1.6, s.z, yaw, s.pt, 0.6, showMop ? 1.8 : 1.3, solidRects(mirror.doors));
       if (showVac) { poseVac(r.tool, grip, hx, hz, yaw); r.tool.led.material.emissiveIntensity = s.act ? 3 : 0; if (s.act) { r.vacSnd = (r.vacSnd || 0) + dt; if (r.vacSnd > 0.15) { r.vacSnd = 0; audio.noise({ f: 1500, q: 0.8, v: 0.05, d: 0.16, pos: { x: s.x, y: 0.8, z: s.z }, wet: 0.2 }); } } }
       else poseMop(r.mop, grip, hx, hz, yaw);
     }
@@ -471,7 +534,7 @@ function updateMonitor(dt, t) {
   if (CALM) { monitor.root.visible = false; dread = 0; return; }
   const s = sampleBuf(monSnap, 120); if (!s) return;
   const m = monitor;
-  m.root.position.set(s.x, 0, s.z); m.root.rotation.y = s.yaw;
+  m.root.position.set(s.x, groundY(s.x, s.z), s.z); m.root.rotation.y = s.yaw;
   const sp = monLast ? Math.hypot(s.x - monLast.x, s.z - monLast.z) / Math.max(dt, 1e-3) : 0; monLast = { x: s.x, z: s.z };
   const modeA = s.st === 'chase' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
@@ -488,7 +551,7 @@ function updateMonitor(dt, t) {
 let dread = 0;
 function jumpscare() {
   audio.caught(); shake = 1.2; $('hurt').style.opacity = 1;
-  if (monitor) { const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); monitor.root.position.set(P.x + fx * 0.7, 0, P.z + fz * 0.7); monitor.root.rotation.y = P.yaw; scareT = 0.9; }
+  if (monitor) { const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); monitor.root.position.set(P.x + fx * 0.7, groundY(P.x, P.z), P.z + fz * 0.7); monitor.root.rotation.y = P.yaw; scareT = 0.9; }
   setTimeout(() => $('hurt').style.opacity = 0, 1400);
 }
 let scareT = 0;
@@ -564,8 +627,8 @@ function updateHUD(dt) {
   $('crew').innerHTML = mode === 'coop' ? crewSnap.map(c => `${c.pid === pid ? '▸ ' : ''}${c.name}${c.dn ? ' <span style="color:#f66">DOWN</span>' : c.out ? ' (out)' : ''}`).join('<br>') : '';
   const vs = vacStats(upgrades);
   $('toolName').textContent = P.tool === 'vacuum' ? 'Vacuum' : P.tool === 'mop' ? 'Mop' : 'Hands';
-  $('toolInfo').textContent = P.tool === 'vacuum' ? `Bag ${myBag} / ${vs.bag} · reach ${vs.reach.toFixed(1)} m` : P.tool === 'mop' ? 'Push it across the floor. Right mouse scrubs.' : (inv.vacuum ? '1 vacuum · ' : '') + (inv.mop ? '2 mop · ' : '') + 'F flashlight';
-  $('bagBar').hidden = P.tool !== 'vacuum'; $('bagFill').style.width = (myBag / vs.bag * 100) + '%'; $('bagFill').style.background = myBag >= vs.bag ? '#e55' : '';
+  $('toolInfo').textContent = P.tool === 'vacuum' ? `Bag ${myBag} / ${vs.bag} · reach ${vs.reach.toFixed(1)} m` : P.tool === 'mop' ? `Mop ${Math.round(mopDirt * 100)}% dirty${mopDirt > 0.75 ? ' — RINSE IT' : ''} · right mouse scrubs` : (inv.vacuum ? '1 vacuum · ' : '') + (inv.mop ? '2 mop · ' : '') + 'F flashlight';
+  $('bagBar').hidden = P.tool !== 'vacuum' && P.tool !== 'mop'; const fillK = P.tool === 'mop' ? mopDirt : myBag / vs.bag; $('bagFill').style.width = (fillK * 100) + '%'; $('bagFill').style.background = fillK >= (P.tool === 'mop' ? 0.75 : 1) ? '#e55' : P.tool === 'mop' ? '#9a7a4a' : '';
   const it = pickTarget(); const pt = promptFor(it); $('prompt').hidden = !pt; if (pt) $('prompt').textContent = pt;
   $('hurt').style.opacity = P.downed ? 0.9 : Math.max(0, dread - 0.5) * 0.8;
 }
@@ -610,16 +673,17 @@ function renderBag() {
 }
 // ======================= facilities OS =======================
 let osApp = null, osNote = '';
-const APPS = ['contracts.exe', 'equipment.exe', 'skills.exe', 'maintenance.exe', 'cctv.exe'];
+const APPS = ['contracts.exe', 'equipment.exe', 'skills.exe', 'lostfound.exe', 'maintenance.exe', 'cctv.exe'];
 function openOS() {
   openUI('os'); $('os').hidden = false; osApp = null; $('osWin').hidden = true;
-  $('osDesk').innerHTML = APPS.map((a, i) => `<div class="icon" data-app="${a}"><i>${['📋', '🧰', '★', '🔧', '📹'][i]}</i>${a}</div>`).join('') +
+  $('osDesk').innerHTML = APPS.map((a, i) => `<div class="icon" data-app="${a}"><i>${['📋', '🧰', '★', '💰', '🔧', '📹'][i]}</i>${a}</div>`).join('') +
     `<div style="position:absolute;right:20px;bottom:16px;max-width:300px" class="mascot"><b>●●</b><span>${day === 1 ? 'Night. Sit down. Your contract is in contracts.exe. Upgrades are in skills.exe.' : 'Welcome back. There is a new work order.'}</span></div>`;
   $('osDesk').querySelectorAll('.icon').forEach(el => el.onclick = () => { osApp = el.dataset.app; osNote = ''; renderOSApp(); audio.ui(); });
 }
 function closeOS() { closeUI(); }
 $('osX').onclick = () => { osApp = null; $('osWin').hidden = true; };
-$('osLogout').onclick = () => closeOS();
+$('osLogout').onclick = () => { net.send({ t: 'clockout' }); };
+$('osBack').onclick = () => closeOS();
 function renderOSApp() {
   if (ui !== 'os' || !osApp) return; $('osWin').hidden = false; $('osTitle').textContent = osApp; $('osTask').textContent = osApp; const B = $('osBody'); const rp = mirror.roomProgress();
   const pct = (x) => (x * 100).toFixed(0) + '%';
@@ -639,10 +703,14 @@ function renderOSApp() {
   } else if (osApp === 'skills.exe') {
     const vs = vacStats(upgrades);
     B.innerHTML = `<div class="mascot"><b>●●</b><span>Balance is shared by the whole crew. Each upgrade is bought once and applies to everyone's gear.</span></div>
-      <table>${Object.entries(CONFIG.skills).map(([k, s]) => { const have = mirror.purchased.includes(k), locked = s.needs && !mirror.purchased.includes(s.needs); return `<tr><td><b>★ ${s.name}</b><br>${s.desc}</td><td>${have ? 'INSTALLED' : '$' + s.cost.toFixed(2)}</td><td><button class="ob" data-buy="${k}" ${have || locked || money < s.cost ? 'disabled' : ''}>${locked ? 'Locked' : 'Upgrade'}</button></td></tr>`; }).join('')}</table>
+      ${['Vacuum', 'Mop', 'Gear', 'Robots'].map(cat => `<h4 style="margin:10px 0 4px;color:#0b1d8c">${cat}</h4><table>${Object.entries(CONFIG.skills).filter(([, s]) => s.cat === cat).map(([k, s]) => { const have = mirror.purchased.includes(k), locked = s.needs && !mirror.purchased.includes(s.needs); return `<tr><td><b>★ ${s.name}</b><br>${s.desc}</td><td>${have ? (s.item ? 'OWNED' : 'INSTALLED') : '$' + s.cost.toFixed(2)}</td><td><button class="ob" data-buy="${k}" ${have || locked || money < s.cost ? 'disabled' : ''}>${locked ? 'Locked' : s.item ? 'Buy' : 'Upgrade'}</button></td></tr>`; }).join('')}</table>`).join('')}
       <p>Current vacuum: reach <b>${vs.reach} m</b>, pull <b>${vs.accel} m/s²</b>, cone ${vs.cone}°, bag ${vs.bag}, heard from ${vs.noise} m.</p>
       <p style="color:#a11">${osNote || ''}</p><div class="task" style="border:0;background:#ddd">Balance: $${money.toFixed(2)}</div>`;
     B.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { b.disabled = true; net.send({ t: 'buy', skill: b.dataset.buy }); });
+  } else if (osApp === 'lostfound.exe') {
+    const total = found.reduce((a, f) => a + f.v, 0);
+    B.innerHTML = `<b>LOST & FOUND</b><p>Halberd buys back anything you turn in from the lockers.</p><table>${found.length ? found.map(f => `<tr><td>${f.n}</td><td>$${f.v.toFixed(2)}</td></tr>`).join('') : '<tr><td>Nothing turned in yet. Search the lockers.</td></tr>'}</table><p><button class="ob" id="sellAll" ${found.length ? '' : 'disabled'}>Sell all ($${total.toFixed(2)})</button></p>`;
+    const sb = $('sellAll'); if (sb) sb.onclick = () => { sb.disabled = true; net.send({ t: 'sell' }); };
   } else if (osApp === 'maintenance.exe') {
     B.innerHTML = `<b>Restoration progress</b><table><tr><th>Area</th><th>Debris left</th><th>Floor</th><th>Status</th></tr>${Object.entries(rp).map(([k, r]) => `<tr><td>${ROOMS[k].name}</td><td>${r.debrisLeft} / ${r.debrisTotal}</td><td>${pct(r.surface)}</td><td>${mirror.roomBonus[k] ? 'RESTORED' : r.done ? 'complete' : '—'}</td></tr>`).join('')}</table><p>Items removed tonight: ${summary ? summary.pieces : '—'}</p>`;
   } else if (osApp === 'cctv.exe') {
@@ -653,7 +721,7 @@ function renderOSApp() {
 // ======================= summary =======================
 function showSummary(s) {
   openUI('summary'); $('summary').hidden = false;
-  $('sumBody').innerHTML = `<h2>${s.failed ? 'Shift failed — everyone was marked present' : 'Shift over — you made it to morning'}</h2>
+  $('sumBody').innerHTML = `<h2>${s.failed ? 'Shift failed — everyone was marked present' : s.clockedOut ? 'Signed out for the night' : 'Shift over — you made it to morning'}</h2>
     <p>Night ${s.day} · earned <b>$${s.earned.toFixed(2)}</b>${s.penalty ? ` · penalty -$${s.penalty.toFixed(2)}` : ''} · balance <b>$${(money).toFixed(2)}</b></p>
     <p>Items removed: ${s.pieces} · floor cells cleaned: ${s.cells} · times caught: ${s.caught}</p>
     ${s.disc.length ? `<p>Evidence found: ${s.disc.map(d => CLUES[d].title).join(', ')}</p>` : ''}
@@ -675,7 +743,7 @@ function frame(now) {
     PR('tools', () => updateTools(dt, t));
     PR('remotes', () => updateRemotes(dt));
     PR('monitor', () => updateMonitor(dt, t));
-    if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.45 + k * 0.4), 0, P.z + fz * (0.45 + k * 0.4)); monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
+    if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.45 + k * 0.4), groundY(P.x, P.z), P.z + fz * (0.45 + k * 0.4)); monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
     sendT += dt; if (sendT > 0.066) { sendT = 0; sendState(); }
     PR('masks', () => updateMasks(dt)); PR('hud', () => updateHUD(dt)); PR('anim', () => animateWorld(dt, t));
     if (!P.out && touch.revive) holdRevive(dt);
@@ -701,15 +769,17 @@ function updatePlayer(dt, t) {
   const sprint = (keys.ShiftLeft || keys.ShiftRight || touch.sprint) && !crouch;
   let ml = Math.hypot(ix, iz); let mx = ix, mz = iz; if (ml > 1) { mx /= ml; mz /= ml; ml = 1; }
   const canMove = !P.downed && !P.out && scareT <= 0;
-  const spd = (sprint ? CONFIG.sprintSpeed : crouch ? CONFIG.crouchSpeed : CONFIG.walkSpeed) * (P.tool === 'vacuum' && (mouseL || touch.use) ? 0.8 : 1);
+  const spd = (sprint ? CONFIG.sprintSpeed : crouch ? CONFIG.crouchSpeed : CONFIG.walkSpeed) * (P.tool === 'vacuum' && (mouseL || touch.use) ? 0.8 : 1) * (upgrades.shoes ? 1.15 : 1) * (cart.holder === pid ? CONFIG.cart.speed : 1);
   const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
   const tvx = canMove ? (-sy * mz + cy * mx) * spd : 0, tvz = canMove ? (-cy * mz - sy * mx) * spd : 0;
   const acc = 1 - Math.pow(0.0001, dt); P.vx = lerp(P.vx, tvx, acc); P.vz = lerp(P.vz, tvz, acc);
-  [P.x, P.z] = moveCircle(P.x, P.z, P.vx * dt, P.vz * dt, CONFIG.playerRadius, solidRects(mirror.doors));
+  [P.x, P.z] = moveCircle(P.x, P.z, P.vx * dt, P.vz * dt, CONFIG.playerRadius, playerRects());
+  updateCart(dt);
   const speed = Math.hypot(P.vx, P.vz); P.moving = speed > 0.3; P.sprint = sprint && P.moving; P.crouching = crouch;
   P.crouch = lerp(P.crouch, crouch ? 1 : 0, 1 - Math.pow(0.0005, dt));
   if (P.moving) { P.bob += dt * speed * 2.3; P.stepD += speed * dt; if (P.stepD > (sprint ? 0.95 : 0.72)) { P.stepD = 0; const wetFloor = patchesAt(P.x, P.z).some(p => p.type === 'mud'); audio.step({ x: P.x, y: 0.05, z: P.z }, crouch ? 0.25 : sprint ? 1.3 : 0.8, wetFloor); } }
-  const eye = lerp(CONFIG.eyeHeight, CONFIG.crouchEye, P.crouch) - (P.downed ? 1.15 : 0);
+  P.gy = lerp(P.gy ?? groundY(P.x, P.z), groundY(P.x, P.z), 1 - Math.pow(0.00001, dt));
+  const eye = P.gy + lerp(CONFIG.eyeHeight, CONFIG.crouchEye, P.crouch) - (P.downed ? 1.15 : 0);
   const bob = settings.bob && P.moving ? Math.sin(P.bob) * 0.035 * (sprint ? 1.4 : 1) : 0;
   shake = Math.max(0, shake - dt);
   camera.position.set(P.x, eye + bob + (Math.random() - 0.5) * shake * 0.05, P.z);
@@ -719,16 +789,19 @@ function updatePlayer(dt, t) {
 function sendState() {
   const act = P.tool !== 'none' && (mouseL || touch.use) && !ui && !P.downed;
   const tp = P.tp; P.tp = false;
-  net.send({ t: 'st', tp, p: [P.x, 0, P.z], yw: P.yaw, pt: P.pitch, tool: P.tool, act, fl: P.light, cr: !!P.crouching, sp: !!P.sprint, mv: !!P.moving });
+  net.send({ t: 'st', tp, cart: cart.holder === pid ? [+cart.x.toFixed(3), +cart.z.toFixed(3), +cart.yaw.toFixed(3)] : undefined, p: [P.x, 0, P.z], yw: P.yaw, pt: P.pitch, tool: P.tool, act, fl: P.light, cr: !!P.crouching, sp: !!P.sprint, mv: !!P.moving });
   if (colQ.length) { net.send({ t: 'col', ids: colQ.splice(0, 80) }); }
   for (const id in mopQ) { if (mopQ[id].pts.length) { net.send({ t: 'mop', patch: id, pts: mopQ[id].pts.splice(0, 40), k: mopQ[id].k }); } }
 }
 function queueStroke(x, z, s, kind) {
   x = +x.toFixed(3); z = +z.toFixed(3); s = Math.max(0, Math.min(255, s | 0)); if (!s) return; // identical numbers to what the server applies
-  const r = kind === 'vac' ? CONFIG.vacuum.filmRadius : CONFIG.mop.radius;
+  const r = kind === 'vac' ? vacStats(upgrades).film : mopStats(upgrades).radius;
+  const smear = kind === 'mop' && mopDirt > 0.75 ? Math.round(CONFIG.mop.smear * (mopDirt - 0.75) / 0.25) : 0;
+  const sEff = kind === 'mop' ? Math.round(s * (1 - 0.8 * Math.min(1, mopDirt))) : s;
   for (const p of patchesAt(x, z)) {
     if (kind === 'vac' && p.type === 'mud') continue;
-    applyMop(p.id, [[x, z, s]], r);
+    const res = applyMop(p.id, [[x, z, sEff]], r, smear);
+    if (kind === 'mop' && res) mopDirt = Math.min(1, mopDirt + res.removed / mopStats(upgrades).capacity * (p.type === 'mud' ? 1 : 0.25)); // prediction; the server sends the truth
     const key = p.id; if (!mopQ[key]) mopQ[key] = { pts: [], k: kind }; if (mopQ[key].k !== kind && mopQ[key].pts.length) { net.send({ t: 'mop', patch: key, pts: mopQ[key].pts.splice(0), k: mopQ[key].k }); } mopQ[key].k = kind; mopQ[key].pts.push([x, z, s]);
   }
 }
@@ -768,12 +841,13 @@ function updateTools(dt, t) {
     VM.mopHead.x = lerp(VM.mopHead.x, hx, 1 - Math.pow(0.0004, dt)); VM.mopHead.z = lerp(VM.mopHead.z, hz, 1 - Math.pow(0.0004, dt));
     const push = using ? Math.sin(t * 7) * 0.05 : 0;
     poseMop(VM.mop, grip, VM.mopHead.x - Math.sin(P.yaw) * push, VM.mopHead.z - Math.cos(P.yaw) * push, P.yaw);
-    VM.mop.strandMat.color.setHex(using ? 0xb9b39f : 0xe9e4d2);
+    VM.mop.strandMat.color.setRGB(lerp(0.91, 0.32, mopDirt), lerp(0.89, 0.24, mopDirt), lerp(0.82, 0.14, mopDirt)); if (using) VM.mop.strandMat.color.multiplyScalar(0.85);
+    if (mopDirt > 0.75 && !mopWarned) { mopWarned = true; toast('Your mop is filthy and smearing dirt around. Rinse it in a bucket (closet, or the janitor cart).'); }
     if (using) { // erase along the path the head actually travels; holding still does nothing
       const hp = new THREE.Vector3(VM.mopHead.x - Math.sin(P.yaw) * push, 0, VM.mopHead.z - Math.cos(P.yaw) * push);
       if (!mopLast) mopLast = hp.clone();
       const seg = hp.distanceTo(mopLast);
-      if (seg > 0.04) { const n = Math.ceil(seg / 0.06); for (let k = 1; k <= n; k++) { const p = mopLast.clone().lerp(hp, k / n); queueStroke(p.x, p.z, Math.min(255, CONFIG.mop.strength * (seg / n) / 0.06), 'mop'); } mopLast.copy(hp); if (audio.wetSwish) audio.wetSwish.g.gain.value = Math.min(0.08, seg * 1.5); if (Math.random() < 0.08) audio.noise({ f: 2400, q: 6, v: 0.02, d: 0.06, wet: 0.2 }); }
+      if (seg > 0.04) { const n = Math.ceil(seg / 0.06); for (let k = 1; k <= n; k++) { const p = mopLast.clone().lerp(hp, k / n); queueStroke(p.x, p.z, Math.min(255, CONFIG.mop.strength * (seg / n) / 0.05), 'mop'); } mopLast.copy(hp); if (audio.wetSwish) audio.wetSwish.g.gain.value = Math.min(0.08, seg * 1.5); if (Math.random() < 0.08) audio.noise({ f: 2400, q: 6, v: 0.02, d: 0.06, wet: 0.2 }); }
       else if (audio.wetSwish) audio.wetSwish.g.gain.value *= 0.8;
     } else { mopLast = null; if (audio.wetSwish) audio.wetSwish.g.gain.value *= 0.8; }
   } else { VM.mopInit = false; if (audio.wetSwish) audio.wetSwish.g.gain.value = 0; }
@@ -781,7 +855,7 @@ function updateTools(dt, t) {
 // debris: tremble, then accelerate and swirl into the visible intake. Pieces must actually reach the nozzle to count.
 function vacuumPhysics(dt, on, focus, vs, rects) {
   const act = DB.active;
-  const ix = VM.headPos.x + (-Math.sin(P.yaw)) * 0.08, iz = VM.headPos.z + (-Math.cos(P.yaw)) * 0.08, iy = 0.03;
+  const ix = VM.headPos.x + (-Math.sin(P.yaw)) * 0.08, iz = VM.headPos.z + (-Math.cos(P.yaw)) * 0.08, iy = groundY(ix, iz) + 0.03;
   const full = myBag + colQ.length >= vs.bag;
   if (on && !full) {
     const R = vs.reach * (focus ? 1.25 : 1), cone = (focus ? vs.cone * 0.5 : vs.cone) * Math.PI / 180;
@@ -830,7 +904,7 @@ function vacuumPhysics(dt, on, focus, vs, rects) {
     } else { // motor off: pieces drop and settle where they are
       a.vy -= 9.8 * dt; const damp = Math.pow(0.05, dt); a.vx *= damp; a.vz *= damp;
       px += a.vx * dt; py += a.vy * dt; pz += a.vz * dt;
-      const rest = KIND[DEBRIS[id].kind].h * DEBRIS[id].s;
+      const rest = groundY(px, pz) + KIND[DEBRIS[id].kind].h * DEBRIS[id].s;
       if (py <= rest) { py = rest; if (Math.abs(a.vy) < 1) { act.delete(id); regrid(id, px, pz); } a.vy = 0; }
     }
     DB.pos[o] = px; DB.pos[o + 1] = py; DB.pos[o + 2] = pz; writeDebris(id, a.spin);
@@ -843,7 +917,7 @@ function regrid(id, x, z) { // keep the spatial hash right after a piece settles
 
 // ======================= debug / test hooks =======================
 window.__bb = {
-  get state() { return { playing, ui, locked, freeLook, mode, room, P: { ...P }, money, shiftT, phase, day, inv, myBag, upgrades, discoveries: discoveries.map(d => d.id), monState, crew: crewSnap.length }; },
+  get state() { return { mopDirt, cartPos: { ...cart }, playing, ui, locked, freeLook, mode, room, P: { ...P }, money, shiftT, phase, day, inv, myBag, upgrades, discoveries: discoveries.map(d => d.id), monState, crew: crewSnap.length }; },
   teleport(x, z, yaw = P.yaw, pitch = P.pitch) { P.x = x; P.z = z; P.yaw = yaw; P.pitch = pitch; P.tp = true; },
   activeInfo() { const ix = VM.headPos.x - Math.sin(P.yaw) * 0.08, iz = VM.headPos.z - Math.cos(P.yaw) * 0.08; const a = [...DB.active.entries()].slice(0, 5).map(([id, s]) => [id, +DB.pos[id * 3].toFixed(2), +DB.pos[id * 3 + 1].toFixed(3), +DB.pos[id * 3 + 2].toFixed(2), +s.t.toFixed(2)]); return { n: DB.active.size, intake: [+ix.toFixed(2), +iz.toFixed(2)], a }; },
   get frameMs() { return frameMs; }, get prof() { return prof; },

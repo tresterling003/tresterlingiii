@@ -2,7 +2,7 @@
 // All shared progress (money, debris, dirt masks, doors, discoveries, upgrades, clock, the Monitor) lives here.
 import { CONFIG } from './config.js';
 import {
-  ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, DEBRIS_TOTAL_BY_ROOM, PATCHES, initialMask, CLUE_SPOT, CLUES, BINS, TOOL_RACK,
+  ROOMS, DOORS, LOCKERS, SEARCHABLE, TEACHER_DESK, BUCKET, CART_HOME, ROOMBA_DOCK, groundY, DEBRIS, DEBRIS_TOTAL_BY_ROOM, PATCHES, initialMask, CLUE_SPOT, CLUES, BINS, TOOL_RACK,
   COMPUTER, COT, VENT, SPAWN, LIGHTS, PATROL, WATCH_POINTS, LAIR, roomAt, progressRoom, solidRects, segBlocked, wallsBetween,
   buildNav, findPath, doorCenter, rng,
 } from './level.js';
@@ -20,7 +20,11 @@ export function gameClock(shiftT) { // minutes since midnight, wrapping (22:00 -
   return m % (24 * 60);
 }
 export function clockText(shiftT) { const m = Math.floor(gameClock(shiftT)); let h = Math.floor(m / 60), mm = m % 60; const ap = h >= 12 && h < 24 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(mm).padStart(2, '0')} ${ap}`; }
-export function vacStats(up) { const s = up.suction || 0; return { reach: CONFIG.vacuum.reach[s], accel: CONFIG.vacuum.accel[s], cone: CONFIG.vacuum.coneDeg[s], bag: CONFIG.vacuum.bag[up.bag || 0], noise: CONFIG.vacuum.noise[up.quiet || 0] }; }
+export function vacStats(up) { const s = up.suction || 0; return { reach: CONFIG.vacuum.reach[s], accel: CONFIG.vacuum.accel[s], cone: CONFIG.vacuum.coneDeg[s] + (up.wide ? CONFIG.vacuum.wideCone : 0), film: CONFIG.vacuum.filmRadius[up.wide || 0], bag: CONFIG.vacuum.bag[up.bag || 0], noise: CONFIG.vacuum.noise[up.quiet || 0] }; }
+export function mopStats(up) { return { radius: CONFIG.mop.radius[up.mop || 0], capacity: CONFIG.mop.capacity[up.mopcap || 0] }; }
+export const piecePay = (id) => DEBRIS[id].kind === 5 ? CONFIG.pay.coin : CONFIG.pay.piece;
+// server-side spatial hash of the original debris positions (robot vacuums use it)
+const DGRID = new Map(); for (const d of DEBRIS) { const k = Math.floor(d.x) + ',' + Math.floor(d.z); if (!DGRID.has(k)) DGRID.set(k, []); DGRID.get(k).push(d.id); }
 
 export class Sim {
   constructor(save, opts = {}) {
@@ -36,7 +40,9 @@ export class Sim {
     this.day = 1; this.money = 0; this.shiftT = 0; this.phase = 'shift'; this.timeScale = 1;
     this.collected = new Uint8Array(DEBRIS.length);
     this.masks = {}; this.maskInit = {}; this.maskSum = {};
-    for (const p of PATCHES) { const m = initialMask(p); this.masks[p.id] = m; this.maskInit[p.id] = m.reduce((a, b) => a + b, 0); this.maskSum[p.id] = this.maskInit[p.id]; }
+    this.maskBest = {};
+    for (const p of PATCHES) { const m = initialMask(p); this.masks[p.id] = m; this.maskBest[p.id] = Uint8Array.from(m); this.maskInit[p.id] = m.reduce((a, b) => a + b, 0); this.maskSum[p.id] = this.maskInit[p.id]; }
+    this.keys = {}; this.found = []; this.cart = { ...CART_HOME, holder: null }; this.roombas = []; this.searchedDesk = false;
     this.doors = Object.fromEntries(DOORS.map(d => [d.id, { open: d.id === 'd_office', bolted: false }]));
     this.lockers = {};
     this.discoveries = []; this.purchased = []; this.upgrades = { suction: 0, bag: 0, quiet: 0, light: 0 };
@@ -53,6 +59,8 @@ export class Sim {
       collected: b64enc(this.collected), masks: Object.fromEntries(Object.entries(this.masks).map(([k, v]) => [k, b64enc(v)])),
       doors: this.doors, lockers: this.lockers, discoveries: this.discoveries, purchased: this.purchased, roomBonus: this.roomBonus,
       inv: this.inv, firedPA: this.firedPA, shiftStats: this.shiftStats, summary: this.summary,
+      best: Object.fromEntries(Object.entries(this.maskBest).map(([k, v]) => [k, b64enc(v)])), keys: this.keys, found: this.found, searchedDesk: this.searchedDesk,
+      cart: { x: this.cart.x, z: this.cart.z, yaw: this.cart.yaw }, roombas: this.roombas.map(r => ({ id: r.id, x: r.x, z: r.z, yaw: r.yaw, state: r.state === 'carried' ? 'idle' : r.state, bag: r.bag })),
     };
   }
   load(s) {
@@ -63,13 +71,17 @@ export class Sim {
     Object.assign(this.doors, s.doors || {}); this.lockers = s.lockers || {};
     this.discoveries = s.discoveries || []; this.purchased = s.purchased || []; this.roomBonus = s.roomBonus || {}; this.inv = s.inv || {};
     this.firedPA = s.firedPA || {}; this.shiftStats = s.shiftStats || this.newStats(); this.summary = s.summary || null;
+    for (const [k, v] of Object.entries(s.best || {})) { const m = b64dec(v); if (this.maskBest[k] && m.length === this.maskBest[k].length) this.maskBest[k] = m; }
+    this.keys = s.keys || {}; this.found = s.found || []; this.searchedDesk = !!s.searchedDesk;
+    if (s.cart) this.cart = { ...s.cart, holder: null };
+    this.roombas = (s.roombas || []).map(r => ({ ...r, holder: null, t: 0 }));
     this.applyUpgrades();
     // a mid-shift save resumes in the office with the door shut and unbolted
     if (this.phase !== 'summary') { this.doors.d_office.bolted = false; }
   }
   applyUpgrades() {
     const has = (k) => this.purchased.includes(k);
-    this.upgrades = { suction: has('suction2') ? 2 : has('suction1') ? 1 : 0, bag: has('bag1') ? 1 : 0, quiet: has('quiet1') ? 1 : 0, light: has('light1') ? 1 : 0 };
+    this.upgrades = { suction: has('suction2') ? 2 : has('suction1') ? 1 : 0, bag: has('bag2') ? 2 : has('bag1') ? 1 : 0, quiet: has('quiet1') ? 1 : 0, light: has('light1') ? 1 : 0, wide: has('wide1') ? 1 : 0, mop: has('mop1') ? 1 : 0, mopcap: has('mop2') ? 1 : 0, shoes: has('shoes1') ? 1 : 0 };
   }
 
   // ---------- connection ----------
@@ -77,7 +89,7 @@ export class Sim {
   join(pid, name) {
     let p = this.players.get(pid);
     if (!p || !p.connected) { if (this.connectedCount() >= CONFIG.maxPlayers) return { error: 'This crew is full (4 workers).' }; }
-    if (!this.inv[pid]) this.inv[pid] = { vacuum: false, mop: false, name };
+    if (!this.inv[pid]) this.inv[pid] = { vacuum: false, mop: false, name, mopDirt: 0 };
     this.inv[pid].name = name || this.inv[pid].name;
     if (!p) { p = { pid, x: SPAWN.x + (this.players.size % 2) * 0.8, y: 0, z: SPAWN.z + Math.floor(this.players.size / 2) * 0.8, yaw: SPAWN.yaw, pitch: 0, tool: 'none', act: 0, fl: 0, cr: 0, sp: 0, mv: 0, bag: 0, downed: false, downT: 0, out: false, revive: 0, lastSeen: 0 }; this.players.set(pid, p); }
     p.connected = true; p.name = this.inv[pid].name;
@@ -86,7 +98,7 @@ export class Sim {
   }
   leave(pid) { const p = this.players.get(pid); if (p) { p.connected = false; p.act = 0; this.emit({ t: 'toast', msg: `${p.name} disconnected.` }); } }
   fullState(pid) {
-    return { t: 'welcome', you: pid, save: this.serialize(), players: this.snapPlayers(), mon: this.snapMon(), phase: this.phase, upgrades: this.upgrades, summary: this.summary, maxPlayers: CONFIG.maxPlayers };
+    return { t: 'welcome', you: pid, save: this.serialize(), players: this.snapPlayers(), mon: this.snapMon(), phase: this.phase, upgrades: this.upgrades, summary: this.summary, maxPlayers: CONFIG.maxPlayers, calm: !!this.opts.calm };
   }
   emit(ev, route = {}) { this.out.push({ ev, ...route }); }
 
@@ -102,6 +114,8 @@ export class Sim {
         if (dist(p.x, p.z, m.p[0], m.p[2]) < 4 || p.teleportOk || (m.tp && this.opts.allowTeleport)) { p.x = m.p[0]; p.y = m.p[1]; p.z = m.p[2]; p.teleportOk = false; }
         p.yaw = m.yw; p.pitch = m.pt; p.tool = m.tool; p.act = m.act ? 1 : 0; p.fl = m.fl ? 1 : 0; p.cr = m.cr ? 1 : 0; p.sp = m.sp ? 1 : 0; p.mv = m.mv ? 1 : 0;
         p.lastSeen = this.time || 0;
+        if (this.cart.holder === pid && m.cart) { this.cart.x = m.cart[0]; this.cart.z = m.cart[1]; this.cart.yaw = m.cart[2]; }
+        for (const r of this.roombas) if (r.holder === pid) { r.x = p.x; r.z = p.z; }
         return;
       }
       case 'col': { // vacuum collected pieces (idempotent: each id pays once, crew-wide)
@@ -112,7 +126,7 @@ export class Sim {
           if (p.bag >= vs.bag) { this.emit({ t: 'bagfull' }, { to: pid }); break; }
           if (dist(p.x, p.z, d.x, d.z) > vs.reach + 2.5) continue;
           this.collected[id] = 1; p.bag++; got.push(id);
-          this.money += CONFIG.pay.piece; this.shiftStats.earned += CONFIG.pay.piece; this.shiftStats.pieces++;
+          const pay = piecePay(id); this.money += pay; this.shiftStats.earned += pay; this.shiftStats.pieces++;
         }
         if (got.length) { this.emit({ t: 'col', ids: got, by: pid }); this.emit({ t: 'bag', bag: p.bag }, { to: pid }); this.checkRooms(); }
         return;
@@ -122,15 +136,23 @@ export class Sim {
         const viaVac = m.k === 'vac';
         if (viaVac ? !inv.vacuum : !inv.mop) return;
         if (P.type === 'mud' && viaVac) return; // the vacuum cannot lift mud
-        const r = viaVac ? CONFIG.vacuum.filmRadius : CONFIG.mop.radius, reach = viaVac ? vacStats(this.upgrades).reach : CONFIG.mop.reach;
+        const r = viaVac ? vacStats(this.upgrades).film : mopStats(this.upgrades).radius, reach = viaVac ? vacStats(this.upgrades).reach : CONFIG.mop.reach;
         const pts = (m.pts || []).slice(0, 40).filter(([x, z, s]) => near(x, z, reach + 2.5)).map(([x, z, s]) => [x, z, Math.max(0, Math.min(255, s | 0))]);
         if (!pts.length) return;
-        const cells = this.erase(P, pts, r);
+        let res;
+        if (viaVac) res = this.erase(P, pts, r);
+        else { // a mop gets dirtier as it lifts mud: weaker, then it starts smearing dirt back down
+          const cap = mopStats(this.upgrades).capacity; let dirt = inv.mopDirt || 0;
+          res = this.erase(P, pts.map(([x, z, s]) => [x, z, Math.round(s * (1 - 0.8 * Math.min(1, dirt)))]), r, dirt > 0.75 ? Math.round(CONFIG.mop.smear * (dirt - 0.75) / 0.25) : 0);
+          if (P.type === 'mud') dirt = Math.min(1, dirt + res.removed / cap); else dirt = Math.min(1, dirt + res.removed / cap * 0.25);
+          if (Math.abs(dirt - (inv.mopDirt || 0)) > 0.004 || dirt >= 1) { inv.mopDirt = dirt; this.emit({ t: 'mopdirt', v: dirt }, { to: pid }); }
+        }
+        const cells = res.paid;
         if (cells > 0) {
           const pay = (P.type === 'mud' ? CONFIG.pay.mudCell : CONFIG.pay.dustCell) * cells;
           this.money += pay; this.shiftStats.earned += pay; this.shiftStats.cells += cells;
         }
-        this.emit({ t: 'mop', patch: P.id, pts, r }, { except: pid });
+        this.emit(this.region(P, res.box));
         if (P.id === CLUE_SPOT.patch) this.checkClueSpot();
         this.checkRooms();
         return;
@@ -138,6 +160,7 @@ export class Sim {
       case 'door': {
         const d = DOORS.find(x => x.id === m.id); if (!d) return; const c = doorCenter(d); if (!near(c.x, c.z, 2.3)) return;
         const st = this.doors[d.id];
+        if (d.lock && !this.keys[d.lock]) { this.emit({ t: 'toast', msg: 'Locked and chained. The tag on the chain reads STAIRWELL W. There must be a key somewhere on this floor.' }, { to: pid }); this.emit({ t: 'sfx', k: 'rattle', x: c.x, z: c.z }); return; }
         if (st.bolted) { this.emit({ t: 'toast', msg: inOffice(p) ? 'Slide the bolt back first.' : 'Bolted from the inside.' }, { to: pid }); this.emit({ t: 'sfx', k: 'rattle', x: c.x, z: c.z }); return; }
         st.open = !st.open; this.emit({ t: 'door', id: d.id, open: st.open, bolted: st.bolted, by: pid }); this.noise(c.x, c.z, CONFIG.noise.door);
         return;
@@ -156,8 +179,45 @@ export class Sim {
         this.emit({ t: 'toast', msg: m.tool === 'vacuum' ? `${p.name} took a vacuum.` : `${p.name} took a mop.` }, { except: pid });
         return;
       }
+      case 'rinse': {
+        const atBucket = near(BUCKET.x, BUCKET.z, 1.8) || near(this.cart.x, this.cart.z, 1.9);
+        if (!atBucket || !inv.mop) return; inv.mopDirt = 0; this.emit({ t: 'mopdirt', v: 0, rinsed: true }, { to: pid }); this.emit({ t: 'sfx', k: 'rinse', x: p.x, z: p.z });
+        return;
+      }
+      case 'cart': {
+        if (this.cart.holder === pid) { this.cart.holder = null; this.emit({ t: 'cart', ...this.cart }); return; }
+        if (this.cart.holder || !near(this.cart.x, this.cart.z, 2.0)) return;
+        this.cart.holder = pid; this.emit({ t: 'cart', ...this.cart }); return;
+      }
+      case 'roomba': {
+        const r = this.roombas.find(r => r.id === m.id); if (!r) return;
+        if (r.holder === pid) { // set it down where you stand; it starts cleaning
+          r.holder = null; r.x = p.x + Math.sin(p.yaw) * -0.6; r.z = p.z + Math.cos(p.yaw) * -0.6; r.state = r.bag >= CONFIG.roomba.bag ? 'full' : 'run'; r.yaw = p.yaw + Math.PI; this.emit({ t: 'toast', msg: r.state === 'full' ? 'Its bin is full. Pick it up again to empty it.' : 'The robot vacuum chirps and sets off.' }, { to: pid });
+        } else if (!r.holder && near(r.x, r.z, 1.8)) { if (r.bag) { this.emit({ t: 'toast', msg: `You empty the robot (${r.bag} pieces).` }, { to: pid }); r.bag = 0; } r.holder = pid; r.state = 'carried'; }
+        return;
+      }
+      case 'desk': {
+        if (!near(TEACHER_DESK.x, TEACHER_DESK.z, 1.8)) return;
+        if (this.searchedDesk) { this.emit({ t: 'toast', msg: 'Just red pens and a dried-out apple.' }, { to: pid }); return; }
+        this.searchedDesk = true; this.keys.stairkey = true; this.discover('key', pid);
+        this.emit({ t: 'keys', keys: this.keys });
+        return;
+      }
+      case 'sell': {
+        if (!near(COMPUTER.x, COMPUTER.z, 2.8) || !this.found.length) return;
+        const total = this.found.reduce((a, f) => a + f.v, 0); this.money += total; this.shiftStats.earned += total;
+        this.emit({ t: 'sold', total, n: this.found.length }); this.found = []; this.emit({ t: 'found', found: [] }); this.save('sold');
+        return;
+      }
+      case 'clockout': { // log off for the night: everyone must be in the office
+        if (this.phase === 'summary' || !near(COMPUTER.x, COMPUTER.z, 2.8)) return;
+        const out = [...this.players.values()].filter(o => o.connected && !o.out && !inOffice(o));
+        if (out.length) { this.emit({ t: 'toast', msg: `Can't sign out yet: ${out.map(o => o.name).join(', ')} still out in the building.` }, { to: pid }); return; }
+        this.endShift(false, true);
+        return;
+      }
       case 'empty': {
-        const b = BINS.find(b => near(b.x, b.z, 1.9)); if (!b || p.bag === 0) return;
+        const b = BINS.find(b => near(b.x, b.z, 1.9)) || (near(this.cart.x, this.cart.z, 1.9) ? { x: this.cart.x, z: this.cart.z } : null); if (!b || p.bag === 0) return;
         const n = p.bag; p.bag = 0; this.emit({ t: 'bag', bag: 0, emptied: n }, { to: pid }); this.emit({ t: 'sfx', k: 'empty', x: b.x, z: b.z }); this.noise(b.x, b.z, CONFIG.noise.empty);
         return;
       }
@@ -169,6 +229,8 @@ export class Sim {
         if (st.open && !st.searched) {
           st.searched = true; note = S.note;
           if (S.item === 'supplies') { this.money += 2; this.shiftStats.earned += 2; note += ' (+$2.00)'; }
+          if (S.item && S.item.startsWith('coins:')) { const c = +S.item.slice(6); this.money += c; this.shiftStats.earned += c; }
+          if (S.item && S.item.startsWith('loot:')) { const [, n, v] = S.item.split(':'); this.found.push({ n, v: +v }); this.emit({ t: 'found', found: this.found }); }
           if (S.item && S.item.startsWith('clue:')) this.discover(S.item.slice(5), pid);
         }
         this.emit({ t: 'locker', id: m.id, ...st, note, by: pid });
@@ -183,6 +245,7 @@ export class Sim {
         if (sk.needs && !this.purchased.includes(sk.needs)) return fail('Requires ' + CONFIG.skills[sk.needs].name + '.');
         if (this.money + 1e-9 < sk.cost) return fail('Not enough crew balance.');
         this.money -= sk.cost; this.purchased.push(m.skill); this.applyUpgrades();
+        if (m.skill.startsWith('roomba')) this.roombas.push({ id: m.skill, x: ROOMBA_DOCK.x + this.roombas.length * 0.6, z: ROOMBA_DOCK.z, yaw: 0, state: 'idle', bag: 0, holder: null, t: 0 });
         this.emit({ t: 'buy', skill: m.skill, by: pid, upgrades: this.upgrades, money: this.money });
         this.save('purchase');
         return;
@@ -208,19 +271,31 @@ export class Sim {
   }
 
   // ---------- cleaning helpers ----------
-  erase(P, pts, r) {
-    const m = this.masks[P.id]; let removed = 0;
+  erase(P, pts, r, smear = 0) {
+    const m = this.masks[P.id], best = this.maskBest[P.id]; let removed = 0, paid = 0;
+    const box = [1e9, 1e9, -1, -1];
     for (const [x, z, s] of pts) {
       const ci = (x - P.x0) * P.res, cj = (z - P.z0) * P.res, rr = r * P.res;
       for (let j = Math.max(0, Math.floor(cj - rr)); j <= Math.min(P.h - 1, Math.ceil(cj + rr)); j++)
         for (let i = Math.max(0, Math.floor(ci - rr)); i <= Math.min(P.w - 1, Math.ceil(ci + rr)); i++) {
           const d = Math.hypot(i + 0.5 - ci, j + 0.5 - cj) / rr; if (d > 1) continue;
-          const k = j * P.w + i, v = m[k]; if (!v) continue;
-          const nv = Math.max(0, v - Math.round(s * Math.sqrt(1 - d))); removed += v - nv; m[k] = nv;
+          const k = j * P.w + i, v = m[k];
+          box[0] = Math.min(box[0], i); box[1] = Math.min(box[1], j); box[2] = Math.max(box[2], i); box[3] = Math.max(box[3], j);
+          let nv = Math.max(0, v - Math.round(s * Math.sqrt(1 - d)));
+          if (smear) nv = Math.min(255, nv + Math.round(smear * (1 - d)));
+          if (nv === v) continue;
+          if (nv < v) removed += v - nv;
+          this.maskSum[P.id] += nv - v; m[k] = nv;
+          if (nv < best[k]) { paid += best[k] - nv; best[k] = nv; } // each bit of floor pays once, however often it gets dirty again
         }
     }
-    this.maskSum[P.id] -= removed;
-    return removed / 255;
+    return { removed, paid: paid / 255, box };
+  }
+  region(P, box) { // authoritative values for the cells a stroke touched
+    if (box[2] < 0) return { t: 'noop' };
+    const w = box[2] - box[0] + 1, h = box[3] - box[1] + 1, d = new Uint8Array(w * h), m = this.masks[P.id];
+    for (let j = 0; j < h; j++) d.set(m.subarray((box[1] + j) * P.w + box[0], (box[1] + j) * P.w + box[0] + w), j * w);
+    return { t: 'maskset', patch: P.id, i0: box[0], j0: box[1], w, h, d: b64enc(d) };
   }
   checkClueSpot() {
     if (this.discoveries.find(d => d.id === 'scratched_name')) return;
@@ -237,7 +312,7 @@ export class Sim {
   roomProgress() {
     const res = {};
     const col = {}; for (let i = 0; i < DEBRIS.length; i++) if (this.collected[i]) col[DEBRIS[i].room] = (col[DEBRIS[i].room] || 0) + 1;
-    for (const room of ['hall', 'class', 'closet', 'service']) {
+    for (const room of ['hall', 'class', 'closet', 'service', 'lcorr', 'gym', 'lockers', 'pool']) {
       const tot = DEBRIS_TOTAL_BY_ROOM[room] || 0, c = col[room] || 0;
       const patches = PATCHES.filter(p => p.room === room);
       let mi = 0, ms = 0; for (const p of patches) { mi += this.maskInit[p.id]; ms += this.maskSum[p.id]; }
@@ -296,18 +371,19 @@ export class Sim {
       if (!p.connected || p.downT <= 0) this.blackout(p);
     }
     this.tickMonitor(dt);
+    this.tickRoombas(dt);
     this.snapTimer(dt);
     this.saveTimer = (this.saveTimer || 0) + dt; if (this.saveTimer > 20) { this.saveTimer = 0; this.save('periodic'); }
   }
-  snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT }); } }
+  snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT, cart: [this.cart.x, this.cart.z, this.cart.yaw, this.cart.holder], rb: this.roombas.map(r => [r.id, +r.x.toFixed(3), +r.z.toFixed(3), +r.yaw.toFixed(3), r.state, r.holder, r.bag]) }); } }
   snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
   snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible } : null; }
   save(reason) { if (this.opts.onSave) this.opts.onSave(this.serialize(), reason); }
-  endShift(failed) {
+  endShift(failed, clockedOut = false) {
     if (this.phase === 'summary') return;
-    this.phase = 'summary';
+    this.phase = 'summary'; this.cart.holder = null; for (const r of this.roombas) if (r.holder) { r.holder = null; r.state = 'idle'; }
     const rp = this.roomProgress();
-    this.summary = { day: this.day, failed, earned: this.shiftStats.earned, pieces: this.shiftStats.pieces, cells: Math.round(this.shiftStats.cells), caught: this.shiftStats.caught, disc: this.shiftStats.disc.slice(), money: this.money, rooms: rp };
+    this.summary = { day: this.day, failed, clockedOut, earned: this.shiftStats.earned, pieces: this.shiftStats.pieces, cells: Math.round(this.shiftStats.cells), caught: this.shiftStats.caught, disc: this.shiftStats.disc.slice(), money: this.money, rooms: rp };
     if (failed) { const pen = Math.min(this.money, CONFIG.failPenalty * 2); this.money -= pen; this.summary.penalty = pen; }
     this.setMon('dormant');
     this.emit({ t: 'summary', summary: this.summary });
@@ -343,6 +419,31 @@ export class Sim {
     this.emit({ t: 'caught', pid: p.pid });
     this.mon.lastEncounter = this.time; this.mon.encounters++;
     if (this.phase === 'lockdown') this.setMon('search'); else this.setMon('retreat');
+  }
+
+  // ======================= ROBOT VACUUMS =======================
+  tickRoombas(dt) {
+    if (!this.roombas.length) return;
+    const R = CONFIG.roomba, rects = solidRects(this.doors);
+    for (const r of this.roombas) {
+      if (r.state !== 'run') continue;
+      r.t = (r.t || 0) + dt;
+      const sp = R.speed * dt, nx = r.x - Math.sin(r.yaw) * sp, nz = r.z - Math.cos(r.yaw) * sp;
+      const hit = rects.some(b => { const cx = Math.max(b.x0, Math.min(nx, b.x1)), cz = Math.max(b.z0, Math.min(nz, b.z1)); return (nx - cx) ** 2 + (nz - cz) ** 2 < R.radius * R.radius; }) || !roomAt(nx, nz);
+      if (hit) { r.yaw += Math.PI * (0.55 + this.rand() * 0.9); this.emit({ t: 'sfx', k: 'bump', x: r.x, z: r.z }); continue; }
+      r.x = nx; r.z = nz; if (this.rand() < dt * 0.15) r.yaw += (this.rand() - 0.5) * 1.2;
+      const got = [];
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const id of (DGRID.get((Math.floor(r.x) + a) + ',' + (Math.floor(r.z) + b)) || [])) {
+        if (this.collected[id]) continue; const d = DEBRIS[id]; if (dist(d.x, d.z, r.x, r.z) > R.pickup) continue;
+        this.collected[id] = 1; got.push(id); r.bag++; const pay = piecePay(id); this.money += pay; this.shiftStats.earned += pay; this.shiftStats.pieces++;
+        if (r.bag >= R.bag) break;
+      }
+      if (got.length) this.emit({ t: 'col', ids: got, by: r.id });
+      for (const P of PATCHES) if (r.x > P.x0 && r.x < P.x1 && r.z > P.z0 && r.z < P.z1 && P.type === 'dust') { const res = this.erase(P, [[r.x, r.z, 40]], 0.16); if (res.paid) { const pay = CONFIG.pay.dustCell * res.paid; this.money += pay; this.shiftStats.earned += pay; } const ev = this.region(P, res.box); if (ev.t !== 'noop') this.emit(ev); }
+      if (r.bag >= R.bag) { r.state = 'full'; this.emit({ t: 'sfx', k: 'beep', x: r.x, z: r.z }); this.emit({ t: 'toast', msg: 'A robot vacuum is full and beeping.' }); }
+      if (!this.opts.calm) this.noise(r.x, r.z, R.noise);
+      if (got.length || r.t > 5) { r.t = 0; this.checkRooms(); }
+    }
   }
 
   // ======================= THE MONITOR =======================

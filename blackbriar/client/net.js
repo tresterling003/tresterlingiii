@@ -23,7 +23,7 @@ export class LocalTransport {
   flush() { const out = this.sim.out; this.sim.out = []; for (const { ev, to, except } of out) { if (to && to !== this.pid) continue; if (except === this.pid) continue; this.emit(ev); } }
   send(m) { this.sim.handle(this.pid, m); if (m.t !== 'st') this.flush(); }
   on(fn) { this.handlers.push(fn); }
-  emit(m) { for (const h of this.handlers) h(m); }
+  emit(m) { m = JSON.parse(JSON.stringify(m)); for (const h of this.handlers) h(m); } // same isolation as the network: never share objects with the sim
   close() { clearInterval(this.timer); this.sim.save('close'); }
 }
 
