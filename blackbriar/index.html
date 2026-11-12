@@ -81,12 +81,24 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 .item{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;font-size:14px;gap:10px}
 .clue h3{margin:10px 0 4px;font-size:14px;color:var(--acc)}.clue p{white-space:pre-line;margin:0 0 6px;color:var(--ink);font-size:13px}.clue small{color:var(--dim)}
 /* touch */
-#touch{position:fixed;inset:0;touch-action:none;pointer-events:auto}
-#stick{position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:1px solid rgba(255,255,255,.3);pointer-events:none}
-#knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px;border-radius:50%;background:rgba(255,255,255,.3)}
-#tbtns{position:absolute;right:calc(10px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(3,58px);gap:8px}
-#tbtns button{width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em}
-#tbtns button.on{background:rgba(227,194,90,.55)}
+#touch{position:fixed;inset:0;touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}
+#touch button{-webkit-tap-highlight-color:transparent;font-family:inherit}
+#dpad{position:absolute;left:calc(22px + env(safe-area-inset-left));bottom:calc(22px + env(safe-area-inset-bottom));width:164px;height:164px;border-radius:50%;background:radial-gradient(circle,rgba(20,20,22,.45),rgba(20,20,22,.2) 70%,transparent 71%)}
+#dpad .dp{position:absolute;width:52px;height:52px;background:rgba(235,235,240,.16);border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 0 12px rgba(0,0,0,.4)}
+#dpad .up{left:56px;top:6px;border-radius:10px 10px 4px 4px}#dpad .dn{left:56px;bottom:6px;border-radius:4px 4px 10px 10px}#dpad .lf{left:6px;top:56px;border-radius:10px 4px 4px 10px}#dpad .rt{right:6px;top:56px;border-radius:4px 10px 10px 4px}
+#dpad .dpc{position:absolute;left:56px;top:56px;width:52px;height:52px;background:rgba(235,235,240,.12)}
+#dpad .dp.on{background:rgba(255,255,255,.55)}
+#dpad .up:after,#dpad .dn:after,#dpad .lf:after,#dpad .rt:after{content:'';position:absolute;left:50%;top:50%;border:7px solid transparent;transform:translate(-50%,-50%)}
+#dpad .up:after{border-bottom-color:rgba(255,255,255,.7);margin-top:-4px}#dpad .dn:after{border-top-color:rgba(255,255,255,.7);margin-top:4px}#dpad .lf:after{border-right-color:rgba(255,255,255,.7);margin-left:-4px}#dpad .rt:after{border-left-color:rgba(255,255,255,.7);margin-left:4px}
+#face{position:absolute;right:calc(20px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));width:178px;height:178px}
+#face .fb{position:absolute;width:62px;height:62px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(16,16,18,.42);color:#fff;font:800 22px system-ui,sans-serif;line-height:1;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+#face .fb small{font-size:8px;font-weight:700;letter-spacing:.08em;opacity:.8;margin-top:3px}
+#tY{left:58px;top:0;color:#f3cf46!important;border-color:rgba(243,207,70,.6)!important}#tX{left:0;top:58px;color:#4fa3ff!important;border-color:rgba(79,163,255,.6)!important}#tB{right:0;top:58px;color:#ff5a4f!important;border-color:rgba(255,90,79,.6)!important}#tA{left:58px;bottom:0;color:#4fdc7a!important;border-color:rgba(79,220,122,.65)!important}
+#face .fb.on{background:rgba(255,255,255,.3)}
+#touch .sh{position:absolute;bottom:calc(206px + env(safe-area-inset-bottom));width:84px;height:40px;border-radius:12px 12px 18px 18px;border:1px solid rgba(255,255,255,.3);background:rgba(16,16,18,.42);color:#fff;font:800 16px system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+#touch .sh small{font-size:8px;letter-spacing:.08em;opacity:.75}#tL{left:calc(62px + env(safe-area-inset-left))}#tR{right:calc(66px + env(safe-area-inset-right))}#touch .sh.on{background:rgba(227,194,90,.55)}
+#minis{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:14px}
+#minis button{padding:7px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.25);background:rgba(16,16,18,.45);color:rgba(255,255,255,.8);font:700 9px system-ui;letter-spacing:.12em}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;font-size:12px;letter-spacing:.4em;color:var(--dim)}
 </style>
 </head>
@@ -109,7 +121,12 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 </div>
 <div id="lockBanner" hidden><span id="lockText"></span><button class="btn" id="lockRetry">Capture mouse</button><a class="btn" id="lockTab" target="_blank" rel="noopener" hidden>Open in its own tab</a></div>
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
-<div id="touch" hidden><div id="stick" hidden><div id="knob"></div></div>
+<div id="touch" hidden>
+  <div id="dpad"><i class="dp up"></i><i class="dp dn"></i><i class="dp lf"></i><i class="dp rt"></i><i class="dpc"></i></div>
+  <button id="tL" class="sh">L<small>RUN</small></button><button id="tR" class="sh">R<small>TOOL</small></button>
+  <div id="face"><button id="tY" class="fb">Y<small>LIGHT</small></button><button id="tX" class="fb">X<small>USE</small></button><button id="tB" class="fb">B<small>CROUCH</small></button><button id="tA" class="fb">A<small id="aLbl">ACT</small></button></div>
+  <div id="minis"><button id="tSel">SELECT</button><button id="tStart">START</button></div>
+</div>
   <div id="tbtns"><button id="tUse">USE</button><button id="tE">E</button><button id="tLight">LIGHT</button><button id="tHide" hidden>HIDE</button><button id="tTool">TOOL</button><button id="tSprint">RUN</button><button id="tCrouch">CROUCH</button></div></div>
 
 <div id="entry" class="screen" hidden>

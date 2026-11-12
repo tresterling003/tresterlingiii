@@ -387,24 +387,74 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 function equip(t) { if (t === 'vacuum' && !inv.vacuum) return toast('You have not found a vacuum yet. Try the janitor closet.'); if (t === 'mop' && !inv.mop) return toast('You have not found a mop yet.'); P.tool = t; audio.ui(); }
 
-// ---- touch ----
-const touch = { stick: null, look: null, sx: 0, sy: 0, lx: 0, ly: 0, mx: 0, my: 0, use: false, sprint: false, crouch: false };
-if (isTouch) {
-  const el = $('touch');
-  el.addEventListener('touchstart', (e) => { audio.init(); for (const t of e.changedTouches) { if (t.target.closest('button')) continue; if (t.clientX < innerWidth * 0.42 && touch.stick == null) { touch.stick = t.identifier; touch.sx = t.clientX; touch.sy = t.clientY; const s = $('stick'); s.hidden = false; s.style.left = t.clientX + 'px'; s.style.top = t.clientY + 'px'; } else if (touch.look == null) { touch.look = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; } } e.preventDefault(); }, { passive: false });
-  el.addEventListener('touchmove', (e) => { for (const t of e.changedTouches) { if (t.identifier === touch.stick) { let dx = t.clientX - touch.sx, dy = t.clientY - touch.sy; const l = Math.hypot(dx, dy), m = 50; if (l > m) { dx *= m / l; dy *= m / l; } touch.mx = dx / m; touch.my = -dy / m; $('knob').style.transform = `translate(${dx}px,${dy}px)`; } else if (t.identifier === touch.look && !ui) { P.yaw -= (t.clientX - touch.lx) * 0.006 * settings.sens; P.pitch = clamp(P.pitch - (t.clientY - touch.ly) * 0.006 * settings.sens, -1.5, 1.5); touch.lx = t.clientX; touch.ly = t.clientY; } } e.preventDefault(); }, { passive: false });
-  const end = (e) => { for (const t of e.changedTouches) { if (t.identifier === touch.stick) { touch.stick = null; touch.mx = touch.my = 0; $('stick').hidden = true; } if (t.identifier === touch.look) touch.look = null; } };
-  el.addEventListener('touchend', end); el.addEventListener('touchcancel', end);
-  const tb = (id, down, up) => { const b = $(id); b.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); audio.init(); down(b); }, { passive: false }); b.addEventListener('touchend', (e) => { e.preventDefault(); up && up(b); }, { passive: false }); };
-  tb('tUse', (b) => { touch.use = true; b.classList.add('on'); }, (b) => { touch.use = false; b.classList.remove('on'); });
-  tb('tE', () => { touch.eHeld = true; if (hidden) { net.send({ t: 'unhide' }); return; } if (siege && nearOfficeDoor()) return; const it = pickTarget(); if (it) { if (it.kind === 'revive') touch.revive = true; else interact(it); } }, () => { touch.revive = false; touch.eHeld = false; });
-  tb('tHide', () => toggleHide(), () => { });
-  tb('tLight', (b) => { P.light = !P.light; b.classList.toggle('on', P.light); });
-  tb('tTool', () => { const order = ['none', 'vacuum', 'mop'].filter(t => t === 'none' || inv[t]); equip(order[(order.indexOf(P.tool) + 1) % order.length]); });
-  tb('tSprint', (b) => { touch.sprint = !touch.sprint; touch.crouch = false; b.classList.toggle('on', touch.sprint); $('tCrouch').classList.remove('on'); });
-  tb('tCrouch', (b) => { touch.crouch = !touch.crouch; touch.sprint = false; b.classList.toggle('on', touch.crouch); $('tSprint').classList.remove('on'); });
+// ---- touch: an on-screen controller (D-pad, A/B/X/Y, L/R, SELECT/START); drag the right half to look ----
+const touch = { dpad: null, look: null, lx: 0, ly: 0, mx: 0, my: 0, use: false, sprint: false, crouch: false, eHeld: false };
+function pressA() {
+  if (hidden) { net.send({ t: 'unhide' }); return; }
+  if (siege && nearOfficeDoor()) { touch.eHeld = true; return; }
+  const it = pickTarget(); if (it) { if (it.kind === 'revive') touch.revive = true; else interact(it); return; }
+  if (hideTarget()) toggleHide();
 }
-
+if (isTouch) {
+  const el = $('touch'), dp = $('dpad');
+  const setDpad = (t) => {
+    const r = dp.getBoundingClientRect(), dx = t.clientX - (r.left + r.width / 2), dy = t.clientY - (r.top + r.height / 2), l = Math.hypot(dx, dy);
+    let mx = 0, my = 0; if (l > 14) { const a = Math.round(Math.atan2(-dy, dx) / (Math.PI / 4)) * (Math.PI / 4); mx = Math.round(Math.cos(a) * 100) / 100; my = Math.round(Math.sin(a) * 100) / 100; }
+    touch.mx = mx; touch.my = my;
+    dp.querySelector('.up').classList.toggle('on', my > 0.3); dp.querySelector('.dn').classList.toggle('on', my < -0.3); dp.querySelector('.rt').classList.toggle('on', mx > 0.3); dp.querySelector('.lf').classList.toggle('on', mx < -0.3);
+  };
+  const clearDpad = () => { touch.dpad = null; touch.mx = touch.my = 0; dp.querySelectorAll('.dp').forEach(d => d.classList.remove('on')); };
+  el.addEventListener('touchstart', (e) => { audio.init(); for (const t of e.changedTouches) {
+    if (t.target.closest('#dpad') && touch.dpad == null) { touch.dpad = t.identifier; setDpad(t); continue; }
+    if (t.target.closest('button')) continue;
+    if (t.clientX > innerWidth * 0.36 && touch.look == null) { touch.look = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; }
+  } e.preventDefault(); }, { passive: false });
+  el.addEventListener('touchmove', (e) => { for (const t of e.changedTouches) {
+    if (t.identifier === touch.dpad) setDpad(t);
+    if (t.identifier === touch.look) { const s = 0.0065 * settings.sens; P.yaw -= (t.clientX - touch.lx) * s; P.pitch = clamp(P.pitch - (t.clientY - touch.ly) * s * (settings.inv ? -1 : 1), -1.5, 1.5); touch.lx = t.clientX; touch.ly = t.clientY; }
+  } e.preventDefault(); }, { passive: false });
+  const end = (e) => { for (const t of e.changedTouches) { if (t.identifier === touch.dpad) clearDpad(); if (t.identifier === touch.look) touch.look = null; } };
+  el.addEventListener('touchend', end); el.addEventListener('touchcancel', end);
+  const tb = (id, down, up) => { const b = $(id); b.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); audio.init(); b.classList.add('on'); down(b); if (navigator.vibrate) navigator.vibrate(8); }, { passive: false }); b.addEventListener('touchend', (e) => { e.preventDefault(); b.classList.remove('on'); up && up(b); }, { passive: false }); };
+  tb('tX', () => { touch.use = true; }, () => { touch.use = false; });
+  tb('tA', () => pressA(), () => { touch.revive = false; touch.eHeld = false; });
+  tb('tY', () => { P.light = !P.light; audio.ui(); });
+  tb('tB', () => { touch.crouch = !touch.crouch; if (touch.crouch) { touch.sprint = false; $('tL').classList.remove('on'); } }, (b) => b.classList.toggle('on', touch.crouch));
+  tb('tL', () => { touch.sprint = !touch.sprint; if (touch.sprint) touch.crouch = false; }, (b) => b.classList.toggle('on', touch.sprint));
+  tb('tR', () => { const order = ['none', 'vacuum', 'mop'].filter(t => t === 'none' || inv[t]); equip(order[(order.indexOf(P.tool) + 1) % order.length]); });
+  tb('tSel', () => { if (!ui) openBag(); else if (ui === 'bag') closeUI(); });
+  tb('tStart', () => { if (!ui) openPause(); else closeUI(); });
+}
+// ---- real controllers (PlayStation / Xbox, standard mapping) ----
+const GP = { prev: [], active: false };
+function pollGamepad(dt) {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : []; let g = null; for (const p of pads) if (p && p.connected) { g = p; break; }
+  if (!g) { if (GP.active) { GP.active = false; touch.mx = touch.my = 0; touch.use = false; } return; }
+  const b = (i) => !!(g.buttons[i] && (g.buttons[i].pressed || g.buttons[i].value > 0.5)), edge = (i) => b(i) && !GP.prev[i];
+  const dz = (v) => Math.abs(v) < 0.16 ? 0 : (v - Math.sign(v) * 0.16) / 0.84;
+  let mx = dz(g.axes[0] || 0), my = -dz(g.axes[1] || 0);
+  if (b(12)) my = 1; if (b(13)) my = -1; if (b(14)) mx = -1; if (b(15)) mx = 1;
+  const any = mx || my || g.buttons.some(x => x.pressed); if (any) GP.active = true;
+  if (GP.active) {
+    if (ui) { if (edge(1) || edge(9)) { if (ui === 'os') closeOS(); else if (ui !== 'gameover') closeUI(); } if (edge(0)) { const f = document.activeElement; if (f && f.click && f !== document.body) f.click(); } menuNav(edge(12) || (my > 0.6 && !GP.navLock) ? -1 : edge(13) || (my < -0.6 && !GP.navLock) ? 1 : 0); GP.navLock = Math.abs(my) > 0.6; }
+    else {
+      touch.mx = mx; touch.my = my;
+      const lx = dz(g.axes[2] || 0), ly = dz(g.axes[3] || 0), sp = 2.6 * settings.sens;
+      P.yaw -= lx * sp * dt; P.pitch = clamp(P.pitch - ly * sp * 0.7 * dt * (settings.inv ? -1 : 1), -1.5, 1.5);
+      touch.use = b(7); mouseR = b(6); touch.sprint = b(10) || (touch.sprint && (mx || my)); touch.eHeld = b(0) && siege && nearOfficeDoor();
+      if (edge(0)) pressA(); if (!b(0)) touch.revive = false;
+      if (edge(1)) touch.crouch = !touch.crouch; if (edge(2)) toggleHide(); if (edge(3)) { P.light = !P.light; audio.ui(); }
+      if (edge(4) || edge(5)) { const order = ['none', 'vacuum', 'mop'].filter(t => t === 'none' || inv[t]); equip(order[(order.indexOf(P.tool) + (edge(5) ? 1 : order.length - 1)) % order.length]); }
+      if (edge(9)) openPause(); if (edge(8)) openBag();
+    }
+  }
+  GP.prev = g.buttons.map((x, i) => b(i));
+}
+function menuNav(dir) {
+  if (!dir) return; const root = ui === 'os' ? $('os') : document.querySelector('.screen:not([hidden])'); if (!root) return;
+  const items = [...root.querySelectorAll('button:not([disabled]),input,select')].filter(e => e.offsetParent); if (!items.length) return;
+  const i = items.indexOf(document.activeElement); items[(i + dir + items.length) % items.length].focus();
+}
 // ======================= entry / session =======================
 async function showEntry() {
   $('entry').hidden = false; $('name').value = store.get('name', '');
@@ -668,7 +718,7 @@ function siegeFX(m) {
 }
 function updateSiege(dt, t) {
   if (!siege) { holdingDoor = false; return; }
-  siege.t += dt; const near = nearOfficeDoor(); holdingDoor = near && (keys.KeyE || touch.eHeld || touch.use);
+  siege.t += dt; const near = nearOfficeDoor(); holdingDoor = near && (keys.KeyE || touch.eHeld);
   if (holdingDoor) siege.held += dt;
   $('holdDoor').hidden = !inOffice(P); $('holdHint').textContent = near ? (holdingDoor ? 'Keep holding' : `Hold ${isTouch ? 'E' : '[E]'} — keep it shut`) : 'Get to the door!';
   $('holdBar').style.width = Math.min(100, siege.held / (siege.dur * CONFIG.monitor.siegeHold) * 100).toFixed(0) + '%';
@@ -775,7 +825,7 @@ function updateHUD(dt) {
   $('bagBar').hidden = P.tool !== 'vacuum' && P.tool !== 'mop'; const fillK = P.tool === 'mop' ? mopDirt : myBag / vs.bag; $('bagFill').style.width = (fillK * 100) + '%'; $('bagFill').style.background = fillK >= (P.tool === 'mop' ? 0.75 : 1) ? '#e55' : P.tool === 'mop' ? '#9a7a4a' : '';
   const it = hidden ? null : pickTarget(); let pt = promptFor(it);
   if (hidden) pt = `${isTouch ? 'HIDE' : '[H]'} Step out of the locker`; else if (!pt && hideTarget()) pt = `${isTouch ? 'HIDE' : '[H]'} Hide in the locker`;
-  $('prompt').hidden = !pt; if (pt) $('prompt').textContent = pt; if (isTouch) $('tHide').hidden = !(hidden || hideTarget());
+  $('prompt').hidden = !pt; if (pt) $('prompt').textContent = pt; if (isTouch) $('aLbl').textContent = hidden ? 'EXIT' : siege && nearOfficeDoor() ? 'HOLD' : it ? 'USE' : hideTarget() ? 'HIDE' : 'ACT';
   $('hurt').style.opacity = P.downed ? 0.9 : Math.max(0, dread - 0.5) * 0.8;
 }
 
@@ -884,6 +934,7 @@ function frame(now) {
   requestAnimationFrame(frame); const f0 = performance.now();
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; const t = now / 1000;
   const PR = (k, f) => { const a = performance.now(); f(); prof[k] = lerp(prof[k] || 0, performance.now() - a, 0.2); };
+  pollGamepad(dt);
   if (playing) {
     PR('player', () => updatePlayer(dt, t));
     PR('tools', () => updateTools(dt, t));
