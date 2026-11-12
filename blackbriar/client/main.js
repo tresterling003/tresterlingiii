@@ -15,7 +15,7 @@ const angDiff = (a, b) => ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
 const NORENDER = new URLSearchParams(location.search).has('norender'); // test-only: logic and networking without drawing
 const isTouch = matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window;
 const store = { get(k, d) { try { const v = localStorage.getItem('blackbriar.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('blackbriar.' + k, JSON.stringify(v)); } catch { } } };
-const settings = Object.assign({ sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9 }, store.get('settings', {}));
+const settings = Object.assign({ calm: true, sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9 }, store.get('settings', {}));
 const saveSettings = () => store.set('settings', settings);
 let pid = store.get('pid', null); if (!pid) { pid = 'p' + Math.random().toString(36).slice(2, 10); store.set('pid', pid); }
 
@@ -344,13 +344,16 @@ async function showEntry() {
 }
 const nm = () => { const n = ($('name').value || '').trim().slice(0, 16) || 'Worker'; store.set('name', n); return n; };
 function start(transport) {
+  CALM = transport.mode === 'solo' && settings.calm;
+  if (CALM) { audio.sting = audio.caught = audio.drag = audio.bang = audio.chime = () => { }; }
   audio.init(); audio.setVolume(settings.vol);
   requestLock(); // a real user gesture: the click on the start button
   net = transport; mode = transport.mode;
   net.on(onMessage); net.connect();
   $('status').textContent = mode === 'solo' ? 'Clocking in…' : 'Connecting…';
 }
-$('bSolo').onclick = () => start(new LocalTransport(pid, nm()));
+$('calm').checked = settings.calm; $('calm').onchange = (e) => { settings.calm = e.target.checked; saveSettings(); };
+$('bSolo').onclick = () => start(new LocalTransport(pid, nm(), settings.calm));
 $('bNewSolo').onclick = () => { if (confirmInline($('bNewSolo'), 'Erase solo save? Click again')) { clearSolo(); $('bNewSolo').hidden = true; } };
 $('bCreate').onclick = () => start(new WSTransport(pid, nm(), 'NEW', false));
 $('bJoin').onclick = () => { const c = $('code').value.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(c)) { $('status').textContent = 'Crew codes are 4 letters.'; return; } start(new WSTransport(pid, nm(), c, true)); };
@@ -398,7 +401,7 @@ function onMessage(m) {
     case 'bagfull': if (performance.now() - (bagFullT || 0) > 4000) { bagFullT = performance.now(); toast('Vacuum is full. Empty it at a bin (closet, office or the end of the hall).'); } break;
     case 'toast': toast(m.msg); break;
     case 'sfx': { const pos = { x: m.x, y: 1.2, z: m.z }; if (m.k === 'doorbang') { audio.bang(pos); shake = 0.5; } if (m.k === 'rattle') audio.rattle(pos); if (m.k === 'empty') audio.empty(pos); break; }
-    case 'pa': showPA(m.text); break;
+    case 'pa': if (!CALM) showPA(m.text); break;
     case 'disc': { discoveries.push({ id: m.id, day, by: m.by }); const c = CLUES[m.id]; centerMsg('EVIDENCE: ' + c.title.toUpperCase(), (m.by ? m.by + ' found it. ' : '') + 'Saved to the journal (Tab).', 4); audio.sting(); updatePlate(); break; }
     case 'buy': upgrades = m.upgrades; money = m.money; mirror.purchased.push(m.skill); toast(`${CONFIG.skills[m.skill].name} installed.`); renderOSApp(); break;
     case 'buyfail': osNote = m.msg; renderOSApp(); break;
@@ -416,6 +419,7 @@ function onMessage(m) {
     case 'ping': { const r = REMOTE.get(m.pid); audio.ping({ x: m.x, y: 1, z: m.z }); showPing(m.x, m.y, m.z, m.pid === pid ? 'you' : nameOf(m.pid)); break; }
   }
 }
+let CALM = false;
 let bagFullT = 0, monState = 'dormant', shake = 0;
 const nameOf = (id) => (crewSnap.find(c => c.pid === id) || {}).name || 'A crewmate';
 
@@ -464,6 +468,7 @@ function updateRemotes(dt) {
 let monStepD = 0, monLast = null;
 function updateMonitor(dt, t) {
   if (!monitor) return;
+  if (CALM) { monitor.root.visible = false; dread = 0; return; }
   const s = sampleBuf(monSnap, 120); if (!s) return;
   const m = monitor;
   m.root.position.set(s.x, 0, s.z); m.root.rotation.y = s.yaw;

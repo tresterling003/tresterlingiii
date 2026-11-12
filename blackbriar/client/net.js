@@ -6,11 +6,11 @@ export function loadSolo() { try { const s = localStorage.getItem(SOLO_KEY); ret
 export function clearSolo() { try { localStorage.removeItem(SOLO_KEY); } catch { } }
 
 export class LocalTransport {
-  constructor(pid, name) {
-    this.pid = pid; this.handlers = []; this.mode = 'solo';
+  constructor(pid, name, calm = false) {
+    this.calm = calm; this.pid = pid; this.handlers = []; this.mode = 'solo';
     let save = null; try { save = loadSolo(); } catch { }
-    try { this.sim = new Sim(save, { allowTeleport: true, onSave: (d) => { try { localStorage.setItem(SOLO_KEY, JSON.stringify(d)); } catch { } } }); }
-    catch (e) { console.warn('solo save unreadable, starting fresh', e); this.sim = new Sim(null, { allowTeleport: true, onSave: (d) => { try { localStorage.setItem(SOLO_KEY, JSON.stringify(d)); } catch { } } }); }
+    try { this.sim = new Sim(save, { calm, allowTeleport: true, onSave: (d) => { try { localStorage.setItem(SOLO_KEY, JSON.stringify(d)); } catch { } } }); }
+    catch (e) { console.warn('solo save unreadable, starting fresh', e); this.sim = new Sim(null, { calm, allowTeleport: true, onSave: (d) => { try { localStorage.setItem(SOLO_KEY, JSON.stringify(d)); } catch { } } }); }
     this.name = name;
   }
   connect() {

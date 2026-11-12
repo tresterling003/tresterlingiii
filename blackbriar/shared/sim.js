@@ -274,7 +274,7 @@ export class Sim {
     if (this.phase === 'summary') { this.snapTimer(dt); return; }
     this.shiftT += dt * this.timeScale;
     const min = gameClock(this.shiftT);
-    const pa = (key, text) => { if (!this.firedPA[key]) { this.firedPA[key] = 1; this.emit({ t: 'pa', text }); } };
+    const pa = (key, text) => { if (this.opts.calm) return; if (!this.firedPA[key]) { this.firedPA[key] = 1; this.emit({ t: 'pa', text }); } };
     if (this.shiftT > 3) pa('d' + this.day + 'start', this.day === 1 ? 'Good evening. The building is closed. Attendance will be taken at four.' : 'Good evening. Attendance will be taken at four. Room zero one four is expected.');
     if (this.shiftT > CONFIG.shiftSeconds * 0.42) pa('d' + this.day + 'mid', 'Would Margaret Arden please return to her assigned room.');
     if (this.shiftT >= CONFIG.shiftSeconds * (330 / 360)) pa('d' + this.day + '330', 'It is three thirty. All students should now make their way to their assigned rooms.');
@@ -357,6 +357,7 @@ export class Sim {
   }
   tickMonitor(dt) {
     const m = this.mon, C = CONFIG.monitor, lock = this.phase === 'lockdown';
+    if (this.opts.calm) { if (m.state !== 'dormant') this.setMon('dormant'); m.x = 47.5; m.z = 11; m.moving = 0; this.noises = []; return; } // calm mode: no monster at all
     m.stateT += dt;
     const rects = solidRects(this.doors);
     const alive = [...this.players.values()].filter(p => p.connected && !p.downed && !p.out);
