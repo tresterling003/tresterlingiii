@@ -8,7 +8,7 @@ import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd, updateCrowd }
 import { loadProps } from './props.js';
 import { makePost } from './post.js';
 import { Audio3D } from './audio.js';
-import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo } from './net.js';
+import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo, getRoomApi, RoomHost, RoomGuest, newRoomCode } from './net.js';
 import { textCanvas, dirtTextures } from './textures.js';
 import { initScares, updateScares, spawnWatcher, startLightsOut, scareLight, clearScares, scareDebug } from './scares.js';
 
@@ -461,9 +461,12 @@ async function showEntry() {
   const params = new URLSearchParams(location.search), code = (params.get('room') || '').toUpperCase();
   if (code) $('code').value = code;
   $('bNewSolo').hidden = !loadSolo();
-  const ok = await serverAvailable();
-  if (!ok) { $('bCreate').disabled = $('bJoin').disabled = true; $('coopNote').textContent = 'Co-op needs the game server. This copy of the game is static (solo only) — see README for hosting.'; }
-  else { $('coopNote').textContent = code ? `Invited to crew ${code}. Press Join crew.` : 'Create a crew and send your friends the invite link (up to 4 workers).'; }
+  $('bCreate').disabled = $('bJoin').disabled = true; $('coopNote').textContent = 'Looking for co-op…';
+  const ok = !params.has('mockroom') && await serverAvailable();
+  if (ok) { coopKind = 'server'; $('bCreate').disabled = $('bJoin').disabled = false; $('coopNote').textContent = code ? `Invited to crew ${code}. Press Join crew.` : 'Create a crew and send your friends the code (up to 4 workers).'; return; }
+  roomApi = await getRoomApi();
+  if (roomApi) { coopKind = 'room'; $('bCreate').disabled = $('bJoin').disabled = false; $('coopNote').textContent = 'Host a crew and read your friends the 4-letter code. They open this same game (share it with them on claude.ai) and press Join. Up to 4 workers.'; }
+  else $('coopNote').textContent = 'Co-op works on the claude.ai link once the game is shared with your friends (Share → invite them). Each of you opens it, one hosts, the others join with the code.';
 }
 const nm = () => { const n = ($('name').value || '').trim().slice(0, 16) || 'Worker'; store.set('name', n); return n; };
 function start(transport) {
@@ -478,8 +481,9 @@ function start(transport) {
 $('calm').checked = settings.calm; $('calm').onchange = (e) => { settings.calm = e.target.checked; saveSettings(); };
 $('bSolo').onclick = () => start(new LocalTransport(pid, nm(), settings.calm));
 $('bNewSolo').onclick = () => { if (confirmInline($('bNewSolo'), 'Erase solo save? Click again')) { clearSolo(); $('bNewSolo').hidden = true; } };
-$('bCreate').onclick = () => start(new WSTransport(pid, nm(), 'NEW', false));
-$('bJoin').onclick = () => { const c = $('code').value.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(c)) { $('status').textContent = 'Crew codes are 4 letters.'; return; } start(new WSTransport(pid, nm(), c, true)); };
+let coopKind = null, roomApi = null;
+$('bCreate').onclick = () => start(coopKind === 'room' ? new RoomHost(roomApi, pid, nm(), newRoomCode()) : new WSTransport(pid, nm(), 'NEW', false));
+$('bJoin').onclick = () => { const c = $('code').value.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(c)) { $('status').textContent = 'Crew codes are 4 letters.'; return; } start(coopKind === 'room' ? new RoomGuest(roomApi, pid, nm(), c) : new WSTransport(pid, nm(), c, true)); };
 function confirmInline(btn, msg) { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = 'New solo save'; return true; } btn.dataset.armed = 1; btn.textContent = msg; setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'New solo save'; }, 3000); return false; }
 
 function applySave(s) {
@@ -506,7 +510,8 @@ function onMessage(m) {
       centerMsg(`NIGHT ${day}`, 'Halberd Facilities — Blackbriar High', 3);
       break;
     }
-    case 'reject': $('status').textContent = m.msg; playing = false; break;
+    case 'reject': if (playing) { centerMsg('CREW ENDED', m.msg, 6); setTimeout(() => location.reload(), 5000); } else { $('status').textContent = m.msg; } playing = false; break;
+    case 'resync': applySave(m.save); break;
     case 'netstatus': if (m.status === 'reconnecting') toast('Connection lost. Reconnecting…'); if (m.status === 'online' && playing) toast('Reconnected.'); break;
     case 'snap': {
       shiftT = m.shiftT; money = m.money; crewSnap = m.players;
@@ -1142,6 +1147,7 @@ window.__bb = {
   scareState() { return scareDebug(); },
   scare(k, seed = 1) { if (k === 'clear') return clearScares(); if (k === 'lightsout') startLightsOut({ x: P.x, z: P.z, r: 11, d: 20 }); else spawnWatcher(seed); },
   step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); updateScares(1 / 60, t); updateSiege(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
+  mirrorDoor(id) { return mirror && mirror.doors[id] && mirror.doors[id].open; },
   press(code, down = true) { keys[code] = down; }, mouse(l, r = false) { mouseL = l; mouseR = r; },
   debrisLeft() { return mirror.collected.reduce((a, b) => a + (b ? 0 : 1), 0); },
   maskSum(id) { return mirror.maskSum[id]; }, roomProgress() { return mirror.roomProgress(); },
