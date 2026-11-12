@@ -3,6 +3,7 @@
 |---|---|---|---|
 | Body mesh "Michelle" (`assets/body.json`) | three.js examples, `examples/models/gltf/Michelle.glb` (r170) | Adobe Mixamo character. Mixamo terms allow use in projects; **not re-verified in this session** (no network access to Adobe). Do not redistribute as a standalone asset. | Re-packed as base64 JSON; skeleton stretched at runtime; texture desaturated/tinted (Monitor uniform, coworkers). |
 | Idle/Walk/Run animation (`assets/anims.json`) | three.js examples, `Soldier.glb` (r170) | Adobe Mixamo animations; same note as above. | Quaternion tracks only, exported to JSON. |
+| Mannequin body "X Bot" + idle/walk/run/sad_pose clips (`assets/mannequin.json`) | three.js examples, `examples/models/gltf/Xbot.glb` (r170) | Adobe Mixamo character; same Mixamo note as above, **not re-verified**. | Re-packed as base64 GLB (other clips dropped); own head hidden and replaced by the head scan below; lacquered-wood shader is our own; the cafeteria crowd is this body baked into three static poses. |
 | Head scan (`assets/head.json`, `head_normal.jpg`) | three.js examples, `gltf/LeePerrySmith` (r170) | Lee Perry-Smith / Infinite Realities, CC BY 3.0 (as documented with the three.js examples; not re-verified this session). | Neck cropped; sunken eyes/cheeks and jaw morph added in code; normal map resized to 1024². |
 | three.js r170 | cdn.jsdelivr.net/npm/three@0.170.0 | MIT | Unmodified. |
 | ws 8.18.3 | npm | MIT | Unmodified. |

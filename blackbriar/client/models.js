@@ -15,14 +15,15 @@ async function loadGLB(url) {
   try { window.createImageBitmap = cib; } catch (e) { }
   return await p;
 }
-let BODY = null, HEAD = null, FACE = null, HEAD_NORMAL = null;
+let BODY = null, HEAD = null, FACE = null, HEAD_NORMAL = null, MANNEQUIN = null;
 export async function loadModels(onProgress) {
   HEAD_NORMAL = new THREE.TextureLoader().load('assets/head_normal.jpg');
-  const [g, anims, h] = await Promise.all([loadGLB('assets/body.json'), fetch('assets/anims.json').then(r => r.json()), loadGLB('assets/head.json')]);
+  const [g, anims, h, mq] = await Promise.all([loadGLB('assets/body.json'), fetch('assets/anims.json').then(r => r.json()), loadGLB('assets/head.json'), loadGLB('assets/mannequin.json').catch(() => null)]);
+  if (mq) { const mc = {}; for (const a of mq.animations) mc[a.name.toLowerCase()] = a; MANNEQUIN = { scene: mq.scene, clips: mc, hipFix: false }; }
   const clips = {}; for (const j of anims) { const c = THREE.AnimationClip.parse(j); clips[c.name.toLowerCase()] = c; }
   const arm = g.scene.getObjectByName('Character'); if (arm) arm.rotation.x = -Math.PI / 2;
   let tex = null; g.scene.traverse(o => { if (o.isSkinnedMesh && o.material.map) tex = o.material.map; });
-  BODY = { scene: g.scene, clips, tex };
+  BODY = { scene: g.scene, clips, tex, hipFix: true };
   let mesh = null; h.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
   const m = new THREE.Mesh(mesh.geometry, new THREE.MeshBasicMaterial()); m.updateMatrixWorld();
   const rc = new THREE.Raycaster(), eyes = [];
@@ -51,41 +52,110 @@ function faceGeometry() { // gaunt: sunken eyes and cheeks, slack jaw as a morph
   g.morphAttributes.position = [new THREE.Float32BufferAttribute(m, 3)]; g.morphTargetsRelative = false;
   FACE = g; return g;
 }
-function rigged(stretch, scale) {
-  const model = SkeletonUtils.clone(BODY.scene); model.rotation.y = Math.PI;
+function rigged(stretch, scale, SRC = BODY) {
+  const model = SkeletonUtils.clone(SRC.scene); model.rotation.y = SRC.hipFix ? Math.PI : 0; // the old body faced -z, the mannequin faces +z
   const bones = {}; const meshes = [];
   model.traverse(o => { if (o.isBone) bones[o.name.replace('mixamorig', '')] = o; if (o.isSkinnedMesh) { o.frustumCulled = false; meshes.push(o); } });
   const fixed = [];
   for (const [n, k] of Object.entries(stretch)) if (bones[n]) fixed.push([bones[n], bones[n].position.clone().multiplyScalar(k)]);
   const mixer = new THREE.AnimationMixer(model), acts = {};
-  for (const n of ['idle', 'walk', 'run']) { const a = mixer.clipAction(BODY.clips[n]); a.play(); a.setEffectiveWeight(n === 'idle' ? 1 : 0); acts[n] = a; }
+  for (const n of ['idle', 'walk', 'run']) { const a = mixer.clipAction(SRC.clips[n]); a.play(); a.setEffectiveWeight(n === 'idle' ? 1 : 0); acts[n] = a; }
   const root = new THREE.Group(); root.add(model); root.scale.setScalar(scale);
-  return { root, model, bones, meshes, fixed, mixer, acts, w: { idle: 1, walk: 0, run: 0 }, hipRest: bones.Hips.position.clone() };
+  return { root, model, bones, meshes, fixed, mixer, acts, w: { idle: 1, walk: 0, run: 0 }, hipRest: bones.Hips.position.clone(), hipFix: SRC.hipFix };
 }
 function animate(r, dt, mode, speed) {
   for (const k of ['idle', 'walk', 'run']) { r.w[k] = lerp(r.w[k], k === mode ? 1 : 0, 1 - Math.pow(0.002, dt)); r.acts[k].setEffectiveWeight(r.w[k]); }
   r.acts.walk.timeScale = 0.9 * speed; r.acts.run.timeScale = 1.1 * speed; r.acts.idle.timeScale = 0.6;
   r.mixer.update(dt);
   for (const [b, p] of r.fixed) b.position.copy(p);
-  r.bones.Hips.position.set(r.hipRest.x, -r.hipRest.y, -r.hipRest.z);
+  if (r.hipFix) r.bones.Hips.position.set(r.hipRest.x, -r.hipRest.y, -r.hipRest.z);
+}
+
+// lacquered wood veneer for the mannequin: grain is computed from the bind-pose position, so it stays glued to the body as it moves
+function mannequinWood(joint, meters = false) {
+  const m = new THREE.MeshPhysicalMaterial({ color: joint ? 0x4a3a2c : 0xa48466, roughness: joint ? 0.42 : 0.5, metalness: 0, clearcoat: joint ? 0.6 : 0.45, clearcoatRoughness: 0.35, sheen: 0 });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vObjP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjP = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vObjP;
+      float hw(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+      float vn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(hw(i), hw(i + vec3(1,0,0)), f.x), mix(hw(i + vec3(0,1,0)), hw(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hw(i + vec3(0,0,1)), hw(i + vec3(1,0,1)), f.x), mix(hw(i + vec3(0,1,1)), hw(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 q = vObjP * ${meters ? '25.0' : '0.25'}; float warp = vn(q * vec3(0.5, 0.08, 0.5)) * 4.0 + vn(q * 1.7) * 0.6;
+        float ring = fract((length(q.xz) * 0.9 + warp)); float fine = vn(q * vec3(9.0, 0.35, 9.0) * 1.6);
+        float g = smoothstep(0.0, 0.6, ring) * smoothstep(1.0, 0.75, ring);
+        diffuseColor.rgb *= ${joint ? '0.9 + 0.1 * fine' : '0.66 + 0.3 * g + 0.14 * fine'}; }`);
+  };
+  m.customProgramCacheKey = () => 'mqwood' + (joint ? 'j' : 'b') + (meters ? 'm' : '');
+  m.userData.mq = joint ? 'joint' : 'body';
+  return m;
+}
+export function hasMannequin() { return !!MANNEQUIN; }
+
+// display poses: idle frames plus a slumped pose, each with its own head angle
+const STILL_POSES = [{ clip: 'idle', t: 0, tilt: 0.3, nod: -0.22, yaw: 0 }, { clip: 'idle', t: 1.2, tilt: -0.18, nod: -0.08, yaw: 0.35 }, { clip: 'sad_pose', t: 0, tilt: 0.45, nod: -0.4, yaw: -0.25 }];
+function poseStill(r, P) {
+  r.still = r.still || {};
+  const clip = (MANNEQUIN && MANNEQUIN.clips[P.clip]) || (MANNEQUIN && MANNEQUIN.clips.idle);
+  for (const k of ['idle', 'walk', 'run']) { r.w[k] = 0; r.acts[k].setEffectiveWeight(0); }
+  for (const a of Object.values(r.still)) a.setEffectiveWeight(0);
+  if (!clip) return;
+  // sample the clip directly and write the bones (no mixer: a frozen pose must be exactly the same every frame)
+  const key = P.clip + '@' + P.t;
+  if (!r.stillCache) r.stillCache = {};
+  if (!r.stillCache[key]) { const list = []; for (const tr of clip.tracks) { const [node, prop] = tr.name.split('.'); const o = r.model.getObjectByName(node); if (!o || !o[prop]) continue; list.push([o[prop], Array.from(tr.createInterpolant().evaluate(P.t))]); } r.stillCache[key] = list; }
+  for (const [target, v] of r.stillCache[key]) target.fromArray(v);
+  for (const [b, p] of r.fixed) b.position.copy(p);
+  if (r.hipFix) r.bones.Hips.position.set(r.hipRest.x, -r.hipRest.y, -r.hipRest.z);
+}
+// The stored mannequins: the Monitor itself, frozen in each display pose and baked into static instanced meshes.
+// They are indistinguishable from it while it stands still.
+export function buildMannequinCrowd(scene, spots, y) {
+  if (!MANNEQUIN) return null;
+  const st = makeMonitor(), out = new THREE.Group(), mqMats = {}; scene.add(out);
+  const v = new THREE.Vector3();
+  STILL_POSES.forEach((_, k) => {
+    st.pose = k; st.update(0, 'still', 1, 0, 0); st.root.position.set(0, 0, 0); st.root.rotation.set(0, 0, 0); st.root.updateMatrixWorld(true);
+    const mine = spots.filter(sp => (sp.pose % STILL_POSES.length) === k); if (!mine.length) return;
+    st.root.traverse(o => {
+      if (!o.isMesh) return; for (let q = o; q; q = q.parent) if (!q.visible) return;
+      let geo;
+      if (o.isSkinnedMesh) {
+        o.skeleton.update(); const src = o.geometry, n = src.attributes.position.count, pos = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) { o.getVertexPosition(i, v); v.applyMatrix4(o.matrixWorld); pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z; }
+        geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (src.attributes.uv) geo.setAttribute('uv', src.attributes.uv); if (src.index) geo.setIndex(src.index);
+        geo.computeVertexNormals();
+      } else { geo = o.geometry.clone(); geo.morphAttributes = {}; geo.applyMatrix4(o.matrixWorld); }
+      const mat = o.material.userData && o.material.userData.mq ? (mqMats[o.material.userData.mq] ||= mannequinWood(o.material.userData.mq === 'joint', true)) : o.material;
+      const im = new THREE.InstancedMesh(geo, mat, mine.length); im.frustumCulled = false;
+      mine.forEach((sp, i) => im.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(sp.x, y, sp.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), sp.yaw), new THREE.Vector3(1, 1, 1))));
+      out.add(im);
+    });
+  });
+  return out;
 }
 
 // ---------- THE MONITOR (prototype creature art) ----------
 export function makeMonitor() {
-  const r = rigged({ LeftForeArm: 1.42, RightForeArm: 1.42, LeftHand: 1.5, RightHand: 1.5, LeftLeg: 1.12, RightLeg: 1.12, Neck: 1.2, Head: 1.9, Spine2: 1.15, Spine1: 1.08, LeftShoulder: 1.12, RightShoulder: 1.12 }, 1.27);
-  for (const b of Object.keys(r.bones)) if (/Hand(Index|Middle|Ring|Pinky)[123]$/.test(b)) r.fixed.push([r.bones[b], r.bones[b].position.clone().multiplyScalar(2.1)]);
+  const MQ = !!MANNEQUIN;
+  const r = MQ ? rigged({ LeftForeArm: 1.12, RightForeArm: 1.12, LeftLeg: 1.05, RightLeg: 1.05 }, 1.12, MANNEQUIN)
+    : rigged({ LeftForeArm: 1.42, RightForeArm: 1.42, LeftHand: 1.5, RightHand: 1.5, LeftLeg: 1.12, RightLeg: 1.12, Neck: 1.2, Head: 1.9, Spine2: 1.15, Spine1: 1.08, LeftShoulder: 1.12, RightShoulder: 1.12 }, 1.27);
+  if (!MQ) for (const b of Object.keys(r.bones)) if (/Hand(Index|Middle|Ring|Pinky)[123]$/.test(b)) r.fixed.push([r.bones[b], r.bones[b].position.clone().multiplyScalar(2.1)]);
   // institutional uniform: the body texture is desaturated and darkened into a stained grey-brown cloth
-  const mat = new THREE.MeshStandardMaterial({ color: 0x8a7a66, roughness: 0.34, metalness: 0 }); // bare display-mannequin plastic, scuffed by the grade
-  for (const m of r.meshes) m.material = mat;
-  const skin = new THREE.MeshStandardMaterial({ color: 0x8a7258, normalMap: HEAD_NORMAL, normalScale: new THREE.Vector2(1.6, 1.6), roughness: 0.62, metalness: 0 });
+  const mat = MQ ? mannequinWood(false) : new THREE.MeshStandardMaterial({ color: 0x8a7a66, roughness: 0.34, metalness: 0 });
+  const jointMat = MQ ? mannequinWood(true) : mat;
+  for (const m of r.meshes) m.material = /joint/i.test(m.name + (m.material && m.material.name)) ? jointMat : mat;
+  const skin = new THREE.MeshPhysicalMaterial({ color: 0x8a7258, normalMap: HEAD_NORMAL, normalScale: new THREE.Vector2(1.6, 1.6), roughness: 0.55, metalness: 0, clearcoat: MQ ? 0.35 : 0, clearcoatRoughness: 0.4 });
   skin.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n{ vec3 n = normalize(vNormal); diffuseColor.rgb *= 0.55 + 0.45 * smoothstep(-0.2, 0.8, n.y + 0.4); }'); }; // grime settles into the hollows
   const face = new THREE.Group(); r.bones.Neck.add(face);
-  const fm = new THREE.Mesh(faceGeometry(), skin); fm.morphTargetInfluences = [0.15]; fm.position.set(0, 0.2, -0.3); face.add(fm); face.scale.setScalar(4.1);
+  const fm = new THREE.Mesh(faceGeometry(), skin); fm.morphTargetInfluences = [0.15]; fm.position.set(0, MQ ? -1.1 : 0.2, MQ ? 0.1 : -0.3); face.add(fm); face.scale.setScalar(MQ ? 3.7 : 4.1);
   const hole = new THREE.MeshBasicMaterial({ color: 0x000000 });
   const pupils = [];
   for (const p of HEAD.eyes) { const e = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), hole); e.scale.set(0.4, 0.32, 0.16); e.position.set(p.x * 0.95, p.y * 1.12 - 0.04, p.z - 0.5); fm.add(e);
     const pu = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0x6d675a })); pu.scale.setScalar(0.6); pu.position.set(p.x * 0.9, p.y * 1.12 - 0.02, p.z - 0.4); fm.add(pu); pupils.push(pu); }
-  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x050403, transparent: true, opacity: 0.95, depthWrite: false })); fm.add(mouth);
+  const mouth = new THREE.Mesh(new THREE.CircleGeometry(0.5, 24), new THREE.MeshBasicMaterial({ color: 0x050403, transparent: true, opacity: 0.95, depthWrite: false })); fm.add(mouth);
   // thin, plastered-down hair
   const hm = new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.4 });
   const cap = new THREE.Mesh(new THREE.SphereGeometry(1.95, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.42), hm); cap.scale.set(0.98, 0.6, 1.05); cap.position.set(0, 3.25, -0.2); cap.visible = false; fm.add(cap); // bald, skull-like
@@ -96,20 +166,23 @@ export function makeMonitor() {
   const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.26), new THREE.MeshStandardMaterial({ map: textCanvas(64, 84, (x, w, h) => { x.fillStyle = '#ddd6bf'; x.fillRect(0, 0, w, h); x.fillStyle = '#333'; for (let i = 0; i < 9; i++) { x.fillRect(4, 10 + i * 8, 34, 2); x.fillStyle = '#922'; x.fillRect(44, 9 + i * 8, 12, 3); x.fillStyle = '#333'; } }), roughness: 0.9 })); paper.position.z = 0.006; clip.add(paper);
   const hand = r.bones.RightHand; const hg = new THREE.Group(); hand.add(hg); hg.scale.setScalar(100); hg.add(clip); clip.visible = false; // mannequins carry nothing clip.position.set(0, 0.18, 0.04); clip.rotation.set(0.2, 0, 0);
   const st = { r, root: r.root, face, fm, mouth, tw: 0, twT: 1, twR: new THREE.Euler(), headYaw: 0, scr: 0.15 };
+  st.pose = 0;
   st.update = (dt, mode, speed, t, look) => {
-    animate(r, dt, mode, speed);
+    const still = mode === 'still', SP = STILL_POSES[st.pose % STILL_POSES.length];
+    if (still) poseStill(r, SP); else { if (r.still) for (const a of Object.values(r.still)) a.setEffectiveWeight(0); animate(r, dt, mode, speed); }
     const bones = r.bones;
     if (bones.Head) { bones.Head.scale.setScalar(0.001); face.position.copy(bones.Head.position); face.quaternion.copy(bones.Head.quaternion); }
     // stoop: a hunched supervisor leaning forward from the upper spine
-    if (bones.Spine1) bones.Spine1.rotation.x += mode === 'run' ? 0.45 : 0.22;
-    if (bones.Spine2) bones.Spine2.rotation.x += 0.12;
+    const stoop = still ? 0 : MQ ? (mode === 'run' ? 0.25 : 0.1) : (mode === 'run' ? 0.45 : 0.22);
+    if (bones.Spine1) bones.Spine1.rotation.x += stoop;
+    if (bones.Spine2 && !still) bones.Spine2.rotation.x += MQ ? 0.05 : 0.12;
     // head tracking toward the look target (clamped), plus a crooked tilt and sudden twitches
-    if (st.lock) st.headYaw = 0; else if (look) { st.headYaw = lerp(st.headYaw, Math.max(-1.2, Math.min(1.2, look)), 1 - Math.pow(0.02, dt)); }
-    face.rotation.y += st.headYaw; face.rotation.z += 0.32 + Math.sin(t * 0.9) * 0.04; face.rotation.x += mode === 'run' ? -0.1 : -0.25;
+    if (still) st.headYaw = SP.yaw; else if (st.lock) st.headYaw = 0; else if (look) { st.headYaw = lerp(st.headYaw, Math.max(-1.2, Math.min(1.2, look)), 1 - Math.pow(0.02, dt)); }
+    face.rotation.y += st.headYaw; face.rotation.z += still ? SP.tilt : 0.32 + Math.sin(t * 0.9) * 0.04; face.rotation.x += still ? SP.nod : mode === 'run' ? -0.1 : -0.25;
     st.twT -= dt; if (st.twT < 0) { st.twT = (mode === 'run' ? 0.3 : 0.9) + Math.random() * (mode === 'run' ? 0.7 : 3); st.tw = 0.11; st.twR.set((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 1.1); }
-    if (st.lock) st.tw = 0;
+    if (st.lock || still) st.tw = 0;
     if (st.tw > 0) { st.tw -= dt; face.rotation.x += st.twR.x; face.rotation.y += st.twR.y; face.rotation.z += st.twR.z; }
-    fm.morphTargetInfluences[0] = lerp(fm.morphTargetInfluences[0], st.scr, 1 - Math.pow(0.002, dt));
+    fm.morphTargetInfluences[0] = still ? 0.15 : lerp(fm.morphTargetInfluences[0], st.scr, 1 - Math.pow(0.002, dt));
     const j = fm.morphTargetInfluences[0]; mouth.position.set(0, 0.3 - j * 0.75, 2.3 - j * 0.12); mouth.scale.set(0.55 + j * 0.3, 0.08 + j * 1.5, 1);
   };
   st.faceWorld = (v) => face.getWorldPosition(v);

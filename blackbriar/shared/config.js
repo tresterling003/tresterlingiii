@@ -23,7 +23,7 @@ export const CONFIG = {
   roomba: { speed: 0.42, radius: 0.18, bag: 250, pickup: 0.24, noise: 4 },
   flashlight: { range: [16, 24], angle: [0.42, 0.5] },
   pay: { piece: 0.04, coin: 0.25, mudCell: 0.025, dustCell: 0.004 },
-  roomBonus: { hall: 20, class: 15, service: 10, closet: 3, lcorr: 8, gym: 30, lockers: 15, pool: 25 },
+  roomBonus: { hall: 20, class: 15, service: 10, closet: 3, lcorr: 8, gym: 30, lockers: 15, pool: 25, cafe: 20 },
   failPenalty: 10,
   lockdownCatchPenalty: 25,
   skills: {

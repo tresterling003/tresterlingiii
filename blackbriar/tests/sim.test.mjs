@@ -138,3 +138,11 @@ t('mannequin: frozen while watched, sprints once you look away', () => {
   assert.ok(caught, 'caught from behind');
 });
 console.log('mannequin tests passed');
+t('cafeteria: locked until the key on the lifeguard chair is taken', () => {
+  const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a');
+  p.x = -12.6; p.z = 7.6; s.handle('a', { t: 'door', id: 'd_cafe' }); assert.equal(s.doors.d_cafe.open, false);
+  p.x = -27.6; p.z = 15.1; s.handle('a', { t: 'cafekey' }); assert.ok(s.keys.cafekey);
+  p.x = -12.6; p.z = 7.6; s.handle('a', { t: 'door', id: 'd_cafe' }); assert.equal(s.doors.d_cafe.open, true);
+  assert.ok(DEBRIS.some(d => d.room === 'cafe'));
+});
+console.log('cafeteria tests passed');

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as TX from './textures.js';
-import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, BUCKET, TEACHER_DESK, POOL_BASIN, roomAt, groundY, segBlocked, rng } from '../shared/level.js';
+import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, BUCKET, TEACHER_DESK, CAFE_KEY, POOL_BASIN, roomAt, groundY, segBlocked, rng } from '../shared/level.js';
 
 let GRIME = null; const grimeTex = () => { if (!GRIME) { GRIME = new THREE.TextureLoader().load('assets/tex/grime_detail.jpg'); GRIME.wrapS = GRIME.wrapT = THREE.RepeatWrapping; } return GRIME; };
 const BAKE = { scale: { value: 1 }, black: { value: new THREE.Vector4(0, 0, 1, 0) } }; // black: x, z, radius, amount of a local power cut
@@ -124,6 +124,8 @@ export function buildWorld(scene, renderer, opts = {}) {
   wallSets.gym = TX.paintedWall({ upper: [222, 214, 190], lower: [120, 36, 40], stripe: [230, 190, 60], bandTop: 2.0, ceil: 7.5, seed: 17, block: true });
   wallSets.lockers = TX.paintedWall({ upper: [226, 230, 228], lower: [70, 110, 150], bandTop: 1.3, ceil: 2.8, seed: 18, block: true });
   wallSets.pool = TX.paintedWall({ upper: [204, 226, 230], lower: [90, 150, 176], stripe: [30, 80, 120], bandTop: 1.4, ceil: 6.5, seed: 19, block: true });
+  wallSets.cafe = TX.paintedWall({ upper: [222, 216, 196], lower: [74, 100, 138], stripe: [214, 176, 64], bandTop: 1.2, ceil: 4.0, seed: 24, block: true });
+  { const cT = TX.vctChecker([226, 220, 204], [138, 56, 48], 23); floorMats.cafe = std({ map: cT.map, normalMap: cT.normalMap, roughnessMap: cT.roughnessMap, roughness: 0.6, envMapIntensity: 0.5 }); floorMats.cafe.userData.grime = 0.55; }
   const wallMats = {}; for (const k in wallSets) { const w = wallSets[k]; wallMats[k] = std({ map: w.map, normalMap: w.normalMap, roughnessMap: w.roughnessMap, roughness: 1, envMapIntensity: 0.25 }); wallMats[k].userData.grime = 0.4; }
   const ceilT = TX.ceilingTiles(); const ceilMat = std({ map: ceilT.map, normalMap: ceilT.normalMap, roughness: 0.95 }); ceilMat.userData.grime = 0.35;
   const M = {
@@ -157,7 +159,7 @@ export function buildWorld(scene, renderer, opts = {}) {
   // ---------- floors and ceilings ----------
   const floorRect = (fm, x0, z0, x1, z1, y, size) => col.add(quadGrid(new THREE.Vector3(x0, y, z1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), x1 - x0, z1 - z0, steps(x1 - x0, 0.5), steps(z1 - z0, 0.5), (q) => [q.x / size, -q.z / size]), fm);
   for (const [id, r] of Object.entries(ROOMS)) {
-    const fm = floorMats[id], size = id === 'gym' ? 3 : ['hall', 'class', 'office', 'lcorr', 'lockers', 'pool'].includes(id) ? 2.4 : 4;
+    const fm = floorMats[id], size = id === 'gym' ? 3 : ['hall', 'class', 'office', 'lcorr', 'lockers', 'pool', 'cafe'].includes(id) ? 2.4 : 4;
     if (r.stair) {
       floorRect(fm, -2, r.z0, 0, r.z1, 0, 4); floorRect(fm, -12, r.z0, -10, r.z1, -4, 4);
       for (let k = 0; k < 16; k++) { const x1 = -2 - k * 0.5, top = -(k + 1) * 0.25; col.box(M.concreteDark, x1 - 0.25, (top - 4) / 2, (r.z0 + r.z1) / 2, 0.5, top + 4, r.z1 - r.z0); col.box(M.steel, x1 - 0.03, top + 0.005, (r.z0 + r.z1) / 2, 0.06, 0.012, r.z1 - r.z0 - 0.02); }
@@ -496,6 +498,28 @@ export function buildWorld(scene, renderer, opts = {}) {
   for (const b of BINS) { const g = new THREE.Group(); const can = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.21, 0.72, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0x3a5e46, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide })); can.position.y = 0.36; g.add(can); const liner = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16).rotateX(-Math.PI / 2), M.black); liner.position.y = 0.55; g.add(liner); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.015, 6, 20).rotateX(Math.PI / 2), M.darkSteel); rim.position.y = 0.72; g.add(rim); g.position.set(b.x, 0, b.z); scene.add(g); out.interact.push({ kind: 'bin', id: b.id, x: b.x, y: 0.7, z: b.z }); }
   // ---------- athletics floor ----------
   buildAthletics(scene, col, M, std, out);
+  // ---------- cafeteria: fold-out tables, the serving line ----------
+  { const Y = -4, top = std({ color: 0xcfc6b0, roughness: 0.45 }), seat = std({ color: 0x2f5a8c, roughness: 0.4 }), steel = M.steel;
+    for (const f of FURNITURE) {
+      if (f.kind === 'cafetable') {
+        const cx = (f.x0 + f.x1) / 2, cz = (f.z0 + f.z1) / 2, L = f.z1 - f.z0;
+        col.box(top, cx, Y + 0.75, cz, 0.76, 0.03, L, 0, 0.01); col.box(steel, cx, Y + 0.73, cz, 0.7, 0.02, L - 0.1);
+        for (const s of [-1, 1]) { col.box(seat, cx + s * 0.6, Y + 0.45, cz, 0.28, 0.03, L - 0.2, 0, 0.01); for (const z of [cz - L / 2 + 0.3, cz + L / 2 - 0.3]) { col.box(steel, cx + s * 0.6, Y + 0.22, z, 0.03, 0.44, 0.03); col.box(steel, cx + s * 0.3, Y + 0.02, z, 0.6, 0.03, 0.04); } }
+        for (const z of [cz - L / 2 + 0.3, cz + L / 2 - 0.3]) col.box(steel, cx, Y + 0.37, z, 0.04, 0.74, 0.04);
+      } else if (f.kind === 'serving') {
+        const cx = (f.x0 + f.x1) / 2, cz = (f.z0 + f.z1) / 2, W = f.x1 - f.x0;
+        col.box(M.chrome, cx, Y + 0.5, cz, W, 1.0, f.z1 - f.z0); col.box(steel, cx, Y + 1.02, cz - 0.42, W + 0.1, 0.03, 0.3);
+        col.box(M.glassTint || M.chrome, cx, Y + 1.38, cz - 0.05, W, 0.02, 0.5); for (let x = f.x0 + 0.3; x < f.x1; x += 1.2) col.box(steel, x, Y + 1.2, cz - 0.05, 0.03, 0.36, 0.03);
+        for (let k = 0; k < 6; k++) col.box(std({ color: [0x9a3a2c, 0x3a6a8a, 0x8a8a3a][k % 3], roughness: 0.4 }), f.x0 + 0.5 + k * 1.15, Y + 1.06, cz - 0.42, 0.34, 0.02, 0.26);
+      }
+    }
+    // the cafeteria key hangs on the lifeguard chair at the pool
+    const key = new THREE.Group(); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.006, 6, 14), M.chrome); key.add(ring);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.07, 0.004), new THREE.MeshStandardMaterial({ color: 0xb08a2a, metalness: 0.9, roughness: 0.3 })); blade.position.y = -0.06; key.add(blade);
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.035), new THREE.MeshStandardMaterial({ color: 0xd23c3c, roughness: 0.6, side: THREE.DoubleSide })); tag.position.set(0.05, -0.03, 0); key.add(tag);
+    key.position.set(CAFE_KEY.x + 0.48, Y + 1.25, CAFE_KEY.z); key.rotation.y = Math.PI / 2; scene.add(key); out.cafeKey = key;
+    out.interact.push({ kind: 'cafekey', x: CAFE_KEY.x + 0.45, y: Y + 1.2, z: CAFE_KEY.z });
+  }
   prop('lifebuoy', -33.4, -4 + 1.2, 23.86, face(0, -1), { w: 0.7 }); prop('life_jacket', -31.6, -4 + 1.1, 23.86, face(0, -1), { h: 0.8 });
   prop('WetFloorSign_01', -28.0, -4, 8.2, 2.4, { h: 0.62 }); prop('WetFloorSign_01', -30.0, -4, -7.2, 0.7, { h: 0.62 });
   prop('korean_fire_extinguisher_01', -12.4, -4, -5.6, face(-1, 1), { h: 0.6 }); prop('fire_alarm', -16.11, -4 + 1.35, 3.0, face(-1, 0), { h: 0.14 });

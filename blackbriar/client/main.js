@@ -1,10 +1,10 @@
 // AFTER HOURS: BLACKBRIAR HIGH — client
 import * as THREE from 'three';
 import { CONFIG } from '../shared/config.js';
-import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng, initialMask } from '../shared/level.js';
+import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng, initialMask, MANNEQUIN_SPOTS } from '../shared/level.js';
 import { Sim, clockText, gameClock, vacStats, mopStats, inOffice } from '../shared/sim.js';
 import { buildWorld, makeVacuumModel, makeMopModel, makeCartModel, makeRoombaModel } from './world.js';
-import { loadModels, makeMonitor, makeWorker } from './models.js';
+import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd } from './models.js';
 import { loadProps } from './props.js';
 import { makePost } from './post.js';
 import { Audio3D } from './audio.js';
@@ -59,6 +59,7 @@ async function boot() {
   mirror = new Sim(null);
   buildDebris(); buildMasks(); buildFX(); buildViewmodels(); buildCCTV();
   if (monitorAvailable()) { monitor = makeMonitor(); monitor.root.position.set(47.5, 0, 11); scene.add(monitor.root); }
+  try { buildMannequinCrowd(scene, MANNEQUIN_SPOTS, -4); } catch (e) { console.warn('mannequin crowd', e); }
   initScares({ scene, camera, P, audio, bake: W.bake, doors: () => mirror.doors, makeGhost: () => monitorAvailable() ? makeMonitor() : null, onSeen: () => { dread = Math.min(1, dread + 0.35); }, lightAt: (x, z) => { let k = 0; const t = performance.now() / 1000; for (const L of LIGHTS) { const d = Math.hypot(L.x - x, L.z - z); if (d < 5) k += fixtureLevel(L, t) * (1 - d / 5); } return Math.min(1, k); } });
   // reflection environment captured from the hallway itself
   placePool(14, 1.8, true);
@@ -299,6 +300,7 @@ function promptFor(it) {
     case 'cartbucket': case 'bucket': return inv.mop ? `${K} Rinse the mop (${Math.round(mopDirt * 100)}% dirty)` : null;
     case 'roomba': return it.mine ? `${K} Set the robot vacuum down here` : it.state === 'full' ? `${K} Pick up and empty the robot (${it.bag})` : `${K} Pick up the robot vacuum`;
     case 'desk': return `${K} Search the teacher's desk`;
+    case 'cafekey': return keys2.cafekey ? null : `${K} Take the key`;
   }
 }
 let reviveHold = 0;
@@ -319,6 +321,7 @@ function interact(it, held) {
     case 'cartbucket': case 'bucket': net.send({ t: 'rinse' }); break;
     case 'roomba': net.send({ t: 'roomba', id: it.id }); break;
     case 'desk': net.send({ t: 'desk' }); break;
+    case 'cafekey': net.send({ t: 'cafekey' }); break;
   }
 }
 
@@ -466,7 +469,7 @@ function onMessage(m) {
     case 'maskset': applyMaskSet(m); break;
     case 'mopdirt': mopDirt = m.v; if (m.rinsed) { mopWarned = false; toast('Mop rinsed and wrung out.'); audio.noise({ f: 700, f2: 300, q: 0.7, v: 0.12, d: 0.9, wet: 0.4 }); } break;
     case 'cart': cart = { x: m.x, z: m.z, yaw: m.yaw, holder: m.holder }; break;
-    case 'keys': keys2 = m.keys; updatePlate(); toast('Found a key ring tagged STAIRWELL W. The chained doors at the west end of the hall.'); break;
+    case 'keys': { const fresh = m.keys.cafekey && !keys2.cafekey; keys2 = m.keys; updatePlate(); if (!fresh) toast('Found a key ring tagged STAIRWELL W. The chained doors at the west end of the hall.'); break; }
     case 'found': found = m.found; break;
     case 'sold': toast(`Lost & Found paid $${m.total.toFixed(2)} for ${m.n} item${m.n > 1 ? 's' : ''}.`); audio.reward(); renderOSApp(); break;
     case 'door': setDoor(m.id, { open: m.open, bolted: m.bolted }); mirror.doors[m.id] = { open: m.open, bolted: m.bolted }; break;
@@ -533,7 +536,7 @@ const nameOf = (id) => (crewSnap.find(c => c.pid === id) || {}).name || 'A crewm
 // ======================= doors / lockers visuals =======================
 function setDoor(id, st, snap) { const D = W.doors[id]; if (!D) return; const prev = D.target; D.target = st.open ? (D.d.swing || 1) * 1.65 : 0; D.bolted = st.bolted; if (snap) D.angle = D.target; else if (prev !== D.target) audio.door({ x: D.pivot.position.x, y: 1.2, z: D.pivot.position.z }, st.open, D.d.kind === 'steel'); if (D.bolt && !snap && D.boltOn !== st.bolted) audio.bolt({ x: 21.7, y: 1.3, z: 3.7 }, st.bolted); D.boltOn = st.bolted; }
 function setLocker(id, st, snap) { const L = W.lockers[id]; if (!L) return; L.target = st.open ? -1.9 : 0; if (snap) L.angle = L.target; else audio.locker({ x: L.L.x, y: 1.5, z: L.L.z }, st.open); if (L.item && st.searched) L.item.visible = false; }
-function updatePlate() { if (!W) return; if (W.chain) W.chain.visible = !keys2.stairkey; const legible = day >= 2; W.plate014.material.color.setScalar(legible ? 1.25 : 1); W.plate014.scale.setScalar(legible ? 1.05 : 1); }
+function updatePlate() { if (!W) return; if (W.chain) W.chain.visible = !keys2.stairkey; if (W.cafeKey) W.cafeKey.visible = !keys2.cafekey; const legible = day >= 2; W.plate014.material.color.setScalar(legible ? 1.25 : 1); W.plate014.scale.setScalar(legible ? 1.05 : 1); }
 
 // ======================= remote players =======================
 const REMOTE = new Map();
@@ -580,11 +583,13 @@ function updateMonitor(dt, t) {
   const m = monitor;
   m.root.position.set(s.x, groundY(s.x, s.z), s.z); m.root.rotation.y = s.yaw;
   const sp = monLast ? Math.hypot(s.x - monLast.x, s.z - monLast.z) / Math.max(dt, 1e-3) : 0; monLast = { x: s.x, z: s.z };
-  const modeA = s.st === 'chase' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
+  const modeR = s.st === 'chase' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
+  monStillT = modeR === 'idle' && s.st !== 'chase' ? monStillT + dt : 0;
+  const modeA = monStillT > 0.5 ? 'still' : modeR; // standing still it takes the same display pose as the stored mannequins
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
   m.scr = s.st === 'chase' ? 0.85 : s.st === 'watch' ? 0.35 : 0.12;
   if (s.fr && scareT <= 0) { m.frozen = true; } else { m.frozen = false; }
-  if (!m.frozen) m.update(dt, scareT > 0 ? "idle" : modeA, clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, scareT > 0 ? 0 : rel);
+  if (!m.frozen || !m.posed) m.posed = true, m.update(dt, scareT > 0 ? "idle" : modeA, clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, scareT > 0 ? 0 : rel);
   monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: 0.1, z: s.z }); }
   const d = Math.hypot(s.x - P.x, s.z - P.z);
   if (audio.breath) { audio.breath.move(s.x, 1.9, s.z); audio.breath.g.gain.value = lerp(audio.breath.g.gain.value, d < 10 && s.st !== 'dormant' ? 0.14 * (1 - d / 10) : 0, 0.05); }
@@ -593,7 +598,7 @@ function updateMonitor(dt, t) {
   if (s.st !== 'dormant' && d > 14 && Math.random() < dt * 0.02) audio.drag({ x: s.x, y: 0.2, z: s.z });
   dread = clamp(dread + (d < 12 && s.st !== 'dormant' && s.st !== 'retreat' ? (s.st === 'chase' ? 0.6 : 0.2) * dt : -0.15 * dt), 0, 1);
 }
-let dread = 0;
+let dread = 0, monStillT = 0;
 let pendingTP = null, scareTP = null;
 function applyTP(m) { P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; }
 function jumpscare() {
@@ -616,7 +621,7 @@ function renderCCTV(dt) {
   const near = Math.hypot(P.x - 24, P.z - 6.5) < 6 || ui === 'os'; if (!near || NORENDER) return;
   CCTV.t += dt; if (CCTV.t < (ui === 'os' ? 0.12 : 0.25)) return; CCTV.t = 0;
   const cam = CCTV.cams[CCTV.i].c; const vis = VM.vac.root.visible, vis2 = VM.mop.root.visible; VM.vac.root.visible = VM.mop.root.visible = false;
-  flash.visible = false; renderer.setRenderTarget(CCTV.rt); renderer.render(scene, cam); renderer.setRenderTarget(null); flash.visible = true; VM.vac.root.visible = vis; VM.mop.root.visible = vis2;
+  flash.visible = false; W.cctvScreen.visible = false; renderer.setRenderTarget(CCTV.rt); renderer.render(scene, cam); renderer.setRenderTarget(null); flash.visible = true; W.cctvScreen.visible = true; VM.vac.root.visible = vis; VM.mop.root.visible = vis2;
   if (ui === 'os' && osApp === 'cctv.exe') { const cv = $('cctvCanvas'); if (cv) { renderer.readRenderTargetPixels(CCTV.rt, 0, 0, 256, 192, CCTV.px); const x = cv.getContext('2d'), img = x.createImageData(256, 192); for (let j = 0; j < 192; j++) { const src = (191 - j) * 256 * 4; img.data.set(CCTV.px.subarray(src, src + 1024), j * 1024); } for (let i = 0; i < img.data.length; i += 4) { const l = img.data[i] * 0.3 + img.data[i + 1] * 0.59 + img.data[i + 2] * 0.11; img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.min(255, l * 1.6 + Math.random() * 18); } x.putImageData(img, 0, 0); x.fillStyle = '#fff'; x.font = '12px monospace'; x.fillText(`CAM ${CCTV.i + 1} ${CCTV.cams[CCTV.i].n}  ${clockText(shiftT)}  LIVE`, 6, 14); } }
 }
 

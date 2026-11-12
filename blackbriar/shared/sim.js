@@ -2,7 +2,7 @@
 // All shared progress (money, debris, dirt masks, doors, discoveries, upgrades, clock, the Monitor) lives here.
 import { CONFIG } from './config.js';
 import {
-  ROOMS, DOORS, LOCKERS, SEARCHABLE, TEACHER_DESK, BUCKET, CART_HOME, ROOMBA_DOCK, groundY, DEBRIS, DEBRIS_TOTAL_BY_ROOM, PATCHES, initialMask, CLUE_SPOT, CLUES, BINS, TOOL_RACK,
+  ROOMS, DOORS, LOCKERS, SEARCHABLE, TEACHER_DESK, CAFE_KEY, BUCKET, CART_HOME, ROOMBA_DOCK, groundY, DEBRIS, DEBRIS_TOTAL_BY_ROOM, PATCHES, initialMask, CLUE_SPOT, CLUES, BINS, TOOL_RACK,
   COMPUTER, COT, VENT, SPAWN, LIGHTS, PATROL, WATCH_POINTS, LAIR, roomAt, progressRoom, solidRects, segBlocked, wallsBetween,
   buildNav, findPath, doorCenter, rng,
 } from './level.js';
@@ -66,7 +66,7 @@ export class Sim {
   load(s) {
     if (!s || s.v !== CONFIG.saveVersion) throw new Error('Unsupported save version ' + (s && s.v));
     this.day = s.day; this.money = s.money; this.shiftT = s.shiftT; this.phase = s.phase;
-    const c = b64dec(s.collected); if (c.length === DEBRIS.length) this.collected = c;
+    const c = b64dec(s.collected); if (c.length === DEBRIS.length) this.collected = c; else if (c.length < DEBRIS.length) this.collected.set(c); // new areas were added since this save
     for (const [k, v] of Object.entries(s.masks || {})) { const m = b64dec(v); if (this.masks[k] && m.length === this.masks[k].length) { this.masks[k] = m; this.maskSum[k] = m.reduce((a, b) => a + b, 0); } }
     Object.assign(this.doors, s.doors || {}); this.lockers = s.lockers || {};
     this.discoveries = s.discoveries || []; this.purchased = s.purchased || []; this.roomBonus = s.roomBonus || {}; this.inv = s.inv || {};
@@ -194,6 +194,12 @@ export class Sim {
         if (r.holder === pid) { // set it down where you stand; it starts cleaning
           r.holder = null; r.x = p.x + Math.sin(p.yaw) * -0.6; r.z = p.z + Math.cos(p.yaw) * -0.6; r.state = r.bag >= CONFIG.roomba.bag ? 'full' : 'run'; r.yaw = p.yaw + Math.PI; this.emit({ t: 'toast', msg: r.state === 'full' ? 'Its bin is full. Pick it up again to empty it.' : 'The robot vacuum chirps and sets off.' }, { to: pid });
         } else if (!r.holder && near(r.x, r.z, 1.8)) { if (r.bag) { this.emit({ t: 'toast', msg: `You empty the robot (${r.bag} pieces).` }, { to: pid }); r.bag = 0; } r.holder = pid; r.state = 'carried'; }
+        return;
+      }
+      case 'cafekey': {
+        if (!near(CAFE_KEY.x, CAFE_KEY.z, 2.0)) return;
+        if (this.keys.cafekey) return;
+        this.keys.cafekey = true; this.emit({ t: 'keys', keys: this.keys }); this.emit({ t: 'toast', msg: 'A key on a lanyard hangs from the lifeguard chair. The tag reads CAFETERIA — STORAGE.' }, { to: pid });
         return;
       }
       case 'desk': {
@@ -580,7 +586,7 @@ export class Sim {
       if (m.stateT > m.searchFor) { m.searchFor = undefined; this.setMon(lock ? 'patrol' : 'retreat', { retreatFor: C.retreatSeconds[0] + this.rand() * (C.retreatSeconds[1] - C.retreatSeconds[0]) }); m.lastEncounter = this.time; }
     } else if (st === 'retreat') {
       if (dist(m.x, m.z, LAIR.x, LAIR.z) > 0.6) { if (!m.path) this.planPath(LAIR.x, LAIR.z); this.followPath(C.speed.retreat * speedMul, dt, rects); }
-      else { m.moving = 0; }
+      else { m.moving = 0; m.yaw = turnTo(m.yaw, Math.PI, dt * 3); } // back in its place in the crowd, facing the room like the rest
       const crew = Math.max(1, alive.length);
       if (m.stateT > (m.retreatFor || 40) / (1 + 0.15 * (crew - 1))) this.setMon(peaceful ? 'dormant' : 'patrol');
       if (best && dist(m.x, m.z, best.x, best.z) < 4 && m.susp[best.pid] > 0.8) this.setMon('chase', { target: best.pid });
@@ -634,6 +640,7 @@ export class Sim {
     // checking doors: a closed, unbolted door on the way is opened by hand, with a pause
     for (const d of DOORS) {
       const s = this.doors[d.id], c = doorCenter(d);
+      if (d.lock && !this.keys[d.lock]) continue; // locked doors it simply passes (only ever while nobody is looking)
       if (!s.open && !s.bolted && dist(m.x, m.z, c.x, c.z) < 1.0) {
         m.doorWait += dt; m.moving = 0; if (m.doorWait > 0.9) { s.open = true; m.doorWait = 0; this.emit({ t: 'door', id: d.id, open: true, bolted: false, by: 'monitor' }); }
         return false;

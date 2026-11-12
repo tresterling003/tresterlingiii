@@ -23,7 +23,7 @@ I could not deploy from this sandbox: it has no outbound access to hosting provi
 
 ## What's in the building
 - **Upper floor:** red-locker hallway, Room 112, janitor closet, maintenance office, service corridor.
-- **Athletics floor (below):** gym, locker room, natatorium (pool). The west stairwell doors are chained; the key is in the teacher's desk in Room 112.
+- **Athletics floor (below):** gym, locker room, natatorium (pool), and a locked **cafeteria** where the display mannequins are stored (key: hanging on the lifeguard chair at the pool). The Monitor is one of them. The west stairwell doors are chained; the key is in the teacher's desk in Room 112.
 - **Janitor cart:** push it with E; empty the vacuum into its bag and rinse the mop in its bucket anywhere.
 - **Mop:** gets dirtier as it lifts mud, cleans worse, and past 75% smears dirt back down. Rinse at the closet bucket or the cart. Re-cleaning a smear never pays twice.
 - **Lockers:** about 60 open: loose change, or lost property to sell at `lostfound.exe`. Coins also lie on the floors (vacuum them: $0.25 each).
@@ -32,6 +32,7 @@ I could not deploy from this sandbox: it has no outbound access to hosting provi
 - **Scares:** something peeks at you from behind locker banks and corners and snaps out of sight the moment you notice it (running footsteps follow); a tall figure stands in far doorways; the power cuts out around you while the far end of the hall stays lit. Each worker gets their own apparitions; timing is decided by the server.
 - **Mopping:** cleaned floor gleams (lamps and your flashlight reflect in it), dirty floor stays dull under a grime film, and the wet trail dries slowly.
 - **Graphics:** real CC0 models and photo textures from Poly Haven (desks, chairs, shelving, safety gear, gym/pool/concrete floors), bloom, film grade, grain and vignette. Low quality skips post-processing.
+- **The Monitor** is a jointed display mannequin. While anyone has it in view it cannot move; when nobody is looking it moves, and in a chase it sprints faster than you. Standing still it takes the exact pose of the stored mannequins.
 - **Calm mode** (solo, off by default, tick it on the title screen): no monster or scares.
 
 ## Controls

@@ -18,9 +18,10 @@ export const ROOMS = {
   gym: { name: 'Gymnasium', x0: -40, z0: -14, x1: -16, z1: 6.25, ceil: 7.5, y: -4 },
   lockers: { name: 'Locker Room', x0: -26, z0: 6.25, x1: -16, z1: 16, ceil: 2.8, y: -4 },
   pool: { name: 'Natatorium', x0: -46, z0: 6.25, x1: -26, z1: 24, ceil: 6.5, y: -4 },
+  cafe: { name: 'Cafeteria', x0: -12, z0: 3.6, x1: 0, z1: 20, ceil: 4.0, y: -4 },
 };
 for (const r of Object.values(ROOMS)) if (r.y == null) r.y = 0;
-export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair'], athletics: ['lcorr', 'gym', 'lockers', 'pool'] };
+export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair'], athletics: ['lcorr', 'gym', 'lockers', 'pool', 'cafe'] };
 // walking height: the stairwell descends 4 m over 8 m of steps (x -2 -> -10)
 export function groundY(x, z) {
   const r = roomAt(x, z); if (!r) return x < -0.05 && z > 0 && z < 3.6 ? 0 : (x < -12 ? -4 : 0);
@@ -45,6 +46,7 @@ export const DOORS = [
   { id: 'd_gym', axis: 'z', x: -16, a0: -2.0, a1: -0.8, hinge: 0, swing: 1, kind: 'classroom', label: 'GYM', y: -4 },
   { id: 'd_lockers', axis: 'z', x: -16, a0: 9.0, a1: 10.0, hinge: 0, swing: 1, kind: 'closet', label: 'LOCKERS', y: -4 },
   { id: 'd_pool', axis: 'z', x: -26, a0: 10.0, a1: 11.0, hinge: 0, swing: 1, kind: 'service', label: 'POOL', y: -4 },
+  { id: 'd_cafe', axis: 'z', x: -12, a0: 7.0, a1: 8.2, hinge: 0, swing: -1, kind: 'steel', label: 'CAFETERIA', y: -4, lock: 'cafekey' },
 ];
 for (const d of DOORS) if (d.y == null) d.y = 0;
 export const WINDOWS = [
@@ -83,7 +85,9 @@ export const WALLS = [
   // west stairwell: 7 m tall shaft from the athletics floor (-4) up past the hallway ceiling
   ...hwall(0.4, -12, 0, [], 7, -4), ...hwall(3.2, -12, 0, [], 7, -4),
   // athletics floor (base -4)
-  ...vwall(-12, -6.1, 12.1, [[0.4, 3.2]], 3, -4), ...hwall(-6, -16.1, -11.9, [], 3, -4), ...hwall(12, -16.1, -11.9, [], 3, -4),
+  ...vwall(-12, -6.1, 12.1, [[0.4, 3.2], [7.0, 8.2]], 3, -4),
+  // cafeteria (locked; the mannequins are kept here)
+  ...vwall(-12, 12, 20.1, [], 4, -4), ...hwall(3.6, -12.1, 0.1, [], 4, -4), ...vwall(0, 3.6, 20.1, [], 4, -4), ...hwall(20, -12.1, 0.1, [], 4, -4), ...hwall(-6, -16.1, -11.9, [], 3, -4), ...hwall(12, -16.1, -11.9, [], 3, -4),
   ...vwall(-16, -14.1, 16.1, [[-2.0, -0.8], [9.0, 10.0]], 7.5, -4),
   ...hwall(-14, -40.1, -15.9, [], 7.5, -4), ...vwall(-40, -14.1, 6.25, [], 7.5, -4),
   ...hwall(6.25, -46.1, -15.9, [], 7.5, -4),
@@ -135,6 +139,15 @@ export const LOOT_ITEMS = [['Yo-yo', 1], ['Calculator', 4], ['Walkman', 7], ['Pa
   }
 })();
 export const TEACHER_DESK = { x: 9.8, z: -7.55 };
+// display mannequins stored in the cafeteria: rows along the east wall, a crowd by the serving line, a few among the tables.
+// yaw is the way each one faces; pose picks one of the baked poses. The Monitor's lair is a gap in the crowd.
+export const MANNEQUIN_SPOTS = (() => {
+  const R = rng(4242), out = [];
+  for (let k = 0; k < 13; k++) out.push({ x: -0.75, z: 4.6 + k * 1.05, yaw: -Math.PI / 2 + (R() - 0.5) * 0.3, pose: k % 3 });
+  for (let k = 0; k < 11; k++) { const x = -10.8 + (k % 6) * 1.25 + (R() - 0.5) * 0.3, z = k < 6 ? 17.4 : 16.3; if (Math.hypot(x + 7.7, z - 17.2) < 0.9) continue; out.push({ x, z, yaw: Math.PI + (R() - 0.5) * 0.6, pose: (k + 1) % 3 }); }
+  for (const [x, z] of [[-11.2, 5.0], [-7.7, 11.0], [-4.3, 10.6], [-11.1, 13.6], [-4.3, 16.1], [-1.8, 18.9], [-8.2, 4.6]]) out.push({ x, z, yaw: R() * 6.283, pose: (R() * 3) | 0 });
+  return out;
+})();
 export const FURNITURE = (() => {
   const f = [];
   for (const [side, a0, a1] of LOCKER_RUNS) {
@@ -173,6 +186,10 @@ export const FURNITURE = (() => {
   f.push({ kind: 'blockers', x0: -25.9, z0: 15.3, x1: -18.5, z1: 15.85, h: 1.9, y0: -4 });
   f.push({ kind: 'pool', x0: -41, z0: 10, x1: -31, z1: 21, h: 0.05, y0: -4 });
   f.push({ kind: 'lifeguard', x0: -29.3, z0: 14.6, x1: -28.4, z1: 15.6, h: 2.2, y0: -4 });
+  // cafeteria: fold-out tables with benches, the serving line, and a crowd of display mannequins in storage
+  for (const x of [-9.4, -6.0, -2.6]) for (const [z0, z1] of [[6.2, 9.6], [12.0, 15.4]]) f.push({ kind: 'cafetable', x0: x - 0.75, z0, x1: x + 0.75, z1, h: 0.78, y0: -4 });
+  f.push({ kind: 'serving', x0: -10.4, z0: 18.7, x1: -3.0, z1: 19.6, h: 1.05, y0: -4 });
+  for (const m of MANNEQUIN_SPOTS) f.push({ kind: 'mannequin', x0: m.x - 0.24, z0: m.z - 0.24, x1: m.x + 0.24, z1: m.z + 0.24, h: 1.95, y0: -4 });
   for (const f0 of f) if (f0.y0 == null) f0.y0 = 0;
   return f;
 })();
@@ -213,12 +230,13 @@ export const LIGHTS = (() => {
   for (const z of [-3, 4, 10]) L.push({ x: -14, z, y: -1.05, state: z === 4 ? 'off' : 'on', room: 'lcorr', color: 0xf2f4ff, i: 0.9 });
   for (const x of [-35, -28, -21]) for (const z of [-8, 1]) L.push({ x, z, y: 3.4, state: x === -28 && z === 1 ? 'flicker' : 'on', room: 'gym', color: 0xfff4e0, i: 2.2, high: true });
   for (const x of [-23, -19]) L.push({ x, z: 11.5, y: -1.25, state: x === -19 ? 'flicker' : 'on', room: 'lockers', color: 0xe8f4ff, i: 0.8 });
+  for (const x of [-9, -3]) for (const z of [6.5, 11.5, 16.5]) L.push({ x, z, y: -0.08, state: x === -3 && z === 11.5 ? 'off' : x === -9 && z === 16.5 ? 'flicker' : 'on', room: 'cafe', color: 0xf4f0e2, i: 0.85 });
   for (const x of [-42, -34]) for (const z of [11, 19]) L.push({ x, z, y: 2.4, state: x === -42 && z === 19 ? 'off' : 'on', room: 'pool', color: 0xe8f8ff, i: 1.6, high: true });
   return L;
 })();
 
 // ---------- the Monitor's waypoints ----------
-export const PATROL = [[-14, 4], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
+export const PATROL = [[-14, 4], [-6, 11], [-3, 6], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
 export const WATCH_POINTS = [
   { x: 14, z: -0.9, yaw: 0, note: 'classroom glass' },        // inside 112, looking out through the glass
   { x: 14, z: 1.0, yaw: Math.PI, note: 'hall at glass' },     // hallway, looking in
@@ -226,7 +244,8 @@ export const WATCH_POINTS = [
   { x: 42, z: 0.5, yaw: -Math.PI / 2, note: 'service door' },
   { x: 21.5, z: 2.2, yaw: 0, note: 'outside office' },
 ];
-export const LAIR = { x: 47.5, z: 11.0 };
+export const LAIR = { x: -7.7, z: 17.2 }; // it waits among the mannequins in the cafeteria
+export const CAFE_KEY = { x: -28.85, z: 15.1 }; // on the lifeguard chair at the pool
 
 // ---------- clues ----------
 export const CLUES = {
@@ -261,6 +280,7 @@ export const DEBRIS = (() => {
     { room: 'pool', x0: -45.6, z0: 6.6, x1: -26.4, z1: 9.8, n: 260 },
     { room: 'pool', x0: -45.6, z0: 21.2, x1: -26.4, z1: 23.6, n: 220 },
     { room: 'pool', x0: -30.8, z0: 9.8, x1: -26.4, z1: 21.2, n: 200 },
+    { room: 'cafe', x0: -11.75, z0: 3.85, x1: -0.25, z1: 18.5, n: 700 },
   ];
   for (const a of areas) {
     // clumps make satisfying drifts; the rest is scattered
