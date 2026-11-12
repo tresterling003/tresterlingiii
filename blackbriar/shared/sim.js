@@ -393,7 +393,7 @@ export class Sim {
   }
   snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT, cart: [this.cart.x, this.cart.z, this.cart.yaw, this.cart.holder], rb: this.roombas.map(r => [r.id, +r.x.toFixed(3), +r.z.toFixed(3), +r.yaw.toFixed(3), r.state, r.holder, r.bag]) }); } }
   snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
-  snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible } : null; }
+  snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible, fr: m.frozen ? 1 : 0 } : null; }
   save(reason) { if (this.opts.onSave) this.opts.onSave(this.serialize(), reason); }
   endShift(failed, clockedOut = false) {
     if (this.phase === 'summary') return;
@@ -511,6 +511,11 @@ export class Sim {
     }
     this.noises = [];
     if (best) m.lastKnown = { x: best.x, z: best.z, t: this.time };
+    // ---- the mannequin rule: while any worker has it in view it cannot move; look away and it comes, fast ----
+    const wasFrozen = m.frozen; m.frozen = false;
+    if (m.state !== 'dormant') for (const p of alive) if (this.playerSees(p, m, rects)) { m.frozen = true; break; }
+    if (m.frozen) { m.moving = 0; if (!wasFrozen) this.emit({ t: 'monfreeze', on: 1 }); this.noises = []; return; }
+    if (wasFrozen) this.emit({ t: 'monfreeze', on: 0, x: m.x, z: m.z });
     // ---- pacing director: recovery time after an encounter; no hunting during the peaceful opening ----
     const recovering = !lock && this.time - m.lastEncounter < 30;
     const speedMul = lock ? C.lockdownSpeedMul : 1;
@@ -558,7 +563,7 @@ export class Sim {
         if (!m.path || m.pathT > 0.35) { m.pathT = 0; this.planPath(m.lastKnown.x, m.lastKnown.z); }
         const blocked = !m.path;
         if (blocked) { m.moving = 0; m.blockedT = (m.blockedT || 0) + dt; this.bangDoor(dt); if (m.blockedT > 6) this.setMon('search'); }
-        else { m.blockedT = 0; this.followPath(C.speed.chase * speedMul, dt, rects); }
+        else { m.blockedT = 0; this.followPath(C.speed.chase * C.unseenSprint * speedMul, dt, rects); }
         m.lookX = tgt.x; m.lookZ = tgt.z;
         if (dist(m.x, m.z, tgt.x, tgt.z) < C.catchRadius && !segBlocked(m.x, m.z, tgt.x, tgt.z, rects)) this.catchPlayer(tgt);
         else if (m.lostT > C.loseSightSeconds) this.setMon('search', { searchFor: C.searchSeconds });
@@ -586,6 +591,14 @@ export class Sim {
       const inside = alive.some(p => inOffice(p));
       if (inside) { m.bangT -= dt; if (m.bangT < 0 && dist(m.x, m.z, 21.5, 2.2) < 9) { m.bangT = 20 + this.rand() * 20; this.emit({ t: 'sfx', k: 'doorbang', x: 21.5, z: 3.6 }); } }
     }
+  }
+  // a worker sees it: on screen (player cameras face -z at yaw 0), nothing solid between, and enough light to make it out
+  playerSees(p, m, rects) {
+    const d = dist(m.x, m.z, p.x, p.z); if (d > 34) return false;
+    const toMon = Math.atan2(m.x - p.x, m.z - p.z), facing = Math.atan2(-Math.sin(p.yaw || 0), -Math.cos(p.yaw || 0));
+    if (Math.abs(angDiff(facing, toMon)) > CONFIG.monitor.viewFreezeHalf && d > 1.2) return false;
+    if (segBlocked(p.x, p.z, m.x, m.z, rects, { sight: true })) return false;
+    return d < 3 || this.lightAt(m.x, m.z) > 0.12 || (p.fl && d < 15);
   }
   reactToSenses(best, heard, recovering, lock, already) {
     const m = this.mon;
@@ -627,12 +640,15 @@ export class Sim {
       }
       if (s.bolted && dist(m.x, m.z, c.x, c.z) < 0.9) { m.path = null; m.moving = 0; return false; }
     }
-    const [wx, wz] = m.path[0];
-    const dx = wx - m.x, dz = wz - m.z, d = Math.hypot(dx, dz);
-    if (d < 0.15) { m.path.shift(); return !m.path.length; }
-    const step = Math.min(d, speed * dt);
-    m.x += dx / d * step; m.z += dz / d * step; m.moving = speed;
-    m.yaw = turnTo(m.yaw, Math.atan2(dx, dz), dt * 6);
+    let left = speed * dt, dx = 0, dz = 0; // spend the whole step, across waypoints
+    while (left > 1e-6 && m.path.length) {
+      const [wx, wz] = m.path[0]; dx = wx - m.x; dz = wz - m.z; const d = Math.hypot(dx, dz);
+      if (d < 0.15) { m.path.shift(); if (d > 1e-6) { const k = Math.min(d, left); m.x += dx / d * k; m.z += dz / d * k; left -= k; } continue; }
+      const step = Math.min(d, left); m.x += dx / d * step; m.z += dz / d * step; left -= step;
+    }
+    m.moving = speed;
+    if (!m.path.length) return true;
+    if (dx || dz) m.yaw = turnTo(m.yaw, Math.atan2(dx, dz), dt * 6);
     m.lookX = m.x + Math.sin(m.yaw) * 3; m.lookZ = m.z + Math.cos(m.yaw) * 3;
     return false;
   }

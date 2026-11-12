@@ -42,6 +42,7 @@ export const CONFIG = {
   },
   // the Monitor
   monitor: {
+    unseenSprint: 1.4, viewFreezeHalf: 0.72, // chase speed x1.4 (faster than your sprint) whenever nobody is looking; ~41 degrees either side of your view centre counts as looking
     speed: { patrol: 1.1, investigate: 1.7, stalk: 1.05, chase: 4.3, search: 1.4, retreat: 1.6, watch: 0 },
     lockdownSpeedMul: 1.15,
     viewRange: 17, viewHalfAngleDeg: 58, closeSense: 2.2, catchRadius: 1.05,

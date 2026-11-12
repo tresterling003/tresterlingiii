@@ -125,3 +125,16 @@ t('scare director: personal scares in normal mode, none in calm mode', () => {
   assert.ok(count(false) >= 1); assert.equal(count(true), 0);
 });
 console.log('scare tests passed');
+t('mannequin: frozen while watched, sprints once you look away', () => {
+  const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
+  p.x = 30; p.z = 1.8; p.fl = 1; p.yaw = -Math.PI / 2; // facing +x, toward it, flashlight on
+  s.mon.x = 38; s.mon.z = 1.8; s.setMon('chase', { target: 'a', lostT: 0 }); s.mon.lastKnown = { x: 30, z: 1.8, t: 0 };
+  for (let i = 0; i < 30; i++) { s.tick(0.1); s.out = []; }
+  assert.equal(s.mon.x, 38, 'did not move while watched'); assert.ok(s.mon.frozen);
+  p.yaw = Math.PI / 2; // turn around
+  const x0 = s.mon.x; s.tick(0.1); s.tick(0.1); s.tick(0.1); s.tick(0.1); s.tick(0.1);
+  const v = (x0 - s.mon.x) / 0.5; assert.ok(v > CONFIG.sprintSpeed, 'faster than a sprinting worker: ' + v.toFixed(2));
+  let caught = false; for (let i = 0; i < 60 && !caught; i++) { s.tick(0.1); caught = s.out.some(o => o.ev.t === 'caught'); s.out = []; }
+  assert.ok(caught, 'caught from behind');
+});
+console.log('mannequin tests passed');

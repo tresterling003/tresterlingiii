@@ -482,6 +482,7 @@ function onMessage(m) {
     case 'buyfail': osNote = m.msg; renderOSApp(); break;
     case 'roomdone': centerMsg(`${m.name.toUpperCase()} RESTORED`, `+$${m.bonus.toFixed(2)} completion bonus`, 3); audio.reward(); break;
     case 'phase': phase = m.phase; if (phase === 'lockdown') { centerMsg('4:00 AM', inOffice(P) && mirror.doors.d_office.bolted ? 'Stay quiet. Stay inside.' : 'GET TO THE OFFICE. BOLT THE DOOR.', 4); audio.sting(); } break;
+    case 'monfreeze': if (!m.on && !CALM && monitor) { const p = { x: m.x, y: 1.2, z: m.z }; audio.tone({ f: 380 + Math.random() * 120, f2: 140, type: 'triangle', v: 0.09, d: 0.07, pos: p, wet: 0.5 }); audio.tone({ f: 240, f2: 90, type: 'triangle', v: 0.07, d: 0.06, delay: 0.09, pos: p, wet: 0.5 }); } break;
     case 'monstate': monState = m.st; if (m.st === 'chase') audio.sting(monitor ? monitor.root.position : null); break;
     case 'caught': if (m.pid === pid) jumpscare(); break;
     case 'downed': if (m.pid === pid) centerMsg('YOU ARE DOWN', 'A crewmate can help you up. Hold on.', 4); else toast(`${nameOf(m.pid)} is down! Get to them and hold E.`); break;
@@ -582,7 +583,8 @@ function updateMonitor(dt, t) {
   const modeA = s.st === 'chase' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
   m.scr = s.st === 'chase' ? 0.85 : s.st === 'watch' ? 0.35 : 0.12;
-  m.update(dt, scareT > 0 ? "idle" : modeA, clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, scareT > 0 ? 0 : rel);
+  if (s.fr && scareT <= 0) { m.frozen = true; } else { m.frozen = false; }
+  if (!m.frozen) m.update(dt, scareT > 0 ? "idle" : modeA, clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, scareT > 0 ? 0 : rel);
   monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: 0.1, z: s.z }); }
   const d = Math.hypot(s.x - P.x, s.z - P.z);
   if (audio.breath) { audio.breath.move(s.x, 1.9, s.z); audio.breath.g.gain.value = lerp(audio.breath.g.gain.value, d < 10 && s.st !== 'dormant' ? 0.14 * (1 - d / 10) : 0, 0.05); }
