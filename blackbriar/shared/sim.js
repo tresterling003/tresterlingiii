@@ -281,7 +281,6 @@ export class Sim {
         return;
       }
       case 'unhide': { if (!p.hidden) return; const L = LOCKERS.find(l => l.id === p.hidden); p.hidden = null; if (L) { p.x = L.x; p.z = L.side === 'n' ? L.z + 0.55 : L.z - 0.55; p.teleportOk = true; this.emit({ t: 'teleport', x: p.x, z: p.z, yaw: L.side === 'n' ? Math.PI : 0 }, { to: pid }); } this.emit({ t: 'hidden', pid, on: 0 }); return; }
-      case 'blink': p.blinkT = 0.45; return;
       case 'retry': if (this.phase === 'gameover') this.restartNight(); return;
       case 'sleep': {
         if (this.phase !== 'summary') return;
@@ -397,7 +396,7 @@ export class Sim {
   }
   snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT, cart: [this.cart.x, this.cart.z, this.cart.yaw, this.cart.holder], rb: this.roombas.map(r => [r.id, +r.x.toFixed(3), +r.z.toFixed(3), +r.yaw.toFixed(3), r.state, r.holder, r.bag]) }); } }
   snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, hid: p.hidden ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
-  snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible, fr: m.frozen ? 1 : 0, tp: m.tpN || 0 } : null; }
+  snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible, fr: m.frozen ? 1 : 0, tp: m.tpN || 0, pz: m.pz || 0 } : null; }
   save(reason) { if (this.opts.onSave) this.opts.onSave(this.serialize(), reason); }
   endShift(failed, clockedOut = false) {
     if (this.phase === 'summary') return;

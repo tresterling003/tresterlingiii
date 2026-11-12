@@ -488,8 +488,7 @@ function onMessage(m) {
     case 'buyfail': osNote = m.msg; renderOSApp(); break;
     case 'roomdone': centerMsg(`${m.name.toUpperCase()} RESTORED`, `+$${m.bonus.toFixed(2)} completion bonus`, 3); audio.reward(); break;
     case 'phase': phase = m.phase; if (phase === 'lockdown') { centerMsg('4:00 AM', inOffice(P) && mirror.doors.d_office.bolted ? 'Stay quiet. Stay inside.' : 'GET TO THE OFFICE. BOLT THE DOOR.', 4); audio.sting(); } break;
-    case 'monfreeze': if (m.on && !CALM && monitor && performance.now() > screechT) { const d = Math.hypot(monitor.root.position.x - P.x, monitor.root.position.z - P.z); if (d < 6) { screechT = performance.now() + 9000; audio.sting(monitor.root.position); audio.tone({ f: 1900, f2: 2600, type: 'sawtooth', v: 0.05, d: 0.9, lp: 5000, wet: 0.6 }); audio.tone({ f: 2011, f2: 2500, type: 'sawtooth', v: 0.04, d: 0.9, lp: 5000, wet: 0.6 }); shake = Math.max(shake, 0.25); dread = Math.min(1, dread + 0.5); } }
-      if (!m.on && !CALM && monitor) { const p = { x: m.x, y: 1.2, z: m.z }; audio.tone({ f: 380 + Math.random() * 120, f2: 140, type: 'triangle', v: 0.09, d: 0.07, pos: p, wet: 0.5 }); audio.tone({ f: 240, f2: 90, type: 'triangle', v: 0.07, d: 0.06, delay: 0.09, pos: p, wet: 0.5 }); } break;
+    case 'monfx': if (!CALM && monitor) monFX(m); break;
     case 'monstate': monState = m.st; break;
     case 'caught': if (m.pid === pid) jumpscare(); break;
     case 'downed': if (m.pid === pid) centerMsg('YOU ARE DOWN', 'A crewmate can help you up. Hold on.', 4); else toast(`${nameOf(m.pid)} is down! Get to them and hold E.`); break;
@@ -499,8 +498,7 @@ function onMessage(m) {
     case 'teleport': { const mm = m; pendingTP = mm; setTimeout(() => { if (pendingTP === mm && scareT <= 0) { applyTP(mm); pendingTP = null; } }, 0); break; }
     case 'summary': summary = m.summary; showSummary(m.summary); break;
     case 'scare': if (CALM || ui) break; if (m.k === 'watcher') spawnWatcher(m.seed); else if (m.k === 'lightsout') startLightsOut(m); break;
-    case 'hunt': if (CALM) break; if (m.on) { huntFlickerT = 2.8; dread = 1; audio.sting(monitor ? monitor.root.position : null); audio.tone({ f: 46, f2: 30, v: 0.5, d: 1.6, lp: 220, wet: 0.5 }); showPA(m.provoked ? 'You were told not to stare.' : 'Attendance.');
-        if (m.pid === pid) centerMsg(firstHunt ? 'IT IS HUNTING YOU' : 'IT IS COMING', firstHunt ? 'It only moves while nobody is looking. Hide in a hall locker [H], or get to the office.' : '', 4); else toast(`It is hunting ${nameOf(m.pid)}.`); firstHunt = false; } break;
+    case 'hunt': if (CALM) break; if (m.on) { dread = Math.max(dread, 0.7); if (m.loud) { huntFlickerT = 1.2 + Math.random() * 2.4; audio.sting(monitor ? monitor.root.position : null); audio.tone({ f: 46, f2: 30, v: 0.5, d: 1.6, lp: 220, wet: 0.5 }); if (Math.random() < 0.5) showPA(['Attendance.', 'Remain in your seats.', 'Roll call.'][(Math.random() * 3) | 0]); } } break;
     case 'prank': if (!CALM) prankFX(m); break;
     case 'gameover': showGameOver(m); break;
     case 'hidden': if (m.pid === pid) setHidden(m.on ? m.id : null); break;
@@ -591,14 +589,17 @@ function updateMonitor(dt, t) {
   if (CALM) { monitor.root.visible = false; dread = 0; return; }
   const s = sampleBuf(monSnap, 120); if (!s) return;
   const m = monitor;
-  m.root.position.set(s.x, groundY(s.x, s.z), s.z); m.root.rotation.y = s.yaw;
+  const pz = s.pz || 0, gyM = groundY(s.x, s.z), rmM = ROOMS[roomAt(s.x, s.z)];
+  m.root.position.set(s.x, pz === 2 ? gyM + (rmM ? rmM.ceil : 2.9) : gyM, s.z); m.root.rotation.set(0, s.yaw, pz === 2 ? Math.PI : 0);
   const sp = monLast ? Math.hypot(s.x - monLast.x, s.z - monLast.z) / Math.max(dt, 1e-3) : 0; monLast = { x: s.x, z: s.z };
   const modeR = s.st === 'hunt' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
   monStillT = modeR === 'idle' && s.st !== 'hunt' ? monStillT + dt : 0; monMoving = sp > 0.2;
-  const modeA = monStillT > 0.5 ? 'still' : modeR; // standing still it takes the same display pose as the stored mannequins
+  const modeA = pz ? 'crawl' : monStillT > 0.5 ? 'still' : modeR; // standing still it takes the same display pose as the stored mannequins
+  if (pz && sp > 0.4 && !s.fr) { scuttleT -= dt; if (scuttleT <= 0) { scuttleT = 0.045 + Math.random() * 0.07; audio.tone({ f: 1800 + Math.random() * 1600, f2: 900, type: 'triangle', v: 0.05, d: 0.025, pos: { x: s.x, y: m.root.position.y, z: s.z }, wet: 0.35 }); } }
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
   m.scr = s.st === 'hunt' ? 0.85 : s.st === 'watch' ? 0.35 : 0.12;
   if (s.fr && scareT <= 0) { m.frozen = true; } else { m.frozen = false; }
+  if (m.lastPz !== pz) { m.lastPz = pz; m.posed = false; }
   if (!m.frozen || !m.posed) m.posed = true, m.update(dt, scareT > 0 ? "idle" : modeA, clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, scareT > 0 ? 0 : rel);
   monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: 0.1, z: s.z }); }
   const d = Math.hypot(s.x - P.x, s.z - P.z);
@@ -610,7 +611,7 @@ function updateMonitor(dt, t) {
   if (audio.dreadG) audio.dreadG.gain.value = lerp(audio.dreadG.gain.value, dread * 0.32, 0.03);
   dread = clamp(dread + (d < 12 && s.st !== 'dormant' && s.st !== 'retreat' ? (s.st === 'hunt' ? 0.6 : 0.2) * dt : -0.15 * dt), 0, 1);
 }
-let dread = 0, monStillT = 0, monMoving = false, heartT = 0, screechT = 0;
+let scuttleT = 0, dread = 0, monStillT = 0, monMoving = false, heartT = 0, screechT = 0;
 let pendingTP = null, scareTP = null;
 // ---------------- stalker feedback: hunts, pranks, static, hiding, the siege, game over ----------------
 let firstHunt = true, huntFlickerT = 0, staticLvl = 0, blinkT = 0, hidden = null, siege = null, holdingDoor = false, gameOverOn = false;
@@ -625,6 +626,13 @@ function setHidden(id) {
   if (hidden === id) return; hidden = id; $('lockerView').hidden = !id;
   if (id) { const L = LOCKERS.find(l => l.id === id); P.yaw = L.side === 'n' ? Math.PI : 0; P.pitch = 0; audio.locker({ x: L.x, y: 1.5, z: L.z }, false); audio.tone({ f: 120, f2: 80, v: 0.12, d: 0.3, lp: 400 }); }
 }
+function monFX(m) {
+  const pos = { x: m.x, y: groundY(m.x, m.z) + 1.2, z: m.z }, d = Math.hypot(m.x - P.x, m.z - P.z);
+  if (m.k === 'unfreeze') { audio.tone({ f: 380 + Math.random() * 120, f2: 140, type: 'triangle', v: 0.08, d: 0.07, pos, wet: 0.5 }); }
+  else if (m.k === 'freeze' && d < 5 && performance.now() > screechT && Math.random() < 0.6) { screechT = performance.now() + 12000; audio.sting(pos); shake = Math.max(shake, 0.2); dread = Math.min(1, dread + 0.4); }
+  else if (m.k === 'twitch') { audio.noise({ f: 2600, q: 2, v: 0.4, d: 0.05, pos, wet: 0.4 }); audio.tone({ f: 140, f2: 60, type: 'triangle', v: 0.35, d: 0.09, pos, lp: 700, wet: 0.4 }); if (d < 8) shake = Math.max(shake, 0.12 + (8 - d) * 0.03); dread = 1; }
+  else if (m.k === 'drop') { for (let i = 0; i < 4; i++) audio.noise({ f: 2000 + Math.random() * 1500, q: 3, v: 0.3, d: 0.04, pos, wet: 0.4, delay: i * 0.07 + Math.random() * 0.04 }); audio.tone({ f: 90, f2: 50, v: 0.4, d: 0.25, pos, lp: 400, wet: 0.5 }); dread = Math.min(1, dread + 0.5); }
+}
 function prankFX(m) {
   const pos = { x: m.x, y: groundY(m.x, m.z) + 1.2, z: m.z }, near = Math.hypot(m.x - P.x, m.z - P.z);
   if (m.k === 'slam' || m.k === 'rip') { const L = W.lockers[m.id]; if (L) { L.angle = -1.8; L.target = -1.9; setTimeout(() => { L.target = 0; }, m.k === 'rip' ? 2500 : 220); } audio.noise({ f: 1300, q: 0.7, v: 0.45, d: 0.4, pos, wet: 0.7 }); audio.tone({ f: 180, f2: 80, v: 0.5, d: 0.5, pos, lp: 900, wet: 0.7, type: 'triangle' }); if (near < 9) shake = Math.max(shake, 0.4); }
@@ -633,6 +641,11 @@ function prankFX(m) {
   else if (m.k === 'breathe') { const bp = { x: P.x + Math.sin(P.yaw) * 0.6, y: groundY(P.x, P.z) + 1.7, z: P.z + Math.cos(P.yaw) * 0.6 }; for (let i = 0; i < 2; i++) audio.noise({ f: 650, f2: 420, q: 1.3, v: 0.3, d: 1.0, a: 0.4, pos: bp, wet: 0, delay: i * 1.6 }); dread = Math.min(1, dread + 0.3); }
   else if (m.k === 'roll') { for (let i = 0; i < 7; i++) audio.tone({ f: 1300 + Math.random() * 500, v: 0.03, d: 0.09, pos, type: 'triangle', delay: i * 0.13 }); }
   else if (m.k === 'prints') spawnPrints(m);
+  else if (m.k === 'skitter') { const n = 18 + ((Math.random() * 10) | 0); for (let i = 0; i < n; i++) { const k = i / n; audio.tone({ f: 2000 + Math.random() * 1800, f2: 1000, type: 'triangle', v: 0.06, d: 0.02, delay: k * 1.3 + Math.random() * 0.03, pos: { x: m.x + (m.x1 - m.x) * k, y: m.y, z: m.z + (m.z1 - m.z) * k }, wet: 0.3 }); } }
+  else if (m.k === 'runsteps') { for (let i = 0; i < 9; i++) { const k = i / 9; audio.step({ x: m.x + (m.x1 - m.x) * k, y: 0.1, z: m.z + (m.z1 - m.z) * k }, 1.4); } }
+  else if (m.k === 'thud') { audio.tone({ f: 70, f2: 35, v: 0.6, d: 0.5, pos, lp: 300, wet: 0.6 }); audio.noise({ f: 300, q: 1, v: 0.2, d: 0.3, pos, wet: 0.6 }); }
+  else if (m.k === 'giggle') { for (let i = 0; i < 5; i++) { const f = 900 + Math.random() * 300; audio.tone({ f, f2: f * 0.85, type: 'sine', v: 0.035, d: 0.09, delay: i * 0.13, pos, wet: 0.8 }); audio.noise({ f: f * 2, q: 5, v: 0.02, d: 0.08, delay: i * 0.13, pos, wet: 0.8 }); } }
+  else if (m.k === 'fake') { dread = 1; heartT = 0; const bp = { x: P.x + Math.sin(P.yaw) * 0.8, y: groundY(P.x, P.z) + 1.6, z: P.z + Math.cos(P.yaw) * 0.8 }; audio.noise({ f: 600, f2: 400, q: 1.2, v: 0.25, d: 1.1, a: 0.4, pos: bp, wet: 0 }); for (let i = 0; i < 6; i++) { audio.tone({ f: 62, f2: 38, v: 0.3, d: 0.11, lp: 180, wet: 0, delay: i * 0.42 }); audio.tone({ f: 55, f2: 36, v: 0.22, d: 0.1, lp: 160, wet: 0, delay: i * 0.42 + 0.17 }); } }
 }
 // bare muddy footprints that come up behind you
 const PRINTS = { mesh: null, life: new Float32Array(48), i: 0 };
@@ -648,24 +661,6 @@ function spawnPrints(m) {
   PRINTS.mesh.instanceMatrix.needsUpdate = true;
 }
 function updatePrints(dt) { if (!PRINTS.mesh) return; let ch = false; const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < 48; i++) if (PRINTS.life[i] > 0) { PRINTS.life[i] -= dt; if (PRINTS.life[i] <= 0) { PRINTS.mesh.setMatrixAt(i, z); ch = true; } } if (ch) PRINTS.mesh.instanceMatrix.needsUpdate = true; }
-// Slenderman static: looking at it fills the screen with snow until you have to blink — and it moves while you blink
-const SFX = { ctx: null, img: null };
-function updateStatic(dt) {
-  let rate = 0;
-  if (monitor && monitor.root.visible && !CALM && !hidden && !gameOverOn && (phase === 'shift' || phase === 'lockdown')) {
-    const mp = monitor.root.position, d = Math.hypot(mp.x - P.x, mp.z - P.z);
-    if (d < 16 && Math.abs(mp.y - (P.gy ?? 0)) < 1.5) { camera.getWorldDirection(fwd); const cos = ((mp.x - P.x) * fwd.x + (mp.z - P.z) * fwd.z) / Math.max(d, 0.01);
-      if (cos > 0.72 && !segBlocked(P.x, P.z, mp.x, mp.z, solidRects(mirror.doors), { sight: true })) rate = 0.08 + 0.4 * (1 - d / 16); }
-  }
-  staticLvl = rate ? Math.min(1, staticLvl + dt * rate) : Math.max(0, staticLvl - dt * 0.28);
-  if (staticLvl >= 1 && blinkT <= 0) { blinkT = 0.42; staticLvl = 0.5; net.send({ t: 'blink' }); audio.tone({ f: 60, v: 0.08, d: 0.2, lp: 200 }); }
-  if (blinkT > 0) blinkT -= dt;
-  $('blinkFx').style.opacity = blinkT > 0 ? 1 : 0;
-  const el = $('staticFx'), op = Math.min(0.75, staticLvl * staticLvl * 0.85);
-  el.style.opacity = op.toFixed(3);
-  if (op > 0.01) { if (!SFX.ctx) { SFX.ctx = el.getContext('2d'); SFX.img = SFX.ctx.createImageData(160, 90); } const d = SFX.img.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255 * (Math.random() < 0.08 ? 0.3 : 1); d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } SFX.ctx.putImageData(SFX.img, 0, (Math.random() * 3) | 0); }
-  if (audio.staticG) audio.staticG.g.gain.value = lerp(audio.staticG.g.gain.value, staticLvl * staticLvl * 0.16, 0.2);
-}
 // 4:00 AM: it tries the office door; hold it shut
 function siegeFX(m) {
   if (m.on) { siege = { t: 0, dur: m.dur, held: 0, n: m.n, of: m.of }; audio.sting({ x: 21.5, y: 1.2, z: 3.4 }); dread = 1; }
@@ -697,7 +692,7 @@ $('bQuit').onclick = () => location.reload();
 function applyTP(m) { P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; }
 function jumpscare() {
   scareTP = pendingTP; pendingTP = null;
-  audio.caught(); shake = 1.6; $('hurt').style.opacity = 1; staticLvl = 0.95; blinkT = 0; setTimeout(() => { $('blinkFx').style.opacity = 1; }, 1150);
+  audio.caught(); shake = 1.6; $('hurt').style.opacity = 1; setTimeout(() => { $('blinkFx').style.opacity = 1; }, 1150);
   if (monitor) { const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); monitor.root.position.set(P.x + fx * 0.7, groundY(P.x, P.z), P.z + fz * 0.7); monitor.root.rotation.y = P.yaw; scareT = 0.9; }
   setTimeout(() => $('hurt').style.opacity = 0, 1400);
 }
@@ -898,7 +893,7 @@ function frame(now) {
     if (scareT > 0 && scareT - dt <= 0 && scareTP) { applyTP(scareTP); scareTP = null; $('hurt').style.opacity = 1; }
     if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.5 + k * 0.5), groundY(P.x, P.z) - 0.3, P.z + fz * (0.5 + k * 0.5)); monitor.lock = true; monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
     sendT += dt; if (sendT > 0.066) { sendT = 0; sendState(); }
-    PR('masks', () => { updateMasks(dt); updateFX(dt); }); PR('hud', () => updateHUD(dt)); PR('anim', () => { animateWorld(dt, t); updateScares(dt, t); updateStatic(dt); updateSiege(dt, t); updatePrints(dt); if (huntFlickerT > 0) huntFlickerT -= dt;
+    PR('masks', () => { updateMasks(dt); updateFX(dt); }); PR('hud', () => updateHUD(dt)); PR('anim', () => { animateWorld(dt, t); updateScares(dt, t); updateSiege(dt, t); updatePrints(dt); if (huntFlickerT > 0) huntFlickerT -= dt;
       if (hidden) { VM.vac.root.visible = VM.mop.root.visible = VM.handL.visible = VM.torch.visible = false; P.light = false; }
       if (W.crowd2) { W.crowd2.visible = (P.gy ?? groundY(P.x, P.z)) > -2; if (!CALM && updateCrowd(W.crowd2, MANNEQUIN_SPOTS.filter(s => s.y > -1), 0, P.x, P.z, camera, dt, 0.3)) audio.tone({ f: 260 + Math.random() * 200, f2: 120, type: 'triangle', v: 0.05, d: 0.08, wet: 0.7, pos: { x: P.x + Math.sin(P.yaw) * 4, y: 1, z: P.z + Math.cos(P.yaw) * 4 } }); }
       if (W.crowd) { W.crowd.visible = (P.gy ?? groundY(P.x, P.z)) < -2; if (!CALM && updateCrowd(W.crowd, MANNEQUIN_SPOTS.filter(s => s.y < -1), -4, P.x, P.z, camera, dt, 0.35)) audio.tone({ f: 300 + Math.random() * 200, f2: 120, type: 'triangle', v: 0.05, d: 0.08, wet: 0.7, pos: { x: P.x - Math.sin(P.yaw) * -4, y: -3, z: P.z - Math.cos(P.yaw) * -4 } }); } });
@@ -1095,7 +1090,7 @@ window.__bb = {
   // advance gameplay logic at a fixed 60 Hz without rendering (CPU-emulated test browsers render at a few fps)
   scareState() { return scareDebug(); },
   scare(k, seed = 1) { if (k === 'clear') return clearScares(); if (k === 'lightsout') startLightsOut({ x: P.x, z: P.z, r: 11, d: 20 }); else spawnWatcher(seed); },
-  step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); updateScares(1 / 60, t); updateStatic(1 / 60); updateSiege(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
+  step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); updateScares(1 / 60, t); updateSiege(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
   press(code, down = true) { keys[code] = down; }, mouse(l, r = false) { mouseL = l; mouseR = r; },
   debrisLeft() { return mirror.collected.reduce((a, b) => a + (b ? 0 : 1), 0); },
   maskSum(id) { return mirror.maskSum[id]; }, roomProgress() { return mirror.roomProgress(); },

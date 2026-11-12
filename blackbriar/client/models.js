@@ -61,7 +61,55 @@ function rigged(stretch, scale, SRC = BODY) {
   const mixer = new THREE.AnimationMixer(model), acts = {};
   for (const n of ['idle', 'walk', 'run']) { const a = mixer.clipAction(SRC.clips[n]); a.play(); a.setEffectiveWeight(n === 'idle' ? 1 : 0); acts[n] = a; }
   const root = new THREE.Group(); root.add(model); root.scale.setScalar(scale);
-  return { root, model, bones, meshes, fixed, mixer, acts, w: { idle: 1, walk: 0, run: 0 }, hipRest: bones.Hips.position.clone(), hipFix: SRC.hipFix };
+  const rest = Object.fromEntries(Object.entries(bones).map(([k, b]) => [k, b.quaternion.clone()]));
+  return { root, model, bones, meshes, fixed, mixer, acts, w: { idle: 1, walk: 0, run: 0 }, hipRest: bones.Hips.position.clone(), hipFix: SRC.hipFix, rest };
+}
+// ---------------- procedural crawl: a spider gait with two-bone IK, on the floor or upside down on the ceiling ----------------
+const _v = Array.from({ length: 10 }, () => new THREE.Vector3()), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion();
+function aimBone(bone, child, target) { // rotate bone (world space) so that its child lies toward target
+  const bp = bone.getWorldPosition(_v[0]), cp = child.getWorldPosition(_v[1]);
+  const cur = _v[2].subVectors(cp, bp), want = _v[3].subVectors(target, bp);
+  if (cur.lengthSq() < 1e-10 || want.lengthSq() < 1e-10) return;
+  _qa.setFromUnitVectors(cur.normalize(), want.normalize());
+  bone.getWorldQuaternion(_qb); _qa.multiply(_qb);
+  bone.parent.getWorldQuaternion(_qc).invert();
+  bone.quaternion.copy(_qc.multiply(_qa)); bone.updateMatrixWorld(true);
+}
+function ik2(a, b, c, target, pole) {
+  const pa = a.getWorldPosition(_v[4]).clone(), pb = b.getWorldPosition(_v[5]).clone(), pc = c.getWorldPosition(_v[6]).clone();
+  const la = pa.distanceTo(pb), lb = pb.distanceTo(pc);
+  const to = _v[7].subVectors(target, pa); let d = to.length(); const dmax = (la + lb) * 0.995; if (d > dmax) d = dmax; if (d < 1e-4) return;
+  const dir = to.normalize(), end = pa.clone().addScaledVector(dir, d);
+  const x = (la * la - lb * lb + d * d) / (2 * d), h = Math.sqrt(Math.max(0, la * la - x * x));
+  const pd = _v[8].subVectors(pole, pa); pd.addScaledVector(dir, -pd.dot(dir)).normalize();
+  const elbow = pa.clone().addScaledVector(dir, x).addScaledVector(pd, h);
+  aimBone(a, b, elbow); aimBone(b, c, end);
+}
+function crawlPose(r, st, dt, speed) {
+  const B = r.bones; for (const k in r.rest) B[k].quaternion.copy(r.rest[k]);
+  for (const [b, p] of r.fixed) b.position.copy(p);
+  r.root.updateMatrixWorld(true);
+  const M = r.root.matrixWorld, L = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(M);
+  st.crawlPh = (st.crawlPh || 0) + dt * (0.6 + speed * 0.75);
+  const ph = st.crawlPh, bob = Math.sin(ph * Math.PI * 4) * 0.03;
+  // hips low and level; the spine runs forward, arching up into a neck that cranes toward you
+  const hipsW = L(0, 0.6 + bob, -0.2); B.Hips.position.copy(B.Hips.parent.worldToLocal(hipsW.clone()));
+  B.Hips.updateMatrixWorld(true);
+  aimBone(B.Hips, B.Spine, L(0, 0.66 + bob, 0.3));
+  aimBone(B.Spine, B.Spine1, L(0, 0.7 + bob, 0.55));
+  aimBone(B.Spine1, B.Spine2, L(0, 0.74 + bob, 0.8));
+  aimBone(B.Spine2, B.Neck, L(0, 0.86 + bob, 1.05));
+  aimBone(B.Neck, B.Head, L(0, 1.15 + bob, 1.2));
+  // diagonal gait: left hand with right foot, then the other pair
+  const limb = (side, hand, off) => {
+    const u = (ph + off) % 1, stance = u < 0.62, k = stance ? u / 0.62 : (u - 0.62) / 0.38;
+    const stride = hand ? 0.34 : 0.3, z0 = hand ? 0.95 : -0.75, zz = stance ? z0 + stride * (0.5 - k) : z0 + stride * (k - 0.5), lift = stance ? 0 : Math.sin(k * Math.PI) * 0.16;
+    return L(side * (hand ? 0.5 : 0.48), lift, zz);
+  };
+  ik2(B.LeftArm, B.LeftForeArm, B.LeftHand, limb(1, true, 0), L(1.4, 1.1, 0.5));
+  ik2(B.RightArm, B.RightForeArm, B.RightHand, limb(-1, true, 0.5), L(-1.4, 1.1, 0.5));
+  ik2(B.LeftUpLeg, B.LeftLeg, B.LeftFoot, limb(1, false, 0.5), L(1.4, 1.2, -0.5));
+  ik2(B.RightUpLeg, B.RightLeg, B.RightFoot, limb(-1, false, 0), L(-1.4, 1.2, -0.5));
 }
 function animate(r, dt, mode, speed) {
   for (const k of ['idle', 'walk', 'run']) { r.w[k] = lerp(r.w[k], k === mode ? 1 : 0, 1 - Math.pow(0.002, dt)); r.acts[k].setEffectiveWeight(r.w[k]); }
@@ -169,13 +217,15 @@ export function makeMonitor() {
   st.pose = 0;
   st.update = (dt, mode, speed, t, look) => {
     const still = mode === 'still', SP = STILL_POSES[st.pose % STILL_POSES.length];
-    if (still) poseStill(r, SP); else { if (r.still) for (const a of Object.values(r.still)) a.setEffectiveWeight(0); animate(r, dt, mode, speed); }
+    const crawl = mode === 'crawl';
+    if (crawl) crawlPose(r, st, dt, speed);
+    else if (still) poseStill(r, SP); else { if (r.still) for (const a of Object.values(r.still)) a.setEffectiveWeight(0); animate(r, dt, mode, speed); }
     const bones = r.bones;
     if (bones.Head) { bones.Head.scale.setScalar(0.001); face.position.copy(bones.Head.position); face.quaternion.copy(bones.Head.quaternion); }
     // stoop: a hunched supervisor leaning forward from the upper spine
-    const stoop = still ? 0 : MQ ? (mode === 'run' ? 0.25 : 0.1) : (mode === 'run' ? 0.45 : 0.22);
+    const stoop = still || crawl ? 0 : MQ ? (mode === 'run' ? 0.25 : 0.1) : (mode === 'run' ? 0.45 : 0.22);
     if (bones.Spine1) bones.Spine1.rotation.x += stoop;
-    if (bones.Spine2 && !still) bones.Spine2.rotation.x += MQ ? 0.05 : 0.12;
+    if (bones.Spine2 && !still && !crawl) bones.Spine2.rotation.x += MQ ? 0.05 : 0.12;
     // head tracking toward the look target (clamped), plus a crooked tilt and sudden twitches
     if (still) st.headYaw = SP.yaw; else if (st.lock) st.headYaw = 0; else if (look) { st.headYaw = lerp(st.headYaw, Math.max(-1.2, Math.min(1.2, look)), 1 - Math.pow(0.02, dt)); }
     face.rotation.y += st.headYaw; face.rotation.z += still ? SP.tilt : 0.32 + Math.sin(t * 0.9) * 0.04; face.rotation.x += still ? SP.nod : mode === 'run' ? -0.1 : -0.25;

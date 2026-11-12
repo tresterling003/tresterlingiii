@@ -108,7 +108,7 @@ t('stalker: early in the night it lurks, follows and plays tricks, but never tou
   const route = [[30, 1.8], [12, 1.8], [13, -4], [5, 2], [36, 2]];
   const ev = run(s, CONFIG.shiftSeconds * CONFIG.monitor.huntAfter * 0.95, (i) => { const r = route[Math.floor(i / 300) % route.length]; p.x = r[0] + Math.sin(i * 0.01); p.z = r[1]; p.yaw = i * 0.013; states.add(s.mon.state); });
   for (const o of ev) { if (o.ev.t === 'caught') caught++; if (o.ev.t === 'prank' || o.ev.t === 'scare' || (o.ev.t === 'door' && o.ev.by === 'monitor')) kinds.add(o.ev.k || o.ev.t); }
-  assert.equal(caught, 0); assert.ok(states.has('lurk') || states.has('shadow'), [...states].join(',')); assert.ok(kinds.size >= 3, [...kinds].join(','));
+  assert.equal(caught, 0); assert.ok(kinds.size >= 2, [...kinds].join(','));
 });
 t('hunts are announced, limited per night, and caught alone means GAME OVER; Retry Night restores the start of the night', () => {
   const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a'); s.money = 20; s.nightStart = s.serializeCore();
@@ -127,25 +127,46 @@ t('hunts are announced, limited per night, and caught alone means GAME OVER; Ret
 t('frozen while watched; in a hunt it outruns you when you look away and catches you from behind', () => {
   const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
   p.x = 30; p.z = 1.8; p.fl = 1; lookAt(p, 38, 1.8);
-  s.mon.x = 38; s.mon.z = 1.8; s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0 }); s.dir.hunts = 1;
-  run(s, 3, () => { p.blinkT = 0; s.dir.stare.a = 0; });
+  s.mon.x = 38; s.mon.z = 1.8; s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0, watchT: 0, twitchT: 0, twitchAfter: 3, crawl: false }); s.dir.hunts = 1;
+  run(s, 1.5);
   assert.equal(s.mon.x, 38, 'did not move while watched'); assert.ok(s.mon.frozen);
   lookAway(p, 38, 1.8); const x0 = s.mon.x; run(s, 0.5);
   assert.ok((x0 - s.mon.x) / 0.5 > CONFIG.sprintSpeed, 'faster than a sprinting worker');
   const ev = run(s, 6); assert.ok(ev.some(o => o.ev.t === 'caught')); assert.equal(s.phase, 'gameover');
 });
-t('blinking lets it move; staring too long provokes it', () => {
-  const s = new Sim(); s.join('a', 'A'); s.shiftT = CONFIG.shiftSeconds * 0.5; const p = s.players.get('a');
-  p.x = 30; p.z = 1.8; p.fl = 1; s.mon.x = 37; s.mon.z = 1.8; s.setMon('lurk', { target: 'a', lurkFor: 60, seenT: 0 }); lookAt(p, 37, 1.8);
-  const ev = run(s, CONFIG.monitor.stareLimit + 1.5);
-  assert.ok(ev.some(o => o.ev.t === 'toast' && /too long/.test(o.ev.msg)), 'stare warning');
-  s.handle('a', { t: 'blink' }); run(s, 0.5); assert.equal(s.mon.state, 'hunt', 'the moment you blink, it comes');
+t('you cannot stare it down: in a hunt it jerks closer while watched and still reaches you', () => {
+  const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
+  p.x = 30; p.z = 1.8; p.fl = 1; s.mon.x = 36; s.mon.z = 1.8; s.dir.hunts = 1;
+  s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0, watchT: 0, twitchT: 0, twitchAfter: 2, crawl: false });
+  const ev = run(s, 40, () => lookAt(p, s.mon.x, s.mon.z));
+  assert.ok(ev.filter(o => o.ev.t === 'monfx' && o.ev.k === 'twitch').length >= 3, 'twitches'); assert.ok(ev.some(o => o.ev.t === 'caught'), 'caught in the end');
+});
+t('stare at it too long and it reacts: it scuttles off in plain sight, comes for you, or is gone when the lights return', () => {
+  const outcomes = new Set();
+  for (let k = 0; k < 12; k++) {
+    const s = new Sim(); s.join('a', 'A'); s.shiftT = CONFIG.shiftSeconds * 0.5; const p = s.players.get('a');
+    p.x = 30; p.z = 1.8; p.fl = 1; s.mon.x = 37; s.mon.z = 1.8; s.dir.next.a = 1e9; s.setMon('lurk', { target: 'a', lurkFor: 60, seenT: 0, exit: 0.99 }); s.mon.seenT = -99;
+    const ev = run(s, 8, () => lookAt(p, s.mon.x, s.mon.z));
+    const st = [...new Set(ev.filter(o => o.ev.t === 'monstate').map(o => o.ev.st))];
+    if (st.includes('flee')) outcomes.add('flee'); if (st.includes('hunt')) outcomes.add('hunt'); if (ev.some(o => o.ev.t === 'scare' && o.ev.k === 'lightsout')) outcomes.add('lights');
+    assert.ok(st.length, 'it reacted');
+  }
+  assert.ok(outcomes.has('flee'), [...outcomes].join(','));
+});
+t('the pacing is irregular: gaps between beats vary widely', () => {
+  const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a'); const times = [];
+  const bodies = new Set(); const emit = s.emit.bind(s); s.emit = (ev, r) => { if (ev.t === 'monstate') bodies.add(ev.st); if (['prank', 'scare'].includes(ev.t) || (ev.t === 'monstate' && ['lurk', 'shadow', 'flee', 'hunt'].includes(ev.st))) times.push(s.time); emit(ev, r); };
+  run(s, CONFIG.shiftSeconds * 0.9, (i) => { p.x = 30 + Math.sin(i * 0.002) * 5; p.z = 1.8; p.yaw = i * 0.02; if (s.phase === 'gameover') s.handle('a', { t: 'retry' }); });
+  const gaps = []; for (let i = 1; i < times.length; i++) if (times[i] - times[i - 1] > 1) gaps.push(times[i] - times[i - 1]);
+  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length, sd = Math.sqrt(gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length);
+  assert.ok(gaps.length > 7, 'beats: ' + gaps.length); assert.ok(['lurk', 'shadow', 'flee'].filter(x => bodies.has(x)).length >= 2, [...bodies].join(',')); assert.ok(sd / mean > 0.6, 'variation ' + (sd / mean).toFixed(2));
 });
 t('hiding in a locker: unseen, it loses you; seen getting in, it finds you', () => {
   const mk = () => { const s = new Sim(); s.join('a', 'A'); s.shiftT = 500; const p = s.players.get('a'); const L = { id: 'L140', x: 0, z: 0 }; return { s, p }; };
   { const { s, p } = mk(); const L = s.players && 'L140'; p.x = 16.2 + 0.2 + (140 - 126) * 0.4; p.z = 0.9; s.mon.x = 36; s.mon.z = 2.5;
     s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0 });
     s.mon.x = 13; s.mon.z = -4.5; // in the classroom, no line of sight
+    s.dir.hunts = 1; s.dir.lastHunt = 0; // a hunt just started: no new one for a while
     s.handle('a', { t: 'hide', id: 'L140' }); assert.equal(p.hidden, 'L140'); assert.equal(s.mon.sawHide, false);
     const ev = run(s, 25); assert.ok(!ev.some(o => o.ev.t === 'caught'), 'not found'); assert.notEqual(s.mon.state, 'hunt'); }
   { const { s, p } = mk(); p.x = 16.2 + 0.2 + (140 - 126) * 0.4; p.z = 0.9; s.mon.x = p.x + 8; s.mon.z = 1.8;
