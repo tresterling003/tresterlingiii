@@ -1,0 +1,12 @@
+# One-click deploy on Render (render.com): New > Blueprint > pick this repo.
+services:
+  - type: web
+    name: blackbriar
+    runtime: docker
+    rootDir: blackbriar
+    plan: starter            # free plan sleeps and has no disk; saves need the disk below
+    healthCheckPath: /healthz
+    disk:
+      name: rooms
+      mountPath: /data
+      sizeGB: 1
