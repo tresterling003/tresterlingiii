@@ -516,6 +516,7 @@ function onMessage(m) {
       room = m.room; applySave(m.save); upgrades = m.upgrades; summary = m.summary;
       const me = m.players.find(p => p.pid === pid); if (me) { P.x = me.x; P.z = me.z; P.yaw = me.yw || 0; }
       $('entry').hidden = true; playing = true; showHUD(true); $('status').textContent = '';
+      if (net instanceof RoomHost) setTimeout(() => { centerMsg(`CREW CODE  ${room}`, 'Your crewmate opens the game, picks Play with friends, types this code and presses Join.', 14); toast(`Crew code: ${room}. It stays at the top of the screen.`); }, 4600);
       if (mode === 'coop') { history.replaceState(null, '', '?room=' + room + (NORENDER ? '&norender' : '')); toast(`Crew ${room}. Invite link copied to the pause menu.`); }
       if (phase === 'summary' && summary) showSummary(summary);
       if (!locked && !isTouch && freeLook) enterFree(lockReason || 'mouse capture unavailable');
