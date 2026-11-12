@@ -5,14 +5,16 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as TX from './textures.js';
 import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, BUCKET, TEACHER_DESK, POOL_BASIN, roomAt, groundY, segBlocked, rng } from '../shared/level.js';
 
-const BAKE = { scale: { value: 1 } };
+let GRIME = null; const grimeTex = () => { if (!GRIME) { GRIME = new THREE.TextureLoader().load('assets/tex/grime_detail.jpg'); GRIME.wrapS = GRIME.wrapT = THREE.RepeatWrapping; } return GRIME; };
+const BAKE = { scale: { value: 1 }, black: { value: new THREE.Vector4(0, 0, 1, 0) } }; // black: x, z, radius, amount of a local power cut
 // static lighting is baked per vertex from every ceiling fixture, with walls occluding; it is added as indirect diffuse.
 function bakeMaterial(mat) {
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uBake = BAKE.scale;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 bake;\nvarying vec3 vBake;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvBake = bake;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBake;\nuniform float uBake;')
-      .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\nreflectedLight.indirectDiffuse += diffuseColor.rgb * vBake * uBake;');
+    sh.uniforms.uBake = BAKE.scale; sh.uniforms.uBlack = BAKE.black; sh.uniforms.uGrime = { value: grimeTex() }; sh.uniforms.uGrimeAmt = { value: mat.userData.grime || 0 };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 bake;\nvarying vec3 vBake;\nvarying vec2 vWXZ;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvBake = bake; vWXZ = (modelMatrix * vec4(transformed, 1.0)).xz; vWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);').replace('varying vec2 vWXZ;', 'varying vec2 vWXZ; varying vec3 vWP; varying vec3 vWN;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBake;\nvarying vec2 vWXZ;\nvarying vec3 vWP;\nvarying vec3 vWN;\nuniform float uBake;\nuniform vec4 uBlack;\nuniform sampler2D uGrime;\nuniform float uGrimeAmt;')
+      .replace('#include <map_fragment>', '#include <map_fragment>\nif (uGrimeAmt > 0.0) { vec2 gu = abs(vWN.y) > 0.5 ? vWP.xz : vec2(vWP.x + vWP.z, vWP.y); float g = texture2D(uGrime, gu * 0.33).r * 0.6 + texture2D(uGrime, gu * 0.09 + 0.37).r * 0.4; diffuseColor.rgb *= mix(1.0, 0.62 + 0.62 * g, uGrimeAmt); }')
+      .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\nfloat cutB = uBlack.w * (1.0 - smoothstep(uBlack.z - 4.0, uBlack.z, distance(vWXZ, uBlack.xy)));\nreflectedLight.indirectDiffuse += diffuseColor.rgb * vBake * uBake * (1.0 - cutB * 0.97);');
   };
   mat.customProgramCacheKey = () => 'bake';
   return mat;
@@ -102,6 +104,13 @@ export function buildWorld(scene, renderer, opts = {}) {
   floorMats.pool = std({ map: deckT.map, normalMap: deckT.normalMap, roughness: 0.35, envMapIntensity: 0.7 });
   floorMats.gym = std({ map: TX.woodGrain([196, 150, 98], 21), roughness: 0.38, envMapIntensity: 0.8 });
   floorMats.stair = floorMats.service;
+  { const TL = new THREE.TextureLoader(), an = renderer.capabilities.getMaxAnisotropy();
+    const ptex = (n, r, srgb) => { const t = TL.load('assets/tex/' + n + '.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(r, r); t.anisotropy = an; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+    const pbr = (n, r, o = {}) => std({ map: ptex(n + '_diff', r, true), normalMap: ptex(n + '_nor', r), roughnessMap: ptex(n + '_arm', r), ...o });
+    floorMats.gym = pbr('laminate_floor_02', 3 / 1.7, { roughness: 0.7, envMapIntensity: 0.9, color: 0xf6e6cc });
+    floorMats.closet = floorMats.service = floorMats.storage = floorMats.stair = pbr('concrete_floor_worn_001', 4 / 3, { roughness: 1, color: 0xc4c0b6 });
+    floorMats.pool = pbr('square_tiles', 1, { roughness: 0.85, envMapIntensity: 1.0, color: 0xe4f0f4 });
+    for (const k in floorMats) floorMats[k].userData.grime = ['gym', 'pool'].includes(k) ? 0.3 : 0.5; }
   const wallSets = {
     hall: TX.paintedWall({ upper: [226, 220, 204], lower: [146, 166, 132], stripe: [52, 84, 58], bandTop: 1.1, ceil: 2.95, seed: 4 }),
     class: TX.paintedWall({ upper: [228, 219, 190], lower: [196, 184, 150], stripe: [120, 96, 60], bandTop: 1.0, ceil: 2.95, seed: 5 }),
@@ -115,8 +124,8 @@ export function buildWorld(scene, renderer, opts = {}) {
   wallSets.gym = TX.paintedWall({ upper: [222, 214, 190], lower: [120, 36, 40], stripe: [230, 190, 60], bandTop: 2.0, ceil: 7.5, seed: 17, block: true });
   wallSets.lockers = TX.paintedWall({ upper: [226, 230, 228], lower: [70, 110, 150], bandTop: 1.3, ceil: 2.8, seed: 18, block: true });
   wallSets.pool = TX.paintedWall({ upper: [204, 226, 230], lower: [90, 150, 176], stripe: [30, 80, 120], bandTop: 1.4, ceil: 6.5, seed: 19, block: true });
-  const wallMats = {}; for (const k in wallSets) { const w = wallSets[k]; wallMats[k] = std({ map: w.map, normalMap: w.normalMap, roughnessMap: w.roughnessMap, roughness: 1, envMapIntensity: 0.25 }); }
-  const ceilT = TX.ceilingTiles(); const ceilMat = std({ map: ceilT.map, normalMap: ceilT.normalMap, roughness: 0.95 });
+  const wallMats = {}; for (const k in wallSets) { const w = wallSets[k]; wallMats[k] = std({ map: w.map, normalMap: w.normalMap, roughnessMap: w.roughnessMap, roughness: 1, envMapIntensity: 0.25 }); wallMats[k].userData.grime = 0.4; }
+  const ceilT = TX.ceilingTiles(); const ceilMat = std({ map: ceilT.map, normalMap: ceilT.normalMap, roughness: 0.95 }); ceilMat.userData.grime = 0.35;
   const M = {
     trim: std({ color: 0x2e2f2c, roughness: 0.5, metalness: 0.4 }),
     steel: std({ color: 0x8a8d8c, roughness: 0.4, metalness: 0.7 }),
@@ -356,12 +365,33 @@ export function buildWorld(scene, renderer, opts = {}) {
   const hallClock = makeClock(); hallClock.mesh.position.set(16.0, 2.55, 0.11); scene.add(hallClock.mesh); out.clocks.push(hallClock);
   // switches beside doors
   for (const d of DOORS) { const c = d.axis === 'x' ? [d.a0 - 0.2, 1.2, d.z + (d.z > 1 ? -T / 2 - 0.01 : T / 2 + 0.01)] : [d.x - T / 2 - 0.01, 1.2, d.a0 - 0.2]; col.box(M.white, c[0], c[1], c[2], d.axis === 'x' ? 0.07 : 0.015, 0.11, d.axis === 'x' ? 0.015 : 0.07); }
+  // ---------- real props (Poly Haven CC0). Front of a model is +Z; face(dx, dz) gives the yaw that points it that way ----------
+  const PR = opts.props || {}, baked = new WeakSet();
+  const face = (dx, dz) => Math.atan2(dx, dz);
+  // place a prop: feet at (x, y, z), yaw ry, scaled to fit {w, h, d} (uniform unless stretch)
+  const prop = (id, x, y, z, ry = 0, fit = {}, stretch = false) => {
+    const p = PR[id]; if (!p) return false;
+    const b = p.box, sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    const k = []; if (fit.w) k.push(fit.w / sz.x); if (fit.h) k.push(fit.h / sz.y); if (fit.d) k.push(fit.d / sz.z);
+    const u = fit.s || (k.length ? Math.min(...k) : 1);
+    const S = stretch ? new THREE.Vector3(fit.w ? fit.w / sz.x : u, fit.h ? fit.h / sz.y : u, fit.d ? fit.d / sz.z : u) : new THREE.Vector3(u, u, u);
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(fit.rx || 0, ry, fit.rz || 0)), S)
+      .multiply(new THREE.Matrix4().makeTranslation(-c.x, -b.min.y, -c.z));
+    for (const part of p.parts) { if (!baked.has(part.mat)) { baked.add(part.mat); bakeMaterial(part.mat); } col.add(part.geo, part.mat, m); }
+    return true;
+  };
+  out.prop = prop;
   // ---------- classroom ----------
   const deskTop = new THREE.BoxGeometry(0.64, 0.025, 0.48), leg = new THREE.CylinderGeometry(0.012, 0.012, 0.72, 6);
   for (const f of FURNITURE) {
     if (f.kind === 'desk') {
       const { cx, cz, rot } = f; const m = new THREE.Matrix4().makeRotationY(rot).setPosition(cx, 0, cz);
       const add = (g, mat, x, y, z, rx = 0) => col.add(g, mat, m.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0)), one)));
+      if (PR.SchoolDesk_01 && PR.SchoolChair_01) {
+        prop('SchoolDesk_01', cx, 0, cz, rot, { w: 0.64, h: 0.76, d: 0.5 }, true);
+        prop('SchoolChair_01', cx + Math.sin(rot) * 0.5, 0, cz + Math.cos(rot) * 0.5, rot + Math.PI + (Math.sin(cx * 9 + cz) * 0.12), { h: 0.84 });
+        continue;
+      }
       add(deskTop, M.wood, 0, 0.735, 0);
       for (const [a, b] of [[-0.28, -0.2], [0.28, -0.2], [-0.28, 0.2], [0.28, 0.2]]) add(leg, M.darkSteel, a, 0.36, b);
       add(new THREE.BoxGeometry(0.56, 0.12, 0.38), M.darkSteel, 0, 0.64, -0.02); // book box
@@ -371,18 +401,34 @@ export function buildWorld(scene, renderer, opts = {}) {
       for (const [a, b] of [[-0.17, 0.32], [0.17, 0.32], [-0.17, 0.64], [0.17, 0.64]]) add(new THREE.CylinderGeometry(0.01, 0.01, 0.44, 6), M.chrome, a, 0.22, b);
     }
   }
-  col.box(M.woodDark, 9.8, 0.74, -8.12, 1.6, 0.04, 0.75); col.box(M.woodDark, 9.12, 0.37, -8.12, 0.3, 0.72, 0.7); col.box(M.woodDark, 10.48, 0.37, -8.12, 0.3, 0.72, 0.7);
-  col.box(M.woodDark, 9.8, 0.4, -8.45, 1.0, 0.6, 0.03);
+  if (!prop('metal_office_desk', 9.8, 0, -8.12, face(0, 1), { w: 1.6, h: 0.76, d: 0.75 }, true)) { col.box(M.woodDark, 9.8, 0.74, -8.12, 1.6, 0.04, 0.75); col.box(M.woodDark, 9.12, 0.37, -8.12, 0.3, 0.72, 0.7); col.box(M.woodDark, 10.48, 0.37, -8.12, 0.3, 0.72, 0.7);
+  col.box(M.woodDark, 9.8, 0.4, -8.45, 1.0, 0.6, 0.03); }
+  prop('binder_notebook', 9.5, 0.765, -8.0, 0.3, { w: 0.5 }); prop('office_notepads', 10.2, 0.765, -8.15, -0.2, { w: 0.5 });
   { const b = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.35), M.board); b.position.set(13.2, 1.55, -8.89); scene.add(b); col.box(M.trim, 13.2, 0.86, -8.86, 4.7, 0.04, 0.08); col.box(M.white, 13.0, 0.89, -8.8, 0.15, 0.015, 0.02); }
-  col.box(M.cabinet, 8.35, 0.6, -5.3, 0.48, 1.2, 2.18); col.box(M.cabinet, 17.65, 0.95, -7.9, 0.48, 1.9, 1.98);
+  col.box(M.cabinet, 8.35, 0.6, -5.3, 0.48, 1.2, 2.18);
+  prop('Television_01', 8.36, 1.2, -5.6, face(1, 0.15), { w: 0.55 });
+  if (PR.drawer_cabinet) { prop('drawer_cabinet', 17.62, 0, -8.4, face(-1, 0), { w: 0.98, d: 0.48 }); prop('drawer_cabinet', 17.62, 0, -7.4, face(-1, 0), { w: 0.98, d: 0.48 }); }
+  else col.box(M.cabinet, 17.65, 0.95, -7.9, 0.48, 1.9, 1.98);
   for (let k = 0; k < 4; k++) col.box(M.chrome, 8.6, 0.25 + k * 0.28, -5.3, 0.02, 0.02, 0.3);
   const classClock = makeClock(); classClock.mesh.position.set(16.5, 2.4, -8.89); scene.add(classClock.mesh); out.clocks.push(classClock);
   // exterior windows on the east wall, blinds down, night outside
   for (let k = 0; k < 3; k++) { const z = -7.5 + k * 2.6; const w = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.3), new THREE.MeshStandardMaterial({ map: TX.textCanvas(128, 128, (x, w, h) => { x.fillStyle = '#0c1220'; x.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 6) { x.fillStyle = 'rgba(200,198,185,.75)'; x.fillRect(0, y, w, 4); } }), roughness: 0.6 })); w.position.set(17.89, 1.65, z); w.rotation.y = -Math.PI / 2; scene.add(w); col.box(M.trim, 17.88, 1.0, z, 0.06, 0.04, 1.7); }
   // ---------- janitor closet ----------
+  if (PR.steel_frame_shelves_01) {
+    for (const x of [2.78, 4.0, 5.22]) prop('steel_frame_shelves_01', x, 0, 6.47, face(0, -1), { w: 1.2, h: 2.0, d: 0.44 }, true);
+    prop('cardboard_box_01', 2.7, 2.0, 6.47, 0.2, { h: 0.3 }); prop('cardboard_box_01', 4.3, 2.0, 6.45, -0.4, { h: 0.34 });
+    prop('plastic_bottle_gallon', 3.3, 0, 6.0, 0.6, { h: 0.3 }); prop('plastic_bottle_gallon', 3.55, 0, 6.05, -0.3, { h: 0.3 });
+    prop('bleach_bottle', 2.25, 0.9, 4.2, 0.4, { h: 0.27 }); prop('multi_cleaner_bottle', 2.35, 0.9, 4.65, 1.2, { h: 0.24 });
+    prop('dustpan', 5.3, 0, 6.0, 2.2, { w: 0.3 });
+    { const RS = rng(77), lv = [0.21, 0.64, 1.08, 1.53]; // supplies on the shelf boards
+      for (let k = 0; k < 26; k++) { const y = lv[k % 4], x = 2.3 + RS() * 3.4, z = 6.42 + (RS() - 0.5) * 0.12, r = RS() * 6.28, pick = RS();
+        if (pick < 0.3) prop('bleach_bottle', x, y, z, r, { h: 0.27 }); else if (pick < 0.55) prop('multi_cleaner_bottle', x, y, z, r, { h: 0.24 });
+        else if (pick < 0.75) prop('plastic_bottle_gallon', x, y, z, r, { h: 0.28 }); else prop('cardboard_box_01', x, y, z, r * 0.2, { h: 0.3 }); } }
+  } else {
   for (let k = 0; k < 4; k++) col.box(M.steel, 4.0, 0.3 + k * 0.5, 6.48, 3.7, 0.03, 0.44);
   for (const x of [2.18, 5.82]) for (const z of [6.27, 6.69]) col.box(M.steel, x, 1.0, z, 0.03, 2.0, 0.03);
-  for (let k = 0; k < 14; k++) { const x = 2.4 + R() * 3.2, y = 0.33 + (k % 4) * 0.5; if (R() < 0.5) col.mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.24, 10), [M.plasticBlue, M.yellow, M.white, M.plasticOrange][k % 4], x, y + 0.12, 6.45); else col.box(M.box, x, y + 0.1, 6.45, 0.28, 0.2, 0.3); }
+  }
+  if (!PR.steel_frame_shelves_01) for (let k = 0; k < 14; k++) { const x = 2.4 + R() * 3.2, y = 0.33 + (k % 4) * 0.5; if (R() < 0.5) col.mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.24, 10), [M.plasticBlue, M.yellow, M.white, M.plasticOrange][k % 4], x, y + 0.12, 6.45); else col.box(M.box, x, y + 0.1, 6.45, 0.28, 0.2, 0.3); }
   col.box(M.white, 2.35, 0.82, 4.4, 0.48, 0.16, 0.78); col.box(M.white, 2.35, 0.4, 4.4, 0.1, 0.8, 0.1); col.mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2), M.chrome, 2.25, 1.0, 4.4, 0, 0, 0.6);
   // mop bucket with wringer
   { const b = new THREE.Group(); const bk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.19, 0.36, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0xd8b31c, roughness: 0.4, side: THREE.DoubleSide })); bk.position.y = 0.26; b.add(bk); const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.16), new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.5 })); w.position.set(0.12, 0.5, 0); b.add(w); const water = new THREE.Mesh(new THREE.CircleGeometry(0.2, 18).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5a5236, roughness: 0.05 })); water.position.y = 0.36; b.add(water); for (const s of [-1, 1]) for (const t of [-1, 1]) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), M.black); c.position.set(s * 0.17, 0.04, t * 0.17); b.add(c); } b.position.set(3.2, 0, 5.0); scene.add(b); }
@@ -416,8 +462,11 @@ export function buildWorld(scene, renderer, opts = {}) {
   col.box(M.cloth, 20.52, 0.37, 7.65, 0.74, 0.1, 1.92, 0, 0.03); col.box(M.blanket, 20.52, 0.44, 7.9, 0.76, 0.05, 1.3, 0, 0.02); col.box(M.white, 20.52, 0.46, 6.95, 0.5, 0.08, 0.32, 0, 0.03);
   out.interact.push({ kind: 'cot', x: COT.x, y: 0.5, z: COT.z });
   // steel shelving with supplies
-  for (let k = 0; k < 4; k++) col.box(M.steel, 26.67, 0.3 + k * 0.52, 8.45, 0.44, 0.03, 2.48);
-  for (let k = 0; k < 10; k++) col.box(M.box, 26.67, 0.45 + (k % 4) * 0.52, 7.4 + (k * 0.47) % 2.2, 0.38, 0.26, 0.4);
+  if (PR.steel_frame_shelves_01) { for (const z of [7.82, 9.06]) prop('steel_frame_shelves_01', 26.67, 0, z, face(-1, 0), { w: 1.2, h: 2.0, d: 0.44 }, true); for (const [y, z, r] of [[2.0, 7.6, 0.1], [2.0, 9.2, -0.3]]) prop('cardboard_box_01', 26.67, y, z, r, { h: 0.3 }); }
+  else { for (let k = 0; k < 4; k++) col.box(M.steel, 26.67, 0.3 + k * 0.52, 8.45, 0.44, 0.03, 2.48);
+  for (let k = 0; k < 10; k++) col.box(M.box, 26.67, 0.45 + (k % 4) * 0.52, 7.4 + (k * 0.47) % 2.2, 0.38, 0.26, 0.4); }
+  prop('power_box_01', 24.6, 1.25, 3.72, face(0, 1), { h: 0.5 }); prop('binder_notebook', 26.2, 0.77, 6.35, 1.4, { w: 0.45 });
+  prop('korean_fire_extinguisher_01', 20.35, 0, 9.65, face(1, -1), { h: 0.6 });
   const officeClock = makeClock(); officeClock.mesh.position.set(23.5, 2.25, 9.89); officeClock.mesh.rotation.y = Math.PI; scene.add(officeClock.mesh); out.clocks.push(officeClock);
   // the contract, pinned beside the door
   { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.56), new THREE.MeshStandardMaterial({ map: TX.textCanvas(300, 400, (x, w, h) => { x.fillStyle = '#f0ece0'; x.fillRect(0, 0, w, h); x.fillStyle = '#1d1d1d'; x.font = 'bold 18px Courier'; x.fillText('NIGHT CREW CONTRACT', 20, 40); x.font = '14px Courier'; const L = ['Prepare Blackbriar High', 'for reopening.', '', 'Pay: per item removed', 'and per area restored.', '', 'YOU MUST BE INSIDE THIS', 'OFFICE, WITH THE BOLT', 'ENGAGED, BEFORE 4:00 AM.', '', 'Do not answer the', 'attendance announcements.', '', '  - Halberd Facilities']; L.forEach((l, i) => { x.fillStyle = i >= 6 && i <= 8 ? '#a11' : '#222'; x.fillText(l, 20, 80 + i * 20); }); }), roughness: 0.9 }));
@@ -427,16 +476,29 @@ export function buildWorld(scene, renderer, opts = {}) {
   for (const [y, zz] of [[2.45, 0], [2.3, 0.15]]) { const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06 - zz * 0.15, 0.06 - zz * 0.15, 18, 10).rotateX(Math.PI / 2), M.pipe); pipe.position.set(43.6 - zz, y, 3); scene.add(pipe); }
   { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 39, 6).rotateZ(Math.PI / 2), M.darkSteel); c.position.set(20, 2.75, 0.15); scene.add(c); }
   for (let k = 0; k < 6; k++) col.box(M.plasticOrange, 43.2, 0.45 + k * 0.12, -1.9, 0.45, 0.04, 0.45);
-  for (const z of [7.62, 9.92]) { for (let k = 0; k < 4; k++) col.box(M.steel, 47, 0.25 + k * 0.6, z, 4.0, 0.03, 0.45); for (let k = 0; k < 12; k++) col.box(M.box, 45.3 + (k % 6) * 0.65, 0.4 + Math.floor(k / 6) * 0.6, z, 0.5, 0.3, 0.4); }
-  col.box(M.box, 40.6, 0.3, 8.7, 0.7, 0.6, 0.6); col.box(M.box, 40.6, 0.75, 9.2, 0.6, 0.4, 0.5);
+  for (const z of [7.62, 9.92]) { if (PR.steel_frame_shelves_01) { for (const x of [45.67, 47.0, 48.33]) prop('steel_frame_shelves_01', x, 0, z, face(0, z < 9 ? 1 : -1), { w: 1.3, h: 2.1, d: 0.45 }, true); for (let k = 0; k < 5; k++) prop('cardboard_box_01', 45.4 + k * 0.8, 2.1, z, k * 0.7, { h: 0.28 + (k % 2) * 0.06 }); }
+    else { for (let k = 0; k < 4; k++) col.box(M.steel, 47, 0.25 + k * 0.6, z, 4.0, 0.03, 0.45); for (let k = 0; k < 12; k++) col.box(M.box, 45.3 + (k % 6) * 0.65, 0.4 + Math.floor(k / 6) * 0.6, z, 0.5, 0.3, 0.4); } }
+  if (PR.cardboard_box_01) { prop('cardboard_box_01', 40.6, 0, 8.75, 0.1, { w: 0.7, h: 0.6 }, true); prop('cardboard_box_01', 40.6, 0.6, 8.8, 0.5, { h: 0.4 }); prop('cardboard_box_01', 40.55, 0, 9.35, -0.3, { h: 0.5 }); }
+  else { col.box(M.box, 40.6, 0.3, 8.7, 0.7, 0.6, 0.6); col.box(M.box, 40.6, 0.75, 9.2, 0.6, 0.4, 0.5); }
+  prop('trashbag', 40.5, 0, 10.4, 0.4, { h: 0.6 }); prop('trashbag', 40.9, 0, 10.9, 2.1, { h: 0.55 }); prop('trashbag', 41.4, 0, 11.4, 1.0, { h: 0.5 });
+  prop('ladder_sectioned_01', 43.7, 0, 5.5, face(-1, 0), { h: 2.4, rx: 0, rz: 0 });
+  prop('street_rat', 42.9, 0, 10.8, 2.4, { d: 0.32 }); prop('tool_cart', 43.3, 0, -3.2, face(-1, 0), { w: 0.95 });
   { const g = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.35), M.grille); g.position.set(VENT.x, VENT.y, VENT.z); scene.add(g); out.vent = g; }
   out.interact.push({ kind: 'vent', x: VENT.x, y: VENT.y, z: VENT.z + 0.3 });
   // stage chairs and a broken desk leaning in the corridor for line-of-sight breaks
   col.box(M.wood, 41.0, 0.6, -4.0, 0.7, 0.04, 0.5, 0.6);
+  // ---------- signage and safety gear ----------
+  prop('WetFloorSign_01', 5.2, 0, 1.2, 0.5, { h: 0.62 }); prop('WetFloorSign_01', 33.0, 0, 2.7, -0.9, { h: 0.62 });
+  prop('korean_fire_extinguisher_01', 39.6, 0, 0.62, face(-1, 1), { h: 0.6 });
+  prop('fire_alarm', 8.6, 1.35, 0.11, face(0, 1), { h: 0.14 }); prop('fire_alarm', 30.4, 1.35, 3.49, face(0, -1), { h: 0.14 });
+  for (const [x, y, z, lx, lz] of [[39.4, 2.62, 3.3, 10, 1.5], [0.5, 2.62, 0.3, 25, 2.2], [17.6, 2.55, -0.4, 9, -7]]) prop('security_camera_01', x, y, z, face(lx - x, lz - z), { d: 0.38 });
   // ---------- bins (emptying points) ----------
   for (const b of BINS) { const g = new THREE.Group(); const can = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.21, 0.72, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0x3a5e46, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide })); can.position.y = 0.36; g.add(can); const liner = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16).rotateX(-Math.PI / 2), M.black); liner.position.y = 0.55; g.add(liner); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.015, 6, 20).rotateX(Math.PI / 2), M.darkSteel); rim.position.y = 0.72; g.add(rim); g.position.set(b.x, 0, b.z); scene.add(g); out.interact.push({ kind: 'bin', id: b.id, x: b.x, y: 0.7, z: b.z }); }
   // ---------- athletics floor ----------
   buildAthletics(scene, col, M, std, out);
+  prop('lifebuoy', -33.4, -4 + 1.2, 23.86, face(0, -1), { w: 0.7 }); prop('life_jacket', -31.6, -4 + 1.1, 23.86, face(0, -1), { h: 0.8 });
+  prop('WetFloorSign_01', -28.0, -4, 8.2, 2.4, { h: 0.62 }); prop('WetFloorSign_01', -30.0, -4, -7.2, 0.7, { h: 0.62 });
+  prop('korean_fire_extinguisher_01', -12.4, -4, -5.6, face(-1, 1), { h: 0.6 }); prop('fire_alarm', -16.11, -4 + 1.35, 3.0, face(-1, 0), { h: 0.14 });
   // bucket in the closet: rinse the mop here; the teacher's desk can be searched
   out.interact.push({ kind: 'bucket', x: BUCKET.x, y: 0.4, z: BUCKET.z });
   out.interact.push({ kind: 'desk', x: TEACHER_DESK.x, y: 0.7, z: TEACHER_DESK.z });

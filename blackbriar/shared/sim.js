@@ -372,8 +372,24 @@ export class Sim {
     }
     this.tickMonitor(dt);
     this.tickRoombas(dt);
+    this.tickScares(dt);
     this.snapTimer(dt);
     this.saveTimer = (this.saveTimer || 0) + dt; if (this.saveTimer > 20) { this.saveTimer = 0; this.save('periodic'); }
+  }
+  // ---------- scare director: personal apparitions and local blackouts, never in calm mode ----------
+  tickScares(dt) {
+    if (this.opts.calm || this.phase !== 'shift' || this.shiftT < 75) return;
+    this.scareT = this.scareT || {};
+    for (const p of this.players.values()) {
+      if (!p.connected || p.out || p.downed || inOffice(p)) continue;
+      if (this.scareT[p.pid] == null) this.scareT[p.pid] = 25 + Math.random() * 40;
+      this.scareT[p.pid] -= dt; if (this.scareT[p.pid] > 0) continue;
+      this.scareT[p.pid] = 70 + Math.random() * 80 - Math.min(40, this.day * 8);
+      const chasing = this.mon && (this.mon.state === 'chase' || this.mon.state === 'watch');
+      if (chasing) continue;
+      if (Math.random() < 0.6) this.emit({ t: 'scare', k: 'watcher', seed: Math.random() * 1e9 | 0 }, { to: p.pid });
+      else { const d = 18 + Math.random() * 14; this.emit({ t: 'scare', k: 'lightsout', x: p.x, z: p.z, r: 11, d }); if (Math.random() < 0.5) this.noise(p.x, p.z, 7); }
+    }
   }
   snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT, cart: [this.cart.x, this.cart.z, this.cart.yaw, this.cart.holder], rb: this.roombas.map(r => [r.id, +r.x.toFixed(3), +r.z.toFixed(3), +r.yaw.toFixed(3), r.state, r.holder, r.bag]) }); } }
   snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }

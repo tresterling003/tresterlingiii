@@ -119,3 +119,9 @@ t('stairwell key, Lost & Found, robot vacuum, clocking out', () => {
   p.x = 25.5; p.z = 5.6; s.handle('a', { t: 'clockout' }); assert.equal(s.phase, 'summary'); assert.equal(s.summary.clockedOut, true);
 });
 console.log('extra tests passed');
+t('scare director: personal scares in normal mode, none in calm mode', () => {
+  const count = (calm) => { const s = new Sim(null, { calm }); s.join('a', 'A'); const p = s.players.get('a'); p.x = 30; p.z = 1.8; s.mon.x = 47.5; s.mon.z = 11; let n = 0;
+    for (let i = 0; i < 4000; i++) { s.tick(0.1); for (const o of s.out) if (o.ev.t === 'scare') { n++; if (o.ev.k === 'watcher') assert.equal(o.to, 'a'); } s.out = []; p.x = 30; p.z = 1.8; } return n; };
+  assert.ok(count(false) >= 1); assert.equal(count(true), 0);
+});
+console.log('scare tests passed');

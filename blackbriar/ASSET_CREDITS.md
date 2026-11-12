@@ -6,5 +6,39 @@
 | Head scan (`assets/head.json`, `head_normal.jpg`) | three.js examples, `gltf/LeePerrySmith` (r170) | Lee Perry-Smith / Infinite Realities, CC BY 3.0 (as documented with the three.js examples; not re-verified this session). | Neck cropped; sunken eyes/cheeks and jaw morph added in code; normal map resized to 1024². |
 | three.js r170 | cdn.jsdelivr.net/npm/three@0.170.0 | MIT | Unmodified. |
 | ws 8.18.3 | npm | MIT | Unmodified. |
-Everything else (all textures, environment geometry, props, tool models, audio) is generated in code in this repository.
+| Post-processing passes (EffectComposer, UnrealBloomPass, OutputPass) | three.js r170 `examples/jsm` | MIT | Unmodified; the film-grade shader is our own. |
+
+## Poly Haven assets (CC0 — public domain, no attribution required; credited anyway)
+Downloaded from polyhaven.com. Models were simplified with meshoptimizer and their textures resized to 256–1024 px with gltf-transform; they ship as base64 GLB in `assets/props/`. Textures were resized/recompressed into `assets/tex/`.
+
+| Asset | Author(s) | Where it is used |
+|---|---|---|
+| School Desk 01, School Chair 01 | Ethan Place | Room 112 desks and chairs |
+| Wet Floor Sign 01 | Fran Calvente | Hallway, gym, pool deck |
+| Metal Office Desk | Ulan Cabanilla | Teacher's desk (Room 112) |
+| Steel Frame Shelves 01 | James Ray Cock | Janitor closet, maintenance office, service storage |
+| Drawer Cabinet | Ulan Cabanilla | Room 112 |
+| Cardboard Box 01 | Rahul Chaudhary | Closet, office, service storage |
+| Multi Cleaner Bottle, Bleach Bottle | James Ray Cock | Closet shelves and sink |
+| Plastic Bottle Gallon | Rahul Chaudhary | Closet |
+| Korean Fire Extinguisher 01 | UM JOORIN | Hallway, office, athletics corridor |
+| Television 01 | Gabriel Radić | Room 112 |
+| Trashbag | Benny Weimer | Service storage |
+| Lifebuoy | Hank Kaamura | Pool |
+| Life Jacket | PierreB3D | Pool |
+| Security Camera 01 | Alexander Otterbeck, Yann Kervran | CCTV camera positions |
+| Fire Alarm | Slinc | Hallway, gym corridor |
+| Street Rat | Sean Buckley | Service storage |
+| Binder Notebook | DaDrood | Teacher's desk, office desk |
+| Office Notepads | Ulan Cabanilla | Teacher's desk |
+| Power Box 01 | Rico Cilliers, Yann Kervran | Maintenance office |
+| Ladder Sectioned 01 | MP | Service corridor |
+| Dustpan | Balen | Janitor closet |
+| Tool Cart | Savva Zakharov | Service corridor |
+| Texture: Laminate Floor 02 | Dario Barresi, Charlotte Baglioni | Gym floor |
+| Texture: Concrete Floor Worn 001 | Dimitrios Savva, Rico Cilliers | Closet, service, stairwell floors |
+| Texture: Square Tiles | Charlotte Baglioni | Pool deck |
+| Texture: Dirty Concrete (greyscale, as a grime detail map) | Rob Tuytel | Large-scale dirt on floors, walls and ceilings |
+
+Everything else (the VCT floors, painted walls, ceiling tiles, lockers, doors, tool models, audio) is generated in code in this repository.
 **Known licensing gap:** the Monitor is built from a Mixamo body. Prototype art only; replace with a commissioned or properly licensed creature before any release.

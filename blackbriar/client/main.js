@@ -1,13 +1,16 @@
 // AFTER HOURS: BLACKBRIAR HIGH — client
 import * as THREE from 'three';
 import { CONFIG } from '../shared/config.js';
-import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng } from '../shared/level.js';
+import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng, initialMask } from '../shared/level.js';
 import { Sim, clockText, gameClock, vacStats, mopStats, inOffice } from '../shared/sim.js';
 import { buildWorld, makeVacuumModel, makeMopModel, makeCartModel, makeRoombaModel } from './world.js';
 import { loadModels, makeMonitor, makeWorker } from './models.js';
+import { loadProps } from './props.js';
+import { makePost } from './post.js';
 import { Audio3D } from './audio.js';
 import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo } from './net.js';
 import { textCanvas, dirtTextures } from './textures.js';
+import { initScares, updateScares, spawnWatcher, startLightsOut, scareLight, clearScares, scareDebug } from './scares.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x)), lerp = (a, b, t) => a + (b - a) * t;
@@ -15,13 +18,14 @@ const angDiff = (a, b) => ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
 const NORENDER = new URLSearchParams(location.search).has('norender'); // test-only: logic and networking without drawing
 const isTouch = matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window;
 const store = { get(k, d) { try { const v = localStorage.getItem('blackbriar.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('blackbriar.' + k, JSON.stringify(v)); } catch { } } };
-const settings = Object.assign({ calm: true, sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9 }, store.get('settings', {}));
+const settings = Object.assign({ calm: false, sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9 }, store.get('settings', {}));
 const saveSettings = () => store.set('settings', settings);
+if (!store.get('scaresBack', false)) { settings.calm = false; store.set('scaresBack', true); saveSettings(); } // calm mode was the default while testing; scares are on again
 let pid = store.get('pid', null); if (!pid) { pid = 'p' + Math.random().toString(36).slice(2, 10); store.set('pid', pid); }
 
 // ======================= renderer / scene =======================
 const renderer = new THREE.WebGLRenderer({ antialias: settings.quality > 0, powerPreference: 'high-performance' });
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.82;
 renderer.shadowMap.enabled = settings.quality >= 2; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('view').appendChild(renderer.domElement); renderer.domElement.tabIndex = 0;
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x020202);
@@ -30,8 +34,10 @@ scene.add(new THREE.HemisphereLight(0xdfe4ee, 0x2a2a26, 0.06));
 const flash = new THREE.SpotLight(0xfff2dc, 0, 16, 0.42, 0.45, 1.6); flash.position.set(-0.2, -0.2, 0); camera.add(flash); camera.add(flash.target); flash.target.position.set(0, -0.05, -1);
 flash.castShadow = settings.quality >= 2; flash.shadow.mapSize.set(1024, 1024); flash.shadow.bias = -0.0005; flash.shadow.camera.near = 0.2;
 const POOL = []; for (let i = 0; i < (settings.quality === 0 ? 3 : settings.quality === 1 ? 5 : 7); i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(l); POOL.push(l); }
-function resize() { const pr = Math.min(devicePixelRatio, settings.quality === 0 ? 1 : settings.quality === 1 ? 1.5 : 2) * (settings.quality === 0 ? 0.75 : 1); renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = settings.fov; camera.updateProjectionMatrix(); }
+function resize() { const pr = Math.min(devicePixelRatio, settings.quality === 0 ? 1 : settings.quality === 1 ? 1.5 : 2) * (settings.quality === 0 ? 0.75 : 1); renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); if (post) post.setSize(innerWidth, innerHeight, pr); camera.aspect = innerWidth / innerHeight; camera.fov = settings.fov; camera.updateProjectionMatrix(); }
+let post = null;
 addEventListener('resize', resize); resize();
+try { post = makePost(renderer, scene, camera, settings.quality); resize(); } catch (e) { console.warn('post-processing unavailable', e); post = null; }
 
 // ======================= state =======================
 let W = null;             // world handles
@@ -47,11 +53,13 @@ const audio = new Audio3D(); audio.vol = settings.vol;
 const loadingEl = $('loading');
 let monitor = null;
 async function boot() {
-  try { await loadModels(); } catch (e) { console.error(e); loadingEl.textContent = 'Could not load character models: ' + e.message; }
-  W = buildWorld(scene, renderer);
+  let props = {};
+  try { [, props] = await Promise.all([loadModels(), loadProps()]); } catch (e) { console.error(e); loadingEl.textContent = 'Could not load models: ' + e.message; }
+  W = buildWorld(scene, renderer, { props });
   mirror = new Sim(null);
-  buildDebris(); buildMasks(); buildViewmodels(); buildCCTV();
+  buildDebris(); buildMasks(); buildFX(); buildViewmodels(); buildCCTV();
   if (monitorAvailable()) { monitor = makeMonitor(); monitor.root.position.set(47.5, 0, 11); scene.add(monitor.root); }
+  initScares({ scene, camera, P, audio, bake: W.bake, doors: () => mirror.doors, makeGhost: () => monitorAvailable() ? makeMonitor() : null, onSeen: () => { dread = Math.min(1, dread + 0.35); }, lightAt: (x, z) => { let k = 0; const t = performance.now() / 1000; for (const L of LIGHTS) { const d = Math.hypot(L.x - x, L.z - z); if (d < 5) k += fixtureLevel(L, t) * (1 - d / 5); } return Math.min(1, k); } });
   // reflection environment captured from the hallway itself
   placePool(14, 1.8, true);
   const cube = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType }); const cc = new THREE.CubeCamera(0.1, 60, cube); cc.position.set(12, 1.4, 1.8); scene.add(cc); cc.update(renderer, scene);
@@ -120,7 +128,7 @@ function buildMasks() {
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU; uniform sampler2D uMask; uniform sampler2D uWet;')
         .replace('#include <map_fragment>', `#include <map_fragment>
           float mk = texture2D(uMask, vMU).r; float wt = texture2D(uWet, vMU).r;
-          ${isMud ? 'diffuseColor.a = clamp(mk * 1.15, 0.0, 0.97); diffuseColor.rgb *= 0.75 + 0.25 * (1.0 - mk);' : 'diffuseColor.a = clamp(mk * 0.85, 0.0, 0.78);'}
+          ${isMud ? 'diffuseColor.a = clamp(mk * 1.15, 0.0, 0.97); diffuseColor.rgb *= 0.75 + 0.25 * (1.0 - mk);' : 'diffuseColor.rgb *= vec3(0.62, 0.56, 0.47); diffuseColor.a = clamp(mk * 1.05, 0.0, 0.82);'}
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*0.55, wt);`)
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.08, texture2D(uWet, vMU).r);');
     };
@@ -128,11 +136,23 @@ function buildMasks() {
     // texture row j is z-major from z0: flip the plane's v so row 0 sits at z0
     const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
     const mesh = new THREE.Mesh(geo, mat); mesh.position.set((p.x0 + p.x1) / 2, groundY((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2) + 0.0025, (p.z0 + p.z1) / 2); mesh.receiveShadow = true; mesh.renderOrder = 1; scene.add(mesh);
-    // the wet sheen is drawn even where the floor is already clean
-    const wmat = new THREE.MeshStandardMaterial({ color: 0x0b0f12, transparent: true, depthWrite: false, roughness: 0.04, metalness: 0.2, envMapIntensity: 1.6, polygonOffset: true, polygonOffsetFactor: -3 });
-    wmat.onBeforeCompile = (sh) => { sh.uniforms.uWet = { value: wet }; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvMU = uv;'); sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU; uniform sampler2D uWet;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a = texture2D(uWet, vMU).r * 0.32;'); };
+    // polish: every cell a clean mop has passed over. Drawn as pure reflection (additive), so mopped floor gleams
+    const pol = new THREE.DataTexture(new Uint8Array(p.w * p.h), p.w, p.h, THREE.RedFormat); pol.magFilter = THREE.LinearFilter; pol.minFilter = THREE.LinearFilter;
+    { const init = initialMask(p), pd = pol.image.data; for (let i = 0; i < pd.length; i++) if (init[i] > 20 && data[i] < init[i] * 0.3) pd[i] = 255; pol.needsUpdate = true; }
+    const vsh = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvMU = uv;'); };
+    // wet floor darkens a touch
+    const wmat = new THREE.MeshBasicMaterial({ color: 0x0b0f12, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+    wmat.onBeforeCompile = (sh) => { sh.uniforms.uWet = { value: wet }; vsh(sh); sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU; uniform sampler2D uWet;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a = texture2D(uWet, vMU).r * 0.22;'); };
     const wmesh = new THREE.Mesh(geo, wmat); wmesh.position.copy(mesh.position); wmesh.position.y += 0.0005; wmesh.renderOrder = 2; scene.add(wmesh);
-    MASKS[p.id] = { p, tex, wet, data, wetT: 0 };
+    // gloss: black glossy surface, added on top -> only the reflections of lamps, flashlight and room show
+    const smat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.06, metalness: 0, envMapIntensity: 1.0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
+    smat.onBeforeCompile = (sh) => { sh.uniforms.uWet = { value: wet }; sh.uniforms.uPol = { value: pol }; sh.uniforms.uMask = { value: tex }; vsh(sh);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMU; uniform sampler2D uWet; uniform sampler2D uPol; uniform sampler2D uMask;')
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nfloat wtS = texture2D(uWet, vMU).r; roughnessFactor = mix(0.16, 0.03, wtS);')
+        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\nfloat poS = texture2D(uPol, vMU).r, mkS = texture2D(uMask, vMU).r; gl_FragColor.rgb *= (poS * 0.65 + wtS * 1.3) * (1.0 - mkS); gl_FragColor.rgb += vec3(0.010, 0.011, 0.012) * poS * (1.0 - mkS);'); };
+    smat.customProgramCacheKey = () => 'gloss';
+    const smesh = new THREE.Mesh(geo, smat); smesh.position.copy(mesh.position); smesh.position.y += 0.001; smesh.renderOrder = 3; scene.add(smesh);
+    MASKS[p.id] = { p, tex, wet, pol, data, wetT: 0 };
     syncMaskTex(p.id);
   }
   // the scratched name under the classroom mud (revealed by real cleaning)
@@ -140,11 +160,13 @@ function buildMasks() {
   scr.position.set(CLUE_SPOT.x, 0.0015, CLUE_SPOT.z); scr.rotation.y = 0.1; scene.add(scr);
 }
 function syncMaskTex(id) { const M = MASKS[id]; M.tex.image.data.set(M.data); M.tex.needsUpdate = true; }
-function applyMop(patchId, pts, r, smear = 0) {
+function applyMop(patchId, pts, r, smear = 0, kind = 'mop') {
   const M = MASKS[patchId]; if (!M) return;
   const res = mirror.erase(M.p, pts, r, smear); M.data = mirror.masks[patchId];
-  const P = M.p, wd = M.wet.image.data;
-  for (const [x, z] of pts) { const ci = (x - P.x0) * P.res, cj = (z - P.z0) * P.res, rr = r * P.res * 1.15; for (let j = Math.max(0, Math.floor(cj - rr)); j <= Math.min(P.h - 1, Math.ceil(cj + rr)); j++) for (let i = Math.max(0, Math.floor(ci - rr)); i <= Math.min(P.w - 1, Math.ceil(ci + rr)); i++) if (Math.hypot(i + 0.5 - ci, j + 0.5 - cj) < rr) wd[j * P.w + i] = 255; }
+  if (kind !== 'mop') { M.dirty = true; return res; }
+  const P = M.p, wd = M.wet.image.data, pd = M.pol.image.data, polish = !smear;
+  for (const [x, z] of pts) { const ci = (x - P.x0) * P.res, cj = (z - P.z0) * P.res, rr = r * P.res * 1.15; for (let j = Math.max(0, Math.floor(cj - rr)); j <= Math.min(P.h - 1, Math.ceil(cj + rr)); j++) for (let i = Math.max(0, Math.floor(ci - rr)); i <= Math.min(P.w - 1, Math.ceil(ci + rr)); i++) if (Math.hypot(i + 0.5 - ci, j + 0.5 - cj) < rr) { wd[j * P.w + i] = 255; if (polish) pd[j * P.w + i] = 255; else pd[j * P.w + i] = 0; } }
+  M.pol.needsUpdate = true;
   M.wetDirty = true; M.dirty = true;
   return res;
 }
@@ -152,7 +174,9 @@ function applyMop(patchId, pts, r, smear = 0) {
 function applyMaskSet(m) {
   const M = MASKS[m.patch]; if (!M) return; const P = M.p, str = atob(m.d), data = mirror.masks[m.patch];
   let delta = 0;
-  for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) { const k = (m.j0 + j) * P.w + m.i0 + i, v = str.charCodeAt(j * m.w + i); delta += v - data[k]; data[k] = v; }
+  const pd = M.pol.image.data; let pc = false;
+  for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) { const k = (m.j0 + j) * P.w + m.i0 + i, v = str.charCodeAt(j * m.w + i); delta += v - data[k]; if (v === 0 && data[k] > 0 && !pd[k]) { pd[k] = 255; pc = true; } if (v > data[k] + 8) { pd[k] = 0; pc = true; } data[k] = v; }
+  if (pc) M.pol.needsUpdate = true;
   mirror.maskSum[m.patch] += delta; M.data = data; M.dirty = true;
 }
 let wetTimer = 0;
@@ -160,8 +184,26 @@ function updateMasks(dt) {
   wetTimer += dt; const decay = wetTimer > 0.2; if (decay) wetTimer = 0;
   for (const M of Object.values(MASKS)) {
     if (M.dirty) { M.dirty = false; syncMaskTex(M.p.id); }
-    if (decay && M.wetDirty) { const d = M.wet.image.data; let any = false; for (let i = 0; i < d.length; i++) if (d[i]) { d[i] = Math.max(0, d[i] - 4); any = true; } M.wet.needsUpdate = true; M.wetDirty = any; }
+    if (decay && M.wetDirty) { const d = M.wet.image.data; let any = false; for (let i = 0; i < d.length; i++) if (d[i]) { d[i] = Math.max(0, d[i] - 2); any = true; } M.wet.needsUpdate = true; M.wetDirty = any; }
   }
+}
+// ---- mop feedback: glints where dirt lifts, a squeak, and a little chime when a spot comes fully clean ----
+const FX = { n: 160, i: 0, life: null, mesh: null, sq: 0 };
+function buildFX() {
+  const c = textCanvas(64, 64, (x, w, h) => { const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.15, 'rgba(255,255,240,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(31, 2, 2, 60); x.fillRect(2, 31, 60, 2); });
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(FX.n * 3).fill(-999), 3));
+  FX.life = new Float32Array(FX.n); FX.mesh = new THREE.Points(geo, new THREE.PointsMaterial({ map: c, size: 0.07, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xfff6e0 })); FX.mesh.frustumCulled = false; FX.mesh.renderOrder = 5; scene.add(FX.mesh);
+}
+function mopFX(x, z, removed, clean) {
+  if (!FX.mesh) return; const pos = FX.mesh.geometry.attributes.position, n = Math.random() < 0.5 ? 1 : Math.min(3, 1 + removed / 1500 | 0), gy = groundY(x, z);
+  for (let k = 0; k < n; k++) { const i = FX.i = (FX.i + 1) % FX.n, a = Math.random() * 6.283, r = Math.random() * 0.3; pos.setXYZ(i, x + Math.cos(a) * r, gy + 0.01 + Math.random() * 0.02, z + Math.sin(a) * r); FX.life[i] = clean ? 0.6 + Math.random() * 0.5 : 0.25; }
+  pos.needsUpdate = true;
+  if (clean && (FX.sq -= removed) < 0) { FX.sq = 2500 + Math.random() * 2500; audio.tone && audio.tone({ f: 1900 + Math.random() * 700, f2: 2600 + Math.random() * 600, v: 0.018, d: 0.09, type: 'sine', wet: 0.3 }); }
+}
+function updateFX(dt) {
+  if (!FX.mesh) return; const pos = FX.mesh.geometry.attributes.position; let any = false;
+  for (let i = 0; i < FX.n; i++) if (FX.life[i] > 0) { FX.life[i] -= dt; any = true; pos.setY(i, pos.getY(i) + dt * 0.03); if (FX.life[i] <= 0) pos.setY(i, -999); }
+  if (any) pos.needsUpdate = true; FX.mesh.material.size = 0.028 + Math.sin(performance.now() / 70) * 0.012;
 }
 function patchesAt(x, z) { return PATCHES.filter(p => x >= p.x0 && x <= p.x1 && z >= p.z0 && z <= p.z1); }
 
@@ -448,7 +490,8 @@ function onMessage(m) {
     case 'out': if (m.pid === pid) centerMsg('MARKED PRESENT', 'You are out for the rest of this shift.', 6); else toast(`${nameOf(m.pid)} was marked present.`); break;
     case 'teleport': P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; break;
     case 'summary': summary = m.summary; showSummary(m.summary); break;
-    case 'newday': { applySave(m.save); day = m.day; phase = 'shift'; summary = null; closeUI(true); nightCard(day); requestLock(); break; }
+    case 'scare': if (CALM || ui) break; if (m.k === 'watcher') spawnWatcher(m.seed); else if (m.k === 'lightsout') startLightsOut(m); break;
+    case 'newday': { clearScares(); applySave(m.save); day = m.day; phase = 'shift'; summary = null; closeUI(true); nightCard(day); requestLock(); break; }
     case 'ping': { const r = REMOTE.get(m.pid); audio.ping({ x: m.x, y: 1, z: m.z }); showPing(m.x, m.y, m.z, m.pid === pid ? 'you' : nameOf(m.pid)); break; }
   }
 }
@@ -576,7 +619,7 @@ function renderCCTV(dt) {
 function fixtureLevel(L, t) {
   if (L.state === 'off') return 0;
   let k = 1; if (L.state === 'flicker') { const n = Math.sin(t * 13.7 + L.x * 3) + Math.sin(t * 31 + L.z * 7); k = n > 1.2 ? 0.1 : n > 0.9 ? 0.6 : 1; }
-  return k * (blackoutT > 0 ? 0 : 1);
+  return k * (blackoutT > 0 ? 0 : 1) * (CALM ? 1 : scareLight(L.x, L.z, t));
 }
 let blackoutT = 0;
 function placePool(cx, cz, force) {
@@ -745,13 +788,13 @@ function frame(now) {
     PR('monitor', () => updateMonitor(dt, t));
     if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.45 + k * 0.4), groundY(P.x, P.z), P.z + fz * (0.45 + k * 0.4)); monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
     sendT += dt; if (sendT > 0.066) { sendT = 0; sendState(); }
-    PR('masks', () => updateMasks(dt)); PR('hud', () => updateHUD(dt)); PR('anim', () => animateWorld(dt, t));
+    PR('masks', () => { updateMasks(dt); updateFX(dt); }); PR('hud', () => updateHUD(dt)); PR('anim', () => { animateWorld(dt, t); updateScares(dt, t); });
     if (!P.out && touch.revive) holdRevive(dt);
     if (keys.KeyE) holdRevive(dt);
   } else if (W) { // attract view behind the entry screen
     camera.position.set(6 + Math.sin(t * 0.05) * 2, 1.6, 1.8); camera.rotation.set(-0.03, -Math.PI / 2 + Math.sin(t * 0.07) * 0.15, 0); animateWorld(dt, t);
   }
-  if (W) { PR('lights', () => updateLights(dt, t)); PR('cctv', () => renderCCTV(dt)); audio.listen(camera); if (!NORENDER) PR('render', () => renderer.render(scene, camera)); }
+  if (W) { PR('lights', () => updateLights(dt, t)); PR('cctv', () => renderCCTV(dt)); audio.listen(camera); if (!NORENDER) PR('render', () => { if (post) post.render(t, dread); else renderer.render(scene, camera); }); }
   frameMs = lerp(frameMs, performance.now() - f0, 0.1);
 }
 function holdRevive(dt) { const it = pickTarget(); if (it && it.kind === 'revive') { reviveHold += dt; if (reviveHold > 0.25) { reviveHold = 0; net.send({ t: 'revive', pid: it.pid }); } } }
@@ -800,7 +843,8 @@ function queueStroke(x, z, s, kind) {
   const sEff = kind === 'mop' ? Math.round(s * (1 - 0.8 * Math.min(1, mopDirt))) : s;
   for (const p of patchesAt(x, z)) {
     if (kind === 'vac' && p.type === 'mud') continue;
-    const res = applyMop(p.id, [[x, z, sEff]], r, smear);
+    const res = applyMop(p.id, [[x, z, sEff]], r, smear, kind);
+    if (kind === 'mop' && res && res.removed > 0) mopFX(x, z, res.removed, !smear);
     if (kind === 'mop' && res) mopDirt = Math.min(1, mopDirt + res.removed / mopStats(upgrades).capacity * (p.type === 'mud' ? 1 : 0.25)); // prediction; the server sends the truth
     const key = p.id; if (!mopQ[key]) mopQ[key] = { pts: [], k: kind }; if (mopQ[key].k !== kind && mopQ[key].pts.length) { net.send({ t: 'mop', patch: key, pts: mopQ[key].pts.splice(0), k: mopQ[key].k }); } mopQ[key].k = kind; mopQ[key].pts.push([x, z, s]);
   }
@@ -922,7 +966,9 @@ window.__bb = {
   activeInfo() { const ix = VM.headPos.x - Math.sin(P.yaw) * 0.08, iz = VM.headPos.z - Math.cos(P.yaw) * 0.08; const a = [...DB.active.entries()].slice(0, 5).map(([id, s]) => [id, +DB.pos[id * 3].toFixed(2), +DB.pos[id * 3 + 1].toFixed(3), +DB.pos[id * 3 + 2].toFixed(2), +s.t.toFixed(2)]); return { n: DB.active.size, intake: [+ix.toFixed(2), +iz.toFixed(2)], a }; },
   get frameMs() { return frameMs; }, get prof() { return prof; },
   // advance gameplay logic at a fixed 60 Hz without rendering (CPU-emulated test browsers render at a few fps)
-  step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
+  scareState() { return scareDebug(); },
+  scare(k, seed = 1) { if (k === 'clear') return clearScares(); if (k === 'lightsout') startLightsOut({ x: P.x, z: P.z, r: 11, d: 20 }); else spawnWatcher(seed); },
+  step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); updateScares(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
   press(code, down = true) { keys[code] = down; }, mouse(l, r = false) { mouseL = l; mouseR = r; },
   debrisLeft() { return mirror.collected.reduce((a, b) => a + (b ? 0 : 1), 0); },
   maskSum(id) { return mirror.maskSum[id]; }, roomProgress() { return mirror.roomProgress(); },

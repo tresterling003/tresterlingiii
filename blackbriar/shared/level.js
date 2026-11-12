@@ -197,6 +197,7 @@ export const LIGHTS = (() => {
     const x = 1.5 + k * 3; let state = 'on';
     if (x > 16 && x < 31) state = ['on', 'flicker', 'on', 'off', 'on'][k % 5];
     if (x >= 31) state = x > 32 && x < 34 ? 'flicker' : 'off';
+    if (x === 7.5) state = 'off'; if (x === 13.5) state = 'flicker'; // dark pockets in the west hall
     L.push({ x, z: 1.8, y: 2.93, state, room: 'hall', color: 0xf4f6ff, i: 1 });
   }
   for (const [x, z, s] of [[10.5, -6, 'on'], [13, -6, 'off'], [15.5, -6, 'on'], [10.5, -3, 'on'], [13, -3, 'flicker'], [15.5, -3, 'on']]) L.push({ x, z, y: 2.93, state: s, room: 'class', color: 0xf6f3e8, i: 1 });
