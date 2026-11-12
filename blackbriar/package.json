@@ -1,0 +1,1 @@
+{"name":"blackbriar","version":"0.1.0","type":"module","private":true,"scripts":{"start":"node server.js","test":"node tests/sim.test.mjs"},"engines":{"node":">=18"},"dependencies":{"ws":"8.18.3"}}

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>After Hours: Blackbriar High</title>
+<meta name="description" content="A first-person custodial horror game for one to four players.">
+<style>
+:root{--ink:#ecebe4;--dim:#a9a89f;--line:rgba(236,235,228,.22);--hud:"Helvetica Neue",Helvetica,Arial,sans-serif;--mono:"Courier New",Courier,monospace;--acc:#e3c25a}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--ink);font-family:var(--hud);-webkit-user-select:none;user-select:none;touch-action:none}
+[hidden]{display:none!important}
+#view{position:fixed;inset:0}#view canvas{display:block;width:100%;height:100%;outline:none}
+button,input,select{font-family:var(--hud)}
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));background:rgba(5,6,6,.55)}
+.panel{background:rgba(14,15,14,.88);border:1px solid var(--line);padding:22px 24px;max-width:560px;width:100%;max-height:90vh;overflow:auto;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.panel h1{margin:0;font-weight:800;font-size:clamp(26px,6vw,44px);letter-spacing:.04em;line-height:1}
+.panel h1 small{display:block;font-size:.42em;letter-spacing:.42em;color:var(--acc);margin-bottom:6px;font-weight:700}
+.panel h2{margin:0 0 12px;font-size:16px;letter-spacing:.2em;text-transform:uppercase}
+.panel p{color:var(--dim);line-height:1.55;font-size:14px;margin:8px 0}
+.btn{display:inline-block;background:#232521;color:var(--ink);border:1px solid var(--line);padding:12px 16px;font-size:14px;font-weight:700;letter-spacing:.06em;cursor:pointer;text-decoration:none}
+.btn:hover{background:#2f322d}.btn.primary{background:var(--acc);color:#1a1606;border-color:var(--acc)}.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+input[type=text]{background:#0d0e0d;color:var(--ink);border:1px solid var(--line);padding:11px;font-size:15px;width:100%}
+label.set{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--dim);margin:8px 0}
+.note{font-size:12px;color:var(--dim)}.warn{color:#f0b35a}
+#status{min-height:18px;margin-top:10px;font-size:13px;color:#f0b35a}
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#crosshair{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 2px #000}
+#tl{position:absolute;left:calc(14px + env(safe-area-inset-left));top:calc(12px + env(safe-area-inset-top));font-size:12px;line-height:1.55}
+#tl b{font-size:14px;letter-spacing:.06em}
+#tc{position:absolute;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);text-align:center}
+#clock{font:800 26px var(--hud);letter-spacing:.04em}#phase{font-size:11px;letter-spacing:.25em;color:var(--dim)}
+#tr{position:absolute;right:calc(64px + env(safe-area-inset-right));top:calc(12px + env(safe-area-inset-top));text-align:right;font-size:12px;line-height:1.55}
+#money{font:800 20px var(--hud);color:var(--acc)}
+#crew{margin-top:6px;font-size:11px;color:var(--dim)}
+#bl{position:absolute;left:calc(14px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));font-size:12px;min-width:200px}
+#toolName{font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase}
+.bar{height:6px;background:rgba(255,255,255,.18);margin-top:5px;width:200px}.bar i{display:block;height:100%;background:var(--acc)}
+#prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);background:rgba(0,0,0,.55);border:1px solid var(--line);padding:6px 12px;font-size:13px;white-space:nowrap}
+#toasts{position:absolute;right:calc(14px + env(safe-area-inset-right));top:110px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.toast{background:rgba(0,0,0,.6);border-left:3px solid var(--acc);padding:6px 10px;font-size:13px;max-width:320px;animation:fade 6s forwards}
+@keyframes fade{0%{opacity:0;transform:translateX(10px)}6%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+#pa{position:absolute;left:50%;bottom:calc(18% + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:min(90vw,640px);text-align:center;font:italic 17px Georgia,serif;color:#f1e8c8;opacity:0;transition:opacity .6s}
+#pa.on{opacity:1}#pa small{display:block;font:700 10px var(--hud);letter-spacing:.3em;color:var(--dim);font-style:normal;margin-bottom:4px}
+#centerMsg{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;font-size:20px;font-weight:800;letter-spacing:.08em;opacity:0;transition:opacity .4s}
+#centerMsg.on{opacity:1}#centerMsg small{display:block;font-size:12px;font-weight:400;letter-spacing:.1em;color:var(--dim);margin-top:6px}
+#lockBanner{position:fixed;left:50%;top:calc(52px + env(safe-area-inset-top));transform:translateX(-50%);background:rgba(20,18,10,.9);border:1px solid #6d5a1a;padding:8px 12px;font-size:12px;display:flex;gap:10px;align-items:center;pointer-events:auto;max-width:94vw}
+#lockBanner .btn{padding:6px 10px;font-size:12px}
+#vign{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+#hurt{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 30%,rgba(20,0,0,.85) 100%);opacity:0;transition:opacity .3s}
+#pauseBtn{position:fixed;right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));width:42px;height:42px;background:rgba(0,0,0,.45);border:1px solid var(--line);color:var(--ink);font-weight:800;pointer-events:auto}
+/* OS */
+#os{position:fixed;inset:0;background:#2f7d7d;font-family:var(--mono);color:#111;display:flex;flex-direction:column}
+#os .desk{flex:1;position:relative;padding:18px;display:flex;gap:18px;flex-wrap:wrap;align-content:flex-start}
+#os .icon{width:96px;text-align:center;color:#fff;font-size:12px;cursor:pointer;padding:6px}
+#os .icon:hover{background:rgba(0,0,128,.35)}#os .icon i{display:block;width:40px;height:40px;margin:0 auto 6px;background:#d8d8d0;border:2px solid #fff;box-shadow:2px 2px 0 #000;font-style:normal;font-size:22px;line-height:36px}
+#os .win{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:min(760px,94vw);max-height:76vh;background:#c9c9c2;border:2px solid #fff;box-shadow:3px 3px 0 #000;display:flex;flex-direction:column}
+#os .title{background:#0b1d8c;color:#fff;padding:4px 8px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+#os .title button{background:#c9c9c2;border:2px outset #fff;font-family:var(--mono);font-weight:700;cursor:pointer;width:24px;height:22px;padding:0}
+#os .body{padding:10px;overflow:auto;background:#fff;margin:6px;border:2px inset #fff;font-size:13px;line-height:1.5;flex:1}
+#os .task{background:#c9c9c2;border-top:2px solid #fff;padding:4px 8px;display:flex;gap:8px;align-items:center;font-size:12px}
+#os .task button{font-family:var(--mono);background:#c9c9c2;border:2px outset #fff;cursor:pointer;font-weight:700}
+#os table{border-collapse:collapse;width:100%}#os td,#os th{border-bottom:1px solid #ddd;padding:4px 6px;text-align:left;vertical-align:top}
+#os .ob{font-family:var(--mono);background:#c9c9c2;border:2px outset #fff;padding:4px 10px;cursor:pointer;font-weight:700}
+#os .ob:disabled{color:#888;cursor:default}
+#os canvas{width:100%;image-rendering:auto;background:#000}
+.mascot{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;background:#fffbe6;border:1px solid #c9b46a;padding:6px}
+.mascot b{display:inline-block;width:26px;height:26px;border-radius:50%;background:#c41d1d;color:#fff;text-align:center;line-height:26px;flex:none}
+/* backpack */
+.tabs{display:flex;gap:6px;margin-bottom:10px}.tabs .btn{padding:8px 10px;font-size:12px}.tabs .btn.on{background:#3a3d36;border-color:var(--acc)}
+.item{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;font-size:14px;gap:10px}
+.clue h3{margin:10px 0 4px;font-size:14px;color:var(--acc)}.clue p{white-space:pre-line;margin:0 0 6px;color:var(--ink);font-size:13px}.clue small{color:var(--dim)}
+/* touch */
+#touch{position:fixed;inset:0;touch-action:none;pointer-events:auto}
+#stick{position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:1px solid rgba(255,255,255,.3);pointer-events:none}
+#knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px;border-radius:50%;background:rgba(255,255,255,.3)}
+#tbtns{position:absolute;right:calc(10px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(3,58px);gap:8px}
+#tbtns button{width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em}
+#tbtns button.on{background:rgba(227,194,90,.55)}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;font-size:12px;letter-spacing:.4em;color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="vign"></div><div id="hurt"></div>
+<div id="hud" hidden>
+  <div id="crosshair"></div>
+  <div id="tl"><b id="area">—</b><div id="areaProg"></div></div>
+  <div id="tc"><div id="clock">10:00 PM</div><div id="phase">NIGHT 1</div></div>
+  <div id="tr"><div id="money">$0.00</div><div id="earn"></div><div id="crew"></div></div>
+  <div id="bl"><div id="toolName">Hands</div><div id="toolInfo" class="note"></div><div class="bar" id="bagBar" hidden><i id="bagFill" style="width:0"></i></div></div>
+  <div id="prompt" hidden></div>
+  <div id="toasts"></div>
+  <div id="pa"><small>PUBLIC ADDRESS</small><span id="paText"></span></div>
+  <div id="centerMsg"></div>
+</div>
+<div id="lockBanner" hidden><span id="lockText"></span><button class="btn" id="lockRetry">Capture mouse</button><a class="btn" id="lockTab" target="_blank" rel="noopener" hidden>Open in its own tab</a></div>
+<button id="pauseBtn" hidden aria-label="Pause">II</button>
+<div id="touch" hidden><div id="stick" hidden><div id="knob"></div></div>
+  <div id="tbtns"><button id="tUse">USE</button><button id="tE">E</button><button id="tLight">LIGHT</button><button id="tTool">TOOL</button><button id="tSprint">RUN</button><button id="tCrouch">CROUCH</button></div></div>
+
+<div id="entry" class="screen" hidden>
+  <div class="panel">
+    <h1><small>AFTER HOURS</small>BLACKBRIAR HIGH</h1>
+    <p>Night crew wanted. Abandoned school, being prepared for reopening. Paid per item removed. <b style="color:var(--ink)">Be inside the maintenance office, bolt engaged, before 4:00 AM.</b></p>
+    <label class="set" style="display:block">Your name<input type="text" id="name" maxlength="16" placeholder="Worker"></label>
+    <div class="row"><button class="btn primary" id="bSolo">Play solo</button><button class="btn" id="bNewSolo" hidden>New solo save</button></div>
+    <div id="coopBox">
+      <div class="row"><button class="btn" id="bCreate">Create co-op crew</button></div>
+      <div class="row"><input type="text" id="code" maxlength="4" placeholder="CODE" style="width:110px;text-transform:uppercase"><button class="btn" id="bJoin">Join crew</button></div>
+    </div>
+    <p class="note" id="coopNote"></p>
+    <div id="status"></div>
+    <p class="note">Desktop: WASD move · mouse look · Shift sprint · Ctrl crouch · E interact · F flashlight · Tab backpack · 1/2 tools · left mouse use · right mouse secondary · Esc pause.<br>Touch: left thumb moves, right thumb looks, buttons for actions. Headphones recommended.</p>
+  </div>
+</div>
+<div id="pause" class="screen" hidden>
+  <div class="panel">
+    <h2>Paused</h2>
+    <p class="note" id="pauseNote"></p>
+    <div class="row"><button class="btn primary" id="pResume">Resume</button><button class="btn" id="pInvite" hidden>Copy invite link</button><button class="btn" id="pLeave">Leave</button></div>
+    <p id="inviteText" class="note"></p>
+    <label class="set">Look sensitivity <input type="range" id="sSens" min="0.2" max="3" step="0.05"></label>
+    <label class="set">Field of view <input type="range" id="sFov" min="60" max="100" step="1"></label>
+    <label class="set">Head bob <input type="checkbox" id="sBob"></label>
+    <label class="set">Invert look Y <input type="checkbox" id="sInv"></label>
+    <label class="set">Quality <select id="sQual"><option value="2">High</option><option value="1">Medium</option><option value="0">Low</option></select></label>
+    <label class="set">Volume <input type="range" id="sVol" min="0" max="1" step="0.05"></label>
+    <p class="note" id="perfNote"></p>
+  </div>
+</div>
+<div id="bag" class="screen" hidden>
+  <div class="panel">
+    <h2>Backpack</h2>
+    <div class="tabs"><button class="btn on" data-tab="gear">Equipment</button><button class="btn" data-tab="journal">Journal</button><button class="btn" data-tab="up">Upgrades</button></div>
+    <div id="bagBody"></div>
+    <div class="row"><button class="btn" id="bagClose">Close (Tab)</button></div>
+  </div>
+</div>
+<div id="os" hidden>
+  <div class="desk" id="osDesk"></div>
+  <div class="win" id="osWin" hidden><div class="title"><span id="osTitle"></span><button id="osX">X</button></div><div class="body" id="osBody"></div></div>
+  <div class="task"><button id="osLogout">Log off</button><span id="osTask"></span><span style="margin-left:auto" id="osClock"></span></div>
+</div>
+<div id="summary" class="screen" hidden><div class="panel" id="sumBody"></div></div>
+<div id="loading">LOADING BLACKBRIAR HIGH…</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module" src="client/main.js"></script>
+</body>
+</html>
