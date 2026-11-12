@@ -548,6 +548,8 @@ export class Sim {
       if (!m.path || !m.path.length) { const g = this.pickPatrol(lock); this.planPath(g[0], g[1]); }
       this.followPath(C.speed.patrol * speedMul, dt, rects);
       this.reactToSenses(best, heard, recovering, lock);
+      // hunting: it knows where you are, and comes while nobody is looking
+      if (!lock && !peaceful && m.stateT > 20 && alive.length && this.rand() < dt * 0.04) { const tg = alive[(this.rand() * alive.length) | 0]; this.setMon('stalk', { target: tg.pid }); m.lastKnown = { x: tg.x, z: tg.z, t: this.time }; }
       if (!lock && m.stateT > 50 && this.rand() < dt * 0.05) { const wp = this.pickWatchPoint(alive, rects, 6, 22); if (wp) this.setMon('watch', { goal: wp, watchFor: 4 + this.rand() * 4, target: null }); }
     } else if (st === 'investigate') {
       if (!m.path) this.planPath(m.goal.x, m.goal.z);
@@ -555,8 +557,9 @@ export class Sim {
       if (arrived) this.setMon('search', { searchFor: CONFIG.monitor.searchSeconds * 0.6 });
       this.reactToSenses(best, heard, recovering, lock, true);
     } else if (st === 'stalk') {
+      const tg = alive.find(p => p.pid === m.target); if (tg) m.lastKnown = { x: tg.x, z: tg.z, t: this.time };
       const lk = m.lastKnown;
-      if (lk && dist(m.x, m.z, lk.x, lk.z) > 7) { if (!m.path || m.pathT > 1) this.planPath(lk.x, lk.z); m.pathT += dt; this.followPath(C.speed.stalk * speedMul, dt, rects); }
+      if (lk && dist(m.x, m.z, lk.x, lk.z) > 3.2) { if (!m.path || m.pathT > 1) this.planPath(lk.x, lk.z); m.pathT += dt; this.followPath(C.speed.stalk * speedMul, dt, rects); }
       else { m.moving = 0; if (lk) m.yaw = turnTo(m.yaw, Math.atan2(lk.x - m.x, lk.z - m.z), dt * 2); }
       if (best && m.susp[best.pid] > 1.1) this.setMon('chase', { target: best.pid });
       if (m.stateT > 22) this.setMon(lock ? 'search' : 'retreat', { retreatFor: 35 });

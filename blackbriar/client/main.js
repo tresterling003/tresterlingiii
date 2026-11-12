@@ -4,7 +4,7 @@ import { CONFIG } from '../shared/config.js';
 import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng, initialMask, MANNEQUIN_SPOTS } from '../shared/level.js';
 import { Sim, clockText, gameClock, vacStats, mopStats, inOffice } from '../shared/sim.js';
 import { buildWorld, makeVacuumModel, makeMopModel, makeCartModel, makeRoombaModel } from './world.js';
-import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd } from './models.js';
+import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd, updateCrowd } from './models.js';
 import { loadProps } from './props.js';
 import { makePost } from './post.js';
 import { Audio3D } from './audio.js';
@@ -25,16 +25,17 @@ let pid = store.get('pid', null); if (!pid) { pid = 'p' + Math.random().toString
 
 // ======================= renderer / scene =======================
 const renderer = new THREE.WebGLRenderer({ antialias: settings.quality > 0, powerPreference: 'high-performance' });
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.82;
-renderer.shadowMap.enabled = settings.quality >= 2; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.72;
+renderer.shadowMap.enabled = settings.quality >= 2; renderer.shadowMap.type = THREE.PCFShadowMap;
 $('view').appendChild(renderer.domElement); renderer.domElement.tabIndex = 0;
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x020202);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x020202); scene.fog = new THREE.FogExp2(0x030304, 0.066); // dark air: the far end of every hall dissolves
 const camera = new THREE.PerspectiveCamera(settings.fov, 1, 0.03, 120); camera.rotation.order = 'YXZ'; scene.add(camera);
 scene.add(new THREE.HemisphereLight(0xdfe4ee, 0x2a2a26, 0.06));
 const flash = new THREE.SpotLight(0xfff2dc, 0, 16, 0.42, 0.45, 1.6); flash.position.set(-0.2, -0.2, 0); camera.add(flash); camera.add(flash.target); flash.target.position.set(0, -0.05, -1);
-flash.castShadow = settings.quality >= 2; flash.shadow.mapSize.set(1024, 1024); flash.shadow.bias = -0.0005; flash.shadow.camera.near = 0.2;
-const POOL = []; for (let i = 0; i < (settings.quality === 0 ? 3 : settings.quality === 1 ? 5 : 7); i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(l); POOL.push(l); }
-function resize() { const pr = Math.min(devicePixelRatio, settings.quality === 0 ? 1 : settings.quality === 1 ? 1.5 : 2) * (settings.quality === 0 ? 0.75 : 1); renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); if (post) post.setSize(innerWidth, innerHeight, pr); camera.aspect = innerWidth / innerHeight; camera.fov = settings.fov; camera.updateProjectionMatrix(); }
+flash.castShadow = settings.quality >= 2; flash.shadow.mapSize.set(512, 512); flash.shadow.bias = -0.0005; flash.shadow.camera.near = 0.2;
+const POOL = []; for (let i = 0; i < (settings.quality === 0 ? 2 : settings.quality === 1 ? 3 : 4); i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(l); POOL.push(l); }
+let renderScale = 1; // adaptive: lowered when frames run slow, raised again when there is headroom
+function resize() { const pr = Math.min(devicePixelRatio, settings.quality === 0 ? 1 : settings.quality === 1 ? 1.25 : 1.5) * (settings.quality === 0 ? 0.75 : 1) * renderScale; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); if (post) post.setSize(innerWidth, innerHeight, pr); camera.aspect = innerWidth / innerHeight; camera.fov = settings.fov; camera.updateProjectionMatrix(); }
 let post = null;
 addEventListener('resize', resize); resize();
 try { post = makePost(renderer, scene, camera, settings.quality); resize(); } catch (e) { console.warn('post-processing unavailable', e); post = null; }
@@ -59,7 +60,7 @@ async function boot() {
   mirror = new Sim(null);
   buildDebris(); buildMasks(); buildFX(); buildViewmodels(); buildCCTV();
   if (monitorAvailable()) { monitor = makeMonitor(); monitor.root.position.set(47.5, 0, 11); scene.add(monitor.root); }
-  try { buildMannequinCrowd(scene, MANNEQUIN_SPOTS, -4); } catch (e) { console.warn('mannequin crowd', e); }
+  try { W.crowd = buildMannequinCrowd(scene, MANNEQUIN_SPOTS, -4); } catch (e) { console.warn('mannequin crowd', e); }
   initScares({ scene, camera, P, audio, bake: W.bake, doors: () => mirror.doors, makeGhost: () => monitorAvailable() ? makeMonitor() : null, onSeen: () => { dread = Math.min(1, dread + 0.35); }, lightAt: (x, z) => { let k = 0; const t = performance.now() / 1000; for (const L of LIGHTS) { const d = Math.hypot(L.x - x, L.z - z); if (d < 5) k += fixtureLevel(L, t) * (1 - d / 5); } return Math.min(1, k); } });
   // reflection environment captured from the hallway itself
   placePool(14, 1.8, true);
@@ -485,7 +486,8 @@ function onMessage(m) {
     case 'buyfail': osNote = m.msg; renderOSApp(); break;
     case 'roomdone': centerMsg(`${m.name.toUpperCase()} RESTORED`, `+$${m.bonus.toFixed(2)} completion bonus`, 3); audio.reward(); break;
     case 'phase': phase = m.phase; if (phase === 'lockdown') { centerMsg('4:00 AM', inOffice(P) && mirror.doors.d_office.bolted ? 'Stay quiet. Stay inside.' : 'GET TO THE OFFICE. BOLT THE DOOR.', 4); audio.sting(); } break;
-    case 'monfreeze': if (!m.on && !CALM && monitor) { const p = { x: m.x, y: 1.2, z: m.z }; audio.tone({ f: 380 + Math.random() * 120, f2: 140, type: 'triangle', v: 0.09, d: 0.07, pos: p, wet: 0.5 }); audio.tone({ f: 240, f2: 90, type: 'triangle', v: 0.07, d: 0.06, delay: 0.09, pos: p, wet: 0.5 }); } break;
+    case 'monfreeze': if (m.on && !CALM && monitor && performance.now() > screechT) { const d = Math.hypot(monitor.root.position.x - P.x, monitor.root.position.z - P.z); if (d < 6) { screechT = performance.now() + 9000; audio.sting(monitor.root.position); audio.tone({ f: 1900, f2: 2600, type: 'sawtooth', v: 0.05, d: 0.9, lp: 5000, wet: 0.6 }); audio.tone({ f: 2011, f2: 2500, type: 'sawtooth', v: 0.04, d: 0.9, lp: 5000, wet: 0.6 }); shake = Math.max(shake, 0.25); dread = Math.min(1, dread + 0.5); } }
+      if (!m.on && !CALM && monitor) { const p = { x: m.x, y: 1.2, z: m.z }; audio.tone({ f: 380 + Math.random() * 120, f2: 140, type: 'triangle', v: 0.09, d: 0.07, pos: p, wet: 0.5 }); audio.tone({ f: 240, f2: 90, type: 'triangle', v: 0.07, d: 0.06, delay: 0.09, pos: p, wet: 0.5 }); } break;
     case 'monstate': monState = m.st; if (m.st === 'chase') audio.sting(monitor ? monitor.root.position : null); break;
     case 'caught': if (m.pid === pid) jumpscare(); break;
     case 'downed': if (m.pid === pid) centerMsg('YOU ARE DOWN', 'A crewmate can help you up. Hold on.', 4); else toast(`${nameOf(m.pid)} is down! Get to them and hold E.`); break;
@@ -584,7 +586,7 @@ function updateMonitor(dt, t) {
   m.root.position.set(s.x, groundY(s.x, s.z), s.z); m.root.rotation.y = s.yaw;
   const sp = monLast ? Math.hypot(s.x - monLast.x, s.z - monLast.z) / Math.max(dt, 1e-3) : 0; monLast = { x: s.x, z: s.z };
   const modeR = s.st === 'chase' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
-  monStillT = modeR === 'idle' && s.st !== 'chase' ? monStillT + dt : 0;
+  monStillT = modeR === 'idle' && s.st !== 'chase' ? monStillT + dt : 0; monMoving = sp > 0.2;
   const modeA = monStillT > 0.5 ? 'still' : modeR; // standing still it takes the same display pose as the stored mannequins
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
   m.scr = s.st === 'chase' ? 0.85 : s.st === 'watch' ? 0.35 : 0.12;
@@ -596,9 +598,11 @@ function updateMonitor(dt, t) {
   if (audio.chaseG) audio.chaseG.gain.value = lerp(audio.chaseG.gain.value, s.st === 'chase' && d < 26 ? 0.25 : 0, 0.04);
   // distant dragging now and then when it is far and moving
   if (s.st !== 'dormant' && d > 14 && Math.random() < dt * 0.02) audio.drag({ x: s.x, y: 0.2, z: s.z });
+  heartT -= dt; if (d < 14 && s.st !== 'dormant' && heartT <= 0) { const k = 1 - d / 14; heartT = 0.32 + (1 - k) * 0.85; audio.tone({ f: 62, f2: 38, v: 0.06 + k * 0.28, d: 0.11, lp: 180, wet: 0 }); audio.tone({ f: 55, f2: 36, v: 0.04 + k * 0.2, d: 0.1, lp: 160, wet: 0, delay: 0.17 }); }
+  if (audio.dreadG) audio.dreadG.gain.value = lerp(audio.dreadG.gain.value, dread * 0.32, 0.03);
   dread = clamp(dread + (d < 12 && s.st !== 'dormant' && s.st !== 'retreat' ? (s.st === 'chase' ? 0.6 : 0.2) * dt : -0.15 * dt), 0, 1);
 }
-let dread = 0, monStillT = 0;
+let dread = 0, monStillT = 0, monMoving = false, heartT = 0, screechT = 0;
 let pendingTP = null, scareTP = null;
 function applyTP(m) { P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; }
 function jumpscare() {
@@ -629,7 +633,8 @@ function renderCCTV(dt) {
 function fixtureLevel(L, t) {
   if (L.state === 'off') return 0;
   let k = 1; if (L.state === 'flicker') { const n = Math.sin(t * 13.7 + L.x * 3) + Math.sin(t * 31 + L.z * 7); k = n > 1.2 ? 0.1 : n > 0.9 ? 0.6 : 1; }
-  return k * (blackoutT > 0 ? 0 : 1) * (CALM ? 1 : scareLight(L.x, L.z, t));
+  let mk = 1; if (!CALM && monitor && monMoving) { const md = Math.hypot(L.x - monitor.root.position.x, L.z - monitor.root.position.z); if (md < 7) mk = Math.sin(t * 47 + L.x * 5) + Math.sin(t * 23 + L.z) > 0.6 + md / 7 ? 0.05 : 1; }
+  return k * mk * (blackoutT > 0 ? 0 : 1) * (CALM ? 1 : scareLight(L.x, L.z, t));
 }
 let blackoutT = 0;
 function placePool(cx, cz, force) {
@@ -800,7 +805,8 @@ function frame(now) {
     if (scareT > 0 && scareT - dt <= 0 && scareTP) { applyTP(scareTP); scareTP = null; $('hurt').style.opacity = 1; }
     if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.5 + k * 0.5), groundY(P.x, P.z) - 0.3, P.z + fz * (0.5 + k * 0.5)); monitor.lock = true; monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
     sendT += dt; if (sendT > 0.066) { sendT = 0; sendState(); }
-    PR('masks', () => { updateMasks(dt); updateFX(dt); }); PR('hud', () => updateHUD(dt)); PR('anim', () => { animateWorld(dt, t); updateScares(dt, t); });
+    PR('masks', () => { updateMasks(dt); updateFX(dt); }); PR('hud', () => updateHUD(dt)); PR('anim', () => { animateWorld(dt, t); updateScares(dt, t);
+      if (W.crowd) { W.crowd.visible = (P.gy ?? groundY(P.x, P.z)) < -2; if (!CALM && updateCrowd(W.crowd, MANNEQUIN_SPOTS, -4, P.x, P.z, camera, dt, 0.35)) audio.tone({ f: 300 + Math.random() * 200, f2: 120, type: 'triangle', v: 0.05, d: 0.08, wet: 0.7, pos: { x: P.x - Math.sin(P.yaw) * -4, y: -3, z: P.z - Math.cos(P.yaw) * -4 } }); } });
     if (!P.out && touch.revive) holdRevive(dt);
     if (keys.KeyE) holdRevive(dt);
   } else if (W) { // attract view behind the entry screen
@@ -808,7 +814,12 @@ function frame(now) {
   }
   if (W) { PR('lights', () => updateLights(dt, t)); PR('cctv', () => renderCCTV(dt)); audio.listen(camera); if (!NORENDER) PR('render', () => { if (post) post.render(t, dread); else renderer.render(scene, camera); }); }
   frameMs = lerp(frameMs, performance.now() - f0, 0.1);
+  // adaptive resolution from the real frame interval (includes GPU time)
+  if (playing && !NORENDER) { fpsAcc += dt; fpsN++; if (fpsAcc > 1.2) { const avg = fpsAcc / fpsN; fpsAcc = 0; fpsN = 0;
+    if (avg > 1 / 48 && renderScale > 0.55) { renderScale = Math.max(0.55, renderScale * 0.85); resize(); }
+    else if (avg < 1 / 58 && renderScale < 1) { goodT++; if (goodT > 3) { goodT = 0; renderScale = Math.min(1, renderScale * 1.1); resize(); } } else goodT = 0; } }
 }
+let fpsAcc = 0, fpsN = 0, goodT = 0;
 function holdRevive(dt) { const it = pickTarget(); if (it && it.kind === 'revive') { reviveHold += dt; if (reviveHold > 0.25) { reviveHold = 0; net.send({ t: 'revive', pid: it.pid }); } } }
 function animateWorld(dt, t) {
   for (const D of Object.values(W.doors)) { D.angle = lerp(D.angle, D.target, 1 - Math.pow(0.004, dt)); D.pivot.rotation.y = (D.d.axis === 'x' ? 1 : 1) * D.angle * (D.d.axis === 'x' ? 1 : 1); if (D.bolt) { D.boltT = lerp(D.boltT, D.boltOn ? 1 : 0, 1 - Math.pow(0.001, dt)); D.bolt.position.x = (D.d.a1 - D.d.a0 - 0.04) - 0.2 + D.boltT * 0.1; } }

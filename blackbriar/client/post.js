@@ -30,10 +30,10 @@ const Grade = {
 export function makePost(renderer, scene, camera, quality) {
   if (quality < 1) return null;
   const size = renderer.getSize(new THREE.Vector2());
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: quality >= 2 ? 4 : 0 });
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: quality >= 2 ? 2 : 0 });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.28, 0.4, 2.2); composer.addPass(bloom);
+  const bloom = quality >= 2 ? new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.28, 0.4, 2.2) : null; if (bloom) composer.addPass(bloom);
   const grade = new ShaderPass(Grade); composer.addPass(grade);
   composer.addPass(new OutputPass());
   return {

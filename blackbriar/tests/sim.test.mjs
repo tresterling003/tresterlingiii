@@ -146,3 +146,11 @@ t('cafeteria: locked until the key on the lifeguard chair is taken', () => {
   assert.ok(DEBRIS.some(d => d.room === 'cafe'));
 });
 console.log('cafeteria tests passed');
+t('hunting: it finds a worker who never looks its way', () => {
+  const s = new Sim(); s.join('a', 'A'); s.shiftT = 600; const p = s.players.get('a');
+  p.x = 30; p.z = 1.8; p.yaw = -Math.PI / 2; // facing east, away from where it comes from
+  s.mon.x = -7.7; s.mon.z = 17.2; s.setMon('patrol'); let close = Infinity, caught = false;
+  for (let i = 0; i < 3000 && !caught; i++) { s.tick(0.1); caught = s.out.some(o => o.ev.t === 'caught'); s.out = []; p.x = 30; p.z = 1.8; p.yaw = Math.atan2(s.mon.x - p.x, s.mon.z - p.z); close = Math.min(close, Math.hypot(s.mon.x - p.x, s.mon.z - p.z)); }
+  assert.ok(caught || close < 4, 'closed in to ' + close.toFixed(1));
+});
+console.log('hunting tests passed');

@@ -39,6 +39,10 @@ export class Audio3D {
     this.breath = this.spatialLoop(nb, 'bandpass', 700, 3, 0);
     const bl = ctx.createOscillator(); bl.frequency.value = 0.35; const blg = ctx.createGain(); blg.gain.value = 300; bl.connect(blg); blg.connect(this.breath.fl.frequency); bl.start();
     this.wetSwish = loop(wb, 'bandpass', 900, 1.2, 0);
+    // dread: a sub-bass drone that rises as it gets near
+    this.dreadG = ctx.createGain(); this.dreadG.gain.value = 0; this.dreadG.connect(this.master);
+    for (const f of [36.7, 38.2, 55.1]) { const o = ctx.createOscillator(); o.type = f > 50 ? 'triangle' : 'sine'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = f > 50 ? 0.25 : 0.6; o.connect(g); g.connect(this.dreadG); o.start(); }
+    { const d = loop(nb, 'lowpass', 110, 0.8, 0.9, this.dreadG); }
   }
   setVolume(v) { this.vol = v; if (this.master) this.master.gain.value = v; }
   listen(cam) {
@@ -81,7 +85,7 @@ export class Audio3D {
   pickup() { this.tone({ f: 520, v: 0.05, d: 0.2 }); this.tone({ f: 780, v: 0.04, d: 0.25, delay: 0.06 }); }
   ui() { this.tone({ f: 1000, v: 0.03, d: 0.05, type: 'square', lp: 2500, wet: 0 }); }
   sting(pos) { this.tone({ f: 46, f2: 40, type: 'sawtooth', v: 0.28, d: 2.4, a: 0.03, lp: 380, wet: 1.2, pos }); this.noise({ f: 5000, f2: 900, q: 2, v: 0.07, d: 1.8, a: 0.2, wet: 1.4 }); }
-  caught() { this.noise({ f: 2400, q: 0.5, v: 0.5, d: 0.9, wet: 0.6 }); for (const f of [300, 317, 452]) this.tone({ f, f2: f * 0.5, type: 'sawtooth', v: 0.16, d: 1.2, lp: 2600, wet: 0.8 }); }
+  caught() { this.tone({ f: 70, f2: 28, v: 0.7, d: 0.8, lp: 300, wet: 0.2 }); this.noise({ f: 900, f2: 4200, q: 2, v: 0.35, d: 0.5, wet: 0.5 }); this.noise({ f: 2400, q: 0.5, v: 0.5, d: 0.9, wet: 0.6 }); for (const f of [300, 317, 452]) this.tone({ f, f2: f * 0.5, type: 'sawtooth', v: 0.16, d: 1.2, lp: 2600, wet: 0.8 }); }
   drag(pos) { this.noise({ f: 300, f2: 180, q: 1.2, v: 0.08, d: 1.6, a: 0.4, pos, wet: 1.0 }); }
   chime() { for (const [f, d] of [[659, 0], [523, 0.4], [392, 0.8]]) this.tone({ f, v: 0.07, d: 1.2, delay: d, wet: 1.5, type: 'triangle' }); }
   ventVoice(pos) { this.noise({ f: 1200, f2: 900, q: 6, v: 0.04, d: 1.2, a: 0.3, pos, wet: 1.2 }); }

@@ -129,9 +129,9 @@ export function buildMannequinCrowd(scene, spots, y) {
         geo.computeVertexNormals();
       } else { geo = o.geometry.clone(); geo.morphAttributes = {}; geo.applyMatrix4(o.matrixWorld); }
       const mat = o.material.userData && o.material.userData.mq ? (mqMats[o.material.userData.mq] ||= mannequinWood(o.material.userData.mq === 'joint', true)) : o.material;
-      const im = new THREE.InstancedMesh(geo, mat, mine.length); im.frustumCulled = false;
+      const im = new THREE.InstancedMesh(geo, mat, mine.length);
       mine.forEach((sp, i) => im.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(sp.x, y, sp.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), sp.yaw), new THREE.Vector3(1, 1, 1))));
-      out.add(im);
+      im.computeBoundingSphere(); out.add(im); mine.forEach((sp, i) => { (sp._refs ||= []).push([im, i]); });
     });
   });
   return out;
@@ -201,4 +201,19 @@ export function makeWorker(name, color = 0x41597a) {
   st.update = (dt, mode, speed) => animate(r, dt, mode, speed);
   st.hand = r.bones.RightHand;
   return st;
+}
+
+// The stored mannequins turn to face you — only ever while you are not looking at them.
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0), _p = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1), _f = new THREE.Vector3();
+export function updateCrowd(group, spots, y, px, pz, camera, dt, rate = 0.25) {
+  if (!group || !group.visible) return 0; camera.getWorldDirection(_f); let turned = 0;
+  for (const sp of spots) {
+    if (!sp._refs) continue; const dx = px - sp.x, dz = pz - sp.z, d = Math.hypot(dx, dz); if (d > 16 || d < 1.2) continue;
+    const seen = (-dx * _f.x - dz * _f.z) / d > 0.55; if (seen || Math.random() > dt * rate) continue;
+    const want = Math.atan2(dx, dz); if (Math.abs(((want - sp.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.2) continue;
+    sp.yaw = want; turned++;
+    _q.setFromAxisAngle(_up, sp.yaw); _m4.compose(_p.set(sp.x, y, sp.z), _q, _one);
+    for (const [im, i] of sp._refs) { im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; }
+  }
+  return turned;
 }
