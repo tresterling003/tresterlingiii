@@ -18,6 +18,7 @@ const angDiff = (a, b) => ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
 const NORENDER = new URLSearchParams(location.search).has('norender'); // test-only: logic and networking without drawing
 const isTouch = matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window;
 const store = { get(k, d) { try { const v = localStorage.getItem('blackbriar.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('blackbriar.' + k, JSON.stringify(v)); } catch { } } };
+document.body.classList.toggle('touchui', isTouch);
 const settings = Object.assign({ calm: false, sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9 }, store.get('settings', {}));
 const saveSettings = () => store.set('settings', settings);
 if (!store.get('scaresBack', false)) { settings.calm = false; store.set('scaresBack', true); saveSettings(); } // calm mode was the default while testing; scares are on again
@@ -436,7 +437,8 @@ function pollGamepad(dt) {
   if (b(12)) my = 1; if (b(13)) my = -1; if (b(14)) mx = -1; if (b(15)) mx = 1;
   const any = mx || my || g.buttons.some(x => x.pressed); if (any) GP.active = true;
   if (GP.active) {
-    if (ui) { if (edge(1) || edge(9)) { if (ui === 'os') closeOS(); else if (ui !== 'gameover') closeUI(); } if (edge(0)) { const f = document.activeElement; if (f && f.click && f !== document.body) f.click(); } menuNav(edge(12) || (my > 0.6 && !GP.navLock) ? -1 : edge(13) || (my < -0.6 && !GP.navLock) ? 1 : 0); GP.navLock = Math.abs(my) > 0.6; }
+    if (!playing && !$('press').hidden) { if (g.buttons.some((x, i) => edge(i))) pressStart(); }
+    else if (ui || !playing) { if (edge(1) && !playing) showMenu('mMain'); if (edge(1) || edge(9)) { if (ui === 'os') closeOS(); else if (ui !== 'gameover') closeUI(); } if (edge(0)) { const f = document.activeElement; if (f && f.click && f !== document.body) f.click(); } menuNav(edge(12) || (my > 0.6 && !GP.navLock) ? -1 : edge(13) || (my < -0.6 && !GP.navLock) ? 1 : 0); GP.navLock = Math.abs(my) > 0.6; }
     else {
       touch.mx = mx; touch.my = my;
       const lx = dz(g.axes[2] || 0), ly = dz(g.axes[3] || 0), sp = 2.6 * settings.sens;
@@ -456,11 +458,21 @@ function menuNav(dir) {
   const i = items.indexOf(document.activeElement); items[(i + dir + items.length) % items.length].focus();
 }
 // ======================= entry / session =======================
+const TIPS = ['It does not move while it is watched.', 'Do not stare at it for long.', 'The office was never on the attendance system.', 'If it saw you get into a locker, the locker will not save you.', 'Muddy footprints are never yours.', 'The PA does not know your name. It says it anyway.', 'Room 014 is not on the floor plan.'];
+function showMenu(id) { for (const k of ['mMain', 'sCoop', 'sOpts', 'sHow']) $(k).hidden = k !== id; const f = $(id).querySelector('.mi:not([disabled]),input'); if (f) setTimeout(() => f.focus(), 30); audio.ui && audio.ui(); }
+document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => showMenu('mMain'));
+$('mCoop').onclick = () => showMenu('sCoop'); $('mOpts').onclick = () => showMenu('sOpts'); $('mHow').onclick = () => showMenu('sHow');
+function pressStart() {
+  if ($('press').hidden) return; $('press').hidden = true; audio.init(); showMenu('mMain'); $('entry').hidden = false;
+  if (isTouch) { try { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen)?.call(d)?.catch?.(() => { }); screen.orientation?.lock?.('landscape').catch(() => { }); } catch { } }
+}
+$('press').addEventListener('pointerdown', pressStart); addEventListener('keydown', (e) => { if (!$('press').hidden) { e.preventDefault(); pressStart(); } });
 async function showEntry() {
-  $('entry').hidden = false; $('name').value = store.get('name', '');
+  $('press').hidden = false; $('entry').hidden = true; $('name').value = store.get('name', '');
+  if (navigator.webdriver && !new URLSearchParams(location.search).has('press')) pressStart(); // automated tests go straight to the menu
   const params = new URLSearchParams(location.search), code = (params.get('room') || '').toUpperCase();
   if (code) $('code').value = code;
-  $('bNewSolo').hidden = !loadSolo();
+  const hasSave = !!loadSolo(); $('bSolo').textContent = hasSave ? 'Continue' : 'New game'; $('bNewSolo').hidden = !hasSave;
   $('bCreate').disabled = $('bJoin').disabled = true; $('coopNote').textContent = 'Looking for co-op…';
   const ok = !params.has('mockroom') && await serverAvailable();
   if (ok) { coopKind = 'server'; $('bCreate').disabled = $('bJoin').disabled = false; $('coopNote').textContent = code ? `Invited to crew ${code}. Press Join crew.` : 'Create a crew and send your friends the code (up to 4 workers).'; return; }
@@ -474,17 +486,17 @@ function start(transport) {
   if (CALM) { audio.sting = audio.caught = audio.drag = audio.bang = audio.chime = () => { }; }
   audio.init(); audio.setVolume(settings.vol);
   requestLock(); // a real user gesture: the click on the start button
-  net = transport; mode = transport.mode;
+  net = transport; mode = transport.mode; $('status').textContent = ''; if (monitor) { monitor.root.visible = true; monitor.titled = false; } huntFlickerT = 0;
   net.on(onMessage); net.connect();
   $('status').textContent = mode === 'solo' ? 'Clocking in…' : 'Connecting…';
 }
 $('calm').checked = settings.calm; $('calm').onchange = (e) => { settings.calm = e.target.checked; saveSettings(); };
 $('bSolo').onclick = () => start(new LocalTransport(pid, nm(), settings.calm));
-$('bNewSolo').onclick = () => { if (confirmInline($('bNewSolo'), 'Erase solo save? Click again')) { clearSolo(); $('bNewSolo').hidden = true; } };
+$('bNewSolo').onclick = () => { if (confirmInline($('bNewSolo'), 'Erase your save? Press again')) { clearSolo(); start(new LocalTransport(pid, nm(), settings.calm)); } };
 let coopKind = null, roomApi = null;
 $('bCreate').onclick = () => start(coopKind === 'room' ? new RoomHost(roomApi, pid, nm(), newRoomCode()) : new WSTransport(pid, nm(), 'NEW', false));
 $('bJoin').onclick = () => { const c = $('code').value.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(c)) { $('status').textContent = 'Crew codes are 4 letters.'; return; } start(coopKind === 'room' ? new RoomGuest(roomApi, pid, nm(), c) : new WSTransport(pid, nm(), c, true)); };
-function confirmInline(btn, msg) { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = 'New solo save'; return true; } btn.dataset.armed = 1; btn.textContent = msg; setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'New solo save'; }, 3000); return false; }
+function confirmInline(btn, msg) { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = 'New game'; return true; } btn.dataset.armed = 1; btn.textContent = msg; setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'New game'; }, 3000); return false; }
 
 function applySave(s) {
   mirror = new Sim(s); day = s.day; money = s.money; shiftT = s.shiftT; phase = s.phase;
@@ -507,7 +519,7 @@ function onMessage(m) {
       if (mode === 'coop') { history.replaceState(null, '', '?room=' + room + (NORENDER ? '&norender' : '')); toast(`Crew ${room}. Invite link copied to the pause menu.`); }
       if (phase === 'summary' && summary) showSummary(summary);
       if (!locked && !isTouch && freeLook) enterFree(lockReason || 'mouse capture unavailable');
-      centerMsg(`NIGHT ${day}`, 'Halberd Facilities — Blackbriar High', 3);
+      nightCard(day);
       break;
     }
     case 'reject': if (playing) { centerMsg('CREW ENDED', m.msg, 6); setTimeout(() => location.reload(), 5000); } else { $('status').textContent = m.msg; } playing = false; break;
@@ -589,9 +601,10 @@ function updateCart(dt) {
   for (const [id, m] of RB_M) if (!seen.has(id)) { scene.remove(m); RB_M.delete(id); }
 }
 function nightCard(n) {
-  const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;background:#000;z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1.2s;font-family:var(--hud)';
-  el.innerHTML = `<div style="font-size:12px;letter-spacing:.6em;color:#888">HALBERD FACILITIES</div><div style="font-size:clamp(40px,9vw,96px);font-weight:800;letter-spacing:.2em;margin-top:10px">NIGHT ${n}</div><div style="color:#888;margin-top:12px;letter-spacing:.2em">${n === 2 ? 'A new work order is waiting on the computer.' : 'Same building. Same dirt you left.'}</div>`;
-  document.body.appendChild(el); setTimeout(() => { el.style.opacity = 0; }, 2600); setTimeout(() => el.remove(), 3900);
+  const days = ['THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY'];
+  const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;background:#000;z-index:55;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1.4s';
+  el.innerHTML = `<div style="font:13px var(--type);letter-spacing:.4em;color:#7d786c">HALBERD FACILITIES · NIGHT CREW</div><div style="font:clamp(64px,12vw,150px) var(--disp);letter-spacing:.18em;color:#ece7da;margin-top:8px">NIGHT ${n}</div><div style="font:15px var(--type);color:#8d887c;margin-top:6px;letter-spacing:.2em">${days[(n - 1) % 7]} · 10:00 PM — 4:00 AM</div>`;
+  document.body.appendChild(el); audio.tone && audio.tone({ f: 55, f2: 40, v: 0.25, d: 2.2, lp: 200, wet: 0.6 }); setTimeout(() => { el.style.opacity = 0; }, 3000); setTimeout(() => el.remove(), 4500);
 }
 let bagFullT = 0, monState = 'dormant', shake = 0;
 const nameOf = (id) => (crewSnap.find(c => c.pid === id) || {}).name || 'A crewmate';
@@ -821,7 +834,7 @@ function updateHUD(dt) {
   $('earn').textContent = mirror.shiftStats ? '' : '';
   const ar = roomAt(P.x, P.z), pr = ar ? progressRoom(ar) : null;
   $('area').textContent = ar ? ROOMS[ar].name : '—';
-  if (pr && pr !== 'office' && pr !== 'storage') { const rp = mirror.roomProgress()[pr]; if (rp) $('areaProg').innerHTML = `Debris left <b>${rp.debrisLeft}</b> / ${rp.debrisTotal}<br>Floor ${(rp.surface * 100).toFixed(0)}% clean${rp.done ? ' · <span style="color:#9d9">restored</span>' : ''}`; }
+  if (pr && pr !== 'office' && pr !== 'storage') { const rp = mirror.roomProgress()[pr]; if (rp) $('areaProg').innerHTML = `${Math.round((rp.debris * 0.5 + rp.surface * 0.5) * 100)}% restored${rp.done ? ' · done' : ''}<div class="pbar"><i style="width:${Math.round((rp.debris * 0.5 + rp.surface * 0.5) * 100)}%"></i></div>`; }
   else $('areaProg').innerHTML = ar === 'office' ? (mirror.doors.d_office.bolted ? '<span style="color:#9d9">Bolt engaged</span>' : '<span style="color:#f0b35a">Door not bolted</span>') : '';
   $('crew').innerHTML = mode === 'coop' ? crewSnap.map(c => `${c.pid === pid ? '▸ ' : ''}${c.name}${c.dn ? ' <span style="color:#f66">DOWN</span>' : c.out ? ' (out)' : ''}`).join('<br>') : '';
   const vs = vacStats(upgrades);
@@ -956,7 +969,10 @@ function frame(now) {
     if (!P.out && touch.revive) holdRevive(dt);
     if (keys.KeyE) holdRevive(dt);
   } else if (W) { // attract view behind the entry screen
-    camera.position.set(6 + Math.sin(t * 0.05) * 2, 1.6, 1.8); camera.rotation.set(-0.03, -Math.PI / 2 + Math.sin(t * 0.07) * 0.15, 0); animateWorld(dt, t);
+    if (VM.handL) { VM.handL.visible = VM.torch.visible = false; if (VM.handR) VM.handR.visible = false; VM.vac.root.visible = VM.mop.root.visible = false; }
+    const ph = (t * 0.018) % 1; camera.position.set(4 + ph * 14, 1.58 + Math.sin(t * 0.6) * 0.012, 1.8 + Math.sin(t * 0.11) * 0.25); camera.rotation.set(-0.02 + Math.sin(t * 0.23) * 0.01, -Math.PI / 2 + Math.sin(t * 0.07) * 0.06, Math.sin(t * 0.13) * 0.006); animateWorld(dt, t);
+    if (monitor && !CALM) { const cyc = t % 17; monitor.root.visible = cyc < 11; huntFlickerT = cyc > 10.6 && cyc < 11.6 ? 0.2 : huntFlickerT; monitor.root.position.set(33, 0, 1.8); monitor.root.rotation.set(0, -Math.PI / 2, 0); if (!monitor.titled) { monitor.titled = true; monitor.update(0.016, 'still', 1, t, 0); } }
+    if (huntFlickerT > 0) huntFlickerT -= dt;
   }
   if (W) { PR('lights', () => updateLights(dt, t)); PR('cctv', () => renderCCTV(dt)); audio.listen(camera); if (!NORENDER) PR('render', () => { if (post) post.render(t, dread); else renderer.render(scene, camera); }); }
   frameMs = lerp(frameMs, performance.now() - f0, 0.1);

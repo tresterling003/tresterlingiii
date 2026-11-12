@@ -39,10 +39,18 @@ I could not deploy from this sandbox: it has no outbound access to hosting provi
 - **Graphics:** real CC0 models and photo textures from Poly Haven and ambientCG, screen-space ambient occlusion (N8AO) and bloom on High, a film grade, adaptive resolution.
 - **Calm mode** (solo, off by default, tick it on the title screen): no monster or scares.
 
+## Co-op (up to 4) on the claude.ai link
+1. Share this artifact with your friends on claude.ai (Share → invite them; they need to be signed in). Anyone who opens it from a public link cannot join live rooms.
+2. Everyone opens the game. One player chooses **Play with friends → Host a crew** and reads out the 4-letter code shown at the top of the screen.
+3. The others choose **Play with friends**, type the code and press **Join**.
+
+The host's browser runs the game (the host's own save); the others see and act in it live. If the host closes the game, the crew ends. (The Node server in this repo still offers the original WebSocket co-op if you host it yourself.)
+
 ## Controls
 Desktop: WASD move · mouse look · Shift sprint · Ctrl/C crouch · E interact (hold to revive; hold at the office door during the 4:00 siege) · H hide in / leave a hall locker · F flashlight · Tab backpack · 1 vacuum / 2 mop / 3 hands · left mouse use · right mouse secondary (vacuum focus / mop scrub) · G ping · Esc pause.
 If the browser refuses mouse capture you get **free-look mode**: move the mouse (no button) to look, hold the cursor at a screen edge to keep turning, arrow keys also look. It is usable, not identical to captured look.
-Touch (phones/tablets): left thumb moves, right thumb looks, on-screen buttons. Playable but desktop is the target.
+Touch (phones/tablets): an on-screen controller — D-pad to move, drag the right side to look, A use / hide / hold door, B crouch, X tool, Y flashlight, L run, R switch tool, SELECT backpack, START pause. Landscape, full screen.
+Controller (PlayStation/Xbox): left stick or D-pad move · right stick look · A/✕ use · B/○ crouch · X/□ hide · Y/△ flashlight · R2 use tool · L2 secondary · L1/R1 switch tool · L3 run · START pause · SELECT backpack.
 
 ## Layout
 `shared/` (config, level data, authoritative `Sim`) is imported by both `server.js` and the browser. `client/` renders and predicts. See `STORY.md`, `ASSET_CREDITS.md`, `TEST_REPORT.md`.

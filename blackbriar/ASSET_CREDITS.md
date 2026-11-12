@@ -54,6 +54,8 @@ Downloaded from ambientcg.com (1K JPG sets), resized/recompressed into `assets/t
 ## Code
 | Library | Licence | Use |
 |---|---|---|
+| Bebas Neue (Dharma Type), via @fontsource/bebas-neue 5.3.0 (`assets/fonts/bebas-neue.woff2`) | SIL OFL 1.1 | Titles, menus, HUD |
+| Special Elite (Astigmatic), via @fontsource/special-elite 5.3.0 (`assets/fonts/special-elite.woff2`) | Apache 2.0 | Notes, tips, typewritten text |
 | N8AO 2.0.1 by N8python (`client/vendor/N8AO.js`) | ISC | Screen-space ambient occlusion on High quality. Vendored from npm; its import of the pmndrs `postprocessing` package (only used by the variant we don't use) is replaced by a stub class. |
 
 Everything else (the VCT floors, painted walls, ceiling tiles, lockers, doors, tool models, audio) is generated in code in this repository.
