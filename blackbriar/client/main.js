@@ -8,7 +8,7 @@ import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd, updateCrowd }
 import { loadProps } from './props.js';
 import { makePost } from './post.js';
 import { Audio3D } from './audio.js';
-import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo, getRoomApi, RoomHost, RoomGuest, newRoomCode } from './net.js';
+import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo, getRoomApi, RoomHost, RoomGuest, newRoomCode, PeerHost, PeerGuest, peerSupported } from './net.js';
 import { textCanvas, dirtTextures } from './textures.js';
 import { initScares, updateScares, spawnWatcher, startLightsOut, scareLight, clearScares, scareDebug } from './scares.js';
 
@@ -463,22 +463,24 @@ function showMenu(id) { for (const k of ['mMain', 'sCoop', 'sOpts', 'sHow']) $(k
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => showMenu('mMain'));
 $('mCoop').onclick = () => showMenu('sCoop'); $('mOpts').onclick = () => showMenu('sOpts'); $('mHow').onclick = () => showMenu('sHow');
 function pressStart() {
-  if ($('press').hidden) return; $('press').hidden = true; audio.init(); showMenu('mMain'); $('entry').hidden = false;
+  if ($('press').hidden) return; $('press').hidden = true; audio.init(); showMenu(pendingJoinMenu ? 'sCoop' : 'mMain'); $('entry').hidden = false;
   if (isTouch) { try { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen)?.call(d)?.catch?.(() => { }); screen.orientation?.lock?.('landscape').catch(() => { }); } catch { } }
 }
 $('press').addEventListener('pointerdown', pressStart); addEventListener('keydown', (e) => { if (!$('press').hidden) { e.preventDefault(); pressStart(); } });
 async function showEntry() {
   $('press').hidden = false; $('entry').hidden = true; $('name').value = store.get('name', '');
   if (navigator.webdriver && !new URLSearchParams(location.search).has('press')) pressStart(); // automated tests go straight to the menu
-  const params = new URLSearchParams(location.search), code = (params.get('room') || '').toUpperCase();
+  const params = new URLSearchParams(location.search), code = (params.get('join') || params.get('room') || '').toUpperCase();
   if (code) $('code').value = code;
   const hasSave = !!loadSolo(); $('bSolo').textContent = hasSave ? 'Continue' : 'New game'; $('bNewSolo').hidden = !hasSave;
   $('bCreate').disabled = $('bJoin').disabled = true; $('coopNote').textContent = 'Looking for co-op…';
-  const ok = !params.has('mockroom') && await serverAvailable();
+  const ok = !params.has('mockroom') && !params.has('p2p') && await serverAvailable();
   if (ok) { coopKind = 'server'; $('bCreate').disabled = $('bJoin').disabled = false; $('coopNote').textContent = code ? `Invited to crew ${code}. Press Join crew.` : 'Create a crew and send your friends the code (up to 4 workers).'; return; }
-  roomApi = await getRoomApi();
+  roomApi = params.has('p2p') ? null : await getRoomApi();
   if (roomApi) { coopKind = 'room'; $('bCreate').disabled = $('bJoin').disabled = false; $('coopNote').textContent = 'Host a crew and read your friends the 4-letter code. They open this same game (share it with them on claude.ai) and press Join. Up to 4 workers.'; }
-  else $('coopNote').textContent = 'Co-op works on the claude.ai link once the game is shared with your friends (Share → invite them). Each of you opens it, one hosts, the others join with the code.';
+  else if (peerSupported()) { coopKind = 'peer'; $('bCreate').disabled = $('bJoin').disabled = false; $('coopNote').textContent = code ? `You were invited to crew ${code}. Type your name and press Join.` : `Host a crew, then send your friends this page's link and your 4-letter code (Pause → Copy invite link puts both in one link). Nobody needs an account. Up to 4 players.`; }
+  else $('coopNote').textContent = 'This browser cannot do live co-op.';
+  if (code && coopKind) { pendingJoinMenu = true; if ($('press').hidden && !$('entry').hidden) showMenu('sCoop'); }
 }
 const nm = () => { const n = ($('name').value || '').trim().slice(0, 16) || 'Worker'; store.set('name', n); return n; };
 function start(transport) {
@@ -493,9 +495,9 @@ function start(transport) {
 $('calm').checked = settings.calm; $('calm').onchange = (e) => { settings.calm = e.target.checked; saveSettings(); };
 $('bSolo').onclick = () => start(new LocalTransport(pid, nm(), settings.calm));
 $('bNewSolo').onclick = () => { if (confirmInline($('bNewSolo'), 'Erase your save? Press again')) { clearSolo(); start(new LocalTransport(pid, nm(), settings.calm)); } };
-let coopKind = null, roomApi = null;
-$('bCreate').onclick = () => start(coopKind === 'room' ? new RoomHost(roomApi, pid, nm(), newRoomCode()) : new WSTransport(pid, nm(), 'NEW', false));
-$('bJoin').onclick = () => { const c = $('code').value.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(c)) { $('status').textContent = 'Crew codes are 4 letters.'; return; } start(coopKind === 'room' ? new RoomGuest(roomApi, pid, nm(), c) : new WSTransport(pid, nm(), c, true)); };
+let coopKind = null, roomApi = null, pendingJoinMenu = false;
+$('bCreate').onclick = () => start(coopKind === 'room' ? new RoomHost(roomApi, pid, nm(), newRoomCode()) : coopKind === 'peer' ? new PeerHost(pid, nm(), newRoomCode()) : new WSTransport(pid, nm(), 'NEW', false));
+$('bJoin').onclick = () => { const c = $('code').value.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(c)) { $('status').textContent = 'Crew codes are 4 letters.'; return; } start(coopKind === 'room' ? new RoomGuest(roomApi, pid, nm(), c) : coopKind === 'peer' ? new PeerGuest(pid, nm(), c) : new WSTransport(pid, nm(), c, true)); };
 function confirmInline(btn, msg) { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = 'New game'; return true; } btn.dataset.armed = 1; btn.textContent = msg; setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'New game'; }, 3000); return false; }
 
 function applySave(s) {
@@ -516,6 +518,7 @@ function onMessage(m) {
       room = m.room; applySave(m.save); upgrades = m.upgrades; summary = m.summary;
       const me = m.players.find(p => p.pid === pid); if (me) { P.x = me.x; P.z = me.z; P.yaw = me.yw || 0; }
       $('entry').hidden = true; playing = true; showHUD(true); $('status').textContent = '';
+      if (net instanceof PeerHost) setTimeout(() => { centerMsg(`CREW CODE  ${room}`, 'Send your friends this page\'s link and the code — or press Pause (Esc / START) → Copy invite link.', 14); toast(`Crew code: ${room}. It stays at the top of the screen.`); }, 4600);
       if (net instanceof RoomHost) setTimeout(() => { centerMsg(`CREW CODE  ${room}`, 'Your crewmate opens the game, picks Play with friends, types this code and presses Join.', 14); toast(`Crew code: ${room}. It stays at the top of the screen.`); }, 4600);
       if (mode === 'coop') { history.replaceState(null, '', '?room=' + room + (NORENDER ? '&norender' : '')); toast(`Crew ${room}. Invite link copied to the pause menu.`); }
       if (phase === 'summary' && summary) showSummary(summary);
@@ -854,12 +857,12 @@ function closeUI(noLock) { for (const id of ['pause', 'bag', 'summary']) $(id).h
 function openPause() {
   openUI('pause'); $('pause').hidden = false;
   $('pauseNote').textContent = mode === 'coop' ? 'The shift keeps running for your crew while you are paused.' : 'Solo: the world keeps running while paused only in co-op. In solo the clock still moves, so get somewhere safe first.';
-  $('pInvite').hidden = mode !== 'coop'; $('inviteText').textContent = mode === 'coop' ? `Crew code ${room}: ${location.origin}${location.pathname}?room=${room}` : '';
+  $('pInvite').hidden = mode !== 'coop'; $('inviteText').textContent = mode === 'coop' ? `Crew code ${room}: ${location.origin}${location.pathname}?join=${room}` : '';
   $('sSens').value = settings.sens; $('sFov').value = settings.fov; $('sBob').checked = settings.bob; $('sInv').checked = settings.inv; $('sQual').value = settings.quality; $('sVol').value = settings.vol;
 }
 $('pResume').onclick = () => closeUI();
 $('pauseBtn').onclick = () => openPause();
-$('pInvite').onclick = async () => { const link = `${location.origin}${location.pathname}?room=${room}`; try { await navigator.clipboard.writeText(link); toast('Invite link copied.'); } catch { $('inviteText').textContent = 'Copy this: ' + link; } };
+$('pInvite').onclick = async () => { const link = `${location.origin}${location.pathname}?join=${room}`; try { await navigator.clipboard.writeText(link); toast('Invite link copied.'); } catch { $('inviteText').textContent = 'Copy this: ' + link; } };
 $('pLeave').onclick = () => { try { net.close(); } catch { } location.href = location.pathname; };
 $('sSens').oninput = (e) => { settings.sens = +e.target.value; saveSettings(); };
 $('sFov').oninput = (e) => { settings.fov = +e.target.value; saveSettings(); resize(); };

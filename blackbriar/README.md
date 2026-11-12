@@ -39,6 +39,9 @@ I could not deploy from this sandbox: it has no outbound access to hosting provi
 - **Graphics:** real CC0 models and photo textures from Poly Haven and ambientCG, screen-space ambient occlusion (N8AO) and bloom on High, a film grade, adaptive resolution.
 - **Calm mode** (solo, off by default, tick it on the title screen): no monster or scares.
 
+## Co-op with a link — no accounts (GitHub Pages or any static host)
+Open the game from a normal web address (for example `https://tresterling003.github.io/tresterlingiii/blackbriar/`). One player chooses **Play with friends → Host a crew**; a 4-letter code appears. Press Pause → **Copy invite link** and send it (it carries the code), or send the page link and read out the code. Friends open it, type a name and press **Join**. Browsers connect directly to each other (WebRTC); PeerJS's free public matchmaker (0.peerjs.com) only introduces them. The host's browser runs the game. Most home networks work; a few strict corporate/school networks block direct connections.
+
 ## Co-op (up to 4) on the claude.ai link
 1. Share this artifact with your friends on claude.ai (Share → invite them; they need to be signed in). Anyone who opens it from a public link cannot join live rooms.
 2. Everyone opens the game. One player chooses **Play with friends → Host a crew** and reads out the 4-letter code shown at the top of the screen.

@@ -182,3 +182,96 @@ function mockRoom() {
     return { name, presence: async (patch) => { mine = { ...mine, ...patch }; if (JSON.stringify(mine).length > 4096) throw Object.assign(new Error('too big'), { code: 'invalid_argument' }); bc.postMessage({ from: me, p: mine }); }, onPeers: (f) => { subs.push(f); setTimeout(fire, 0); return () => { }; }, leave: async () => bc.postMessage({ from: me, bye: 1 }) };
   } };
 }
+
+// ======================= co-op anywhere: browser-to-browser (WebRTC) via PeerJS's free public matchmaker =======================
+// No server of ours and no sign-in. The host's browser runs the Sim (its own save); friends connect straight to it with the code.
+const PEER_PREFIX = 'blackbriar-crew-v1-';
+async function loadPeerJS() {
+  if (window.Peer) return window.Peer;
+  await new Promise((res, rej) => { const s = document.createElement('script'); s.src = new URL('./vendor/peerjs.min.js', import.meta.url).href; s.onload = res; s.onerror = () => rej(new Error('peerjs failed to load')); document.head.appendChild(s); });
+  return window.Peer;
+}
+function peerOpts() {
+  const q = new URLSearchParams(location.search), o = { debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] } };
+  if (q.get('peerhost')) { o.host = q.get('peerhost'); o.port = +(q.get('peerport') || 9000); o.path = q.get('peerpath') || '/'; o.secure = false; } // local testing
+  return o;
+}
+export const peerSupported = () => typeof RTCPeerConnection !== 'undefined';
+
+export class PeerHost {
+  constructor(pid, name, code) {
+    this.pid = pid; this.name = name; this.code = code; this.room = code; this.mode = 'coop'; this.handlers = []; this.conns = new Map(); this.status = 'connecting';
+    let save = null; try { save = loadSolo(); } catch { }
+    const onSave = (d) => { try { localStorage.setItem(SOLO_KEY, JSON.stringify(d)); } catch { } };
+    try { this.sim = new Sim(save, { onSave }); } catch { this.sim = new Sim(null, { onSave }); }
+  }
+  async connect(tries = 0) {
+    let Peer; try { Peer = await loadPeerJS(); } catch (e) { this.emit({ t: 'reject', msg: 'Co-op could not load. Check your connection and try again.' }); return; }
+    const peer = this.peer = new Peer(PEER_PREFIX + this.code, peerOpts());
+    peer.on('open', () => {
+      if (this.started) return; this.started = true; this.status = 'online';
+      const r = this.sim.join(this.pid, this.name);
+      this.emit({ ...r.welcome, room: this.code }); this.emit({ t: 'netstatus', status: 'online' }); this.flush();
+      let last = performance.now();
+      this.timer = setInterval(() => { const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now; this.sim.tick(dt); this.flush(); }, 50);
+      addEventListener('pagehide', () => this.sim.save('pagehide'));
+    });
+    peer.on('connection', (conn) => {
+      conn.on('data', (m) => this.onData(conn, m));
+      conn.on('close', () => { if (conn.pid && this.conns.get(conn.pid) === conn) { this.conns.delete(conn.pid); this.sim.leave(conn.pid); this.sim.save('disconnect'); this.flush(); } });
+      conn.on('error', () => { });
+    });
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch { } }); // lost the matchmaker; players already connected keep playing
+    peer.on('error', (e) => {
+      if (e.type === 'unavailable-id' && !this.started && tries < 5) { try { peer.destroy(); } catch { } this.code = this.room = newRoomCode(); this.connect(tries + 1); return; }
+      if (!this.started) this.emit({ t: 'reject', msg: 'Could not open a crew (' + e.type + '). Check your connection and try again.' });
+    });
+  }
+  onData(conn, m) {
+    if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
+    if (!conn.pid) {
+      if (m.t !== 'hello' || typeof m.pid !== 'string' || !m.pid || m.pid.length > 40) return;
+      const old = this.conns.get(m.pid); if (old && old !== conn) { try { old.close(); } catch { } this.sim.leave(m.pid); }
+      const res = this.sim.join(m.pid, String(m.name || 'Worker').slice(0, 16));
+      if (res.error) { conn.send({ t: 'reject', msg: res.error }); return; }
+      conn.pid = m.pid; this.conns.set(m.pid, conn); conn.send({ ...res.welcome, room: this.code }); this.flush(); return;
+    }
+    this.sim.handle(conn.pid, m); if (m.t !== 'st') this.flush();
+  }
+  flush() {
+    const out = this.sim.out; this.sim.out = [];
+    for (const { ev, to, except } of out) {
+      if ((!to || to === this.pid) && except !== this.pid) this.emit(ev);
+      if (ev.t === 'welcome') continue;
+      for (const [pid, c] of this.conns) { if (to && to !== pid) continue; if (except && except === pid) continue; if (c.open) { try { c.send(ev); } catch { } } }
+    }
+  }
+  send(m) { this.sim.handle(this.pid, m); if (m.t !== 'st') this.flush(); }
+  on(fn) { this.handlers.push(fn); }
+  emit(m) { m = JSON.parse(JSON.stringify(m)); for (const h of this.handlers) h(m); }
+  close() { clearInterval(this.timer); this.sim.save('close'); try { this.peer && this.peer.destroy(); } catch { } }
+}
+
+export class PeerGuest {
+  constructor(pid, name, code) { this.pid = pid; this.name = name; this.code = code; this.room = code; this.mode = 'coop'; this.handlers = []; this.status = 'connecting'; }
+  async connect() {
+    this.emit({ t: 'netstatus', status: 'connecting' });
+    let Peer; try { Peer = await loadPeerJS(); } catch (e) { this.emit({ t: 'reject', msg: 'Co-op could not load. Check your connection and try again.' }); return; }
+    const peer = this.peer = new Peer(undefined, peerOpts());
+    const fail = (msg) => { if (this.done) return; this.done = true; this.emit({ t: 'reject', msg }); };
+    this.waitT = setTimeout(() => { if (this.status !== 'online') fail(`Could not reach crew ${this.code}. Check the code, and make sure the host still has the game open.`); }, 20000);
+    peer.on('open', () => {
+      const c = this.conn = peer.connect(PEER_PREFIX + this.code, { reliable: true });
+      c.on('open', () => c.send({ t: 'hello', pid: this.pid, name: this.name }));
+      c.on('data', (m) => { if (!m || typeof m.t !== 'string') return; if (m.t === 'welcome') { this.status = 'online'; clearTimeout(this.waitT); this.emit(m); this.emit({ t: 'netstatus', status: 'online' }); return; } if (m.t === 'reject') { fail(m.msg); return; } this.emit(m); });
+      c.on('close', () => { if (this.status === 'online') fail('The host left. The crew has ended.'); });
+      c.on('error', () => { });
+    });
+    peer.on('error', (e) => { if (e.type === 'peer-unavailable') fail(`No crew is hosting ${this.code} right now. Check the code, and ask the host to keep the game open.`); else if (this.status !== 'online') fail('Could not connect (' + e.type + ').'); });
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch { } });
+  }
+  send(m) { if (this.conn && this.conn.open) { try { this.conn.send(m); } catch { } } }
+  on(fn) { this.handlers.push(fn); }
+  emit(m) { for (const h of this.handlers) h(m); }
+  close() { clearTimeout(this.waitT); try { this.peer && this.peer.destroy(); } catch { } }
+}
