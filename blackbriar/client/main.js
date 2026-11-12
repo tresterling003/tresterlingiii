@@ -486,9 +486,9 @@ function onMessage(m) {
     case 'caught': if (m.pid === pid) jumpscare(); break;
     case 'downed': if (m.pid === pid) centerMsg('YOU ARE DOWN', 'A crewmate can help you up. Hold on.', 4); else toast(`${nameOf(m.pid)} is down! Get to them and hold E.`); break;
     case 'revived': if (m.pid === pid) centerMsg('BACK ON YOUR FEET', '', 2); break;
-    case 'blackout': if (m.pid === pid) { centerMsg('YOU WOKE UP IN THE OFFICE', `Lost half an hour and $${m.penalty.toFixed(2)}. Your cleaning is still done.`, 5); myBag = 0; } else toast(`${nameOf(m.pid)} blacked out and woke in the office.`); break;
+    case 'blackout': if (m.pid === pid) { const pen = m.penalty; setTimeout(() => centerMsg('YOU WOKE UP IN THE OFFICE', `Lost half an hour and $${pen.toFixed(2)}. Your cleaning is still done.`, 5), 1400); myBag = 0; } else toast(`${nameOf(m.pid)} blacked out and woke in the office.`); break;
     case 'out': if (m.pid === pid) centerMsg('MARKED PRESENT', 'You are out for the rest of this shift.', 6); else toast(`${nameOf(m.pid)} was marked present.`); break;
-    case 'teleport': P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; break;
+    case 'teleport': { const mm = m; pendingTP = mm; setTimeout(() => { if (pendingTP === mm && scareT <= 0) { applyTP(mm); pendingTP = null; } }, 0); break; }
     case 'summary': summary = m.summary; showSummary(m.summary); break;
     case 'scare': if (CALM || ui) break; if (m.k === 'watcher') spawnWatcher(m.seed); else if (m.k === 'lightsout') startLightsOut(m); break;
     case 'newday': { clearScares(); applySave(m.save); day = m.day; phase = 'shift'; summary = null; closeUI(true); nightCard(day); requestLock(); break; }
@@ -582,7 +582,7 @@ function updateMonitor(dt, t) {
   const modeA = s.st === 'chase' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
   m.scr = s.st === 'chase' ? 0.85 : s.st === 'watch' ? 0.35 : 0.12;
-  m.update(dt, modeA, clamp(sp / (modeA === 'run' ? 4.3 : 1.2), 0.5, 1.4), t, rel);
+  m.update(dt, scareT > 0 ? "idle" : modeA, clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, scareT > 0 ? 0 : rel);
   monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: 0.1, z: s.z }); }
   const d = Math.hypot(s.x - P.x, s.z - P.z);
   if (audio.breath) { audio.breath.move(s.x, 1.9, s.z); audio.breath.g.gain.value = lerp(audio.breath.g.gain.value, d < 10 && s.st !== 'dormant' ? 0.14 * (1 - d / 10) : 0, 0.05); }
@@ -592,7 +592,10 @@ function updateMonitor(dt, t) {
   dread = clamp(dread + (d < 12 && s.st !== 'dormant' && s.st !== 'retreat' ? (s.st === 'chase' ? 0.6 : 0.2) * dt : -0.15 * dt), 0, 1);
 }
 let dread = 0;
+let pendingTP = null, scareTP = null;
+function applyTP(m) { P.x = m.x; P.z = m.z; P.yaw = m.yaw || 0; P.vx = P.vz = 0; }
 function jumpscare() {
+  scareTP = pendingTP; pendingTP = null;
   audio.caught(); shake = 1.2; $('hurt').style.opacity = 1;
   if (monitor) { const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); monitor.root.position.set(P.x + fx * 0.7, groundY(P.x, P.z), P.z + fz * 0.7); monitor.root.rotation.y = P.yaw; scareT = 0.9; }
   setTimeout(() => $('hurt').style.opacity = 0, 1400);
@@ -786,7 +789,9 @@ function frame(now) {
     PR('tools', () => updateTools(dt, t));
     PR('remotes', () => updateRemotes(dt));
     PR('monitor', () => updateMonitor(dt, t));
-    if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.45 + k * 0.4), groundY(P.x, P.z), P.z + fz * (0.45 + k * 0.4)); monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
+    if (monitor && scareT <= 0) monitor.lock = false;
+    if (scareT > 0 && scareT - dt <= 0 && scareTP) { applyTP(scareTP); scareTP = null; $('hurt').style.opacity = 1; }
+    if (scareT > 0) { scareT -= dt; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); if (monitor) { const k = Math.max(0, scareT); monitor.root.position.set(P.x + fx * (0.5 + k * 0.5), groundY(P.x, P.z) - 0.3, P.z + fz * (0.5 + k * 0.5)); monitor.lock = true; monitor.root.rotation.y = P.yaw; monitor.scr = 1.1; } }
     sendT += dt; if (sendT > 0.066) { sendT = 0; sendState(); }
     PR('masks', () => { updateMasks(dt); updateFX(dt); }); PR('hud', () => updateHUD(dt)); PR('anim', () => { animateWorld(dt, t); updateScares(dt, t); });
     if (!P.out && touch.revive) holdRevive(dt);
@@ -830,6 +835,7 @@ function updatePlayer(dt, t) {
   camera.updateMatrixWorld();
 }
 function sendState() {
+  if (scareT > 0) return; // hold position until the lunge is over
   const act = P.tool !== 'none' && (mouseL || touch.use) && !ui && !P.downed;
   const tp = P.tp; P.tp = false;
   net.send({ t: 'st', tp, cart: cart.holder === pid ? [+cart.x.toFixed(3), +cart.z.toFixed(3), +cart.yaw.toFixed(3)] : undefined, p: [P.x, 0, P.z], yw: P.yaw, pt: P.pitch, tool: P.tool, act, fl: P.light, cr: !!P.crouching, sp: !!P.sprint, mv: !!P.moving });

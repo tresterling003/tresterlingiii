@@ -29,7 +29,10 @@ I could not deploy from this sandbox: it has no outbound access to hosting provi
 - **Lockers:** about 60 open: loose change, or lost property to sell at `lostfound.exe`. Coins also lie on the floors (vacuum them: $0.25 each).
 - **Shop (`skills.exe`):** suction, wide nozzle, bigger bags, quiet motor, wide mop head, absorbent strands, flashlight, work boots, and robot vacuums you carry to a room and set down.
 - **Log off for the night** at the computer (whole crew in the office) ends the shift: summary, then Night N.
-- **Calm mode** (solo, on by default): no monster or scares.
+- **Scares:** something peeks at you from behind locker banks and corners and snaps out of sight the moment you notice it (running footsteps follow); a tall figure stands in far doorways; the power cuts out around you while the far end of the hall stays lit. Each worker gets their own apparitions; timing is decided by the server.
+- **Mopping:** cleaned floor gleams (lamps and your flashlight reflect in it), dirty floor stays dull under a grime film, and the wet trail dries slowly.
+- **Graphics:** real CC0 models and photo textures from Poly Haven (desks, chairs, shelving, safety gear, gym/pool/concrete floors), bloom, film grade, grain and vignette. Low quality skips post-processing.
+- **Calm mode** (solo, off by default, tick it on the title screen): no monster or scares.
 
 ## Controls
 Desktop: WASD move · mouse look · Shift sprint · Ctrl/C crouch · E interact (hold to revive) · F flashlight · Tab backpack · 1 vacuum / 2 mop / 3 hands · left mouse use · right mouse secondary (vacuum focus / mop scrub) · G ping · Esc pause.

@@ -78,13 +78,13 @@ export function makeMonitor() {
   const mat = new THREE.MeshStandardMaterial({ map: BODY.tex, color: 0x2a221c, roughness: 0.48, metalness: 0, normalMap: HEAD_NORMAL, normalScale: new THREE.Vector2(0.6, 0.6) });
   mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n{ float l = dot(diffuseColor.rgb, vec3(.3,.59,.11)); diffuseColor.rgb = vec3(0.10 + 0.18 * l) * vec3(1.0, .86, .72); }'); };
   for (const m of r.meshes) m.material = mat;
-  const skin = new THREE.MeshStandardMaterial({ color: 0x8a7258, normalMap: HEAD_NORMAL, normalScale: new THREE.Vector2(1.6, 1.6), roughness: 0.62, metalness: 0 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0x7a5a40, normalMap: HEAD_NORMAL, normalScale: new THREE.Vector2(1.6, 1.6), roughness: 0.62, metalness: 0 });
   skin.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n{ vec3 n = normalize(vNormal); diffuseColor.rgb *= 0.55 + 0.45 * smoothstep(-0.2, 0.8, n.y + 0.4); }'); }; // grime settles into the hollows
   const face = new THREE.Group(); r.bones.Neck.add(face);
   const fm = new THREE.Mesh(faceGeometry(), skin); fm.morphTargetInfluences = [0.15]; fm.position.set(0, 0.2, -0.3); face.add(fm); face.scale.setScalar(4.1);
   const hole = new THREE.MeshBasicMaterial({ color: 0x000000 });
   const pupils = [];
-  for (const p of HEAD.eyes) { const e = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), hole); e.scale.set(0.4, 0.32, 0.16); e.position.set(p.x * 0.95, p.y * 1.12 - 0.04, p.z - 0.5); fm.add(e);
+  for (const p of HEAD.eyes) { const e = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), hole); e.scale.set(0.38, 0.4, 0.2); e.position.set(p.x * 0.95, p.y * 1.12 - 0.04, p.z - 0.5); fm.add(e);
     const pu = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0x6d675a })); pu.scale.setScalar(0.6); pu.position.set(p.x * 0.9, p.y * 1.12 - 0.02, p.z - 0.4); fm.add(pu); pupils.push(pu); }
   const mouth = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x050403, transparent: true, opacity: 0.95, depthWrite: false })); fm.add(mouth);
   // thin, plastered-down hair
@@ -105,9 +105,10 @@ export function makeMonitor() {
     if (bones.Spine1) bones.Spine1.rotation.x += mode === 'run' ? 0.45 : 0.22;
     if (bones.Spine2) bones.Spine2.rotation.x += 0.12;
     // head tracking toward the look target (clamped), plus a crooked tilt and sudden twitches
-    if (look) { st.headYaw = lerp(st.headYaw, Math.max(-1.2, Math.min(1.2, look)), 1 - Math.pow(0.02, dt)); }
+    if (st.lock) st.headYaw = 0; else if (look) { st.headYaw = lerp(st.headYaw, Math.max(-1.2, Math.min(1.2, look)), 1 - Math.pow(0.02, dt)); }
     face.rotation.y += st.headYaw; face.rotation.z += 0.32 + Math.sin(t * 0.9) * 0.04; face.rotation.x += mode === 'run' ? -0.1 : -0.25;
     st.twT -= dt; if (st.twT < 0) { st.twT = (mode === 'run' ? 0.3 : 0.9) + Math.random() * (mode === 'run' ? 0.7 : 3); st.tw = 0.11; st.twR.set((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 1.1); }
+    if (st.lock) st.tw = 0;
     if (st.tw > 0) { st.tw -= dt; face.rotation.x += st.twR.x; face.rotation.y += st.twR.y; face.rotation.z += st.twR.z; }
     fm.morphTargetInfluences[0] = lerp(fm.morphTargetInfluences[0], st.scr, 1 - Math.pow(0.002, dt));
     const j = fm.morphTargetInfluences[0]; mouth.position.set(0, 0.3 - j * 0.75, 2.3 - j * 0.12); mouth.scale.set(0.55 + j * 0.3, 0.08 + j * 1.5, 1);
