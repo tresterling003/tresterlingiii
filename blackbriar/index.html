@@ -48,6 +48,15 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 #lockBanner{position:fixed;left:50%;top:calc(52px + env(safe-area-inset-top));transform:translateX(-50%);background:rgba(20,18,10,.9);border:1px solid #6d5a1a;padding:8px 12px;font-size:12px;display:flex;gap:10px;align-items:center;pointer-events:auto;max-width:94vw}
 #lockBanner .btn{padding:6px 10px;font-size:12px}
 #vign{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+#staticFx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;image-rendering:pixelated;mix-blend-mode:screen}
+#blinkFx{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .07s}
+#lockerView{position:fixed;inset:0;pointer-events:none;background:linear-gradient(#050505,#050505) top/100% 34% no-repeat,linear-gradient(#050505,#050505) bottom/100% 34% no-repeat,repeating-linear-gradient(180deg,#070707 0 13px,rgba(0,0,0,.25) 13px 21px),linear-gradient(90deg,#050505 0 12%,transparent 12% 88%,#050505 88%)}
+#holdDoor{position:fixed;left:50%;top:60%;transform:translateX(-50%);text-align:center;color:#f3e7d4;font:700 24px system-ui,sans-serif;letter-spacing:.25em;text-shadow:0 0 14px #000;pointer-events:none}
+#holdDoor small{display:block;font-size:13px;letter-spacing:.1em;opacity:.8;margin-top:4px}
+#holdDoor .bar{width:280px;height:8px;background:rgba(255,255,255,.14);margin:12px auto 0;border-radius:4px;overflow:hidden}#holdDoor i{display:block;height:100%;width:0;background:#e2463a}
+#gameover{background:#000;z-index:50}#gameover canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.32}
+#gameover .go{position:relative;text-align:center;color:#d9d3c5}#gameover h1{font:800 clamp(44px,9vw,92px) system-ui,sans-serif;letter-spacing:.25em;margin:0 0 10px;text-shadow:4px 0 rgba(170,0,0,.85),-4px 0 rgba(0,150,160,.6)}
+#gameover p{font-size:17px;line-height:1.6;opacity:.85}#gameover .gorow{display:flex;gap:12px;justify-content:center;margin-top:22px}#gameover button{font:600 16px system-ui;padding:12px 22px;border-radius:6px;border:1px solid #555;background:#161616;color:#eee;cursor:pointer}#gameover button.big{background:#7a1410;border-color:#a33}
 #hurt{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 30%,rgba(20,0,0,.85) 100%);opacity:0;transition:opacity .3s}
 #pauseBtn{position:fixed;right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));width:42px;height:42px;background:rgba(0,0,0,.45);border:1px solid var(--line);color:var(--ink);font-weight:800;pointer-events:auto}
 /* OS */
@@ -84,6 +93,9 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 <body>
 <div id="view"></div>
 <div id="vign"></div><div id="hurt"></div>
+<canvas id="staticFx" width="160" height="90"></canvas><div id="lockerView" hidden></div><div id="blinkFx"></div>
+<div id="holdDoor" hidden><b>HOLD THE DOOR</b><small id="holdHint">Hold [E] at the door</small><div class="bar"><i id="holdBar"></i></div></div>
+<div id="gameover" class="screen" hidden><canvas id="goStatic" width="200" height="112"></canvas><div class="go"><h1>GAME OVER</h1><p id="goText"></p><div class="gorow"><button id="bRetry" class="big">Retry night</button><button id="bQuit">Quit to title</button></div></div></div>
 <div id="hud" hidden>
   <div id="crosshair"></div>
   <div id="tl"><b id="area">—</b><div id="areaProg"></div></div>
@@ -98,12 +110,12 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 <div id="lockBanner" hidden><span id="lockText"></span><button class="btn" id="lockRetry">Capture mouse</button><a class="btn" id="lockTab" target="_blank" rel="noopener" hidden>Open in its own tab</a></div>
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
 <div id="touch" hidden><div id="stick" hidden><div id="knob"></div></div>
-  <div id="tbtns"><button id="tUse">USE</button><button id="tE">E</button><button id="tLight">LIGHT</button><button id="tTool">TOOL</button><button id="tSprint">RUN</button><button id="tCrouch">CROUCH</button></div></div>
+  <div id="tbtns"><button id="tUse">USE</button><button id="tE">E</button><button id="tLight">LIGHT</button><button id="tHide" hidden>HIDE</button><button id="tTool">TOOL</button><button id="tSprint">RUN</button><button id="tCrouch">CROUCH</button></div></div>
 
 <div id="entry" class="screen" hidden>
   <div class="panel">
     <h1><small>AFTER HOURS</small>BLACKBRIAR HIGH</h1>
-    <p>Night crew wanted. Abandoned school, being prepared for reopening. Paid per item removed. <b style="color:var(--ink)">Be inside the maintenance office, bolt engaged, before 4:00 AM.</b></p>
+    <p>Night crew wanted. Abandoned school, being prepared for reopening. Paid per item removed. <b style="color:var(--ink)">It cannot move while you are looking at it. Do not stare at it. If it hunts you, hide in a locker or get to the office. At 4:00 AM, bolt the office door and hold it shut.</b></p>
     <label class="set" style="display:block">Your name<input type="text" id="name" maxlength="16" placeholder="Worker"></label>
     <label class="set" style="color:var(--ink)"><span><b>Calm mode</b> — no monster, no scares. Just cleaning and exploring.</span><input type="checkbox" id="calm"></label>
     <div class="row"><button class="btn primary" id="bSolo">Play solo</button><button class="btn" id="bNewSolo" hidden>New solo save</button></div>
@@ -113,7 +125,7 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
     </div>
     <p class="note" id="coopNote"></p>
     <div id="status"></div>
-    <p class="note">Desktop: WASD move · mouse look · Shift sprint · Ctrl crouch · E interact · F flashlight · Tab backpack · 1/2 tools · left mouse use · right mouse secondary · Esc pause.<br>Touch: left thumb moves, right thumb looks, buttons for actions. Headphones recommended.</p>
+    <p class="note">Desktop: WASD move · mouse look · Shift sprint · Ctrl crouch · E interact (hold at the office door during the 4:00 headcount) · H hide in a hall locker · F flashlight · Tab backpack · 1/2 tools · left mouse use · right mouse secondary · Esc pause.<br>Touch: left thumb moves, right thumb looks, buttons for actions. Headphones recommended.</p>
   </div>
 </div>
 <div id="pause" class="screen" hidden>

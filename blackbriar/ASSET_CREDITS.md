@@ -41,5 +41,20 @@ Downloaded from polyhaven.com. Models were simplified with meshoptimizer and the
 | Texture: Square Tiles | Charlotte Baglioni | Pool deck |
 | Texture: Dirty Concrete (greyscale, as a grime detail map) | Rob Tuytel | Large-scale dirt on floors, walls and ceilings |
 
+## ambientCG assets (CC0 — public domain)
+Downloaded from ambientcg.com (1K JPG sets), resized/recompressed into `assets/tex/`.
+
+| Asset | Where it is used |
+|---|---|
+| OfficeCeiling001 (colour, normal, roughness) | Acoustic ceiling tiles everywhere; tinted yellow in Room 014 |
+| Carpet016 (colour, normal, roughness) | Room 014 (the sealed wing) floor |
+| Wallpaper001B (colour, normal, roughness) | Room 014 walls, tinted yellow |
+| PaintedMetal004 (roughness only) | Scratches and scuffs on the red hall lockers |
+
+## Code
+| Library | Licence | Use |
+|---|---|---|
+| N8AO 2.0.1 by N8python (`client/vendor/N8AO.js`) | ISC | Screen-space ambient occlusion on High quality. Vendored from npm; its import of the pmndrs `postprocessing` package (only used by the variant we don't use) is replaced by a stub class. |
+
 Everything else (the VCT floors, painted walls, ceiling tiles, lockers, doors, tool models, audio) is generated in code in this repository.
 **Known licensing gap:** the Monitor is built from a Mixamo body. Prototype art only; replace with a commissioned or properly licensed creature before any release.

@@ -1,10 +1,11 @@
 // Authoritative world simulation. Runs on the co-op server, and inside the browser for solo play.
 // All shared progress (money, debris, dirt masks, doors, discoveries, upgrades, clock, the Monitor) lives here.
 import { CONFIG } from './config.js';
+import { tickStalker, resetStalker } from './stalker.js';
 import {
   ROOMS, DOORS, LOCKERS, SEARCHABLE, TEACHER_DESK, CAFE_KEY, BUCKET, CART_HOME, ROOMBA_DOCK, groundY, DEBRIS, DEBRIS_TOTAL_BY_ROOM, PATCHES, initialMask, CLUE_SPOT, CLUES, BINS, TOOL_RACK,
   COMPUTER, COT, VENT, SPAWN, LIGHTS, PATROL, WATCH_POINTS, LAIR, roomAt, progressRoom, solidRects, segBlocked, wallsBetween,
-  buildNav, findPath, doorCenter, rng,
+  buildNav, findPath, doorCenter, rng, NAV,
 } from './level.js';
 
 const b64enc = (u8) => { if (typeof Buffer !== 'undefined') return Buffer.from(u8).toString('base64'); let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); };
@@ -34,6 +35,7 @@ export class Sim {
     this.players = new Map(); // pid -> runtime
     this.fresh();
     if (save) this.load(save);
+    this.nightStart = (save && save.night) || this.serializeCore();
     this.resetMonster(true);
   }
   fresh() {
@@ -53,9 +55,10 @@ export class Sim {
   newStats() { return { earned: 0, pieces: 0, cells: 0, caught: 0, disc: [] }; }
 
   // ---------- persistence ----------
-  serialize() {
+  serialize() { const s = this.serializeCore(); s.night = this.nightStart || null; return s; }
+  serializeCore() {
     return {
-      v: CONFIG.saveVersion, savedAt: Date.now(), day: this.day, money: +this.money.toFixed(4), shiftT: this.shiftT, phase: this.phase === 'summary' ? 'summary' : this.phase,
+      v: CONFIG.saveVersion, savedAt: Date.now(), day: this.day, money: +this.money.toFixed(4), shiftT: this.shiftT, phase: this.phase === 'summary' ? 'summary' : this.phase === 'gameover' ? 'shift' : this.phase,
       collected: b64enc(this.collected), masks: Object.fromEntries(Object.entries(this.masks).map(([k, v]) => [k, b64enc(v)])),
       doors: this.doors, lockers: this.lockers, discoveries: this.discoveries, purchased: this.purchased, roomBonus: this.roomBonus,
       inv: this.inv, firedPA: this.firedPA, shiftStats: this.shiftStats, summary: this.summary,
@@ -109,7 +112,8 @@ export class Sim {
     const near = (x, z, r) => dist(p.x, p.z, x, z) < r;
     switch (m.t) {
       case 'st': {
-        if (p.downed || p.out) { p.yaw = m.yw; p.pitch = m.pt; return; }
+        p.hold = !!m.hd;
+        if (p.downed || p.out || p.hidden) { p.yaw = m.yw; p.pitch = m.pt; return; }
         // light sanity: reject impossible jumps (except respawns the server initiated)
         if (dist(p.x, p.z, m.p[0], m.p[2]) < 4 || p.teleportOk || (m.tp && this.opts.allowTeleport)) { p.x = m.p[0]; p.y = m.p[1]; p.z = m.p[2]; p.teleportOk = false; }
         p.yaw = m.yw; p.pitch = m.pt; p.tool = m.tool; p.act = m.act ? 1 : 0; p.fl = m.fl ? 1 : 0; p.cr = m.cr ? 1 : 0; p.sp = m.sp ? 1 : 0; p.mv = m.mv ? 1 : 0;
@@ -268,6 +272,17 @@ export class Sim {
         this.timeScale = 30; this.emit({ t: 'toast', msg: 'You lie down. The clock moves faster than it should.' });
         return;
       }
+      case 'hide': { // squeeze into a hall locker
+        const L = LOCKERS.find(l => l.id === m.id); if (!L || p.hidden || p.downed || p.out || dist(p.x, p.z, L.x, L.z) > 1.5 || this.lockers[L.id]?.open) return;
+        const mon = this.mon; // did it see you get in? (judged from where you stood)
+        mon.sawHide = mon.state === 'hunt' && mon.target === pid && dist(mon.x, mon.z, p.x, p.z) < 16 && !segBlocked(mon.x, mon.z, p.x, p.z, solidRects(this.doors), { sight: true });
+        p.hidden = L.id; p.hx = L.x; p.hz = L.side === 'n' ? L.z + 0.5 : L.z - 0.5; p.x = L.x; p.z = L.z;
+        this.emit({ t: 'hidden', pid, id: L.id, on: 1 }); this.emit({ t: 'sfx', k: 'lockerclose', x: L.x, z: L.z }); this.noise(L.x, L.z, CONFIG.noise.locker);
+        return;
+      }
+      case 'unhide': { if (!p.hidden) return; const L = LOCKERS.find(l => l.id === p.hidden); p.hidden = null; if (L) { p.x = L.x; p.z = L.side === 'n' ? L.z + 0.55 : L.z - 0.55; p.teleportOk = true; this.emit({ t: 'teleport', x: p.x, z: p.z, yaw: L.side === 'n' ? Math.PI : 0 }, { to: pid }); } this.emit({ t: 'hidden', pid, on: 0 }); return; }
+      case 'blink': p.blinkT = 0.45; return;
+      case 'retry': if (this.phase === 'gameover') this.restartNight(); return;
       case 'sleep': {
         if (this.phase !== 'summary') return;
         this.startDay(this.day + 1);
@@ -318,7 +333,7 @@ export class Sim {
   roomProgress() {
     const res = {};
     const col = {}; for (let i = 0; i < DEBRIS.length; i++) if (this.collected[i]) col[DEBRIS[i].room] = (col[DEBRIS[i].room] || 0) + 1;
-    for (const room of ['hall', 'class', 'closet', 'service', 'lcorr', 'gym', 'lockers', 'pool']) {
+    for (const room of ['hall', 'class', 'closet', 'service', 'lcorr', 'gym', 'lockers', 'pool', 'cafe', 'w014']) {
       const tot = DEBRIS_TOTAL_BY_ROOM[room] || 0, c = col[room] || 0;
       const patches = PATCHES.filter(p => p.room === room);
       let mi = 0, ms = 0; for (const p of patches) { mi += this.maskInit[p.id]; ms += this.maskSum[p.id]; }
@@ -352,8 +367,13 @@ export class Sim {
   // ---------- the clock ----------
   tick(dt) {
     this.time = (this.time || 0) + dt;
-    if (this.phase === 'summary') { this.snapTimer(dt); return; }
+    if (this.phase === 'summary' || this.phase === 'gameover') { this.snapTimer(dt); return; }
     this.shiftT += dt * this.timeScale;
+    if (!this.keys['014'] && (this.day > 1 || this.shiftT > CONFIG.shiftSeconds * 0.3)) {
+      this.keys['014'] = true; this.emit({ t: 'keys', keys: this.keys, quiet: true });
+      this.emit({ t: 'toast', msg: 'Somewhere in the east hallway, a door that is not on the floor plan is standing open.' });
+      if (!this.opts.calm) this.emit({ t: 'pa', text: 'Room zero one four is now open. Room zero one four, please.' });
+    }
     const min = gameClock(this.shiftT);
     const pa = (key, text) => { if (this.opts.calm) return; if (!this.firedPA[key]) { this.firedPA[key] = 1; this.emit({ t: 'pa', text }); } };
     if (this.shiftT > 3) pa('d' + this.day + 'start', this.day === 1 ? 'Good evening. The building is closed. Attendance will be taken at four.' : 'Good evening. Attendance will be taken at four. Room zero one four is expected.');
@@ -363,43 +383,21 @@ export class Sim {
     if (this.phase === 'shift' && this.shiftT >= CONFIG.shiftSeconds) {
       this.phase = 'lockdown'; this.timeScale = 1; this.safeT = 0;
       this.emit({ t: 'phase', phase: 'lockdown' }); pa('d' + this.day + '400', 'Four o\'clock. The headcount has begun.');
-      if (this.mon.state === 'dormant' || this.mon.state === 'retreat') this.setMon('patrol');
     }
-    if (this.phase === 'lockdown') {
-      if (this.allSafe()) this.safeT += dt; else this.safeT = 0;
-      if (this.connectedCount() && this.safeT >= CONFIG.lockdownGrace) this.endShift(false);
-      let anyAlive = false; for (const p of this.players.values()) if (p.connected && !p.out && !p.downed) anyAlive = true;
-      if (this.connectedCount() && !anyAlive) this.endShift(true);
-    }
+    if (this.phase === 'lockdown' && this.opts.calm && this.allSafe()) { this.safeT += dt; if (this.safeT >= CONFIG.lockdownGrace) this.endShift(false); }
     // downed workers
     for (const p of this.players.values()) {
       if (!p.downed) continue; p.downT -= dt;
-      if (!p.connected || p.downT <= 0) this.blackout(p);
+      if (!p.connected || p.downT <= 0) { p.downed = false; p.out = true; this.emit({ t: 'out', pid: p.pid }); this.checkWipe(); }
     }
     this.tickMonitor(dt);
     this.tickRoombas(dt);
-    this.tickScares(dt);
     this.snapTimer(dt);
     this.saveTimer = (this.saveTimer || 0) + dt; if (this.saveTimer > 20) { this.saveTimer = 0; this.save('periodic'); }
   }
-  // ---------- scare director: personal apparitions and local blackouts, never in calm mode ----------
-  tickScares(dt) {
-    if (this.opts.calm || this.phase !== 'shift' || this.shiftT < 75) return;
-    this.scareT = this.scareT || {};
-    for (const p of this.players.values()) {
-      if (!p.connected || p.out || p.downed || inOffice(p)) continue;
-      if (this.scareT[p.pid] == null) this.scareT[p.pid] = 25 + Math.random() * 40;
-      this.scareT[p.pid] -= dt; if (this.scareT[p.pid] > 0) continue;
-      this.scareT[p.pid] = 70 + Math.random() * 80 - Math.min(40, this.day * 8);
-      const chasing = this.mon && (this.mon.state === 'chase' || this.mon.state === 'watch');
-      if (chasing) continue;
-      if (Math.random() < 0.6) this.emit({ t: 'scare', k: 'watcher', seed: Math.random() * 1e9 | 0 }, { to: p.pid });
-      else { const d = 18 + Math.random() * 14; this.emit({ t: 'scare', k: 'lightsout', x: p.x, z: p.z, r: 11, d }); if (Math.random() < 0.5) this.noise(p.x, p.z, 7); }
-    }
-  }
   snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT, cart: [this.cart.x, this.cart.z, this.cart.yaw, this.cart.holder], rb: this.roombas.map(r => [r.id, +r.x.toFixed(3), +r.z.toFixed(3), +r.yaw.toFixed(3), r.state, r.holder, r.bag]) }); } }
-  snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
-  snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible, fr: m.frozen ? 1 : 0 } : null; }
+  snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, hid: p.hidden ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
+  snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible, fr: m.frozen ? 1 : 0, tp: m.tpN || 0 } : null; }
   save(reason) { if (this.opts.onSave) this.opts.onSave(this.serialize(), reason); }
   endShift(failed, clockedOut = false) {
     if (this.phase === 'summary') return;
@@ -412,35 +410,39 @@ export class Sim {
     this.save('shift end');
   }
   startDay(day) {
-    this.day = day; this.shiftT = 0; this.phase = 'shift'; this.timeScale = 1; this.summary = null; this.safeT = 0; this.shiftStats = this.newStats();
+    this.day = day; this.dir = null; this.shiftT = 0; this.phase = 'shift'; this.timeScale = 1; this.summary = null; this.safeT = 0; this.shiftStats = this.newStats();
     this.doors.d_office.bolted = false; this.doors.d_office.open = false;
     for (const p of this.players.values()) { p.downed = false; p.out = false; p.bag = p.bag; this.respawnInOffice(p); }
     this.resetMonster(false);
     if (day === 2) { this.discover('room014', null); }
+    this.nightStart = this.serializeCore();
     this.emit({ t: 'newday', day, save: this.serialize() });
     this.save('new day');
   }
   respawnInOffice(p) { p.x = SPAWN.x + (Math.random() - 0.5); p.z = SPAWN.z + (Math.random() - 0.5); p.teleportOk = true; this.emit({ t: 'teleport', x: p.x, z: p.z, yaw: SPAWN.yaw }, { to: p.pid }); }
-  blackout(p) {
-    // failure before 4:00: wake in the office, lose time and a fee; after 4:00: out for the rest of the shift
-    p.downed = false; p.revive = 0; this.shiftStats.caught++;
-    if (this.phase === 'lockdown') {
-      p.out = true; const pen = Math.min(this.money, CONFIG.lockdownCatchPenalty); this.money -= pen;
-      this.emit({ t: 'out', pid: p.pid, penalty: pen });
-    } else {
-      const pen = Math.min(this.money, CONFIG.failPenalty); this.money -= pen; p.bag = 0;
-      this.shiftT = Math.min(this.shiftT + CONFIG.shiftSeconds / 12, CONFIG.shiftSeconds - 5);
-      this.respawnInOffice(p);
-      this.emit({ t: 'blackout', pid: p.pid, penalty: pen });
-    }
-  }
   catchPlayer(p) {
-    const others = [...this.players.values()].filter(o => o !== p && o.connected && !o.downed && !o.out);
-    if (others.length) { p.downed = true; p.downT = 45; p.revive = 0; this.emit({ t: 'downed', pid: p.pid }); }
-    else this.blackout(p);
+    if (this.phase === 'gameover') return;
+    this.shiftStats.caught++;
     this.emit({ t: 'caught', pid: p.pid });
-    this.mon.lastEncounter = this.time; this.mon.encounters++;
-    if (this.phase === 'lockdown') this.setMon('search'); else this.setMon('retreat');
+    const others = [...this.players.values()].filter(o => o !== p && o.connected && !o.downed && !o.out);
+    if (others.length) { p.downed = true; p.downT = 45; p.revive = 0; p.hidden = null; this.emit({ t: 'downed', pid: p.pid }); }
+    else this.gameOver(p.pid);
+  }
+  checkWipe() { if (![...this.players.values()].some(p => p.connected && !p.downed && !p.out)) this.gameOver(null); }
+  gameOver(pid) {
+    if (this.phase === 'gameover') return;
+    this.phase = 'gameover'; this.timeScale = 1; this.setMon('dormant');
+    this.emit({ t: 'gameover', pid, day: this.day, at: clockText(this.shiftT) });
+    if (this.opts.onSave && this.nightStart) this.opts.onSave({ ...this.nightStart, night: this.nightStart }, 'game over'); // reloading the page means retrying the night
+  }
+  restartNight() {
+    const ns = this.nightStart, inv = this.inv; if (!ns) return;
+    this.fresh(); this.load(ns); this.inv = Object.assign(inv, ns.inv || {});
+    this.phase = 'shift'; this.shiftT = 0; this.timeScale = 1; this.safeT = 0; this.summary = null;
+    for (const q of this.players.values()) { q.downed = false; q.out = false; q.hidden = null; q.bag = 0; this.respawnInOffice(q); }
+    this.resetMonster(false);
+    this.emit({ t: 'newday', day: this.day, save: this.serialize(), retry: true });
+    this.save('retry');
   }
 
   // ======================= ROBOT VACUUMS =======================
@@ -472,154 +474,27 @@ export class Sim {
   resetMonster(initial) {
     const prev = this.mon;
     this.mon = { x: LAIR.x, z: LAIR.z, yaw: Math.PI, state: 'dormant', stateT: 0, path: null, pathT: 0, target: null, lastKnown: null, susp: {}, goal: null,
-      encounters: prev?.encounters || 0, lastEncounter: -999, retreatFor: 0, watchFor: 0, firstSighting: false, doorWait: 0, moving: 0, lookX: LAIR.x, lookZ: LAIR.z - 1, visible: 1, bangT: 20 };
+      encounters: prev?.encounters || 0, lastEncounter: -999, retreatFor: 0, watchFor: 0, firstSighting: false, doorWait: 0, moving: 0, lookX: LAIR.x, lookZ: LAIR.z - 1, visible: 1, bangT: 20, frozen: false, tpN: (prev?.tpN || 0) + 1, seenT: 0 };
+    resetStalker(this);
   }
   setMon(state, extra = {}) {
     const m = this.mon; if (m.state !== state) { m.state = state; m.stateT = 0; m.path = null; this.emit({ t: 'monstate', st: state }); }
     Object.assign(m, extra);
   }
   tickMonitor(dt) {
-    const m = this.mon, C = CONFIG.monitor, lock = this.phase === 'lockdown';
-    if (this.opts.calm) { if (m.state !== 'dormant') this.setMon('dormant'); m.x = 47.5; m.z = 11; m.moving = 0; this.noises = []; return; } // calm mode: no monster at all
-    m.stateT += dt;
-    const rects = solidRects(this.doors);
-    const alive = [...this.players.values()].filter(p => p.connected && !p.downed && !p.out);
-    const peaceful = !lock && this.shiftT < (this.day === 1 ? CONFIG.peacefulSeconds : CONFIG.peacefulSeconds * 0.5) && this.timeScale === 1;
-    const facing = Math.atan2(Math.sin(m.yaw), Math.cos(m.yaw));
-    // ---- perception ----
-    let best = null, bestS = 0;
-    for (const p of alive) {
-      const d = dist(m.x, m.z, p.x, p.z);
-      const los = !segBlocked(m.x, m.z, p.x, p.z, rects, { sight: true });
-      let seen = false;
-      if (los) {
-        const lit = Math.max(this.lightAt(p.x, p.z), p.fl ? 0.85 : 0);
-        let range = C.viewRange * (0.45 + 0.55 * lit) * (p.cr ? 0.7 : 1) * (p.fl ? 1.25 : 1);
-        if (lock) range *= 1.2;
-        const ang = Math.abs(angDiff(facing, Math.atan2(p.x - m.x, p.z - m.z)));
-        if (d < C.closeSense || (d < range && ang < C.viewHalfAngleDeg * Math.PI / 180)) seen = true;
-      }
-      const s0 = m.susp[p.pid] || 0;
-      m.susp[p.pid] = seen ? s0 + dt * (1.6 * Math.max(0, 1 - d / C.viewRange) + 0.35 + (p.mv ? 0.25 : 0)) : Math.max(0, s0 - dt * 0.25);
-      p._seenByMon = seen;
-      if (seen && m.susp[p.pid] > bestS) { bestS = m.susp[p.pid]; best = p; }
-      // continuous noise from what the player is doing
-      let r = 0; if (p.act && p.tool === 'vacuum') r = vacStats(this.upgrades).noise; else if (p.mv && p.sp) r = CONFIG.noise.sprint; else if (p.mv && !p.cr) r = CONFIG.noise.walk;
-      if (r) this.noise(p.x, p.z, r, p.pid);
-    }
-    // discrete + continuous noises -> the loudest heard
-    let heard = null;
-    for (const n of (this.noises || [])) {
-      const walls = wallsBetween(m.x, m.z, n.x, n.z, rects);
-      const eff = n.r * Math.pow(0.5, walls) * (lock ? C.lockdownHearMul : C.hearMul);
-      const d = dist(m.x, m.z, n.x, n.z);
-      if (d < eff) { const s = 1 - d / eff; if (!heard || s > heard.s) heard = { ...n, s, d }; }
-    }
-    this.noises = [];
-    if (best) m.lastKnown = { x: best.x, z: best.z, t: this.time };
-    // ---- the mannequin rule: while any worker has it in view it cannot move; look away and it comes, fast ----
-    const wasFrozen = m.frozen; m.frozen = false;
-    if (m.state !== 'dormant') for (const p of alive) if (this.playerSees(p, m, rects)) { m.frozen = true; break; }
-    if (m.frozen) { m.moving = 0; if (!wasFrozen) this.emit({ t: 'monfreeze', on: 1 }); this.noises = []; return; }
-    if (wasFrozen) this.emit({ t: 'monfreeze', on: 0, x: m.x, z: m.z });
-    // ---- pacing director: recovery time after an encounter; no hunting during the peaceful opening ----
-    const recovering = !lock && this.time - m.lastEncounter < 30;
-    const speedMul = lock ? C.lockdownSpeedMul : 1;
-    const st = m.state;
-    if (st === 'dormant') {
-      m.moving = 0;
-      if (!peaceful) this.setMon('patrol');
-      else if (this.day === 1 && !m.firstSighting && this.shiftT > CONFIG.peacefulSeconds * 0.7 && alive.length) {
-        // first sighting: walk (physically) to a watch point that can see a worker, from far away
-        const wp = this.pickWatchPoint(alive, rects, 9, 30);
-        if (wp) { m.firstSighting = true; this.setMon('watch', { goal: wp, watchFor: 6, target: null, scripted: true }); }
-      }
-    } else if (st === 'watch') {
-      const wp = m.goal;
-      if (wp && dist(m.x, m.z, wp.x, wp.z) > 0.4) this.moveTo(wp.x, wp.z, C.speed.investigate * speedMul, dt, rects);
-      else {
-        m.moving = 0; m.watchFor -= dt;
-        const tgt = best || alive.find(p => p.pid === m.target);
-        if (tgt) { m.yaw = turnTo(m.yaw, Math.atan2(tgt.x - m.x, tgt.z - m.z), dt * 2); m.lookX = tgt.x; m.lookZ = tgt.z; }
-        if (!m.scripted && best && m.susp[best.pid] > 1.0 && !peaceful) this.setMon('chase', { target: best.pid });
-        else if (m.watchFor <= 0) this.setMon(m.scripted ? 'retreat' : (best ? 'stalk' : 'search'), { scripted: false, retreatFor: 20 });
-      }
-    } else if (st === 'patrol') {
-      if (!m.path || !m.path.length) { const g = this.pickPatrol(lock); this.planPath(g[0], g[1]); }
-      this.followPath(C.speed.patrol * speedMul, dt, rects);
-      this.reactToSenses(best, heard, recovering, lock);
-      // hunting: it knows where you are, and comes while nobody is looking
-      if (!lock && !peaceful && m.stateT > 20 && alive.length && this.rand() < dt * 0.04) { const tg = alive[(this.rand() * alive.length) | 0]; this.setMon('stalk', { target: tg.pid }); m.lastKnown = { x: tg.x, z: tg.z, t: this.time }; }
-      if (!lock && m.stateT > 50 && this.rand() < dt * 0.05) { const wp = this.pickWatchPoint(alive, rects, 6, 22); if (wp) this.setMon('watch', { goal: wp, watchFor: 4 + this.rand() * 4, target: null }); }
-    } else if (st === 'investigate') {
-      if (!m.path) this.planPath(m.goal.x, m.goal.z);
-      const arrived = this.followPath(C.speed.investigate * speedMul, dt, rects);
-      if (arrived) this.setMon('search', { searchFor: CONFIG.monitor.searchSeconds * 0.6 });
-      this.reactToSenses(best, heard, recovering, lock, true);
-    } else if (st === 'stalk') {
-      const tg = alive.find(p => p.pid === m.target); if (tg) m.lastKnown = { x: tg.x, z: tg.z, t: this.time };
-      const lk = m.lastKnown;
-      if (lk && dist(m.x, m.z, lk.x, lk.z) > 3.2) { if (!m.path || m.pathT > 1) this.planPath(lk.x, lk.z); m.pathT += dt; this.followPath(C.speed.stalk * speedMul, dt, rects); }
-      else { m.moving = 0; if (lk) m.yaw = turnTo(m.yaw, Math.atan2(lk.x - m.x, lk.z - m.z), dt * 2); }
-      if (best && m.susp[best.pid] > 1.1) this.setMon('chase', { target: best.pid });
-      if (m.stateT > 22) this.setMon(lock ? 'search' : 'retreat', { retreatFor: 35 });
-    } else if (st === 'chase') {
-      const tgt = alive.find(p => p.pid === m.target);
-      if (!tgt) { this.setMon('search'); }
-      else {
-        if (tgt._seenByMon || dist(m.x, m.z, tgt.x, tgt.z) < 2.5) { m.lastKnown = { x: tgt.x, z: tgt.z, t: this.time }; m.lostT = 0; } else m.lostT = (m.lostT || 0) + dt;
-        m.pathT += dt;
-        if (!m.path || m.pathT > 0.35) { m.pathT = 0; this.planPath(m.lastKnown.x, m.lastKnown.z); }
-        const blocked = !m.path;
-        if (blocked) { m.moving = 0; m.blockedT = (m.blockedT || 0) + dt; this.bangDoor(dt); if (m.blockedT > 6) this.setMon('search'); }
-        else { m.blockedT = 0; this.followPath(C.speed.chase * C.unseenSprint * speedMul, dt, rects); }
-        m.lookX = tgt.x; m.lookZ = tgt.z;
-        if (dist(m.x, m.z, tgt.x, tgt.z) < C.catchRadius && !segBlocked(m.x, m.z, tgt.x, tgt.z, rects)) this.catchPlayer(tgt);
-        else if (m.lostT > C.loseSightSeconds) this.setMon('search', { searchFor: C.searchSeconds });
-      }
-    } else if (st === 'search') {
-      m.searchFor = m.searchFor ?? C.searchSeconds;
-      if (!m.path || !m.path.length) {
-        const lk = m.lastKnown || { x: m.x, z: m.z }, a = this.rand() * 6.283, r = 1 + this.rand() * 5;
-        if (!this.planPath(lk.x + Math.cos(a) * r, lk.z + Math.sin(a) * r)) m.path = [];
-        m.pause = 1 + this.rand() * 2;
-      }
-      if (m.pause > 0) { m.pause -= dt; m.moving = 0; m.yaw += Math.sin(this.time * 1.3) * dt; } else this.followPath(C.speed.search * speedMul, dt, rects);
-      this.reactToSenses(best, heard, false, lock, true);
-      if (m.stateT > m.searchFor) { m.searchFor = undefined; this.setMon(lock ? 'patrol' : 'retreat', { retreatFor: C.retreatSeconds[0] + this.rand() * (C.retreatSeconds[1] - C.retreatSeconds[0]) }); m.lastEncounter = this.time; }
-    } else if (st === 'retreat') {
-      if (dist(m.x, m.z, LAIR.x, LAIR.z) > 0.6) { if (!m.path) this.planPath(LAIR.x, LAIR.z); this.followPath(C.speed.retreat * speedMul, dt, rects); }
-      else { m.moving = 0; m.yaw = turnTo(m.yaw, Math.PI, dt * 3); } // back in its place in the crowd, facing the room like the rest
-      const crew = Math.max(1, alive.length);
-      if (m.stateT > (m.retreatFor || 40) / (1 + 0.15 * (crew - 1))) this.setMon(peaceful ? 'dormant' : 'patrol');
-      if (best && dist(m.x, m.z, best.x, best.z) < 4 && m.susp[best.pid] > 0.8) this.setMon('chase', { target: best.pid });
-      if (lock) this.setMon('patrol');
-    }
-    // inside the bolted office at 4:00: something checks the door now and then
-    if (lock && this.doors.d_office.bolted) {
-      const inside = alive.some(p => inOffice(p));
-      if (inside) { m.bangT -= dt; if (m.bangT < 0 && dist(m.x, m.z, 21.5, 2.2) < 9) { m.bangT = 20 + this.rand() * 20; this.emit({ t: 'sfx', k: 'doorbang', x: 21.5, z: 3.6 }); } }
-    }
+    const m = this.mon;
+    if (this.opts.calm) { if (m.state !== 'dormant') this.setMon('dormant'); m.x = 47.5; m.z = 11; m.moving = 0; m.frozen = false; this.noises = []; return; } // calm mode: no monster at all
+    tickStalker(this, dt);
   }
+  isInOffice(p) { return inOffice(p); }
+  navFree(x, z) { const i = Math.floor((x - NAV.x0) / NAV.cell), j = Math.floor((z - NAV.z0) / NAV.cell); return i >= 0 && j >= 0 && i < NAV.w && j < NAV.h && NAVGRID[j * NAV.w + i] === 0; }
   // a worker sees it: on screen (player cameras face -z at yaw 0), nothing solid between, and enough light to make it out
   playerSees(p, m, rects) {
     const d = dist(m.x, m.z, p.x, p.z); if (d > 34) return false;
     const toMon = Math.atan2(m.x - p.x, m.z - p.z), facing = Math.atan2(-Math.sin(p.yaw || 0), -Math.cos(p.yaw || 0));
-    if (Math.abs(angDiff(facing, toMon)) > CONFIG.monitor.viewFreezeHalf && d > 1.2) return false;
+    if (Math.abs(angDiff(facing, toMon)) > CONFIG.monitor.viewFreezeHalf && d > 0.4) return false;
     if (segBlocked(p.x, p.z, m.x, m.z, rects, { sight: true })) return false;
     return d < 3 || this.lightAt(m.x, m.z) > 0.12 || (p.fl && d < 15);
-  }
-  reactToSenses(best, heard, recovering, lock, already) {
-    const m = this.mon;
-    if (best) {
-      const s = m.susp[best.pid];
-      if (s > 1.0) return this.setMon('chase', { target: best.pid, lostT: 0 });
-      if (s > 0.35 && m.state !== 'watch') return this.setMon('watch', { goal: null, watchFor: 1.5 + this.rand() * 2, target: best.pid, scripted: false });
-    }
-    if (heard && !(recovering && heard.d > 6)) {
-      const unc = heard.d * 0.15; const gx = heard.x + (this.rand() - 0.5) * unc * 2, gz = heard.z + (this.rand() - 0.5) * unc * 2;
-      if (m.state !== 'investigate' || dist(gx, gz, m.goal.x, m.goal.z) > 3) this.setMon('investigate', { goal: { x: gx, z: gz } });
-    }
   }
   pickPatrol(lock) {
     const pts = lock ? [[21.5, 2.2], [13, 1.8], [30, 1.8], [13, -4.5], [4, 2.2], [36, 1.8]] : PATROL;

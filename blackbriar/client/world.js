@@ -20,17 +20,26 @@ function bakeMaterial(mat) {
   return mat;
 }
 const OCC = WALLS.filter(w => !w.glass).concat(FURNITURE.filter(f => f.h > 1.7));
+// speed-ups for the bake: each light only tests the walls around it; floor AO looks up nearby walls in a 2 m grid
+let LIGHT_OCC = null, OCC_GRID = null;
+function prepBake() {
+  if (LIGHT_OCC) return;
+  LIGHT_OCC = LIGHTS.map(L => OCC.filter(w => w.x1 > L.x - 14.5 && w.x0 < L.x + 14.5 && w.z1 > L.z - 14.5 && w.z0 < L.z + 14.5));
+  OCC_GRID = new Map();
+  for (const w of OCC) for (let i = Math.floor((w.x0 - 0.4) / 2); i <= Math.floor((w.x1 + 0.4) / 2); i++) for (let j = Math.floor((w.z0 - 0.4) / 2); j <= Math.floor((w.z1 + 0.4) / 2); j++) { const k = i * 1000 + j; if (!OCC_GRID.has(k)) OCC_GRID.set(k, []); OCC_GRID.get(k).push(w); }
+}
 function bakeAt(px, py, pz, nx, ny, nz) {
+  prepBake();
   let r = 0.012, g = 0.013, b = 0.015; // a little darkness, never pure black
   const sx = px + nx * 0.06, sz = pz + nz * 0.06, sy = py + ny * 0.06;
-  for (const L of LIGHTS) {
-    if (L.state === 'off') continue;
+  for (let li = 0; li < LIGHTS.length; li++) {
+    const L = LIGHTS[li]; if (L.state === 'off') continue;
     const dx = L.x - sx, dy = L.y - 0.05 - sy, dz = L.z - sz, d2 = dx * dx + dy * dy + dz * dz;
     if (d2 > 14 * 14) continue;
     const d = Math.sqrt(d2), lam = Math.max(0, (dx * nx + dy * ny + dz * nz) / d);
     const emit = L.bulb ? 1 : 0.25 + 0.75 * Math.max(0, dy / d); // troffers throw light downward
     if (lam <= 0 && ny < 0.5) { if (!(ny < -0.5)) continue; }
-    if (segBlocked(sx, sz, L.x, L.z, OCC)) continue;
+    if (segBlocked(sx, sz, L.x, L.z, LIGHT_OCC[li])) continue;
     const k = L.i * (L.state === 'flicker' ? 0.55 : 1) * (L.emergency ? 0.6 : 1) * 2.4 / (d2 + 0.8);
     const direct = k * (ny < -0.5 ? 0.18 : lam) * emit, bounce = k * 0.22;
     const c = new THREE.Color(L.color);
@@ -38,7 +47,7 @@ function bakeAt(px, py, pz, nx, ny, nz) {
   }
   // contact darkening near floors, corners and ceilings
   let ao = 1;
-  if (ny > 0.5) { let md = 9; for (const w of OCC) { const ex = Math.max(w.x0 - px, 0, px - w.x1), ez = Math.max(w.z0 - pz, 0, pz - w.z1); md = Math.min(md, Math.hypot(ex, ez)); } ao *= 0.55 + 0.45 * Math.min(1, md / 0.35); }
+  if (ny > 0.5) { let md = 9; for (const w of (OCC_GRID.get(Math.floor(px / 2) * 1000 + Math.floor(pz / 2)) || [])) { const ex = Math.max(w.x0 - px, 0, px - w.x1), ez = Math.max(w.z0 - pz, 0, pz - w.z1); md = Math.min(md, Math.hypot(ex, ez)); } ao *= 0.55 + 0.45 * Math.min(1, md / 0.35); }
   if (Math.abs(ny) < 0.5) ao *= 0.5 + 0.5 * Math.min(1, py / 0.45);
   return [r * ao, g * ao, b * ao];
 }
@@ -62,7 +71,8 @@ class Collector {
   finish(scene) {
     for (const [mat, list] of this.buckets) {
       const g = mergeGeometries(list, false); const p = g.attributes.position, n = g.attributes.normal, bake = new Float32Array(p.count * 3);
-      for (let i = 0; i < p.count; i++) { const c = bakeAt(p.getX(i), p.getY(i), p.getZ(i), n.getX(i), n.getY(i), n.getZ(i)); bake[i * 3] = c[0]; bake[i * 3 + 1] = c[1]; bake[i * 3 + 2] = c[2]; }
+      prepBake(); const cache = new Map();
+      for (let i = 0; i < p.count; i++) { const key = Math.round(p.getX(i) * 50) + ',' + Math.round(p.getY(i) * 50) + ',' + Math.round(p.getZ(i) * 50) + ',' + Math.round(n.getX(i) * 4) + Math.round(n.getY(i) * 4) * 9 + Math.round(n.getZ(i) * 4) * 81; let c = cache.get(key); if (!c) { c = bakeAt(p.getX(i), p.getY(i), p.getZ(i), n.getX(i), n.getY(i), n.getZ(i)); cache.set(key, c); } bake[i * 3] = c[0]; bake[i * 3 + 1] = c[1]; bake[i * 3 + 2] = c[2]; }
       g.setAttribute('bake', new THREE.BufferAttribute(bake, 3));
       const m = new THREE.Mesh(g, mat); m.matrixAutoUpdate = false; m.receiveShadow = true; scene.add(m);
     }
@@ -126,8 +136,18 @@ export function buildWorld(scene, renderer, opts = {}) {
   wallSets.pool = TX.paintedWall({ upper: [204, 226, 230], lower: [90, 150, 176], stripe: [30, 80, 120], bandTop: 1.4, ceil: 6.5, seed: 19, block: true });
   wallSets.cafe = TX.paintedWall({ upper: [222, 216, 196], lower: [74, 100, 138], stripe: [214, 176, 64], bandTop: 1.2, ceil: 4.0, seed: 24, block: true });
   { const cT = TX.vctChecker([226, 220, 204], [138, 56, 48], 23); floorMats.cafe = std({ map: cT.map, normalMap: cT.normalMap, roughnessMap: cT.roughnessMap, roughness: 0.6, envMapIntensity: 0.5 }); floorMats.cafe.userData.grime = 0.55; }
+  const TLD = new THREE.TextureLoader(), anI = renderer.capabilities.getMaxAnisotropy();
+  const ltex = (n, rx, ry, srgb) => { const t = TLD.load('assets/tex/' + n + '.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry ?? rx); t.anisotropy = anI; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+  // Room 014: damp carpet (ambientCG Carpet016) and yellowed, water-stained wallpaper (ambientCG Wallpaper001B)
+  { const carpet = std({ map: ltex('carpet_diff', 2.6, 2.6, true), normalMap: ltex('carpet_nor', 2.6), roughnessMap: ltex('carpet_rough', 2.6), roughness: 1, color: 0xd6c38e, envMapIntensity: 0.15 }); carpet.userData.grime = 0.55;
+    for (const k of ['w014a', 'w014b', 'w014c']) floorMats[k] = carpet;
+    const wp = { map: ltex('wallpaper_diff', 2, 2.7, true), normalMap: ltex('wallpaper_nor', 2, 2.7), roughnessMap: ltex('wallpaper_rough', 2, 2.7), uSize: 2, ceil: 2.7 };
+    for (const k of ['w014a', 'w014b', 'w014c']) wallSets[k] = wp; }
   const wallMats = {}; for (const k in wallSets) { const w = wallSets[k]; wallMats[k] = std({ map: w.map, normalMap: w.normalMap, roughnessMap: w.roughnessMap, roughness: 1, envMapIntensity: 0.25 }); wallMats[k].userData.grime = 0.4; }
-  const ceilT = TX.ceilingTiles(); const ceilMat = std({ map: ceilT.map, normalMap: ceilT.normalMap, roughness: 0.95 }); ceilMat.userData.grime = 0.35;
+  const ceilT = TX.ceilingTiles(); // ambientCG OfficeCeiling001: 2'x2' acoustic tiles; the ceiling UV is metres / 2.4 and the texture spans ~3.6 m
+  const ceilMat = std({ map: ltex('ceil_diff', 0.667, 0.667, true), normalMap: ltex('ceil_nor', 0.667), roughnessMap: ltex('ceil_rough', 0.667), roughness: 1, color: 0xe8e4da }); ceilMat.userData.grime = 0.35;
+  const ceil014 = std({ map: ltex('ceil_diff', 0.667, 0.667, true), normalMap: ltex('ceil_nor', 0.667), roughnessMap: ltex('ceil_rough', 0.667), roughness: 1, color: 0xd8c690 }); ceil014.userData.grime = 0.5;
+  for (const k of ['w014a', 'w014b', 'w014c']) if (wallMats[k]) { wallMats[k].color.setHex(0xe0c878); wallMats[k].userData.grime = 0.6; }
   const M = {
     trim: std({ color: 0x2e2f2c, roughness: 0.5, metalness: 0.4 }),
     steel: std({ color: 0x8a8d8c, roughness: 0.4, metalness: 0.7 }),
@@ -169,7 +189,7 @@ export function buildWorld(scene, renderer, opts = {}) {
     }
     if (id === 'pool') { const B = POOL_BASIN; floorRect(fm, r.x0, r.z0, r.x1, B.z0, r.y, size); floorRect(fm, r.x0, B.z1, r.x1, r.z1, r.y, size); floorRect(fm, r.x0, B.z0, B.x0, B.z1, r.y, size); floorRect(fm, B.x1, B.z0, r.x1, B.z1, r.y, size); }
     else floorRect(fm, r.x0, r.z0, r.x1, r.z1, r.y, size);
-    const cm = ['service', 'storage', 'closet', 'gym', 'pool'].includes(id) ? M.concreteDark : ceilMat;
+    const cm = ['service', 'storage', 'closet', 'gym', 'pool'].includes(id) ? M.concreteDark : r.wing ? ceil014 : ceilMat;
     col.add(quadGrid(new THREE.Vector3(r.x0, r.y + r.ceil, r.z0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), r.x1 - r.x0, r.z1 - r.z0, steps(r.x1 - r.x0, 0.6), steps(r.z1 - r.z0, 0.6), (q) => [q.x / 2.4, q.z / 2.4]), cm);
   }
   // ---------- walls ----------
@@ -264,7 +284,8 @@ export function buildWorld(scene, renderer, opts = {}) {
   const nL = LOCKERS.length;
   const bodyGeo = new RoundedBoxGeometry(LOCKER_W - 0.01, LOCKER_H - 0.1, LOCKER_D, 2, 0.008);
   const faceT = TX.lockerFace();
-  const faceMat = bakeMaterial(new THREE.MeshStandardMaterial({ map: faceT.map, normalMap: faceT.normalMap, roughnessMap: faceT.roughnessMap, metalness: 0.35, roughness: 1, envMapIntensity: 0.7 }));
+  const lockerRough = ltex('lockerpaint_rough', 1, 1); // ambientCG PaintedMetal004: scuffs and scratches catch the light
+  const faceMat = bakeMaterial(new THREE.MeshStandardMaterial({ map: faceT.map, normalMap: faceT.normalMap, roughnessMap: lockerRough, metalness: 0.35, roughness: 1, envMapIntensity: 0.7 }));
   const atlas = TX.numberAtlas(101, nL);
   const plateMat = bakeMaterial(new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.35, metalness: 0.4 }));
   const pmc = plateMat.onBeforeCompile;
@@ -300,7 +321,7 @@ export function buildWorld(scene, renderer, opts = {}) {
       const hingeX = L.x - (L.side === 'n' ? 1 : -1) * (LOCKER_W / 2 - 0.01);
       const piv = new THREE.Group(); piv.position.set(hingeX, ty, fzPos + fz * 0.004); piv.rotation.y = facing; scene.add(piv);
       const doorGeo = new THREE.PlaneGeometry(LOCKER_W - 0.02, hgt); const uv = doorGeo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setY(k, 0.5 + uv.getY(k) * 0.5);
-      const dm = new THREE.MeshStandardMaterial({ map: faceT.map, normalMap: faceT.normalMap, roughnessMap: faceT.roughnessMap, metalness: 0.35, roughness: 1, side: THREE.DoubleSide, envMapIntensity: 0.7 });
+      const dm = new THREE.MeshStandardMaterial({ map: faceT.map, normalMap: faceT.normalMap, roughnessMap: lockerRough, metalness: 0.35, roughness: 1, side: THREE.DoubleSide, envMapIntensity: 0.7 });
       const dmesh = new THREE.Mesh(doorGeo, dm); dmesh.position.x = (LOCKER_W - 0.02) / 2 * (L.side === 'n' ? 1 : 1); piv.add(dmesh);
       const pl = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({ map: TX.textCanvas(64, 32, (x) => { x.fillStyle = '#c9c4b2'; x.fillRect(0, 0, 64, 32); x.fillStyle = '#111'; x.font = 'bold 22px Helvetica'; x.textAlign = 'center'; x.fillText(String(L.num), 32, 24); }), roughness: 0.35 }));
       pl.position.set((LOCKER_W - 0.02) / 2, 0.27, 0.003); piv.add(pl);

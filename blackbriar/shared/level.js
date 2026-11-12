@@ -19,9 +19,13 @@ export const ROOMS = {
   lockers: { name: 'Locker Room', x0: -26, z0: 6.25, x1: -16, z1: 16, ceil: 2.8, y: -4 },
   pool: { name: 'Natatorium', x0: -46, z0: 6.25, x1: -26, z1: 24, ceil: 6.5, y: -4 },
   cafe: { name: 'Cafeteria', x0: -12, z0: 3.6, x1: 0, z1: 20, ceil: 4.0, y: -4 },
+  // Room 014, the sealed wing: plastered over in 1998, wrapped around the maintenance office. It goes on longer than it should.
+  w014a: { name: 'Room 014', x0: 7, z0: 3.6, x1: 20, z1: 24, ceil: 2.7, wing: true },
+  w014b: { name: 'Room 014', x0: 20, z0: 10, x1: 40, z1: 24, ceil: 2.7, wing: true },
+  w014c: { name: 'Room 014', x0: 27, z0: 3.6, x1: 40, z1: 10, ceil: 2.7, wing: true },
 };
 for (const r of Object.values(ROOMS)) if (r.y == null) r.y = 0;
-export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair'], athletics: ['lcorr', 'gym', 'lockers', 'pool', 'cafe'] };
+export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair', 'w014a', 'w014b', 'w014c'], athletics: ['lcorr', 'gym', 'lockers', 'pool', 'cafe'] };
 // walking height: the stairwell descends 4 m over 8 m of steps (x -2 -> -10)
 export function groundY(x, z) {
   const r = roomAt(x, z); if (!r) return x < -0.05 && z > 0 && z < 3.6 ? 0 : (x < -12 ? -4 : 0);
@@ -33,7 +37,7 @@ export function roomAt(x, z) {
   for (const [id, r] of Object.entries(ROOMS)) if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return id;
   return null;
 }
-export function progressRoom(id) { return id === 'storage' ? 'service' : id === 'stair' ? 'lcorr' : id; }
+export function progressRoom(id) { return id === 'storage' ? 'service' : id === 'stair' ? 'lcorr' : id && id.startsWith('w014') ? 'w014' : id; }
 
 // ---------- doors ----------
 // axis 'x': the door lies in a wall of constant z, spanning x0..x1. axis 'z': wall of constant x, spanning z0..z1.
@@ -46,6 +50,7 @@ export const DOORS = [
   { id: 'd_gym', axis: 'z', x: -16, a0: -2.0, a1: -0.8, hinge: 0, swing: 1, kind: 'classroom', label: 'GYM', y: -4 },
   { id: 'd_lockers', axis: 'z', x: -16, a0: 9.0, a1: 10.0, hinge: 0, swing: 1, kind: 'closet', label: 'LOCKERS', y: -4 },
   { id: 'd_pool', axis: 'z', x: -26, a0: 10.0, a1: 11.0, hinge: 0, swing: 1, kind: 'service', label: 'POOL', y: -4 },
+  { id: 'd_014', axis: 'x', z: 3.6, a0: 11.4, a1: 12.4, hinge: 0, swing: 1, kind: 'classroom', label: '014', lock: '014' },
   { id: 'd_cafe', axis: 'z', x: -12, a0: 7.0, a1: 8.2, hinge: 0, swing: -1, kind: 'steel', label: 'CAFETERIA', y: -4, lock: 'cafekey' },
 ];
 for (const d of DOORS) if (d.y == null) d.y = 0;
@@ -66,11 +71,38 @@ function vwall(x, z0, z1, gaps, h, y0 = 0) {
   if (z < z1) out.push({ x0: x - T / 2, z0: z, x1: x + T / 2, z1, h, y0 });
   return out;
 }
+// ---------- Room 014: a seeded maze of yellowed rooms, partial walls and pillars (Backrooms) ----------
+export const W014 = { xs: [7, 10.25, 13.5, 16.75, 20, 23.5, 27, 30.25, 33.5, 36.75, 40], zs: [3.6, 6.8, 10, 13.5, 17, 20.5, 24] };
+export const w014Cell = (i, j) => !(i >= 4 && i <= 5 && j <= 1); // the maintenance office sits in the middle of it
+export const W014_WALLS = (() => {
+  const R = rng(14014), { xs, zs } = W014, nx = xs.length - 1, nz = zs.length - 1, out = [];
+  const id = (i, j) => j * nx + i, key = (a, b) => Math.min(a, b) + ':' + Math.max(a, b), seen = new Set([id(1, 0)]), tree = new Set(), stack = [[1, 0]];
+  while (stack.length) { // spanning tree: every room stays reachable
+    const [i, j] = stack[stack.length - 1];
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([a, b]) => [i + a, j + b]).filter(([a, b]) => a >= 0 && b >= 0 && a < nx && b < nz && w014Cell(a, b) && !seen.has(id(a, b)));
+    if (!nb.length) { stack.pop(); continue; }
+    const [a, b] = nb[(R() * nb.length) | 0]; seen.add(id(a, b)); tree.add(key(id(i, j), id(a, b))); stack.push([a, b]);
+  }
+  const wall = (vert, c, a0, a1, inTree) => {
+    const r = R(), len = a1 - a0;
+    if (inTree ? r < 0.5 : r < 0.15) return; // no wall: open plan
+    const doorway = inTree || r < 0.45;
+    const g0 = a0 + 0.4 + R() * (len - 2.0), gaps = doorway ? [[g0, g0 + 1.2]] : [];
+    out.push(...(vert ? vwall(c, a0 - 0.1, a1 + 0.1, gaps, 2.7) : hwall(c, a0 - 0.1, a1 + 0.1, gaps, 2.7)));
+  };
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    if (!w014Cell(i, j)) continue;
+    if (i + 1 < nx && w014Cell(i + 1, j)) wall(true, xs[i + 1], zs[j], zs[j + 1], tree.has(key(id(i, j), id(i + 1, j))));
+    if (j + 1 < nz && w014Cell(i, j + 1)) wall(false, zs[j + 1], xs[i], xs[i + 1], tree.has(key(id(i, j), id(i, j + 1))));
+  }
+  for (let j = 1; j < nz; j++) for (let i = 1; i < nx; i++) if (w014Cell(i, j) && w014Cell(i - 1, j - 1) && R() < 0.22) { const x = xs[i], z = zs[j]; out.push({ x0: x - 0.22, z0: z - 0.22, x1: x + 0.22, z1: z + 0.22, h: 2.7, pillar: true }); }
+  return out;
+})();
 export const WALLS = [
   // hallway
   ...hwall(0, -0.1, 40.1, [[9, 10], [12, 16]], 2.95),
   { x0: 12, z0: -T / 2, x1: 16, z1: T / 2, h: 2.95, glass: true },
-  ...hwall(3.6, -0.1, 40.1, [[3.5, 4.5], [21, 22]], 2.95),
+  ...hwall(3.6, -0.1, 40.1, [[3.5, 4.5], [11.4, 12.4], [21, 22]], 2.95),
   ...vwall(0, 0, 3.6, [[1.2, 2.4]], 2.95),
   ...vwall(40, -6, 12, [[1.3, 2.3]], 2.95),
   // classroom
@@ -86,6 +118,9 @@ export const WALLS = [
   ...hwall(0.4, -12, 0, [], 7, -4), ...hwall(3.2, -12, 0, [], 7, -4),
   // athletics floor (base -4)
   ...vwall(-12, -6.1, 12.1, [[0.4, 3.2], [7.0, 8.2]], 3, -4),
+  // Room 014: outer shell (the hall, office and service walls close the rest) and its maze
+  ...vwall(7, 3.6, 24.1, [], 2.7), ...hwall(24, 6.9, 40.1, [], 2.7), ...vwall(40, 12, 24.1, [], 2.7),
+  ...W014_WALLS,
   // cafeteria (locked; the mannequins are kept here)
   ...vwall(-12, 12, 20.1, [], 4, -4), ...hwall(3.6, -12.1, 0.1, [], 4, -4), ...vwall(0, 3.6, 20.1, [], 4, -4), ...hwall(20, -12.1, 0.1, [], 4, -4), ...hwall(-6, -16.1, -11.9, [], 3, -4), ...hwall(12, -16.1, -11.9, [], 3, -4),
   ...vwall(-16, -14.1, 16.1, [[-2.0, -0.8], [9.0, 10.0]], 7.5, -4),
@@ -99,12 +134,12 @@ for (const w of WALLS) if (w.y0 == null) w.y0 = 0;
 // ---------- furniture and fixtures with collision ----------
 export const LOCKER_W = 0.4, LOCKER_D = 0.45, LOCKER_H = 1.86;
 export const LOCKER_RUNS = [ // [side, a0, a1]  side n = against north wall (z=0), s = south wall (z=3.6)
-  ['n', 0.4, 8.8], ['n', 10.2, 11.8], ['n', 16.2, 39.6], ['s', 0.4, 3.2], ['s', 4.8, 20.8], ['s', 22.2, 39.6],
+  ['n', 0.4, 8.8], ['n', 10.2, 11.8], ['n', 16.2, 39.6], ['s', 0.4, 3.2], ['s', 4.8, 10.8], ['s', 12.8, 20.8, 5], ['s', 22.2, 39.6], // the gap at 10.8-12.8 hides a door; numbers 206-210 stay unused
 ];
 export const LOCKERS = (() => {
   const out = []; let num = 101;
-  for (const [side, a0, a1] of LOCKER_RUNS) {
-    const n = Math.floor((a1 - a0) / LOCKER_W);
+  for (const [side, a0, a1, skip = 0] of LOCKER_RUNS) {
+    num += skip; const n = Math.floor((a1 - a0) / LOCKER_W);
     for (let i = 0; i < n; i++) {
       const x = a0 + i * LOCKER_W + LOCKER_W / 2;
       out.push({ id: 'L' + num, num, side, x, z: side === 'n' ? T / 2 + LOCKER_D / 2 : 3.6 - T / 2 - LOCKER_D / 2 });
@@ -146,6 +181,9 @@ export const MANNEQUIN_SPOTS = (() => {
   for (let k = 0; k < 13; k++) out.push({ x: -0.75, z: 4.6 + k * 1.05, yaw: -Math.PI / 2 + (R() - 0.5) * 0.3, pose: k % 3 });
   for (let k = 0; k < 11; k++) { const x = -10.8 + (k % 6) * 1.25 + (R() - 0.5) * 0.3, z = k < 6 ? 17.4 : 16.3; if (Math.hypot(x + 7.7, z - 17.2) < 0.9) continue; out.push({ x, z, yaw: Math.PI + (R() - 0.5) * 0.6, pose: (k + 1) % 3 }); }
   for (const [x, z] of [[-11.2, 5.0], [-7.7, 11.0], [-4.3, 10.6], [-11.1, 13.6], [-4.3, 16.1], [-1.8, 18.9], [-8.2, 4.6]]) out.push({ x, z, yaw: R() * 6.283, pose: (R() * 3) | 0 });
+  for (const o of out) o.y = -4;
+  // a few stand in the sealed wing, facing the walls
+  for (const [i, j] of [[0, 2], [2, 3], [3, 5], [6, 4], [8, 3], [9, 5], [7, 0], [0, 5], [5, 3]]) { const { xs, zs } = W014; out.push({ x: (xs[i] + xs[i + 1]) / 2 + (R() - 0.5) * 1.2, z: (zs[j] + zs[j + 1]) / 2 + (R() - 0.5) * 1.2, yaw: R() * 6.283, pose: (R() * 3) | 0, y: 0 }); }
   return out;
 })();
 export const FURNITURE = (() => {
@@ -189,7 +227,7 @@ export const FURNITURE = (() => {
   // cafeteria: fold-out tables with benches, the serving line, and a crowd of display mannequins in storage
   for (const x of [-9.4, -6.0, -2.6]) for (const [z0, z1] of [[6.2, 9.6], [12.0, 15.4]]) f.push({ kind: 'cafetable', x0: x - 0.75, z0, x1: x + 0.75, z1, h: 0.78, y0: -4 });
   f.push({ kind: 'serving', x0: -10.4, z0: 18.7, x1: -3.0, z1: 19.6, h: 1.05, y0: -4 });
-  for (const m of MANNEQUIN_SPOTS) f.push({ kind: 'mannequin', x0: m.x - 0.24, z0: m.z - 0.24, x1: m.x + 0.24, z1: m.z + 0.24, h: 1.95, y0: -4 });
+  for (const m of MANNEQUIN_SPOTS) f.push({ kind: 'mannequin', x0: m.x - 0.24, z0: m.z - 0.24, x1: m.x + 0.24, z1: m.z + 0.24, h: 1.95, y0: m.y });
   for (const f0 of f) if (f0.y0 == null) f0.y0 = 0;
   return f;
 })();
@@ -213,8 +251,8 @@ export const LIGHTS = (() => {
   for (let k = 0; k < 13; k++) {
     const x = 1.5 + k * 3; let state = 'on';
     if (x > 16 && x < 31) state = ['on', 'flicker', 'on', 'off', 'on'][k % 5];
-    if (x >= 31) state = x > 32 && x < 34 ? 'flicker' : 'off';
-    if (x === 7.5) state = 'off'; if (x === 13.5) state = 'flicker'; // dark pockets in the west hall
+    if (x >= 31) state = x > 32 && x < 34 ? 'flicker' : x > 37 ? 'off' : 'on';
+    if (x === 13.5) state = 'flicker';
     L.push({ x, z: 1.8, y: 2.93, state, room: 'hall', color: 0xf4f6ff, i: 1 });
   }
   for (const [x, z, s] of [[10.5, -6, 'on'], [13, -6, 'off'], [15.5, -6, 'on'], [10.5, -3, 'on'], [13, -3, 'flicker'], [15.5, -3, 'on']]) L.push({ x, z, y: 2.93, state: s, room: 'class', color: 0xf6f3e8, i: 1 });
@@ -230,13 +268,14 @@ export const LIGHTS = (() => {
   for (const z of [-3, 4, 10]) L.push({ x: -14, z, y: -1.05, state: z === 4 ? 'off' : 'on', room: 'lcorr', color: 0xf2f4ff, i: 0.9 });
   for (const x of [-35, -28, -21]) for (const z of [-8, 1]) L.push({ x, z, y: 3.4, state: x === -28 && z === 1 ? 'flicker' : 'on', room: 'gym', color: 0xfff4e0, i: 2.2, high: true });
   for (const x of [-23, -19]) L.push({ x, z: 11.5, y: -1.25, state: x === -19 ? 'flicker' : 'on', room: 'lockers', color: 0xe8f4ff, i: 0.8 });
+  { const R = rng(1414), { xs, zs } = W014; for (let j = 0; j < zs.length - 1; j++) for (let i = 0; i < xs.length - 1; i++) { if (!w014Cell(i, j)) continue; const r = R(); L.push({ x: (xs[i] + xs[i + 1]) / 2, z: (zs[j] + zs[j + 1]) / 2, y: 2.68, state: r < 0.1 ? 'off' : r < 0.28 ? 'flicker' : 'on', room: 'w014', color: 0xfff0c2, i: 0.85 }); } }
   for (const x of [-9, -3]) for (const z of [6.5, 11.5, 16.5]) L.push({ x, z, y: -0.08, state: x === -3 && z === 11.5 ? 'off' : x === -9 && z === 16.5 ? 'flicker' : 'on', room: 'cafe', color: 0xf4f0e2, i: 0.85 });
   for (const x of [-42, -34]) for (const z of [11, 19]) L.push({ x, z, y: 2.4, state: x === -42 && z === 19 ? 'off' : 'on', room: 'pool', color: 0xe8f8ff, i: 1.6, high: true });
   return L;
 })();
 
 // ---------- the Monitor's waypoints ----------
-export const PATROL = [[-14, 4], [-6, 11], [-3, 6], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
+export const PATROL = [[-14, 4], [-6, 11], [-3, 6], [13.5, 8.4], [30, 18.7], [22, 21.5], [37, 7], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
 export const WATCH_POINTS = [
   { x: 14, z: -0.9, yaw: 0, note: 'classroom glass' },        // inside 112, looking out through the glass
   { x: 14, z: 1.0, yaw: Math.PI, note: 'hall at glass' },     // hallway, looking in
@@ -281,6 +320,9 @@ export const DEBRIS = (() => {
     { room: 'pool', x0: -45.6, z0: 21.2, x1: -26.4, z1: 23.6, n: 220 },
     { room: 'pool', x0: -30.8, z0: 9.8, x1: -26.4, z1: 21.2, n: 200 },
     { room: 'cafe', x0: -11.75, z0: 3.85, x1: -0.25, z1: 18.5, n: 700 },
+    { room: 'w014', x0: 7.25, z0: 3.85, x1: 19.75, z1: 23.75, n: 520, wing: true },
+    { room: 'w014', x0: 20.25, z0: 10.25, x1: 39.75, z1: 23.75, n: 560, wing: true },
+    { room: 'w014', x0: 27.25, z0: 3.85, x1: 39.75, z1: 9.75, n: 220, wing: true },
   ];
   for (const a of areas) {
     // clumps make satisfying drifts; the rest is scattered
@@ -294,8 +336,9 @@ export const DEBRIS = (() => {
       else { x = a.x0 + R() * (a.x1 - a.x0); z = a.z0 + R() * (a.z1 - a.z0); }
       if (x < a.x0 || x > a.x1 || z < a.z0 || z > a.z1) continue;
       if (insideFurniture(x, z, 0.04)) continue;
+      if (a.wing && W014_WALLS.some(w => x > w.x0 - 0.1 && x < w.x1 + 0.1 && z > w.z0 - 0.1 && z < w.z1 + 0.1)) continue;
       const k = R();
-      const kind = k < 0.012 ? 5 : k < 0.42 ? 0 : k < 0.62 ? 1 : k < 0.8 ? 2 : k < 0.9 ? 3 : 4; // 5 = a dropped coin
+      const kind = k < (a.wing ? 0.04 : 0.012) ? 5 : k < 0.42 ? 0 : k < 0.62 ? 1 : k < 0.8 ? 2 : k < 0.9 ? 3 : 4; // 5 = a dropped coin
       out.push({ id: out.length, x, z, kind, rot: R() * 6.283, s: 0.7 + R() * 0.7, c: R(), room: a.room });
       made++;
     }

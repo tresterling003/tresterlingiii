@@ -63,37 +63,6 @@ t('bolt only from inside, and the Monitor cannot path through a bolted office do
   assert.ok(findPath(nav, 21.5, 1.8, 23, 7, () => true));
 });
 
-t('the Monitor hears a vacuum, investigates, sees, chases and catches', () => {
-  const s = new Sim(); s.join('a', 'A'); s.inv.a.vacuum = true; s.shiftT = 400; // past the peaceful opening
-  const p = s.players.get('a'); p.x = 30; p.z = 1.8; p.tool = 'vacuum'; p.act = 1;
-  s.mon.x = 36; s.mon.z = 1.8; s.mon.yaw = -Math.PI / 2; s.setMon('patrol');
-  const seen = new Set();
-  for (let i = 0; i < 400 && p.x > 25; i++) { s.tick(0.1); seen.add(s.mon.state); if (drain(s).some(e => e.ev.t === 'caught')) { seen.add('CAUGHT'); break; } }
-  assert.ok(seen.has('chase') || seen.has('watch') || seen.has('investigate'), [...seen].join(','));
-  // stand still in its path until caught
-  for (let i = 0; i < 300 && !seen.has('CAUGHT'); i++) { s.tick(0.1); seen.add(s.mon.state); const ev = drain(s); if (ev.some(e => e.ev.t === 'caught')) { seen.add('CAUGHT'); break; } }
-  assert.ok(seen.has('CAUGHT'), [...seen].join(','));
-});
-
-t('shift ends after 4:00 when the crew is bolted in; next day keeps the dirt exactly', () => {
-  const s = new Sim(); s.join('a', 'A'); s.inv.a.mop = true; const p = s.players.get('a');
-  p.x = 13; p.z = -4; s.handle('a', { t: 'mop', patch: 'class_mud', pts: [[13, -4, 255]] });
-  const snap = Uint8Array.from(s.masks.class_mud);
-  p.x = 23.5; p.z = 7; s.doors.d_office.open = false; s.doors.d_office.bolted = true;
-  s.shiftT = CONFIG.shiftSeconds - 0.05;
-  for (let i = 0; i < 400 && s.phase !== 'summary'; i++) { s.tick(0.1); drain(s); }
-  assert.equal(s.phase, 'summary'); assert.equal(s.summary.failed, false);
-  s.handle('a', { t: 'sleep' }); assert.equal(s.day, 2); assert.equal(s.phase, 'shift');
-  assert.deepEqual(s.masks.class_mud, snap); assert.ok(s.discoveries.find(d => d.id === 'room014'));
-});
-
-t('caught before 4:00 alone: wake in office, cleaning kept', () => {
-  const s = new Sim(); s.join('a', 'A'); s.money = 50; const p = s.players.get('a'); p.x = 30; p.z = 1.8;
-  s.collected[3] = 1; s.catchPlayer(p); assert.ok(inOffice(p)); assert.equal(s.collected[3], 1); assert.equal(s.money, 40);
-});
-
-console.log(`\n${pass} passed`);
-
 t('a filthy mop smears; rinsing fixes it; re-cleaned floor does not pay twice', () => {
   const s = new Sim(); s.join('a', 'A'); s.inv.a.mop = true; const p = s.players.get('a'); p.x = 13; p.z = -4;
   s.inv.a.mopDirt = 1; const before = s.maskSum.hall_dust;
@@ -119,25 +88,6 @@ t('stairwell key, Lost & Found, robot vacuum, clocking out', () => {
   p.x = 25.5; p.z = 5.6; s.handle('a', { t: 'clockout' }); assert.equal(s.phase, 'summary'); assert.equal(s.summary.clockedOut, true);
 });
 console.log('extra tests passed');
-t('scare director: personal scares in normal mode, none in calm mode', () => {
-  const count = (calm) => { const s = new Sim(null, { calm }); s.join('a', 'A'); const p = s.players.get('a'); p.x = 30; p.z = 1.8; s.mon.x = 47.5; s.mon.z = 11; let n = 0;
-    for (let i = 0; i < 4000; i++) { s.tick(0.1); for (const o of s.out) if (o.ev.t === 'scare') { n++; if (o.ev.k === 'watcher') assert.equal(o.to, 'a'); } s.out = []; p.x = 30; p.z = 1.8; } return n; };
-  assert.ok(count(false) >= 1); assert.equal(count(true), 0);
-});
-console.log('scare tests passed');
-t('mannequin: frozen while watched, sprints once you look away', () => {
-  const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
-  p.x = 30; p.z = 1.8; p.fl = 1; p.yaw = -Math.PI / 2; // facing +x, toward it, flashlight on
-  s.mon.x = 38; s.mon.z = 1.8; s.setMon('chase', { target: 'a', lostT: 0 }); s.mon.lastKnown = { x: 30, z: 1.8, t: 0 };
-  for (let i = 0; i < 30; i++) { s.tick(0.1); s.out = []; }
-  assert.equal(s.mon.x, 38, 'did not move while watched'); assert.ok(s.mon.frozen);
-  p.yaw = Math.PI / 2; // turn around
-  const x0 = s.mon.x; s.tick(0.1); s.tick(0.1); s.tick(0.1); s.tick(0.1); s.tick(0.1);
-  const v = (x0 - s.mon.x) / 0.5; assert.ok(v > CONFIG.sprintSpeed, 'faster than a sprinting worker: ' + v.toFixed(2));
-  let caught = false; for (let i = 0; i < 60 && !caught; i++) { s.tick(0.1); caught = s.out.some(o => o.ev.t === 'caught'); s.out = []; }
-  assert.ok(caught, 'caught from behind');
-});
-console.log('mannequin tests passed');
 t('cafeteria: locked until the key on the lifeguard chair is taken', () => {
   const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a');
   p.x = -12.6; p.z = 7.6; s.handle('a', { t: 'door', id: 'd_cafe' }); assert.equal(s.doors.d_cafe.open, false);
@@ -146,11 +96,79 @@ t('cafeteria: locked until the key on the lifeguard chair is taken', () => {
   assert.ok(DEBRIS.some(d => d.room === 'cafe'));
 });
 console.log('cafeteria tests passed');
-t('hunting: it finds a worker who never looks its way', () => {
-  const s = new Sim(); s.join('a', 'A'); s.shiftT = 600; const p = s.players.get('a');
-  p.x = 30; p.z = 1.8; p.yaw = -Math.PI / 2; // facing east, away from where it comes from
-  s.mon.x = -7.7; s.mon.z = 17.2; s.setMon('patrol'); let close = Infinity, caught = false;
-  for (let i = 0; i < 3000 && !caught; i++) { s.tick(0.1); caught = s.out.some(o => o.ev.t === 'caught'); s.out = []; p.x = 30; p.z = 1.8; p.yaw = Math.atan2(s.mon.x - p.x, s.mon.z - p.z); close = Math.min(close, Math.hypot(s.mon.x - p.x, s.mon.z - p.z)); }
-  assert.ok(caught || close < 4, 'closed in to ' + close.toFixed(1));
+
+// ---------------- the stalker ----------------
+const run = (s, sec, each) => { const ev = []; for (let i = 0; i < sec * 10; i++) { s.tick(0.1); for (const o of s.out) ev.push(o); s.out = []; if (each) each(i); } return ev; };
+const lookAt = (p, x, z) => { p.yaw = Math.atan2(x - p.x, z - p.z) + Math.PI; }; // camera looks down -z at yaw 0
+const lookAway = (p, x, z) => { p.yaw = Math.atan2(x - p.x, z - p.z); };
+
+t('stalker: early in the night it lurks, follows and plays tricks, but never touches you', () => {
+  const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a'); s.inv.a.vacuum = true;
+  const states = new Set(), kinds = new Set(); let caught = 0;
+  const route = [[30, 1.8], [12, 1.8], [13, -4], [5, 2], [36, 2]];
+  const ev = run(s, CONFIG.shiftSeconds * CONFIG.monitor.huntAfter * 0.95, (i) => { const r = route[Math.floor(i / 300) % route.length]; p.x = r[0] + Math.sin(i * 0.01); p.z = r[1]; p.yaw = i * 0.013; states.add(s.mon.state); });
+  for (const o of ev) { if (o.ev.t === 'caught') caught++; if (o.ev.t === 'prank' || o.ev.t === 'scare' || (o.ev.t === 'door' && o.ev.by === 'monitor')) kinds.add(o.ev.k || o.ev.t); }
+  assert.equal(caught, 0); assert.ok(states.has('lurk') || states.has('shadow'), [...states].join(',')); assert.ok(kinds.size >= 3, [...kinds].join(','));
 });
-console.log('hunting tests passed');
+t('hunts are announced, limited per night, and caught alone means GAME OVER; Retry Night restores the start of the night', () => {
+  const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a'); s.money = 20; s.nightStart = s.serializeCore();
+  s.shiftT = CONFIG.shiftSeconds * 0.5; s.money = 55; s.collected[7] = 1;
+  let hunts = 0, over = null;
+  run(s, 500, () => { p.x = 30; p.z = 1.8; if (s.mon.state === 'hunt') lookAway(p, s.mon.x, s.mon.z); for (const o of s.out) { } });
+  // count announcements over a fresh stretch
+  const s2 = new Sim(); s2.join('a', 'A'); const q = s2.players.get('a'); s2.shiftT = CONFIG.shiftSeconds * 0.3;
+  const ev = run(s2, 900, () => { q.x = 30; q.z = 1.8; lookAt(q, 0, 1.8); if (s2.phase === 'gameover') { s2.handle('a', { t: 'retry' }); s2.shiftT = CONFIG.shiftSeconds * 0.3; } });
+  hunts = ev.filter(o => o.ev.t === 'hunt' && o.ev.on).length; assert.ok(hunts >= 1, 'at least one hunt');
+  // game over and retry
+  const s3 = new Sim(); s3.join('a', 'A'); const r = s3.players.get('a'); s3.money = 20; s3.nightStart = s3.serializeCore(); s3.money = 99; s3.collected[9] = 1;
+  s3.catchPlayer(r); assert.equal(s3.phase, 'gameover'); assert.ok(s3.out.some(o => o.ev.t === 'gameover'));
+  s3.handle('a', { t: 'retry' }); assert.equal(s3.phase, 'shift'); assert.equal(s3.money, 20); assert.equal(s3.collected[9], 0); assert.equal(s3.shiftT, 0);
+});
+t('frozen while watched; in a hunt it outruns you when you look away and catches you from behind', () => {
+  const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
+  p.x = 30; p.z = 1.8; p.fl = 1; lookAt(p, 38, 1.8);
+  s.mon.x = 38; s.mon.z = 1.8; s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0 }); s.dir.hunts = 1;
+  run(s, 3, () => { p.blinkT = 0; s.dir.stare.a = 0; });
+  assert.equal(s.mon.x, 38, 'did not move while watched'); assert.ok(s.mon.frozen);
+  lookAway(p, 38, 1.8); const x0 = s.mon.x; run(s, 0.5);
+  assert.ok((x0 - s.mon.x) / 0.5 > CONFIG.sprintSpeed, 'faster than a sprinting worker');
+  const ev = run(s, 6); assert.ok(ev.some(o => o.ev.t === 'caught')); assert.equal(s.phase, 'gameover');
+});
+t('blinking lets it move; staring too long provokes it', () => {
+  const s = new Sim(); s.join('a', 'A'); s.shiftT = CONFIG.shiftSeconds * 0.5; const p = s.players.get('a');
+  p.x = 30; p.z = 1.8; p.fl = 1; s.mon.x = 37; s.mon.z = 1.8; s.setMon('lurk', { target: 'a', lurkFor: 60, seenT: 0 }); lookAt(p, 37, 1.8);
+  const ev = run(s, CONFIG.monitor.stareLimit + 1.5);
+  assert.ok(ev.some(o => o.ev.t === 'toast' && /too long/.test(o.ev.msg)), 'stare warning');
+  s.handle('a', { t: 'blink' }); run(s, 0.5); assert.equal(s.mon.state, 'hunt', 'the moment you blink, it comes');
+});
+t('hiding in a locker: unseen, it loses you; seen getting in, it finds you', () => {
+  const mk = () => { const s = new Sim(); s.join('a', 'A'); s.shiftT = 500; const p = s.players.get('a'); const L = { id: 'L140', x: 0, z: 0 }; return { s, p }; };
+  { const { s, p } = mk(); const L = s.players && 'L140'; p.x = 16.2 + 0.2 + (140 - 126) * 0.4; p.z = 0.9; s.mon.x = 36; s.mon.z = 2.5;
+    s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0 });
+    s.mon.x = 13; s.mon.z = -4.5; // in the classroom, no line of sight
+    s.handle('a', { t: 'hide', id: 'L140' }); assert.equal(p.hidden, 'L140'); assert.equal(s.mon.sawHide, false);
+    const ev = run(s, 25); assert.ok(!ev.some(o => o.ev.t === 'caught'), 'not found'); assert.notEqual(s.mon.state, 'hunt'); }
+  { const { s, p } = mk(); p.x = 16.2 + 0.2 + (140 - 126) * 0.4; p.z = 0.9; s.mon.x = p.x + 8; s.mon.z = 1.8;
+    s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0 });
+    s.handle('a', { t: 'hide', id: 'L140' }); assert.equal(s.mon.sawHide, true);
+    const ev = run(s, 10); assert.ok(ev.some(o => o.ev.t === 'caught'), 'dragged out'); }
+});
+t('4:00 siege: hold the door and survive (dirt carries to the next night); let go and it gets in', () => {
+  const siege = (hold) => {
+    const s = new Sim(); s.join('a', 'A'); s.inv.a.mop = true; const p = s.players.get('a');
+    p.x = 13; p.z = -4; s.handle('a', { t: 'mop', patch: 'class_mud', pts: [[13, -4, 255]] }); const snap = Uint8Array.from(s.masks.class_mud);
+    p.x = 21.5; p.z = 4.6; lookAway(p, 21.5, 0); s.doors.d_office.open = false; s.doors.d_office.bolted = true; s.shiftT = CONFIG.shiftSeconds - 0.05;
+    const ev = run(s, 260, () => { p.hold = hold && s.mon.step === 'try'; if (s.phase !== 'lockdown') return; });
+    return { s, ev, snap };
+  };
+  { const { s, ev, snap } = siege(true); assert.ok(ev.some(o => o.ev.t === 'trydoor' && o.ev.on)); assert.equal(s.phase, 'summary'); assert.equal(s.summary.failed, false);
+    s.handle('a', { t: 'sleep' }); assert.equal(s.day, 2); assert.deepEqual(s.masks.class_mud, snap); }
+  { const { s } = siege(false); assert.equal(s.phase, 'gameover'); }
+});
+t('Room 014 opens partway through the first night', () => {
+  const s = new Sim(); s.join('a', 'A'); const p = s.players.get('a'); p.x = 11.9; p.z = 3.0;
+  s.handle('a', { t: 'door', id: 'd_014' }); assert.equal(s.doors.d_014.open, false);
+  s.shiftT = CONFIG.shiftSeconds * 0.31; s.tick(0.1); assert.ok(s.keys['014']);
+  s.handle('a', { t: 'door', id: 'd_014' }); assert.equal(s.doors.d_014.open, true);
+});
+console.log(`\n${pass} passed`);

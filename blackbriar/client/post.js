@@ -6,6 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { N8AOPass } from './vendor/N8AO.js';
 
 const Grade = {
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uDread: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uGrain: { value: 0.045 } },
@@ -32,12 +33,17 @@ export function makePost(renderer, scene, camera, quality) {
   const size = renderer.getSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: quality >= 2 ? 2 : 0 });
   const composer = new EffectComposer(renderer, rt);
-  composer.addPass(new RenderPass(scene, camera));
+  let ao = null;
+  if (quality >= 2) { // screen-space ambient occlusion: contact shadows in corners, under desks, behind lockers
+    try { ao = new N8AOPass(scene, camera, size.x, size.y); Object.assign(ao.configuration, { aoRadius: 1.1, distanceFalloff: 0.9, intensity: 2.4, halfRes: true, depthAwareUpsampling: true, gammaCorrection: false }); ao.setQualityMode('Low'); composer.addPass(ao); }
+    catch (e) { console.warn('AO unavailable', e); ao = null; }
+  }
+  if (!ao) composer.addPass(new RenderPass(scene, camera));
   const bloom = quality >= 2 ? new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.28, 0.4, 2.2) : null; if (bloom) composer.addPass(bloom);
   const grade = new ShaderPass(Grade); composer.addPass(grade);
   composer.addPass(new OutputPass());
   return {
-    composer, grade, bloom,
+    composer, grade, bloom, ao,
     setSize(w, h, pr) { composer.setPixelRatio(pr); composer.setSize(w, h); grade.uniforms.uRes.value.set(w * pr, h * pr); },
     render(t, dread) { grade.uniforms.uTime.value = t; grade.uniforms.uDread.value = dread; composer.render(); },
   };

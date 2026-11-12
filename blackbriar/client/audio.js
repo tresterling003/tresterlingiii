@@ -39,6 +39,7 @@ export class Audio3D {
     this.breath = this.spatialLoop(nb, 'bandpass', 700, 3, 0);
     const bl = ctx.createOscillator(); bl.frequency.value = 0.35; const blg = ctx.createGain(); blg.gain.value = 300; bl.connect(blg); blg.connect(this.breath.fl.frequency); bl.start();
     this.wetSwish = loop(wb, 'bandpass', 900, 1.2, 0);
+    this.staticG = loop(wb, 'bandpass', 3800, 0.5, 0);
     // dread: a sub-bass drone that rises as it gets near
     this.dreadG = ctx.createGain(); this.dreadG.gain.value = 0; this.dreadG.connect(this.master);
     for (const f of [36.7, 38.2, 55.1]) { const o = ctx.createOscillator(); o.type = f > 50 ? 'triangle' : 'sine'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = f > 50 ? 0.25 : 0.6; o.connect(g); g.connect(this.dreadG); o.start(); }

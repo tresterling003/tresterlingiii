@@ -23,7 +23,7 @@ export const CONFIG = {
   roomba: { speed: 0.42, radius: 0.18, bag: 250, pickup: 0.24, noise: 4 },
   flashlight: { range: [16, 24], angle: [0.42, 0.5] },
   pay: { piece: 0.04, coin: 0.25, mudCell: 0.025, dustCell: 0.004 },
-  roomBonus: { hall: 20, class: 15, service: 10, closet: 3, lcorr: 8, gym: 30, lockers: 15, pool: 25, cafe: 20 },
+  roomBonus: { hall: 20, class: 15, service: 10, closet: 3, lcorr: 8, gym: 30, lockers: 15, pool: 25, cafe: 20, w014: 40 },
   failPenalty: 10,
   lockdownCatchPenalty: 25,
   skills: {
@@ -42,6 +42,7 @@ export const CONFIG = {
   },
   // the Monitor
   monitor: {
+    stareLimit: 6, huntsPerNight: [2, 3, 4], huntAfter: 0.25, huntGap: 95, huntMax: 50, firstNightGrace: 45, siegeTries: [2, 3, 4], siegeHold: 0.6,
     unseenSprint: 1.4, viewFreezeHalf: 0.72, // chase speed x1.4 (faster than your sprint) whenever nobody is looking; ~41 degrees either side of your view centre counts as looking
     speed: { patrol: 1.1, investigate: 1.7, stalk: 2.6, chase: 4.3, search: 1.4, retreat: 1.6, watch: 0 },
     lockdownSpeedMul: 1.15,
