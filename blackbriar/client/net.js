@@ -292,7 +292,7 @@ export class PeerHost {
     await Promise.all(RELAYS().map(async (url) => { const mq = new Mqtt(url), read = reader(mq); mq.onmsg = (topic, str) => read(str);
       mq.subscribe(relayBase(this.code) + '/h'); try { await mq.connect(); this.mqs.push(mq); mq.onclose = () => setTimeout(() => mq.connect().catch(() => { }), 2000); } catch { } }));
     // relay guests that go quiet have left
-    this.relayTimer = setInterval(() => { const now = Date.now(); for (const [k, c] of this.rconns) if (now - c.last > 15000) { this.rconns.delete(k); if (c.pid && this.conns.get(c.pid) === c) { this.conns.delete(c.pid); this.sim.leave(c.pid); this.sim.save('disconnect'); this.flush(); } } }, 3000);
+    this.relayTimer = setInterval(() => { const now = Date.now(); for (const [k, c] of this.rconns) if (now - c.last > 40000) { this.rconns.delete(k); if (c.pid && this.conns.get(c.pid) === c) { this.conns.delete(c.pid); this.sim.leave(c.pid); this.sim.save('disconnect'); this.flush(); } } }, 3000);
     if (!this.mqs.length && !(this.peer && this.peer.open)) { this.emit({ t: 'reject', msg: 'Could not open a crew. Check your internet connection and try again.' }); return; }
     this.begin();
   }
@@ -306,13 +306,14 @@ export class PeerHost {
   }
   onData(conn, m) {
     if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
+    if (m.t === 'hb') { if (conn.pid) return; m = { ...m, t: 'hello' }; } // a guest we lost track of: let them straight back in
     if (conn.pid && m.t === 'hello') { // a relay guest that reloaded, or whose welcome got lost: send it again
       if (conn.relay && Date.now() - (conn.welT || 0) > 6000) { const res = this.sim.join(conn.pid, String(m.name || 'Worker').slice(0, 16)); if (res.welcome) { conn.welT = Date.now(); conn.send({ ...res.welcome, room: this.code }); this.flush(); } }
       return;
     }
     if (!conn.pid) {
       if (m.t !== 'hello' || typeof m.pid !== 'string' || !m.pid || m.pid.length > 40) return;
-      const old = this.conns.get(m.pid); if (old && old !== conn) { try { old.close(); } catch { } this.sim.leave(m.pid); }
+      const old = this.conns.get(m.pid); if (old && old !== conn) { this.conns.delete(m.pid); if (old.relay) old.open = false; else try { old.close(); } catch { } } // same worker, new route: no one is kicked
       const res = this.sim.join(m.pid, String(m.name || 'Worker').slice(0, 16));
       if (res.error) { conn.send({ t: 'reject', msg: res.error }); return; }
       conn.pid = m.pid; conn.welT = Date.now(); this.conns.set(m.pid, conn); conn.send({ ...res.welcome, room: this.code }); this.flush(); return;
@@ -343,7 +344,8 @@ export class PeerGuest {
     const got = (m, via) => { if (!m || typeof m.t !== 'string' || this.done) return;
       if (m.t === 'welcome') { if (this.status === 'online') return; this.status = 'online'; this.via = via; clearTimeout(this.waitT); clearTimeout(this.relayT); this.lastMsg = Date.now();
         if (via === 'relay') { try { this.peer && this.peer.destroy(); } catch { } } else for (const mq of this.mqs || []) mq.close();
-        this.emit(m); this.emit({ t: 'netstatus', status: 'online' }); return; }
+        const back = this.reconnecting; this.reconnecting = false; this.startHeartbeat();
+        this.emit(m); if (back) this.emit({ t: 'netstatus', status: 'online' }); else this.emit({ t: 'netstatus', status: 'online' }); return; }
       if (this.via && via !== this.via) return; this.lastMsg = Date.now();
       if (m.t === 'reject') { fail(m.msg); return; } this.emit(m); };
     this.got = got;
@@ -354,16 +356,17 @@ export class PeerGuest {
     const peer = this.peer = new Peer(undefined, peerOpts());
     peer.on('open', () => {
       const c = this.conn = peer.connect(PEER_PREFIX + this.code, { reliable: true });
-      c.on('open', () => { if (this.status !== 'online' && !this.relayHello) { clearTimeout(this.relayT); this.relayT = setTimeout(() => this.tryRelay(), 9000); } c.send({ t: 'hello', pid: this.pid, name: this.name }); });
+      c.on('open', () => { if (this.relayStarted) { try { c.close(); } catch { } return; } clearTimeout(this.relayT); this.relayT = setTimeout(() => { if (this.status !== 'online') { try { c.close(); } catch { } this.tryRelay(); } }, 7000); c.send({ t: "hello", pid: this.pid, name: this.name }); });
       c.on('data', (m) => got(m, 'peer'));
-      c.on('close', () => { if (this.status === 'online' && this.via === 'peer') fail('The host left. The crew has ended.'); });
+      c.on('close', () => { if (this.status === 'online' && this.via === 'peer') this.reconnect(); });
       c.on('error', () => { });
     });
     peer.on('error', (e) => { if (this.status !== 'online') { clearTimeout(this.relayT); this.tryRelay(); } }); // not on the matchmaker: maybe the host is relay-only
     peer.on('disconnected', () => { try { peer.reconnect(); } catch { } });
   }
   async tryRelay() {
-    if (this.relayStarted || this.status === 'online' || this.done) return; this.relayStarted = true; this.mqs = [];
+    if (this.relayStarted || this.status === 'online' || this.done) return;
+    if (this.via === 'peer') return; this.relayStarted = true; this.mqs = [];
     const me = topicSafe(this.pid), base = relayBase(this.code), read = relayReader((from, m) => this.got(m, 'relay'));
     for (const url of RELAYS()) {
       const mq = new Mqtt(url); mq.onmsg = (t, s) => read(s); mq.subscribe(base + '/g/' + me);
@@ -371,12 +374,37 @@ export class PeerGuest {
       this.mqs.push(mq); this.mq = mq;
       const hello = () => { if (this.status === 'online' || this.done) return; this.relayHello = true; relaySend(mq, base + '/h', this.pid, { t: 'hello', pid: this.pid, name: this.name }); setTimeout(hello, 2500); };
       hello();
-      mq.onclose = () => { if (this.via === 'relay' && !this.done) setTimeout(() => mq.connect().catch(() => { }), 1500); };
-      // the host goes quiet: the crew has ended
-      this.quietT = setInterval(() => { if (this.via === 'relay' && Date.now() - this.lastMsg > 20000) this.fail('Lost the host. The crew has ended.'); }, 4000);
+      mq.onclose = () => { if (this.via === 'relay' && !this.done && this.mq === mq) setTimeout(() => mq.connect().catch(() => this.reconnect()), 1000); };
       return;
     }
+    if (this.reconnecting) { this.relayStarted = false; this.retryPeer(); setTimeout(() => this.tryRelay(), 4000); return; } // relays unreachable: try the direct link too, and keep trying until the deadline
     if (this.status !== 'online') this.fail('Could not reach the crew. Check your internet connection and try again.');
+  }
+  // a heartbeat that keeps going in the background, and a watch on the host: if it goes quiet, rejoin
+  startHeartbeat() {
+    clearInterval(this.hbT); this.lastMsg = Date.now();
+    this.hbT = setInterval(() => {
+      if (this.done) return clearInterval(this.hbT);
+      if (this.status === 'online') { this.send({ t: 'hb', pid: this.pid, name: this.name }); if (Date.now() - this.lastMsg > 9000) this.reconnect(); }
+    }, 2000);
+    if (!this.visHook) { this.visHook = true; document.addEventListener('visibilitychange', () => { if (!document.hidden && this.status === 'online' && Date.now() - this.lastMsg > 5000) this.reconnect(); }); }
+  }
+  async retryPeer() {
+    if (this.status === 'online' || this.done || RELAY_ONLY) return; let Peer; try { Peer = await loadPeerJS(); } catch { return; }
+    try { this.peer && this.peer.destroy(); } catch { }
+    const peer = this.peer = new Peer(undefined, peerOpts());
+    peer.on('open', () => { const c = this.conn = peer.connect(PEER_PREFIX + this.code, { reliable: true });
+      c.on('open', () => c.send({ t: 'hello', pid: this.pid, name: this.name })); c.on('data', (m) => { if (peer === this.peer) this.got(m, 'peer'); });
+      c.on('close', () => { if (this.status === 'online' && this.via === 'peer' && peer === this.peer) this.reconnect(); }); c.on('error', () => { }); });
+    peer.on('error', () => { });
+  }
+  reconnect() {
+    if (this.done || this.reconnecting) return; this.reconnecting = true; this.status = 'reconnecting';
+    this.emit({ t: 'netstatus', status: 'reconnecting' });
+    try { this.peer && this.peer.destroy(); } catch { } this.peer = null; this.conn = null;
+    for (const mq of this.mqs || []) { mq.onclose = null; mq.close(); } this.mqs = []; this.mq = null; this.via = null; this.relayStarted = false;
+    clearTimeout(this.waitT); this.waitT = setTimeout(() => { if (this.status !== 'online') this.fail('Lost the crew. The host may have closed the game.'); }, 120000);
+    this.tryRelay();
   }
   send(m) {
     if (this.via === 'relay') { if (this.mq) relaySend(this.mq, relayBase(this.code) + '/h', this.pid, m); return; }
@@ -384,5 +412,5 @@ export class PeerGuest {
   }
   on(fn) { this.handlers.push(fn); }
   emit(m) { for (const h of this.handlers) h(m); }
-  close() { clearTimeout(this.waitT); clearTimeout(this.relayT); clearInterval(this.quietT); try { this.peer && this.peer.destroy(); } catch { } for (const mq of this.mqs || []) mq.close(); }
+  close() { this.done = true; clearTimeout(this.waitT); clearTimeout(this.relayT); clearInterval(this.hbT); try { this.peer && this.peer.destroy(); } catch { } for (const mq of this.mqs || []) mq.close(); }
 }
