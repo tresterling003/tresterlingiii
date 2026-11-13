@@ -11,6 +11,13 @@ const turnTo = (a, b, k) => a + Math.max(-k, Math.min(k, angDiff(a, b)));
 const OFFICE_DOOR_OUT = { x: 21.5, z: 2.3 };
 export const POSE = { stand: 0, crawl: 1, ceil: 2 };
 
+// how hard the night is (the host picks): Sissy = little scares, Bed Wetter = the real thing, Nightmare = extreme
+const FEAR = [
+  { beats: 1.7, hunts: [1, 1, 2], gap: 170, windup: [5.5, 2.5], charge: [2.6, 0.08], hold: [3, 3], spd: [0.92, 0, 2.0], siege: [1, 2, 2] },
+  { beats: 1.0, hunts: [2, 3, 4], gap: 110, windup: [3.2, 2.3], charge: [1.6, 0.28], hold: [8, 7], spd: [1.08, 0.15, 2.6], siege: [2, 3, 4] },
+  { beats: 0.62, hunts: [3, 4, 5], gap: 75, windup: [1.8, 1.4], charge: [1.0, 0.4], hold: [15, 10], spd: [1.15, 0.35, 3.1], siege: [3, 4, 5] },
+];
+const fearOf = (S) => FEAR[S.fear ?? 1] || FEAR[1];
 function fresh() { return { hunts: 0, lastHunt: -999, stare: {}, stareLim: {}, agit: 0, siege: null, last: [], next: {} }; }
 export function resetStalker(S) { S.dir = fresh(); }
 
@@ -54,21 +61,21 @@ function spotNear(S, p, alive, rects, dmin, dmax, needSight, opts = {}) {
   return best;
 }
 function canHunt(S, prog) {
-  const dir = S.dir, cap = CONFIG.monitor.huntsPerNight[Math.min(S.day, 3) - 1];
-  return prog > CONFIG.monitor.huntAfter && dir.hunts < cap && (S.time || 0) - dir.lastHunt > CONFIG.monitor.huntGap;
+  const dir = S.dir, F = fearOf(S), cap = F.hunts[Math.min(S.day, 3) - 1];
+  return prog > CONFIG.monitor.huntAfter && dir.hunts < cap && (S.time || 0) - dir.lastHunt > F.gap;
 }
 export function startHunt(S, p, alive, rects, how) {
   const m = S.mon, dir = S.dir; dir.hunts++; dir.lastHunt = S.time || 0;
   const d0 = dist(m.x, m.z, p.x, p.z);
   if (how !== 'charge' && (d0 < 15 || d0 > 26 || !sameFloor(m, p))) { const s = spotNear(S, p, alive, rects, 16, 24, false) || spotNear(S, p, alive, rects, 12, 30, false, { tries: 140 }); if (s) relocate(S, s.x, s.z); }
   m.pz = lowCeiling(m.x, m.z) && S.rand() < 0.4 ? POSE.ceil : POSE.crawl;
-  S.setMon('hunt', { target: p.pid, huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 8 + S.rand() * 7, crawl: true, windup: how === 'charge' ? 1.6 : 3.2 + S.rand() * 2.3 });
+  S.setMon('hunt', { target: p.pid, huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, holdLimit: fearOf(S).hold[0] + S.rand() * fearOf(S).hold[1], crawl: true, windup: how === 'charge' ? fearOf(S).charge[0] : fearOf(S).windup[0] + S.rand() * fearOf(S).windup[1] });
   // you always get a warning: it drops onto all fours somewhere you can hear it
   S.emit({ t: 'monfx', k: 'drop', x: m.x, z: m.z, pz: m.pz });
   S.emit({ t: 'hunt', on: 1, pid: p.pid, loud: how === 'charge' ? 0 : 1, flicker: S.rand() < 0.55 ? 1 : 0, x: m.x, z: m.z });
 }
 // it crawls after you as fast as you move, a little faster — run and it barely gains, stop and it closes in
-function huntSpeed(S, t) { const C = CONFIG, shoe = S.upgrades.shoes ? 1.15 : 1, v = !t.mv ? 0 : t.sp ? C.sprintSpeed * shoe : t.cr ? C.crouchSpeed * shoe : C.walkSpeed * shoe; return Math.max(2.6, Math.min(6, v * 1.08 + 0.15)); }
+function huntSpeed(S, t) { const C = CONFIG, shoe = S.upgrades.shoes ? 1.15 : 1, v = !t.mv ? 0 : t.sp ? C.sprintSpeed * shoe : t.cr ? C.crouchSpeed * shoe : C.walkSpeed * shoe, F = fearOf(S).spd; return Math.max(F[2], Math.min(6.2, v * F[0] + F[1])); }
 // a visible exit: it drops and scuttles away (across the ceiling where it can reach one) to somewhere you cannot see
 function flee(S, from, alive, rects, opts = {}) {
   const m = S.mon, here = dist(m.x, m.z, from.x, from.z);
@@ -88,7 +95,13 @@ function pickW(S, w) { // weighted pick that avoids repeating the last few beats
 function sound(S, p) {
   const f = { x: -Math.sin(p.yaw || 0), z: -Math.cos(p.yaw || 0) }, side = S.rand() < 0.5 ? 1 : -1;
   const behind = (r) => ({ x: p.x - f.x * r, z: p.z - f.z * r });
-  const k = pickW(S, { skitter: 3, knock: 2, whisper: 1.4, runsteps: 1.6, thud: 1.2, slamfar: 1.2, giggle: 0.6 });
+  const F = S.fear ?? 1;
+  const k = pickW(S, { skitter: [1.2, 3, 3][F], knock: 2, whisper: 1.4, runsteps: 1.6, thud: 1.2, slamfar: 1.2, giggle: 0.6, echo: 1.4, musicbox: [1.2, 0.8, 0.6][F], lockrow: [0.3, 1, 1.3][F], neck: [0, 0.35, 1.2][F], flashface: [0, 0.2, 0.9][F] });
+  if (k === 'echo') { S.emit({ t: 'prank', k: 'echo', d: 5 + S.rand() * 5 }, { to: p.pid }); return k; }
+  if (k === 'musicbox') { const a = S.rand() * 6.283, r = 8 + S.rand() * 7; S.emit({ t: 'prank', k: 'musicbox', x: p.x + Math.sin(a) * r, z: p.z + Math.cos(a) * r, slow: F }); return k; }
+  if (k === 'lockrow') { const a = behind(12 + S.rand() * 4), b = behind(2.5); S.emit({ t: 'prank', k: 'lockrow', x: a.x, z: a.z, x1: b.x, z1: b.z, n: 5 + ((S.rand() * 4) | 0) }); return k; }
+  if (k === 'neck') { S.emit({ t: 'prank', k: 'neck', see: S.rand() < [0, 0.35, 0.7][F] ? 1 : 0 }, { to: p.pid }); return k; }
+  if (k === 'flashface') { S.emit({ t: 'prank', k: 'flashface' }, { to: p.pid }); return k; }
   if (k === 'skitter') { const a = behind(4 + S.rand() * 3), b = { x: p.x + f.z * side * 5 + f.x * 2, z: p.z - f.x * side * 5 + f.z * 2 }; S.emit({ t: 'prank', k: 'skitter', x: a.x, z: a.z, x1: b.x, z1: b.z, y: groundY(p.x, p.z) + (ROOMS[roomAt(p.x, p.z)]?.ceil || 2.9) - 0.05 }, { to: p.pid }); }
   else if (k === 'knock') { const b = behind(3 + S.rand() * 4); S.emit({ t: 'prank', k: 'knock', x: b.x, z: b.z, n: 2 + ((S.rand() * 4) | 0) }); }
   else if (k === 'whisper') { const b = behind(1 + S.rand()); S.emit({ t: 'prank', k: 'whisper', x: b.x, z: b.z }, { to: p.pid }); }
@@ -104,14 +117,18 @@ function prank(S, p, alive, rects) {
   if (doors.length) kinds.door = 2;
   const lockers = LOCKERS.filter(l => { if (!SEARCHABLE[l.id] || S.lockers[l.id]?.open) return false; const dd = dist(l.x, l.z, p.x, p.z); return dd > 3 && dd < 13 && groundY(p.x, p.z) > -1 && !seenByAny(S, alive, l.x, l.z, rects); });
   if (lockers.length) kinds.slam = 1.6;
-  kinds.lights = 1.2; kinds.prints = 1.4; kinds.watcher = 1.8;
-  if (!S.dir.last.includes('name')) kinds.name = 0.5;
+  const F = S.fear ?? 1;
+  kinds.lights = [0.6, 1.2, 1.4][F]; kinds.prints = 1.4; kinds.watcher = [1.4, 1.8, 2.2][F]; kinds.creep = [0.5, 1.1, 1.5][F];
+  if (!S.dir.last.includes('name')) kinds.name = [0.2, 0.5, 0.8][F];
   if (!S.cart.holder && dist(S.cart.x, S.cart.z, p.x, p.z) < 16 && dist(S.cart.x, S.cart.z, p.x, p.z) > 4 && !seenByAny(S, alive, S.cart.x, S.cart.z, rects)) kinds.cart = 0.7;
   const k = pickW(S, kinds);
   switch (k) {
     case 'door': { const d = doors[(S.rand() * doors.length) | 0], s = S.doors[d.id]; s.open = !s.open; const c = doorCenter(d); S.emit({ t: 'door', id: d.id, open: s.open, bolted: false, by: 'monitor', x: c.x, z: c.z }); break; }
     case 'slam': { const l = lockers[(S.rand() * lockers.length) | 0]; S.emit({ t: 'prank', k: 'slam', id: l.id, x: l.x, z: l.z }); break; }
     case 'lights': S.emit({ t: 'scare', k: 'lightsout', x: p.x, z: p.z, r: 8 + S.rand() * 6, d: 5 + S.rand() * 16 }); break;
+    case 'creep': { const f = { x: -Math.sin(p.yaw || 0), z: -Math.cos(p.yaw || 0) }, sgn = S.rand() < 0.6 ? 1 : -1; let a = null; // usually from the end of the hall you are looking down
+      for (let r = 16; r >= 7 && !a; r -= 1.5) { const x = p.x + f.x * r * sgn, z = p.z + f.z * r * sgn; if (roomAt(x, z) && sameFloor({ x, z }, p)) a = { x, z }; }
+      if (a) S.emit({ t: 'scare', k: 'creep', x0: a.x, z0: a.z, x: p.x, z: p.z, d: 2.5 + S.rand() * 3 * (F + 1), crawl: F > 0 ? 1 : 0 }); break; }
     case 'watcher': S.emit({ t: 'scare', k: 'watcher', seed: (S.rand() * 1e9) | 0 }, { to: p.pid }); break;
     case 'name': S.emit({ t: 'pa', text: S.rand() < 0.5 ? `${p.name || 'Custodian'}. ${p.name || 'Custodian'}. You are not in your assigned room.` : `${p.name || 'Custodian'}, please come to Room zero one four.` }); break;
     case 'cart': { const a = S.rand() * 6.283; S.cart.x += Math.sin(a) * 1.2; S.cart.z += Math.cos(a) * 0.4; S.cart.yaw += (S.rand() - 0.5) * 2; if (!roomAt(S.cart.x, S.cart.z)) { S.cart.x -= Math.sin(a) * 1.2; S.cart.z -= Math.cos(a) * 0.4; } S.emit({ t: 'cart', x: S.cart.x, z: S.cart.z, yaw: S.cart.yaw, holder: null }); S.emit({ t: 'prank', k: 'roll', x: S.cart.x, z: S.cart.z }); break; }
@@ -124,7 +141,7 @@ function prank(S, p, alive, rects) {
   return k;
 }
 function scheduleNext(S, p, prog) { // the gap before this worker's next beat: usually short-ish, now and then a long silence
-  const base = 32 - 16 * prog - S.day * 2, long = S.rand() < 0.12;
+  const base = (32 - 16 * prog - S.day * 2) * fearOf(S).beats, long = S.rand() < (S.fear === 2 ? 0.06 : 0.12);
   S.dir.next[p.pid] = (S.time || 0) + (long ? 50 + S.rand() * 80 : Math.max(4, base * (0.2 + expo(S) * 0.9)));
 }
 
@@ -149,7 +166,7 @@ export function tickStalker(S, dt) {
     if (dir.stare[p.pid] > dir.stareLim[p.pid] && !S.isInOffice(p) && !lock) {
       dir.stare[p.pid] = 0; dir.stareLim[p.pid] = 0;
       const r = S.rand();
-      if (r < 0.28 && canHunt(S, prog) && dist(m.x, m.z, p.x, p.z) > 9) return startHunt(S, p, alive, rects, 'charge');
+      if (r < fearOf(S).charge[1] && canHunt(S, prog) && dist(m.x, m.z, p.x, p.z) > 9) return startHunt(S, p, alive, rects, 'charge');
       if (r < 0.82) return flee(S, p, alive, rects);
       S.emit({ t: 'scare', k: 'lightsout', x: m.x, z: m.z, r: 9, d: 2.5 + S.rand() * 2 }); m.vanishWhenUnseen = true; m.vanishAt = now + 1.4;
     }
@@ -262,7 +279,7 @@ function afterSeen(S, alive, rects) {
 // ---------------- 4:00 AM: the headcount. Watch the cameras; hold the door. ----------------
 function tickSiege(S, dt, alive, rects) {
   const m = S.mon, C = CONFIG.monitor, dir = S.dir, door = S.doors.d_office;
-  const sg = dir.siege || (dir.siege = { tries: 0, need: C.siegeTries[Math.min(S.day, 3) - 1], waitT: 4 + S.rand() * 10, holdT: 0, tryT: 0 });
+  const sg = dir.siege || (dir.siege = { tries: 0, need: fearOf(S).siege[Math.min(S.day, 3) - 1], waitT: 4 + S.rand() * 10, holdT: 0, tryT: 0 });
   if (m.step === 'away') { m.moving = 0; sg.waitT -= dt; if (sg.waitT <= 0) m.step = 'approach'; return; }
   if (m.step === 'approach') {
     if (!sg.placed) { sg.placed = true; if (dist(m.x, m.z, OFFICE_DOOR_OUT.x, OFFICE_DOOR_OUT.z) > 16 || !sameFloor(m, OFFICE_DOOR_OUT)) { const pts = [[33, 1.8], [10, 1.8], [36, 2.2], [6, 2.2]].filter(([x, z]) => !seenByAny(S, alive, x, z, rects)); if (pts.length) { const [x, z] = pts[(S.rand() * pts.length) | 0]; relocate(S, x, z); } } }

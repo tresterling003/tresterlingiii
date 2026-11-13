@@ -1,4 +1,5 @@
 // All sound is synthesized with Web Audio and positioned with HRTF panners relative to the camera.
+import { buildBanks } from './sfx.js';
 export class Audio3D {
   constructor() { this.ctx = null; this.vol = 0.9; }
   init() {
@@ -44,6 +45,45 @@ export class Audio3D {
     this.dreadG = ctx.createGain(); this.dreadG.gain.value = 0; this.dreadG.connect(this.master);
     for (const f of [36.7, 38.2, 55.1]) { const o = ctx.createOscillator(); o.type = f > 50 ? 'triangle' : 'sine'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = f > 50 ? 0.25 : 0.6; o.connect(g); g.connect(this.dreadG); o.start(); }
     { const d = loop(nb, 'lowpass', 110, 0.8, 0.9, this.dreadG); }
+    // pre-rendered banks: the mannequin's hands, knees, joints, nails and body
+    const raw = buildBanks(ctx.sampleRate, (Math.random() * 1e9) | 0); this.banks = {};
+    for (const k in raw) this.banks[k] = raw[k].map(d => { const b = ctx.createBuffer(1, d.length, ctx.sampleRate); b.copyToChannel(d, 0); return b; });
+    this.dragL = this.spatialLoop(this.banks.drag[0], 'lowpass', 2400, 0.7, 0); this.dragL.g.gain.value = 0;
+    this.crawlS = { creakT: 1, crackT: 3, frozen: false };
+  }
+  // one-shot from a bank, with a little natural variation
+  play(name, { pos, v = 0.5, rate = 1, wet = 0.4, lp, delay = 0, i } = {}) {
+    if (!this.ctx || !this.banks) return; const ctx = this.ctx, bank = this.banks[name], t = ctx.currentTime + delay;
+    const s = ctx.createBufferSource(); s.buffer = bank[i ?? ((Math.random() * bank.length) | 0)]; s.playbackRate.value = rate * (0.93 + Math.random() * 0.14);
+    const g = ctx.createGain(); g.gain.value = v * (0.8 + Math.random() * 0.4); let n = s;
+    if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; s.connect(f); n = f; }
+    n.connect(g); g.connect(this.out(pos, wet)); s.start(t);
+  }
+  // a hand or a knee coming down (on the floor, or on the ceiling tiles above you)
+  crawlPlant(pos, hand, ceil, k = 1) {
+    if (!this.banks) return;
+    if (!hand && Math.random() < 0.3) return; // knees mostly slide: the hands carry the rhythm
+    const lp = ceil ? 1600 : undefined, wet = ceil ? 0.75 : 0.45, v = (hand ? 0.66 : 0.3) * k;
+    this.play(hand ? 'hand' : 'knee', { pos, v, lp, wet, rate: ceil ? 0.85 : 1 });
+    if (ceil && Math.random() < 0.5) this.noise({ f: 2600, q: 3, v: 0.03 * k, d: 0.05, pos, wet: 0.5, delay: 0.02 }); // the tile rattles in its grid
+    if (hand && !ceil && Math.random() < 0.3) this.play('scrape', { pos, v: 0.2 * k, delay: 0.03 + Math.random() * 0.05, wet: 0.35 });
+  }
+  // per frame while the monster is drawn: its body drags, joints creak and pop now and then
+  crawlUpdate(dt, pos, speed, crawling, ceil, frozen) {
+    if (!this.dragL) return; const S = this.crawlS, moving = crawling && !frozen && speed > 0.3;
+    this.dragL.move(pos.x, pos.y, pos.z); this.dragL.g.gain.value += ((moving && !ceil ? Math.min(0.5, 0.12 + speed * 0.1) : 0) - this.dragL.g.gain.value) * Math.min(1, dt * 8);
+    if (frozen !== S.frozen) { S.frozen = frozen; if (crawling) { if (frozen) this.play('creak', { pos, v: 0.35, wet: 0.5, rate: 0.8 }); else this.play('crack', { pos, v: 0.55, wet: 0.5 }); } }
+    if (!moving) return;
+    if ((S.creakT -= dt) <= 0) { S.creakT = 0.6 + Math.random() * 2.2; this.play('creak', { pos, v: 0.28, wet: 0.55, rate: 0.85 + Math.random() * 0.4, lp: ceil ? 1800 : undefined }); }
+    if ((S.crackT -= dt) <= 0) { S.crackT = 2.5 + Math.random() * 5; this.play('crack', { pos, v: 0.45, wet: 0.5, lp: ceil ? 2200 : undefined }); }
+  }
+  // a fast scramble on all fours from a to b (a hunt starting, something crossing the ceiling)
+  scramble(a, b, dur = 1.2, ceil = false, k = 1) {
+    if (!this.banks) return; const n = Math.round(dur * 7);
+    for (let i = 0; i < n; i++) { const u = i / n, pos = { x: a.x + (b.x - a.x) * u, y: a.y ?? 0.1, z: a.z + (b.z - a.z) * u }, t = u * dur + Math.random() * 0.03;
+      setTimeout(() => this.crawlPlant(pos, i % 2 === 0, ceil, k * (0.7 + 0.3 * Math.sin(u * Math.PI))), t * 1000); }
+    this.play('crack', { pos: { x: a.x, y: a.y ?? 0.1, z: a.z }, v: 0.5 * k, lp: ceil ? 2000 : undefined });
+    this.play('creak', { pos: { x: b.x, y: b.y ?? 0.1, z: b.z }, v: 0.3 * k, delay: dur * 0.6, lp: ceil ? 1800 : undefined });
   }
   setVolume(v) { this.vol = v; if (this.master) this.master.gain.value = v; }
   listen(cam) {

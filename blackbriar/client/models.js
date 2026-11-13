@@ -90,7 +90,7 @@ function crawlPose(r, st, dt, speed) {
   for (const [b, p] of r.fixed) b.position.copy(p);
   r.root.updateMatrixWorld(true);
   const M = r.root.matrixWorld, L = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(M);
-  st.crawlPh = (st.crawlPh || 0) + dt * Math.min(6.5, 0.25 + speed / 0.72); // stride cadence follows its real speed
+  st.crawlPh = (st.crawlPh || 0) + dt * Math.min(5.2, 0.15 + speed * 1.2); // long, lurching strides; cadence follows its real speed
   const ph = st.crawlPh, bob = Math.sin(ph * Math.PI * 4) * 0.03;
   // hips low and level; the spine runs forward, arching up into a neck that cranes toward you
   // st.rear (0..1): it rears up off its hands, torso rising toward you, head level with yours, arms reaching
@@ -105,13 +105,17 @@ function crawlPose(r, st, dt, speed) {
   // diagonal gait: left hand with right foot, then the other pair
   const limb = (side, hand, off) => {
     const u = (ph + off) % 1, stance = u < 0.62, k = stance ? u / 0.62 : (u - 0.62) / 0.38;
-    const stride = hand ? 0.34 : 0.3, z0 = hand ? 0.95 : -0.75, zz = stance ? z0 + stride * (0.5 - k) : z0 + stride * (k - 0.5), lift = stance ? 0 : Math.sin(k * Math.PI) * 0.16;
+    const stride = hand ? 0.52 : 0.46, z0 = hand ? 0.95 : -0.75, zz = stance ? z0 + stride * (0.5 - k) : z0 + stride * (k - 0.5), lift = stance ? 0 : Math.sin(k * Math.PI) * 0.16;
     return L(side * (hand ? 0.5 : 0.48), lift, zz);
   };
-  ik2(B.LeftArm, B.LeftForeArm, B.LeftHand, mix(limb(1, true, 0), L(0.36, 1.58, 0.72)), mix(L(1.4, 1.1, 0.5), L(1.2, 0.7, 0.1)));
-  ik2(B.RightArm, B.RightForeArm, B.RightHand, mix(limb(-1, true, 0.5), L(-0.36, 1.58, 0.72)), mix(L(-1.4, 1.1, 0.5), L(-1.2, 0.7, 0.1)));
-  ik2(B.LeftUpLeg, B.LeftLeg, B.LeftFoot, mix(limb(1, false, 0.5), L(0.3, 0, -0.5)), mix(L(1.4, 1.2, -0.5), L(0.7, 0.5, 0.8)));
-  ik2(B.RightUpLeg, B.RightLeg, B.RightFoot, mix(limb(-1, false, 0), L(-0.3, 0, -0.5)), mix(L(-1.4, 1.2, -0.5), L(-0.7, 0.5, 0.8)));
+  const lh = limb(1, true, 0), rh = limb(-1, true, 0.5), lf = limb(1, false, 0.5), rf = limb(-1, false, 0);
+  // every touchdown is reported where it lands, so you hear each hand and knee come down
+  if (st.onPlant && R < 0.3 && st.prevPh != null) for (const [v, off, hand] of [[lh, 0, true], [rh, 0.5, true], [lf, 0.5, false], [rf, 0, false]]) if ((ph + off) % 1 < (st.prevPh + off) % 1) st.onPlant(v.clone(), hand);
+  st.prevPh = ph;
+  ik2(B.LeftArm, B.LeftForeArm, B.LeftHand, mix(lh, L(0.36, 1.58, 0.72)), mix(L(1.4, 1.1, 0.5), L(1.2, 0.7, 0.1)));
+  ik2(B.RightArm, B.RightForeArm, B.RightHand, mix(rh, L(-0.36, 1.58, 0.72)), mix(L(-1.4, 1.1, 0.5), L(-1.2, 0.7, 0.1)));
+  ik2(B.LeftUpLeg, B.LeftLeg, B.LeftFoot, mix(lf, L(0.3, 0, -0.5)), mix(L(1.4, 1.2, -0.5), L(0.7, 0.5, 0.8)));
+  ik2(B.RightUpLeg, B.RightLeg, B.RightFoot, mix(rf, L(-0.3, 0, -0.5)), mix(L(-1.4, 1.2, -0.5), L(-0.7, 0.5, 0.8)));
 }
 function animate(r, dt, mode, speed) {
   for (const k of ['idle', 'walk', 'run']) { r.w[k] = lerp(r.w[k], k === mode ? 1 : 0, 1 - Math.pow(0.002, dt)); r.acts[k].setEffectiveWeight(r.w[k]); }

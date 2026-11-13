@@ -120,8 +120,20 @@ function updatePeek(dt, t) {
 // ---------------- local power cut ----------------
 let LO = null, flickerT = 0, flickX = 0, flickZ = 0;
 export function startLightsOut(m) { LO = { x: m.x, z: m.z, r: m.r, d: m.d, t: 0 }; C.audio.tone({ f: 120, f2: 40, v: 0.25, d: 0.5, lp: 400, wet: 0.5, pos: { x: m.x, y: 2.5, z: m.z } }); C.audio.noise && C.audio.noise({ f: 300, q: 1, v: 0.12, d: 0.3 }); }
+// the lights die one after another down the hall, coming toward you; then it is dark where you stand
+export function startCreep(m) { LO = { creep: true, x0: m.x0, z0: m.z0, x1: m.x, z1: m.z, x: m.x0, z: m.z0, r: 3, d: m.d, t: 0, pop: 0, crawl: m.crawl, crawled: false }; C.audio.tone({ f: 60, f2: 45, v: 0.2, d: 1.5, lp: 200, wet: 0.8, pos: { x: m.x0, y: 2.6, z: m.z0 } }); }
+function creepStep(dt) {
+  const L = LO, u = Math.min(1, L.t / 3), e = u * u * (3 - 2 * u);
+  L.x = L.x0 + (L.x1 - L.x0) * e; L.z = L.z0 + (L.z1 - L.z0) * e; L.r = 3 + 6 * e;
+  if (u < 1 && L.t > L.pop) { L.pop += 0.38 + Math.random() * 0.2; // a tube dies at the edge of the dark
+    const dx = L.x1 - L.x, dz = L.z1 - L.z, dd = Math.hypot(dx, dz) || 1, ex = L.x + dx / dd * L.r * 0.8, ez = L.z + dz / dd * L.r * 0.8, pos = { x: ex, y: 2.7, z: ez };
+    C.audio.tone({ f: 120, f2: 45, v: 0.16, d: 0.35, lp: 500, wet: 0.7, pos }); C.audio.noise({ f: 3800, q: 4, v: 0.06, d: 0.05, pos, wet: 0.6 }); }
+  if (L.crawl && !L.crawled && L.t > 3.5 + Math.min(1.5, L.d * 0.3)) { L.crawled = true; // something moves in the dark with you
+    const a = Math.random() * 6.283; C.audio.scramble({ x: C.P.x + Math.sin(a) * 7, y: 0.1, z: C.P.z + Math.cos(a) * 7 }, { x: C.P.x + Math.sin(a + 0.9) * 4, y: 0.1, z: C.P.z + Math.cos(a + 0.9) * 4 }, 1.1, false, 0.9); }
+}
 function loAmount(t) {
   if (!LO) return 0; const a = LO.t;
+  if (LO.creep) { if (a < 3 + LO.d) return 1; return Math.sin(a * 41) > 0 ? 1 : 0; }
   if (a < 1.6) return Math.sin(a * 37) + Math.sin(a * 61) > 0.3 ? 1 : 0.2; // stutter
   if (a < 1.6 + LO.d) return 1;
   if (a < 3.2 + LO.d) return Math.sin(a * 41) > 0 ? 1 : 0;
@@ -137,11 +149,20 @@ export function scareLight(x, z, t) {
 function updateLO(dt, t) {
   if (flickerT > 0) flickerT -= dt;
   if (!LO) { C.bake.black.value.w = 0; return; }
-  LO.t += dt; const a = loAmount(t); C.bake.black.value.set(LO.x, LO.z, LO.r, a);
+  LO.t += dt; if (LO.creep) creepStep(dt); const a = loAmount(t); C.bake.black.value.set(LO.x, LO.z, LO.r, a);
   if (C.envBase == null) C.envBase = C.scene.environmentIntensity; const inside = Math.hypot(C.P.x - LO.x, C.P.z - LO.z) < LO.r ? 1 : 0; C.scene.environmentIntensity = C.envBase * (1 - 0.88 * a * inside);
-  if (LO.t > 3.4 + LO.d) { LO = null; C.bake.black.value.w = 0; C.scene.environmentIntensity = C.envBase; }
+  if (LO.t > (LO.creep ? 4.6 : 3.4) + LO.d) { LO = null; C.bake.black.value.w = 0; C.scene.environmentIntensity = C.envBase; }
 }
 
-export function updateScares(dt, t) { if (!C) return; updateWatcher(dt, t); updatePeek(dt, t); updateLO(dt, t); }
-export function clearScares() { if (W.on) vanish(false); if (K.on) { K.on = false; K.piv.visible = false; } LO = null; if (C) C.bake.black.value.w = 0; }
+// ---------------- phantoms: it is there for an instant, then it is not ----------------
+const PH = { on: false, t: 0, dur: 0 }, _cw = new THREE.Vector3();
+export function phantom(x, z, dur = 0.2, scr = 1.1) {
+  if (W.on) vanish(false); const g = ghost(); if (!g) return false; if (g.root.parent !== C.scene) C.scene.add(g.root);
+  g.root.visible = true; g.root.position.set(x, groundY(x, z), z); g.root.rotation.set(0, Math.atan2(C.P.x - x, C.P.z - z), 0); g.scr = scr; g.lock = true; g.update(0.016, 'idle', 1, 0, 0);
+  PH.on = true; PH.t = 0; PH.dur = dur; facePhantom(); return true;
+}
+function facePhantom() { const g = W.g; g.root.updateMatrixWorld(true); C.camera.getWorldPosition(_cw); g.face.lookAt(_cw); g.face.rotateZ(0.4); }
+function updatePhantom(dt) { if (!PH.on) return; PH.t += dt; if (PH.t > PH.dur) { PH.on = false; W.g.root.visible = false; W.g.lock = false; } else { W.g.update(dt, 'idle', 1, 0, 0); facePhantom(); } }
+export function updateScares(dt, t) { if (!C) return; updateWatcher(dt, t); updatePeek(dt, t); updateLO(dt, t); updatePhantom(dt); }
+export function clearScares() { if (W.on) vanish(false); if (PH.on) { PH.on = false; W.g.root.visible = false; } if (K.on) { K.on = false; K.piv.visible = false; } LO = null; if (C) C.bake.black.value.w = 0; }
 export function scareDebug() { return { peek: K.on ? { st: K.st, hx: K.hx, hz: K.hz, bx: K.o.bx, bz: K.o.bz } : null, stand: W.on ? { x: W.x, z: W.z } : null }; }

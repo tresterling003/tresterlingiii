@@ -202,4 +202,23 @@ t('Room 014 opens partway through the first night', () => {
   s.shiftT = CONFIG.shiftSeconds * 0.31; s.tick(0.1); assert.ok(s.keys['014']);
   s.handle('a', { t: 'door', id: 'd_014' }); assert.equal(s.doors.d_014.open, true);
 });
+t('fear levels: Sissy you can walk away from, Nightmare closes faster; the host sets it', () => {
+  const sp = (fear, mv) => { const s = new Sim(null, { fear }); s.join('a', 'A'); s.join('b', 'B'); const p = s.players.get('a'); p.x = 30; p.z = 1.8; p.mv = mv ? 1 : 0; lookAway(p, 0, 1.8);
+    s.shiftT = CONFIG.shiftSeconds * 0.5; s.keys['014'] = true; s.tick(0.1); s.out = []; startHunt(s, p, [p], solidRects(s.doors)); s.mon.windup = 0; s.mon.x = 22; s.mon.z = 1.8; s.mon.path = null; s.mon.tpN++;
+    const x0 = s.mon.x; run(s, 1); return Math.abs(s.mon.x - x0); };
+  assert.ok(sp(0, true) < CONFIG.walkSpeed, 'Sissy: slower than you walk');
+  assert.ok(sp(2, false) > sp(1, false) && sp(1, false) > sp(0, false), 'standing still, it closes fastest on Nightmare');
+  const s = new Sim(null, { fear: 1 }); s.join('a', 'A'); s.join('b', 'B'); s.out = [];
+  s.handle('b', { t: 'fear', v: 2 }); assert.equal(s.fear, 1, 'a guest cannot change it');
+  s.handle('a', { t: 'fear', v: 2 }); assert.equal(s.fear, 2, 'the host can');
+});
+t('Sissy never gets the extreme scares; Nightmare does', () => {
+  const kinds = (fear) => { const s = new Sim(null, { fear }); s.join('a', 'A'); const p = s.players.get('a'); p.x = 20; p.z = 1.8; s.shiftT = CONFIG.shiftSeconds * 0.2; const seen = new Set();
+    for (let i = 0; i < 2500; i++) { s.dir.next.a = s.time; s.mon.state === 'rest' || s.setMon('rest', { restFor: 999 }); s.tick(0.1); for (const o of s.out) if (o.ev && (o.ev.t === 'prank' || o.ev.t === 'scare')) seen.add(o.ev.k); s.out = []; }
+    return seen; };
+  const a = kinds(0), b = kinds(2);
+  assert.ok(!a.has('neck') && !a.has('flashface'), 'no extreme scares on Sissy: ' + [...a]);
+  assert.ok(b.has('neck') || b.has('flashface'), 'Nightmare has them: ' + [...b]);
+  for (const k of ['echo', 'musicbox', 'creep']) assert.ok(a.has(k) || b.has(k), 'new scare happens: ' + k);
+});
 console.log(`\n${pass} passed`);

@@ -8,9 +8,10 @@ import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd, updateCrowd }
 import { loadProps } from './props.js';
 import { makePost } from './post.js';
 import { Audio3D } from './audio.js';
+import { Score } from './music.js';
 import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo, getRoomApi, RoomHost, RoomGuest, newRoomCode, PeerHost, PeerGuest, peerSupported } from './net.js';
 import { textCanvas, dirtTextures } from './textures.js';
-import { initScares, updateScares, spawnWatcher, startLightsOut, scareLight, clearScares, scareDebug } from './scares.js';
+import { initScares, updateScares, spawnWatcher, startLightsOut, startCreep, phantom, scareLight, clearScares, scareDebug } from './scares.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x)), lerp = (a, b, t) => a + (b - a) * t;
@@ -19,7 +20,7 @@ const NORENDER = new URLSearchParams(location.search).has('norender'); // test-o
 const isTouch = matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window;
 const store = { get(k, d) { try { const v = localStorage.getItem('blackbriar.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('blackbriar.' + k, JSON.stringify(v)); } catch { } } };
 document.body.classList.toggle('touchui', isTouch);
-const settings = Object.assign({ calm: false, sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9 }, store.get('settings', {}));
+const settings = Object.assign({ calm: false, sens: 1, fov: 74, bob: true, inv: false, quality: isTouch ? 1 : 2, vol: 0.9, music: 0.7, fear: 1 }, store.get('settings', {}));
 const saveSettings = () => store.set('settings', settings);
 if (!store.get('scaresBack', false)) { settings.calm = false; store.set('scaresBack', true); saveSettings(); } // calm mode was the default while testing; scares are on again
 let pid = store.get('pid', null); if (!pid) { pid = 'p' + Math.random().toString(36).slice(2, 10); store.set('pid', pid); }
@@ -50,6 +51,9 @@ let playing = false, ui = null; // ui: null | 'pause' | 'bag' | 'os' | 'summary'
 const P = { x: SPAWN.x, z: SPAWN.z, y: 0, yaw: 0, pitch: 0, vx: 0, vz: 0, crouch: 0, bob: 0, stepD: 0, tool: 'none', light: false, downed: false, out: false };
 const keys = {}; let mouseL = false, mouseR = false;
 const audio = new Audio3D(); audio.vol = settings.vol;
+const score = new Score(audio); score.vol = settings.music; score.fear = settings.fear;
+const FEAR_NAMES = ['Sissy', 'Bed Wetter', 'Nightmare'], FEAR_DESC = ['Little scares. It hunts once a night, and you can walk away from it.', 'The real thing. It hunts, it stalks, it plays with you.', 'Extreme. More of everything, faster, closer, and it does not give up.'];
+let fearLevel = settings.fear;
 
 // ======================= loading =======================
 const loadingEl = $('loading');
@@ -461,9 +465,13 @@ function menuNav(dir) {
 const TIPS = ['It does not move while it is watched.', 'Do not stare at it for long.', 'The office was never on the attendance system.', 'If it saw you get into a locker, the locker will not save you.', 'Muddy footprints are never yours.', 'The PA does not know your name. It says it anyway.', 'Room 014 is not on the floor plan.'];
 function showMenu(id) { for (const k of ['mMain', 'sCoop', 'sOpts', 'sHow']) $(k).hidden = k !== id; const f = $(id).querySelector('.mi:not([disabled]),input'); if (f) setTimeout(() => f.focus(), 30); audio.ui && audio.ui(); }
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => showMenu('mMain'));
+function showFear() { $('fearName').textContent = FEAR_NAMES[settings.fear]; $('fearDesc').textContent = FEAR_DESC[settings.fear]; }
+function cycleFear(d) { settings.fear = (settings.fear + d + 3) % 3; fearLevel = score.fear = settings.fear; saveSettings(); showFear(); if (settings.fear === 2) { score.init(); score.sting('hit', 0.7); rumble(0.6, 0.3, 250); } else audio.ui(); }
+$('mFear').onclick = () => cycleFear(1); $('mFear').onkeydown = (e) => { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { e.preventDefault(); cycleFear(e.code === 'ArrowLeft' ? -1 : 1); } };
+showFear();
 $('mCoop').onclick = () => showMenu('sCoop'); $('mOpts').onclick = () => showMenu('sOpts'); $('mHow').onclick = () => showMenu('sHow');
 function pressStart() {
-  if ($('press').hidden) return; $('press').hidden = true; audio.init(); showMenu(pendingJoinMenu ? 'sCoop' : 'mMain'); $('entry').hidden = false;
+  if ($('press').hidden) return; $('press').hidden = true; audio.init(); score.init(); showMenu(pendingJoinMenu ? 'sCoop' : 'mMain'); $('entry').hidden = false;
   if (isTouch) { try { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen)?.call(d)?.catch?.(() => { }); screen.orientation?.lock?.('landscape').catch(() => { }); } catch { } }
 }
 $('press').addEventListener('pointerdown', pressStart); addEventListener('keydown', (e) => { if (!$('press').hidden) { e.preventDefault(); pressStart(); } });
@@ -486,8 +494,9 @@ const nm = () => { const n = ($('name').value || '').trim().slice(0, 16) || 'Wor
 function start(transport) {
   CALM = transport.mode === 'solo' && settings.calm;
   if (CALM) { audio.sting = audio.caught = audio.drag = audio.bang = audio.chime = () => { }; }
-  audio.init(); audio.setVolume(settings.vol);
+  audio.init(); audio.setVolume(settings.vol); score.init(); score.setVolume(settings.music);
   requestLock(); // a real user gesture: the click on the start button
+  if (transport.sim) transport.sim.fear = settings.fear; // the host's choice
   net = transport; mode = transport.mode; $('status').textContent = ''; if (monitor) { monitor.root.visible = true; monitor.titled = false; } huntFlickerT = 0;
   net.on(onMessage); net.connect();
   $('status').textContent = mode === 'solo' ? 'Clocking in…' : 'Connecting…';
@@ -514,7 +523,10 @@ function applySave(s) {
 }
 function onMessage(m) {
   switch (m.t) {
+    case 'fear': fearLevel = score.fear = m.v; break;
     case 'welcome': {
+      if (net instanceof WSTransport && !net.join && m.fear !== settings.fear) net.send({ t: 'fear', v: settings.fear });
+      fearLevel = score.fear = m.fear ?? settings.fear;
       room = m.room; applySave(m.save); upgrades = m.upgrades; summary = m.summary;
       const me = m.players.find(p => p.pid === pid); if (me) { P.x = me.x; P.z = me.z; P.yaw = me.yw || 0; }
       $('entry').hidden = true; playing = true; showHUD(true); $('status').textContent = '';
@@ -568,8 +580,8 @@ function onMessage(m) {
     case 'out': if (m.pid === pid) centerMsg('MARKED PRESENT', 'You are out for the rest of this shift.', 6); else toast(`${nameOf(m.pid)} was marked present.`); break;
     case 'teleport': { const mm = m; pendingTP = mm; setTimeout(() => { if (pendingTP === mm && scareT <= 0) { applyTP(mm); pendingTP = null; } }, 0); break; }
     case 'summary': summary = m.summary; showSummary(m.summary); break;
-    case 'scare': if (CALM || ui) break; if (m.k === 'watcher') spawnWatcher(m.seed); else if (m.k === 'lightsout') startLightsOut(m); break;
-    case 'hunt': if (CALM) break; if (m.on) { dread = Math.max(dread, 0.8); if (m.x != null) for (let i = 0; i < 16; i++) audio.tone({ f: 1800 + Math.random() * 1500, f2: 900, type: 'triangle', v: 0.07, d: 0.025, delay: 0.5 + i * 0.06 + Math.random() * 0.03, pos: { x: m.x, y: groundY(m.x, m.z) + 1, z: m.z }, wet: 0.4 }); if (m.loud) { huntFlickerT = m.flicker ? 1.2 + Math.random() * 2.4 : 0; audio.sting(monitor ? monitor.root.position : null); audio.tone({ f: 46, f2: 30, v: 0.5, d: 1.6, lp: 220, wet: 0.5 }); if (Math.random() < 0.5) showPA(['Attendance.', 'Remain in your seats.', 'Roll call.'][(Math.random() * 3) | 0]); } } break;
+    case 'scare': if (CALM || ui) break; if (m.k === 'watcher') spawnWatcher(m.seed); else if (m.k === 'lightsout') startLightsOut(m); else if (m.k === 'creep') { startCreep(m); dread = Math.min(1, dread + 0.35); } break;
+    case 'hunt': if (CALM) break; if (m.on) { dread = Math.max(dread, 0.8); if (m.x != null) { const a = { x: m.x, y: groundY(m.x, m.z) + 0.1, z: m.z }, dx = P.x - m.x, dz = P.z - m.z, dd = Math.hypot(dx, dz) || 1; setTimeout(() => audio.scramble(a, { x: m.x + dx / dd * 3, y: a.y, z: m.z + dz / dd * 3 }, 1.3, false, 1.2), 600); } if (m.loud) { huntFlickerT = m.flicker ? 1.2 + Math.random() * 2.4 : 0; audio.sting(monitor ? monitor.root.position : null); score.sting('hit', 0.9); rumble(0.7, 0.3, 450); audio.tone({ f: 46, f2: 30, v: 0.5, d: 1.6, lp: 220, wet: 0.5 }); if (Math.random() < 0.5) showPA(['Attendance.', 'Remain in your seats.', 'Roll call.'][(Math.random() * 3) | 0]); } } break;
     case 'prank': if (!CALM) prankFX(m); break;
     case 'gameover': showGameOver(m); break;
     case 'hidden': if (m.pid === pid) setHidden(m.on ? m.id : null); break;
@@ -607,7 +619,7 @@ function updateCart(dt) {
 function nightCard(n) {
   const days = ['THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY'];
   const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;background:#000;z-index:55;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1.4s';
-  el.innerHTML = `<div style="font:13px var(--type);letter-spacing:.4em;color:#7d786c">HALBERD FACILITIES · NIGHT CREW</div><div style="font:clamp(64px,12vw,150px) var(--disp);letter-spacing:.18em;color:#ece7da;margin-top:8px">NIGHT ${n}</div><div style="font:15px var(--type);color:#8d887c;margin-top:6px;letter-spacing:.2em">${days[(n - 1) % 7]} · 10:00 PM — 4:00 AM</div>`;
+  el.innerHTML = `<div style="font:13px var(--type);letter-spacing:.4em;color:#7d786c">HALBERD FACILITIES · NIGHT CREW</div><div style="font:clamp(64px,12vw,150px) var(--disp);letter-spacing:.18em;color:#ece7da;margin-top:8px">NIGHT ${n}</div><div style="font:15px var(--type);color:#8d887c;margin-top:6px;letter-spacing:.2em">${days[(n - 1) % 7]} · 10:00 PM — 4:00 AM</div>${CALM ? '' : `<div style="font:13px var(--type);color:#8a2a22;margin-top:18px;letter-spacing:.35em">FEAR · ${FEAR_NAMES[fearLevel].toUpperCase()}</div>`}`;
   document.body.appendChild(el); audio.tone && audio.tone({ f: 55, f2: 40, v: 0.25, d: 2.2, lp: 200, wet: 0.6 }); setTimeout(() => { el.style.opacity = 0; }, 3000); setTimeout(() => el.remove(), 4500);
 }
 let bagFullT = 0, monState = 'dormant', shake = 0;
@@ -667,7 +679,8 @@ function updateMonitor(dt, t) {
   const modeR = s.st === 'hunt' || sp > 2.8 ? 'run' : sp > 0.2 ? 'walk' : 'idle';
   monStillT = modeR === 'idle' && s.st !== 'hunt' ? monStillT + dt : 0; monMoving = sp > 0.2;
   const modeA = pz ? 'crawl' : monStillT > 0.5 ? 'still' : modeR; // standing still it takes the same display pose as the stored mannequins
-  if (pz && sp > 0.4 && !s.fr) { scuttleT -= dt; if (scuttleT <= 0) { scuttleT = 0.045 + Math.random() * 0.07; audio.tone({ f: 1800 + Math.random() * 1600, f2: 900, type: 'triangle', v: 0.05, d: 0.025, pos: { x: s.x, y: m.root.position.y, z: s.z }, wet: 0.35 }); } }
+  m.curPz = pz; if (!m.onPlant) m.onPlant = (v, hand) => { if (!CALM && scareT <= 0) audio.crawlPlant({ x: v.x, y: v.y, z: v.z }, hand, monitor.curPz === 2); };
+  audio.crawlUpdate(dt, { x: s.x, y: m.root.position.y + (pz === 2 ? -0.4 : 0.4), z: s.z }, sp, pz > 0, pz === 2, !!s.fr);
   const look = Math.atan2(s.lx - s.x, s.lz - s.z); const rel = angDiff(s.yaw, look);
   m.scr = s.st === 'hunt' ? 0.85 : s.st === 'watch' ? 0.35 : 0.12;
   if (s.fr && scareT <= 0) { m.frozen = true; } else { m.frozen = false; }
@@ -676,14 +689,16 @@ function updateMonitor(dt, t) {
   monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: 0.1, z: s.z }); }
   const d = Math.hypot(s.x - P.x, s.z - P.z);
   if (audio.breath) { audio.breath.move(s.x, 1.9, s.z); audio.breath.g.gain.value = lerp(audio.breath.g.gain.value, d < 10 && s.st !== 'dormant' ? 0.14 * (1 - d / 10) : 0, 0.05); }
-  if (audio.chaseG) audio.chaseG.gain.value = lerp(audio.chaseG.gain.value, s.st === 'hunt' && d < 26 ? 0.25 : 0, 0.04);
+  if (audio.chaseG) audio.chaseG.gain.value = 0;
+  monHunt = s.st === 'hunt'; monNear = s.st === 'dormant' ? 0 : clamp(1 - d / 14, 0, 1);
   // distant dragging now and then when it is far and moving
   if (s.st !== 'dormant' && d > 14 && Math.random() < dt * 0.02) audio.drag({ x: s.x, y: 0.2, z: s.z });
   heartT -= dt; if (d < 14 && s.st !== 'dormant' && heartT <= 0) { const k = 1 - d / 14; heartT = 0.32 + (1 - k) * 0.85; audio.tone({ f: 62, f2: 38, v: 0.06 + k * 0.28, d: 0.11, lp: 180, wet: 0 }); audio.tone({ f: 55, f2: 36, v: 0.04 + k * 0.2, d: 0.1, lp: 160, wet: 0, delay: 0.17 }); }
   if (audio.dreadG) audio.dreadG.gain.value = lerp(audio.dreadG.gain.value, dread * 0.32, 0.03);
   dread = clamp(dread + (d < 12 && s.st !== 'dormant' && s.st !== 'retreat' ? (s.st === 'hunt' ? 0.6 : 0.2) * dt : -0.15 * dt), 0, 1);
 }
-let scuttleT = 0, dread = 0, monStillT = 0, monMoving = false, heartT = 0, screechT = 0;
+let monHunt = false, monNear = 0, echoT = 0, echoMv = false, neck = null, flashT = -1;
+let dread = 0, monStillT = 0, monMoving = false, heartT = 0, screechT = 0;
 let pendingTP = null, scareTP = null;
 // ---------------- stalker feedback: hunts, pranks, static, hiding, the siege, game over ----------------
 let firstHunt = true, huntFlickerT = 0, staticLvl = 0, blinkT = 0, hidden = null, siege = null, holdingDoor = false, gameOverOn = false;
@@ -698,12 +713,27 @@ function setHidden(id) {
   if (hidden === id) return; hidden = id; $('lockerView').hidden = !id;
   if (id) { const L = LOCKERS.find(l => l.id === id); P.yaw = L.side === 'n' ? Math.PI : 0; P.pitch = 0; audio.locker({ x: L.x, y: 1.5, z: L.z }, false); audio.tone({ f: 120, f2: 80, v: 0.12, d: 0.3, lp: 400 }); }
 }
+// per-frame bits of the haunting that play out over time
+function updateHaunts(dt) {
+  if (echoT > 0) { echoT -= dt; if (echoMv && !P.moving) { const bx = P.x + Math.sin(P.yaw) * 4.5, bz = P.z + Math.cos(P.yaw) * 4.5; setTimeout(() => audio.step({ x: bx, y: 0.05, z: bz }, 1.1), 480); echoT = Math.min(echoT, 0.6); } echoMv = P.moving; } // you stop; it takes one more step
+  if (neck) { neck.t -= dt; // turn around fast enough and, for an instant, it is standing right there
+    if (Math.abs(angDiff(neck.yaw0, P.yaw)) > 2.2) { if (neck.see && phantom(neck.x, neck.z, 0.24, 1.2)) { score.sting('scare', 0.9); audio.play('crack', { v: 0.7, wet: 0.2 }); shake = Math.max(shake, 0.8); rumble(1, 0.8, 300); dread = 1; } neck = null; }
+    else if (neck.t <= 0) neck = null; }
+  if (flashT > 0 && (flashT -= dt) <= 0) { // the lights stutter, and in the dark it is in front of you
+    const x = P.x - Math.sin(P.yaw) * 0.8, z = P.z - Math.cos(P.yaw) * 0.8;
+    if (!segBlocked(P.x, P.z, x, z, solidRects(mirror.doors), { sight: true }) && phantom(x, z, 0.12, 1.3)) { score.sting('scare', 0.8); audio.play('crack', { v: 0.8, wet: 0.1 }); shake = Math.max(shake, 0.9); rumble(1, 1, 220); dread = 1; } }
+}
+// controller rumble (DualSense/Xbox in Chrome and Edge) and phone vibration
+function rumble(strong, weak, ms) {
+  try { for (const g of navigator.getGamepads ? navigator.getGamepads() : []) if (g && g.vibrationActuator) g.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => { }); } catch { }
+  if (isTouch && navigator.vibrate) try { navigator.vibrate(Math.min(400, ms)); } catch { }
+}
 function monFX(m) {
   const pos = { x: m.x, y: groundY(m.x, m.z) + 1.2, z: m.z }, d = Math.hypot(m.x - P.x, m.z - P.z);
-  if (m.k === 'unfreeze') { audio.tone({ f: 380 + Math.random() * 120, f2: 140, type: 'triangle', v: 0.08, d: 0.07, pos, wet: 0.5 }); }
+  if (m.k === 'unfreeze') { if (!monitor.curPz) audio.play('creak', { pos, v: 0.3, rate: 0.7, wet: 0.5 }); } // a crawler's joints are handled by crawlUpdate
   else if (m.k === 'freeze' && d < 5 && performance.now() > screechT && Math.random() < 0.6) { screechT = performance.now() + 12000; audio.sting(pos); shake = Math.max(shake, 0.2); dread = Math.min(1, dread + 0.4); }
-  else if (m.k === 'twitch') { audio.noise({ f: 2600, q: 2, v: 0.4, d: 0.05, pos, wet: 0.4 }); audio.tone({ f: 140, f2: 60, type: 'triangle', v: 0.35, d: 0.09, pos, lp: 700, wet: 0.4 }); if (d < 8) shake = Math.max(shake, 0.12 + (8 - d) * 0.03); dread = 1; }
-  else if (m.k === 'drop') { for (let i = 0; i < 4; i++) audio.noise({ f: 2000 + Math.random() * 1500, q: 3, v: 0.3, d: 0.04, pos, wet: 0.4, delay: i * 0.07 + Math.random() * 0.04 }); audio.tone({ f: 90, f2: 50, v: 0.4, d: 0.25, pos, lp: 400, wet: 0.5 }); dread = Math.min(1, dread + 0.5); }
+  else if (m.k === 'twitch') { audio.play('crack', { pos, v: 0.7, wet: 0.4 }); audio.play('knee', { pos: { ...pos, y: pos.y - 1.1 }, v: 0.5, wet: 0.4 }); if (d < 8) shake = Math.max(shake, 0.12 + (8 - d) * 0.03); dread = 1; }
+  else if (m.k === 'drop') { const fl = { x: m.x, y: m.pz === 2 ? pos.y + 1.4 : groundY(m.x, m.z) + 0.1, z: m.z }, c = m.pz === 2; audio.play('crack', { pos, v: 0.75, wet: 0.5 }); audio.play('knee', { pos: fl, v: 0.8, delay: 0.05, lp: c ? 1600 : undefined }); audio.play('knee', { pos: fl, v: 0.7, delay: 0.17, lp: c ? 1600 : undefined }); audio.play('hand', { pos: fl, v: 0.75, delay: 0.29, lp: c ? 1600 : undefined }); audio.play('hand', { pos: fl, v: 0.7, delay: 0.38, lp: c ? 1600 : undefined }); audio.play('creak', { pos, v: 0.4, delay: 0.5, rate: 0.75 }); dread = Math.min(1, dread + 0.5); }
 }
 function prankFX(m) {
   const pos = { x: m.x, y: groundY(m.x, m.z) + 1.2, z: m.z }, near = Math.hypot(m.x - P.x, m.z - P.z);
@@ -713,7 +743,24 @@ function prankFX(m) {
   else if (m.k === 'breathe') { const bp = { x: P.x + Math.sin(P.yaw) * 0.6, y: groundY(P.x, P.z) + 1.7, z: P.z + Math.cos(P.yaw) * 0.6 }; for (let i = 0; i < 2; i++) audio.noise({ f: 650, f2: 420, q: 1.3, v: 0.3, d: 1.0, a: 0.4, pos: bp, wet: 0, delay: i * 1.6 }); dread = Math.min(1, dread + 0.3); }
   else if (m.k === 'roll') { for (let i = 0; i < 7; i++) audio.tone({ f: 1300 + Math.random() * 500, v: 0.03, d: 0.09, pos, type: 'triangle', delay: i * 0.13 }); }
   else if (m.k === 'prints') spawnPrints(m);
-  else if (m.k === 'skitter') { const n = 18 + ((Math.random() * 10) | 0); for (let i = 0; i < n; i++) { const k = i / n; audio.tone({ f: 2000 + Math.random() * 1800, f2: 1000, type: 'triangle', v: 0.06, d: 0.02, delay: k * 1.3 + Math.random() * 0.03, pos: { x: m.x + (m.x1 - m.x) * k, y: m.y, z: m.z + (m.z1 - m.z) * k }, wet: 0.3 }); } }
+  else if (m.k === 'echo') { echoT = m.d; echoMv = false; }
+  else if (m.k === 'musicbox') score.musicBox({ x: m.x, y: groundY(m.x, m.z) + 0.9, z: m.z }, 1 + (m.slow || 0) * 0.6);
+  else if (m.k === 'lockrow') { // the lockers bang open one after another, coming down the hall toward you
+    for (let i = 0; i < m.n; i++) { const u = i / Math.max(1, m.n - 1), x = m.x + (m.x1 - m.x) * u, z = m.z + (m.z1 - m.z) * u; setTimeout(() => {
+      let best = null, bd = 1.6; for (const l of LOCKERS) { const dd = Math.hypot(l.x - x, l.z - z); if (dd < bd && W.lockers[l.id] && !mirror.lockers[l.id]?.open) { bd = dd; best = l; } }
+      const lp = { x: best ? best.x : x, y: groundY(x, z) + 1.2, z: best ? best.z : z };
+      if (best) { const L = W.lockers[best.id]; L.angle = -1.6; L.target = -1.7; setTimeout(() => { L.target = 0; }, 260); }
+      audio.noise({ f: 1300, q: 0.7, v: 0.4, d: 0.35, pos: lp, wet: 0.7 }); audio.tone({ f: 170, f2: 80, v: 0.45, d: 0.45, pos: lp, lp: 900, wet: 0.7, type: 'triangle' });
+      const near = Math.hypot(P.x - lp.x, P.z - lp.z); if (near < 6) { shake = Math.max(shake, 0.3); rumble(0.4, 0.2, 120); }
+    }, i * (330 - i * 18)); }
+    dread = Math.min(1, dread + 0.3); }
+  else if (m.k === 'neck') { // breathing at the back of your neck
+    const bp = { x: P.x + Math.sin(P.yaw) * 0.45, y: (P.gy ?? groundY(P.x, P.z)) + (P.crouching ? 1.15 : 1.68), z: P.z + Math.cos(P.yaw) * 0.45 };
+    for (let i = 0; i < 3; i++) audio.noise({ f: 700, f2: 380, q: 1.4, v: 0.32, d: 0.9, a: 0.35, pos: bp, wet: 0, delay: i * 1.35 });
+    for (let i = 0; i < 6; i++) audio.noise({ f: 2400 + Math.random() * 1800, q: 8, v: 0.05, d: 0.12 + Math.random() * 0.15, pos: bp, wet: 0.05, delay: 1 + i * 0.16 });
+    neck = { t: 3.4, yaw0: P.yaw, see: m.see, x: P.x + Math.sin(P.yaw) * 0.95, z: P.z + Math.cos(P.yaw) * 0.95 }; dread = Math.min(1, dread + 0.4); rumble(0.15, 0.4, 900); }
+  else if (m.k === 'flashface') { huntFlickerT = 1.3; flashT = 0.42 + Math.random() * 0.4; audio.noise({ f: 300, q: 1, v: 0.12, d: 0.3 }); }
+  else if (m.k === 'skitter') audio.scramble({ x: m.x, y: m.y, z: m.z }, { x: m.x1, y: m.y, z: m.z1 }, 1.4 + Math.random() * 0.8, true, 1.1);
   else if (m.k === 'runsteps') { for (let i = 0; i < 9; i++) { const k = i / 9; audio.step({ x: m.x + (m.x1 - m.x) * k, y: 0.1, z: m.z + (m.z1 - m.z) * k }, 1.4); } }
   else if (m.k === 'thud') { audio.tone({ f: 70, f2: 35, v: 0.6, d: 0.5, pos, lp: 300, wet: 0.6 }); audio.noise({ f: 300, q: 1, v: 0.2, d: 0.3, pos, wet: 0.6 }); }
   else if (m.k === 'giggle') { for (let i = 0; i < 5; i++) { const f = 900 + Math.random() * 300; audio.tone({ f, f2: f * 0.85, type: 'sine', v: 0.035, d: 0.09, delay: i * 0.13, pos, wet: 0.8 }); audio.noise({ f: f * 2, q: 5, v: 0.02, d: 0.08, delay: i * 0.13, pos, wet: 0.8 }); } }
@@ -753,7 +800,7 @@ function showGameOver(m) {
   const show = () => { if (scareT > 0) return setTimeout(show, 80); setTimeout(reveal, mine ? 250 : 0); }; // only once you have seen it reach you
   const reveal = () => {
     ui = 'gameover'; try { document.exitPointerLock && document.exitPointerLock(); } catch { }
-    $('gameover').hidden = false; $('holdDoor').hidden = true; $('lockerView').hidden = true;
+    $('gameover').hidden = false; $('holdDoor').hidden = true; $('lockerView').hidden = true; setTimeout(() => $('bRetry').focus(), 60);
     $('goText').innerHTML = `Night ${m.day} · ${m.at}<br>${mine ? 'It found you.' : m.pid ? `${nameOf(m.pid)} was taken.` : 'The whole crew was taken.'}<br><small>You have been marked absent.</small>`;
     audio.tone({ f: 40, f2: 28, v: 0.35, d: 3, lp: 160, wet: 0.6 });
     const cv = $('goStatic'), x = cv.getContext('2d'), img = x.createImageData(200, 112);
@@ -786,11 +833,11 @@ function updateScare(dt) {
   P.yaw = SCARE.yaw0 + angDiff(SCARE.yaw0, SCARE.yaw1) * e1;
   if (!monitor) return;
   // a beat: it stays crouched at your feet, face craned up, and its head jerks (0.28 - 0.62 s)
-  if (T > 0.42 && !SCARE.tw) { SCARE.tw = true; monitor.twT = 0; audio.tone({ f: 900, f2: 300, type: 'triangle', v: 0.12, d: 0.05, wet: 0.2 }); }
+  if (T > 0.42 && !SCARE.tw) { SCARE.tw = true; monitor.twT = 0; audio.play('crack', { v: 0.8, wet: 0.15 }); }
   // then it comes up off its hands into your face, screaming (0.62 - 0.9 s)
   const kr = clamp((T - 0.62) / 0.28, 0, 1), er = 1 - Math.pow(1 - kr, 3);
   monitor.rear = er; monitor.scr = kr > 0 ? 1.2 : 0.25; monitor.lock = kr > 0;
-  if (kr > 0 && !SCARE.hit) { SCARE.hit = true; audio.caught(); shake = 1.8; $('hurt').style.opacity = 1; }
+  if (kr > 0 && !SCARE.hit) { SCARE.hit = true; audio.caught(); score.sting('scare'); rumble(1, 1, 700); shake = 1.8; $('hurt').style.opacity = 1; }
   const faceD = lerp(0.95, 0.3, er), rd = faceD + (SCARE.faceFwd || 1);
   const rx = P.x + fx * rd, rz = P.z + fz * rd;
   monitor.root.position.set(lerp(SCARE.fx, rx, e1), groundY(rx, rz), lerp(SCARE.fz, rz, e1)); monitor.root.rotation.set(0, SCARE.yaw1, 0);
@@ -896,7 +943,7 @@ function openPause() {
   openUI('pause'); $('pause').hidden = false;
   $('pauseNote').textContent = mode === 'coop' ? 'The shift keeps running for your crew while you are paused.' : 'Solo: the world keeps running while paused only in co-op. In solo the clock still moves, so get somewhere safe first.';
   $('pInvite').hidden = mode !== 'coop'; $('inviteText').textContent = mode === 'coop' ? `Crew code ${room}: ${location.origin}${location.pathname}?join=${room}` : '';
-  $('sSens').value = settings.sens; $('sFov').value = settings.fov; $('sBob').checked = settings.bob; $('sInv').checked = settings.inv; $('sQual').value = settings.quality; $('sVol').value = settings.vol;
+  $('sSens').value = settings.sens; $('sFov').value = settings.fov; $('sBob').checked = settings.bob; $('sInv').checked = settings.inv; $('sQual').value = settings.quality; $('sVol').value = settings.vol; $('sMus').value = settings.music;
 }
 $('pResume').onclick = () => closeUI();
 $('pauseBtn').onclick = () => openPause();
@@ -908,6 +955,7 @@ $('sBob').onchange = (e) => { settings.bob = e.target.checked; saveSettings(); }
 $('sInv').onchange = (e) => { settings.inv = e.target.checked; saveSettings(); };
 $('sQual').onchange = (e) => { settings.quality = +e.target.value; saveSettings(); $('perfNote').textContent = 'Quality changes fully apply after reloading the page.'; resize(); };
 $('sVol').oninput = (e) => { settings.vol = +e.target.value; saveSettings(); audio.setVolume(settings.vol); };
+$('sMus').oninput = (e) => { settings.music = +e.target.value; saveSettings(); score.setVolume(settings.music); };
 // backpack
 let bagTab = 'gear';
 function openBag() { openUI('bag'); $('bag').hidden = false; renderBag(); }
@@ -1001,6 +1049,8 @@ function frame(now) {
     PR('tools', () => updateTools(dt, t));
     PR('remotes', () => updateRemotes(dt));
     PR('monitor', () => updateMonitor(dt, t));
+    score.update(dt, Math.max(dread * 0.9, monNear * 0.6), monHunt, monNear, CALM || !!summary);
+    updateHaunts(dt);
     if (monitor && scareT <= 0) monitor.lock = false;
     if (scareT > 0 && scareT - dt <= 0 && scareTP) { applyTP(scareTP); scareTP = null; $('hurt').style.opacity = 1; }
     if (scareT > 0) { scareT -= dt; updateScare(dt); if (scareT <= 0) endScare(); }
@@ -1012,6 +1062,7 @@ function frame(now) {
     if (!P.out && touch.revive) holdRevive(dt);
     if (keys.KeyE) holdRevive(dt);
   } else if (W) { // attract view behind the entry screen
+    score.update(dt, 0.3, false, 0, false);
     if (VM.handL) { VM.handL.visible = VM.torch.visible = false; if (VM.handR) VM.handR.visible = false; VM.vac.root.visible = VM.mop.root.visible = false; }
     const ph = (t * 0.018) % 1; camera.position.set(4 + ph * 14, 1.58 + Math.sin(t * 0.6) * 0.012, 1.8 + Math.sin(t * 0.11) * 0.25); camera.rotation.set(-0.02 + Math.sin(t * 0.23) * 0.01, -Math.PI / 2 + Math.sin(t * 0.07) * 0.06, Math.sin(t * 0.13) * 0.006); animateWorld(dt, t);
     if (monitor && !CALM) { const cyc = t % 17; monitor.root.visible = cyc < 11; huntFlickerT = cyc > 10.6 && cyc < 11.6 ? 0.2 : huntFlickerT; monitor.root.position.set(33, 0, 1.8); monitor.root.rotation.set(0, -Math.PI / 2, 0); if (!monitor.titled) { monitor.titled = true; monitor.update(0.016, 'still', 1, t, 0); } }
@@ -1056,7 +1107,8 @@ function updatePlayer(dt, t) {
   updateCart(dt);
   const speed = Math.hypot(P.vx, P.vz); P.moving = speed > 0.3; P.sprint = sprint && P.moving; P.crouching = crouch;
   P.crouch = lerp(P.crouch, crouch ? 1 : 0, 1 - Math.pow(0.0005, dt));
-  if (P.moving) { P.bob += dt * speed * 2.3; P.stepD += speed * dt; if (P.stepD > (sprint ? 0.95 : 0.72)) { P.stepD = 0; const wetFloor = patchesAt(P.x, P.z).some(p => p.type === 'mud'); audio.step({ x: P.x, y: 0.05, z: P.z }, crouch ? 0.25 : sprint ? 1.3 : 0.8, wetFloor); } }
+  if (P.moving) { P.bob += dt * speed * 2.3; P.stepD += speed * dt; if (P.stepD > (sprint ? 0.95 : 0.72)) { P.stepD = 0; const wetFloor = patchesAt(P.x, P.z).some(p => p.type === 'mud'); audio.step({ x: P.x, y: 0.05, z: P.z }, crouch ? 0.25 : sprint ? 1.3 : 0.8, wetFloor);
+    if (echoT > 0) { const bx = P.x + Math.sin(P.yaw) * 4.5, bz = P.z + Math.cos(P.yaw) * 4.5, h = crouch ? 0.45 : sprint ? 1.4 : 1; setTimeout(() => audio.step({ x: bx, y: 0.05, z: bz }, h), 200 + Math.random() * 90); } } } // something walks in step with you
   P.gy = lerp(P.gy ?? groundY(P.x, P.z), groundY(P.x, P.z), 1 - Math.pow(0.00001, dt));
   const eye = P.gy + lerp(CONFIG.eyeHeight, CONFIG.crouchEye, P.crouch) - (P.downed ? 1.15 : 0);
   const bob = settings.bob && P.moving ? Math.sin(P.bob) * 0.035 * (sprint ? 1.4 : 1) : 0;
@@ -1207,7 +1259,7 @@ window.__bb = {
   get frameMs() { return frameMs; }, get boot() { return BOOT; }, get prof() { return prof; },
   // advance gameplay logic at a fixed 60 Hz without rendering (CPU-emulated test browsers render at a few fps)
   scareState() { return scareDebug(); },
-  get catchT() { return scareT; }, set timeScale(v) { timeScale = v; }, get monPos() { return monitor && { x: monitor.root.position.x, y: monitor.root.position.y, z: monitor.root.position.z }; },
+  get catchT() { return scareT; }, get audio() { return audio; }, get score() { return score; }, get monitor() { return monitor; }, scareMsg(m) { onMessage(m); }, set timeScale(v) { timeScale = v; }, get monPos() { return monitor && { x: monitor.root.position.x, y: monitor.root.position.y, z: monitor.root.position.z }; },
   scare(k, seed = 1) { if (k === 'clear') return clearScares(); if (k === 'lightsout') startLightsOut({ x: P.x, z: P.z, r: 11, d: 20 }); else spawnWatcher(seed); },
   step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); updateScares(1 / 60, t); updateSiege(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
   mirrorDoor(id) { return mirror && mirror.doors[id] && mirror.doors[id].open; },

@@ -55,8 +55,8 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 #holdDoor small{display:block;font-size:13px;letter-spacing:.1em;opacity:.8;margin-top:4px}
 #holdDoor .bar{width:280px;height:8px;background:rgba(255,255,255,.14);margin:12px auto 0;border-radius:4px;overflow:hidden}#holdDoor i{display:block;height:100%;width:0;background:#e2463a}
 #gameover{background:#000;z-index:50}#gameover canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.32}
-#gameover .go{position:relative;text-align:center;color:#d9d3c5}#gameover h1{font:800 clamp(44px,9vw,92px) system-ui,sans-serif;letter-spacing:.25em;margin:0 0 10px;text-shadow:4px 0 rgba(170,0,0,.85),-4px 0 rgba(0,150,160,.6)}
-#gameover p{font-size:17px;line-height:1.6;opacity:.85}#gameover .gorow{display:flex;gap:12px;justify-content:center;margin-top:22px}#gameover button{font:600 16px system-ui;padding:12px 22px;border-radius:6px;border:1px solid #555;background:#161616;color:#eee;cursor:pointer}#gameover button.big{background:#7a1410;border-color:#a33}
+#gameover .go{position:relative;text-align:center;color:#d9d3c5}#gameover h1{font:400 clamp(64px,13vw,170px)/1 var(--disp);letter-spacing:.22em;margin:0 0 8px;color:#e9e3d6;text-shadow:5px 0 rgba(170,0,0,.85),-5px 0 rgba(0,150,160,.45)}
+#gameover p{font:15px/1.9 var(--type);letter-spacing:.14em;opacity:.8;text-transform:uppercase}#gameover p small{font-size:12px;color:#d0503f;letter-spacing:.3em;text-shadow:0 0 6px #000}#gameover .gorow{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:30px}#gameover .mi{text-align:center}
 #hurt{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 30%,rgba(20,0,0,.85) 100%);opacity:0;transition:opacity .3s}
 #pauseBtn{position:fixed;right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));width:42px;height:42px;background:rgba(0,0,0,.45);border:1px solid var(--line);color:var(--ink);font-weight:800;pointer-events:auto}
 /* OS */
@@ -119,6 +119,7 @@ label.set{display:flex;justify-content:space-between;align-items:center;gap:12px
 .mi:disabled{opacity:.35;cursor:default}
 .mi.back{font-size:20px;color:#9b968a;margin-top:6px}
 .msub h3{font:400 clamp(26px,3.4vw,40px) var(--disp);letter-spacing:.1em;margin:0 0 8px;color:#fff}
+.fearsel span{color:#c8402f}.fearsel i{font-style:normal;font-size:.55em;opacity:.45;vertical-align:middle}.fearDesc{font:13px/1.5 var(--type);color:#8d887c;padding:0 18px 10px;max-width:460px;min-height:2.6em}
 .fld{display:flex;flex-direction:column;gap:6px;font:12px var(--hud);letter-spacing:.14em;text-transform:uppercase;color:#9b968a;margin:4px 0 10px}
 .fld input[type=text]{font:22px var(--disp);letter-spacing:.1em;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.25);padding:10px 12px;outline:none}
 .fld input[type=text]:focus{border-color:var(--blood)}
@@ -158,7 +159,7 @@ body.touchui #toolInfo{display:none}body.touchui #bl{bottom:calc(196px + env(saf
 <div id="vign"></div><div id="hurt"></div>
 <div id="lockerView" hidden></div><div id="blinkFx"></div>
 <div id="holdDoor" hidden><b>HOLD THE DOOR</b><small id="holdHint">Hold [E] at the door</small><div class="bar"><i id="holdBar"></i></div></div>
-<div id="gameover" class="screen" hidden><canvas id="goStatic" width="200" height="112"></canvas><div class="go"><h1>GAME OVER</h1><p id="goText"></p><div class="gorow"><button id="bRetry" class="big">Retry night</button><button id="bQuit">Quit to title</button></div></div></div>
+<div id="gameover" class="screen" hidden><canvas id="goStatic" width="200" height="112"></canvas><div class="go"><h1>GAME OVER</h1><p id="goText"></p><div class="gorow"><button id="bRetry" class="mi">Retry night</button><button id="bQuit" class="mi">Quit to title</button></div></div></div>
 <div id="hud" hidden>
   <div id="crosshair"></div>
   <div id="tl"><b id="area">—</b><div id="areaProg"></div></div>
@@ -186,6 +187,8 @@ body.touchui #toolInfo{display:none}body.touchui #bl{bottom:calc(196px + env(saf
     <nav class="mlist" id="mMain">
       <button class="mi" id="bSolo">New game</button>
       <button class="mi" id="bNewSolo" hidden>New game</button>
+      <button class="mi fearsel" id="mFear">Fear · <span id="fearName">Bed Wetter</span> <i>&#9666; &#9656;</i></button>
+      <div class="fearDesc" id="fearDesc"></div>
       <button class="mi" id="mCoop">Play with friends</button>
       <button class="mi" id="mOpts">Options</button>
       <button class="mi" id="mHow">How to play</button>
@@ -227,6 +230,7 @@ body.touchui #toolInfo{display:none}body.touchui #bl{bottom:calc(196px + env(saf
     <label class="set">Invert look Y <input type="checkbox" id="sInv"></label>
     <label class="set">Quality <select id="sQual"><option value="2">High</option><option value="1">Medium</option><option value="0">Low</option></select></label>
     <label class="set">Volume <input type="range" id="sVol" min="0" max="1" step="0.05"></label>
+    <label class="set">Music <input type="range" id="sMus" min="0" max="1" step="0.05"></label>
     <p class="note" id="perfNote"></p>
   </div>
 </div>

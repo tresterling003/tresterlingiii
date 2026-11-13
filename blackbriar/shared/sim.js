@@ -30,6 +30,7 @@ const DGRID = new Map(); for (const d of DEBRIS) { const k = Math.floor(d.x) + '
 export class Sim {
   constructor(save, opts = {}) {
     this.opts = opts;
+    this.fear = opts.fear ?? 1; // 0 Sissy, 1 Bed Wetter, 2 Nightmare: the host's choice
     this.out = [];
     this.rand = rng((Date.now() & 0xffff) + 7);
     this.players = new Map(); // pid -> runtime
@@ -101,7 +102,7 @@ export class Sim {
   }
   leave(pid) { const p = this.players.get(pid); if (p) { p.connected = false; p.act = 0; this.emit({ t: 'toast', msg: `${p.name} disconnected.` }); } }
   fullState(pid) {
-    return { t: 'welcome', you: pid, save: this.serialize(), players: this.snapPlayers(), mon: this.snapMon(), phase: this.phase, upgrades: this.upgrades, summary: this.summary, maxPlayers: CONFIG.maxPlayers, calm: !!this.opts.calm };
+    return { t: 'welcome', you: pid, save: this.serialize(), players: this.snapPlayers(), mon: this.snapMon(), phase: this.phase, upgrades: this.upgrades, summary: this.summary, maxPlayers: CONFIG.maxPlayers, calm: !!this.opts.calm, fear: this.fear };
   }
   emit(ev, route = {}) { this.out.push({ ev, ...route }); }
 
@@ -282,6 +283,7 @@ export class Sim {
       }
       case 'unhide': { if (!p.hidden) return; const L = LOCKERS.find(l => l.id === p.hidden); p.hidden = null; if (L) { p.x = L.x; p.z = L.side === 'n' ? L.z + 0.55 : L.z - 0.55; p.teleportOk = true; this.emit({ t: 'teleport', x: p.x, z: p.z, yaw: L.side === 'n' ? Math.PI : 0 }, { to: pid }); } this.emit({ t: 'hidden', pid, on: 0 }); return; }
       case 'retry': if (this.phase === 'gameover') this.restartNight(); return;
+      case 'fear': if (pid === [...this.players.keys()][0] && [0, 1, 2].includes(m.v)) { this.fear = m.v; this.emit({ t: 'fear', v: m.v }); } return; // only whoever started the crew
       case 'sleep': {
         if (this.phase !== 'summary') return;
         this.startDay(this.day + 1);
