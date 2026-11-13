@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { Sim, inOffice } from '../shared/sim.js';
 import { DEBRIS, PATCHES, DOORS, buildNav, findPath, doorCenter, COMPUTER, TOOL_RACK } from '../shared/level.js';
 import { CONFIG } from '../shared/config.js';
+import { startHunt } from '../shared/stalker.js';
+import { solidRects } from '../shared/level.js';
 
 let pass = 0; const t = (name, fn) => { fn(); pass++; console.log('ok -', name); };
 const drain = (s) => { const o = s.out; s.out = []; return o; };
@@ -124,22 +126,30 @@ t('hunts are announced, limited per night, and caught alone means GAME OVER; Ret
   s3.catchPlayer(r); assert.equal(s3.phase, 'gameover'); assert.ok(s3.out.some(o => o.ev.t === 'gameover'));
   s3.handle('a', { t: 'retry' }); assert.equal(s3.phase, 'shift'); assert.equal(s3.money, 20); assert.equal(s3.collected[9], 0); assert.equal(s3.shiftT, 0);
 });
-t('frozen while watched; in a hunt it outruns you when you look away and catches you from behind', () => {
+t('in a hunt: frozen while watched; look away and it crawls after you a little faster than you move, and catches you from behind', () => {
   const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
   p.x = 30; p.z = 1.8; p.fl = 1; lookAt(p, 38, 1.8);
-  s.mon.x = 38; s.mon.z = 1.8; s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0, watchT: 0, twitchT: 0, twitchAfter: 3, crawl: false }); s.dir.hunts = 1;
-  run(s, 1.5);
-  assert.equal(s.mon.x, 38, 'did not move while watched'); assert.ok(s.mon.frozen);
-  lookAway(p, 38, 1.8); const x0 = s.mon.x; run(s, 0.5);
-  assert.ok((x0 - s.mon.x) / 0.5 > CONFIG.sprintSpeed, 'faster than a sprinting worker');
-  const ev = run(s, 6); assert.ok(ev.some(o => o.ev.t === 'caught')); assert.equal(s.phase, 'gameover');
+  s.mon.x = 38; s.mon.z = 1.8; s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 99, crawl: true, windup: 0 }); s.dir.hunts = 1;
+  run(s, 1.5); assert.equal(s.mon.x, 38, 'did not move while watched'); assert.ok(s.mon.frozen);
+  lookAway(p, 38, 1.8); p.mv = 1; p.sp = 1; const x0 = s.mon.x; run(s, 1);
+  const v = x0 - s.mon.x; assert.ok(v > CONFIG.sprintSpeed && v < CONFIG.sprintSpeed * 1.25, 'matches a sprint, slightly faster: ' + v.toFixed(2));
+  p.mv = 0; p.sp = 0; const ev = run(s, 8); assert.ok(ev.some(o => o.ev.t === 'caught')); assert.equal(s.phase, 'gameover');
 });
-t('you cannot stare it down: in a hunt it jerks closer while watched and still reaches you', () => {
+t('a hunt starts far away, with a warning, and waits a few seconds before it comes', () => {
+  const s = new Sim(); s.join('a', 'A'); s.shiftT = CONFIG.shiftSeconds * 0.5; const p = s.players.get('a'); p.x = 30; p.z = 1.8; lookAway(p, 0, 1.8);
+  s.mon.x = 31; s.mon.z = 1.8; s.tick(0.1); s.out = [];
+  startHunt(s, p, [p], solidRects(s.doors));
+  const evs = s.out.map(o => o.ev); s.out = [];
+  assert.ok(evs.some(e => e.t === 'hunt' && e.on), 'announced'); assert.ok(evs.some(e => e.t === 'monfx' && e.k === 'drop'), 'you can hear where it is');
+  assert.ok(Math.hypot(s.mon.x - p.x, s.mon.z - p.z) >= 12, 'far away: ' + Math.hypot(s.mon.x - p.x, s.mon.z - p.z).toFixed(1));
+  const x1 = s.mon.x, z1 = s.mon.z; run(s, 1.4); assert.ok(s.mon.x === x1 && s.mon.z === z1, 'still winding up');
+});
+t('hold it with your eyes long enough and it gives up and crawls away', () => {
   const s = new Sim(); s.join('a', 'A'); s.shiftT = 400; const p = s.players.get('a');
   p.x = 30; p.z = 1.8; p.fl = 1; s.mon.x = 36; s.mon.z = 1.8; s.dir.hunts = 1;
-  s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0, watchT: 0, twitchT: 0, twitchAfter: 2, crawl: false });
-  const ev = run(s, 40, () => lookAt(p, s.mon.x, s.mon.z));
-  assert.ok(ev.filter(o => o.ev.t === 'monfx' && o.ev.k === 'twitch').length >= 3, 'twitches'); assert.ok(ev.some(o => o.ev.t === 'caught'), 'caught in the end');
+  s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: 30, z: 1.8 }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 6, crawl: true, windup: 0 });
+  const ev = run(s, 12, () => lookAt(p, s.mon.x, s.mon.z));
+  assert.ok(!ev.some(o => o.ev.t === 'caught'), 'not caught while watched'); assert.ok(ev.some(o => o.ev.t === 'monstate' && o.ev.st === 'flee'), 'it crawled off');
 });
 t('stare at it too long and it reacts: it scuttles off in plain sight, comes for you, or is gone when the lights return', () => {
   const outcomes = new Set();
@@ -164,13 +174,13 @@ t('the pacing is irregular: gaps between beats vary widely', () => {
 t('hiding in a locker: unseen, it loses you; seen getting in, it finds you', () => {
   const mk = () => { const s = new Sim(); s.join('a', 'A'); s.shiftT = 500; const p = s.players.get('a'); const L = { id: 'L140', x: 0, z: 0 }; return { s, p }; };
   { const { s, p } = mk(); const L = s.players && 'L140'; p.x = 16.2 + 0.2 + (140 - 126) * 0.4; p.z = 0.9; s.mon.x = 36; s.mon.z = 2.5;
-    s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0 });
+    s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 99, crawl: true, windup: 0 });
     s.mon.x = 13; s.mon.z = -4.5; // in the classroom, no line of sight
     s.dir.hunts = 1; s.dir.lastHunt = 0; // a hunt just started: no new one for a while
     s.handle('a', { t: 'hide', id: 'L140' }); assert.equal(p.hidden, 'L140'); assert.equal(s.mon.sawHide, false);
     const ev = run(s, 25); assert.ok(!ev.some(o => o.ev.t === 'caught'), 'not found'); assert.notEqual(s.mon.state, 'hunt'); }
   { const { s, p } = mk(); p.x = 16.2 + 0.2 + (140 - 126) * 0.4; p.z = 0.9; s.mon.x = p.x + 8; s.mon.z = 1.8;
-    s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0 });
+    s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 99, crawl: true, windup: 0 });
     s.handle('a', { t: 'hide', id: 'L140' }); assert.equal(s.mon.sawHide, true);
     const ev = run(s, 10); assert.ok(ev.some(o => o.ev.t === 'caught'), 'dragged out'); }
 });

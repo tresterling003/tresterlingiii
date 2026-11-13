@@ -90,26 +90,28 @@ function crawlPose(r, st, dt, speed) {
   for (const [b, p] of r.fixed) b.position.copy(p);
   r.root.updateMatrixWorld(true);
   const M = r.root.matrixWorld, L = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(M);
-  st.crawlPh = (st.crawlPh || 0) + dt * (0.6 + speed * 0.75);
+  st.crawlPh = (st.crawlPh || 0) + dt * Math.min(6.5, 0.25 + speed / 0.72); // stride cadence follows its real speed
   const ph = st.crawlPh, bob = Math.sin(ph * Math.PI * 4) * 0.03;
   // hips low and level; the spine runs forward, arching up into a neck that cranes toward you
-  const hipsW = L(0, 0.6 + bob, -0.2); B.Hips.position.copy(B.Hips.parent.worldToLocal(hipsW.clone()));
+  // st.rear (0..1): it rears up off its hands, torso rising toward you, head level with yours, arms reaching
+  const R = st.rear || 0, mix = (a, b) => R ? a.lerp(b, R) : a, up = (s, y = 0, z = 0) => L(0, 0.92 + 0.94 * s + y, -0.3 + 0.34 * s + z);
+  const hipsW = L(0, 0.6 + bob + R * 0.3, -0.2 - R * 0.1); B.Hips.position.copy(B.Hips.parent.worldToLocal(hipsW.clone()));
   B.Hips.updateMatrixWorld(true);
-  aimBone(B.Hips, B.Spine, L(0, 0.66 + bob, 0.3));
-  aimBone(B.Spine, B.Spine1, L(0, 0.7 + bob, 0.55));
-  aimBone(B.Spine1, B.Spine2, L(0, 0.74 + bob, 0.8));
-  aimBone(B.Spine2, B.Neck, L(0, 0.86 + bob, 1.05));
-  aimBone(B.Neck, B.Head, L(0, 1.15 + bob, 1.2));
+  aimBone(B.Hips, B.Spine, mix(L(0, 0.66 + bob, 0.3), up(0.15)));
+  aimBone(B.Spine, B.Spine1, mix(L(0, 0.7 + bob, 0.55), up(0.3)));
+  aimBone(B.Spine1, B.Spine2, mix(L(0, 0.74 + bob, 0.8), up(0.45)));
+  aimBone(B.Spine2, B.Neck, mix(L(0, 0.86 + bob, 1.05), up(0.62, 0, 0.05)));
+  aimBone(B.Neck, B.Head, mix(L(0, 1.15 + bob, 1.2), up(0.62, 0.36, 0.14)));
   // diagonal gait: left hand with right foot, then the other pair
   const limb = (side, hand, off) => {
     const u = (ph + off) % 1, stance = u < 0.62, k = stance ? u / 0.62 : (u - 0.62) / 0.38;
     const stride = hand ? 0.34 : 0.3, z0 = hand ? 0.95 : -0.75, zz = stance ? z0 + stride * (0.5 - k) : z0 + stride * (k - 0.5), lift = stance ? 0 : Math.sin(k * Math.PI) * 0.16;
     return L(side * (hand ? 0.5 : 0.48), lift, zz);
   };
-  ik2(B.LeftArm, B.LeftForeArm, B.LeftHand, limb(1, true, 0), L(1.4, 1.1, 0.5));
-  ik2(B.RightArm, B.RightForeArm, B.RightHand, limb(-1, true, 0.5), L(-1.4, 1.1, 0.5));
-  ik2(B.LeftUpLeg, B.LeftLeg, B.LeftFoot, limb(1, false, 0.5), L(1.4, 1.2, -0.5));
-  ik2(B.RightUpLeg, B.RightLeg, B.RightFoot, limb(-1, false, 0), L(-1.4, 1.2, -0.5));
+  ik2(B.LeftArm, B.LeftForeArm, B.LeftHand, mix(limb(1, true, 0), L(0.36, 1.58, 0.72)), mix(L(1.4, 1.1, 0.5), L(1.2, 0.7, 0.1)));
+  ik2(B.RightArm, B.RightForeArm, B.RightHand, mix(limb(-1, true, 0.5), L(-0.36, 1.58, 0.72)), mix(L(-1.4, 1.1, 0.5), L(-1.2, 0.7, 0.1)));
+  ik2(B.LeftUpLeg, B.LeftLeg, B.LeftFoot, mix(limb(1, false, 0.5), L(0.3, 0, -0.5)), mix(L(1.4, 1.2, -0.5), L(0.7, 0.5, 0.8)));
+  ik2(B.RightUpLeg, B.RightLeg, B.RightFoot, mix(limb(-1, false, 0), L(-0.3, 0, -0.5)), mix(L(-1.4, 1.2, -0.5), L(-0.7, 0.5, 0.8)));
 }
 function animate(r, dt, mode, speed) {
   for (const k of ['idle', 'walk', 'run']) { r.w[k] = lerp(r.w[k], k === mode ? 1 : 0, 1 - Math.pow(0.002, dt)); r.acts[k].setEffectiveWeight(r.w[k]); }

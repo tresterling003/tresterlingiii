@@ -42,8 +42,8 @@ export const CONFIG = {
   },
   // the Monitor
   monitor: {
-    stareLimit: 6, huntsPerNight: [2, 3, 4], huntAfter: 0.25, huntGap: 95, huntMax: 50, firstNightGrace: 45, siegeTries: [2, 3, 4], siegeHold: 0.6,
-    unseenSprint: 1.4, viewFreezeHalf: 0.72, // chase speed x1.4 (faster than your sprint) whenever nobody is looking; ~41 degrees either side of your view centre counts as looking
+    stareLimit: 6, huntsPerNight: [2, 3, 4], huntAfter: 0.32, huntGap: 110, huntMax: 50, firstNightGrace: 45, siegeTries: [2, 3, 4], siegeHold: 0.6,
+    unseenSprint: 1.4, viewFreezeHalf: 0.95, // anywhere on your screen counts as looking: each client reports its own half-width (hf); this is the fallback
     speed: { patrol: 1.1, investigate: 1.7, stalk: 2.6, chase: 4.3, search: 1.4, retreat: 1.6, watch: 0 },
     lockdownSpeedMul: 1.15,
     viewRange: 17, viewHalfAngleDeg: 58, closeSense: 2.2, catchRadius: 1.05,

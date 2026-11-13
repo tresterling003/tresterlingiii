@@ -116,7 +116,7 @@ export class Sim {
         if (p.downed || p.out || p.hidden) { p.yaw = m.yw; p.pitch = m.pt; return; }
         // light sanity: reject impossible jumps (except respawns the server initiated)
         if (dist(p.x, p.z, m.p[0], m.p[2]) < 4 || p.teleportOk || (m.tp && this.opts.allowTeleport)) { p.x = m.p[0]; p.y = m.p[1]; p.z = m.p[2]; p.teleportOk = false; }
-        p.yaw = m.yw; p.pitch = m.pt; p.tool = m.tool; p.act = m.act ? 1 : 0; p.fl = m.fl ? 1 : 0; p.cr = m.cr ? 1 : 0; p.sp = m.sp ? 1 : 0; p.mv = m.mv ? 1 : 0;
+        p.yaw = m.yw; p.pitch = m.pt; p.tool = m.tool; p.act = m.act ? 1 : 0; p.fl = m.fl ? 1 : 0; p.cr = m.cr ? 1 : 0; p.sp = m.sp ? 1 : 0; p.mv = m.mv ? 1 : 0; if (typeof m.hf === 'number' && m.hf > 0) p.hf = Math.min(1.4, Math.max(0.55, m.hf));
         p.lastSeen = this.time || 0;
         if (this.cart.holder === pid && m.cart) { this.cart.x = m.cart[0]; this.cart.z = m.cart[1]; this.cart.yaw = m.cart[2]; }
         for (const r of this.roombas) if (r.holder === pid) { r.x = p.x; r.z = p.z; }
@@ -372,6 +372,7 @@ export class Sim {
       this.keys['014'] = true; this.emit({ t: 'keys', keys: this.keys, quiet: true });
       this.emit({ t: 'toast', msg: 'Somewhere in the east hallway, a door that is not on the floor plan is standing open.' });
       if (!this.opts.calm) this.emit({ t: 'pa', text: 'Room zero one four is now open. Room zero one four, please.' });
+      if (this.dir) this.dir.lastHunt = Math.max(this.dir.lastHunt, this.time - CONFIG.monitor.huntGap + 70); // a minute of quiet after the announcement
     }
     const min = gameClock(this.shiftT);
     const pa = (key, text) => { if (this.opts.calm) return; if (!this.firedPA[key]) { this.firedPA[key] = 1; this.emit({ t: 'pa', text }); } };
@@ -491,7 +492,7 @@ export class Sim {
   playerSees(p, m, rects) {
     const d = dist(m.x, m.z, p.x, p.z); if (d > 34) return false;
     const toMon = Math.atan2(m.x - p.x, m.z - p.z), facing = Math.atan2(-Math.sin(p.yaw || 0), -Math.cos(p.yaw || 0));
-    if (Math.abs(angDiff(facing, toMon)) > CONFIG.monitor.viewFreezeHalf && d > 0.4) return false;
+    if (Math.abs(angDiff(facing, toMon)) > (p.hf || CONFIG.monitor.viewFreezeHalf) && d > 0.4) return false; // on your screen at all = frozen
     if (segBlocked(p.x, p.z, m.x, m.z, rects, { sight: true })) return false;
     return d < 3 || this.lightAt(m.x, m.z) > 0.12 || (p.fl && d < 15);
   }

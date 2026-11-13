@@ -18,7 +18,7 @@ function inViewOf(S, p, x, z, rects, slack = 0.25) {
   if (p.hidden) return false;
   const d = dist(p.x, p.z, x, z); if (d > 36) return false;
   const facing = Math.atan2(-Math.sin(p.yaw || 0), -Math.cos(p.yaw || 0));
-  if (d > 1.5 && Math.abs(angDiff(facing, Math.atan2(x - p.x, z - p.z))) > CONFIG.monitor.viewFreezeHalf + slack) return false;
+  if (d > 1.5 && Math.abs(angDiff(facing, Math.atan2(x - p.x, z - p.z))) > (p.hf || CONFIG.monitor.viewFreezeHalf) + slack) return false;
   return !segBlocked(p.x, p.z, x, z, rects, { sight: true });
 }
 const seenByAny = (S, alive, x, z, rects) => alive.some(p => inViewOf(S, p, x, z, rects));
@@ -57,14 +57,18 @@ function canHunt(S, prog) {
   const dir = S.dir, cap = CONFIG.monitor.huntsPerNight[Math.min(S.day, 3) - 1];
   return prog > CONFIG.monitor.huntAfter && dir.hunts < cap && (S.time || 0) - dir.lastHunt > CONFIG.monitor.huntGap;
 }
-function startHunt(S, p, alive, rects, how) {
+export function startHunt(S, p, alive, rects, how) {
   const m = S.mon, dir = S.dir; dir.hunts++; dir.lastHunt = S.time || 0;
-  if (how !== 'charge' && (dist(m.x, m.z, p.x, p.z) > 24 || !sameFloor(m, p))) { const s = spotNear(S, p, alive, rects, 15, 22, false); if (s) relocate(S, s.x, s.z); }
-  const crawl = how === 'charge' || S.rand() < 0.5;
-  S.setMon('hunt', { target: p.pid, huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, twitchT: 0, twitchAfter: 1.8 + S.rand() * 2.6, crawl });
-  // half the time the building warns you; half the time it just comes
-  S.emit({ t: 'hunt', on: 1, pid: p.pid, loud: how === 'charge' ? 0 : S.rand() < 0.5 ? 1 : 0 });
+  const d0 = dist(m.x, m.z, p.x, p.z);
+  if (how !== 'charge' && (d0 < 15 || d0 > 26 || !sameFloor(m, p))) { const s = spotNear(S, p, alive, rects, 16, 24, false) || spotNear(S, p, alive, rects, 12, 30, false, { tries: 140 }); if (s) relocate(S, s.x, s.z); }
+  m.pz = lowCeiling(m.x, m.z) && S.rand() < 0.4 ? POSE.ceil : POSE.crawl;
+  S.setMon('hunt', { target: p.pid, huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 8 + S.rand() * 7, crawl: true, windup: how === 'charge' ? 1.6 : 3.2 + S.rand() * 2.3 });
+  // you always get a warning: it drops onto all fours somewhere you can hear it
+  S.emit({ t: 'monfx', k: 'drop', x: m.x, z: m.z, pz: m.pz });
+  S.emit({ t: 'hunt', on: 1, pid: p.pid, loud: how === 'charge' ? 0 : 1, flicker: S.rand() < 0.55 ? 1 : 0, x: m.x, z: m.z });
 }
+// it crawls after you as fast as you move, a little faster — run and it barely gains, stop and it closes in
+function huntSpeed(S, t) { const C = CONFIG, shoe = S.upgrades.shoes ? 1.15 : 1, v = !t.mv ? 0 : t.sp ? C.sprintSpeed * shoe : t.cr ? C.crouchSpeed * shoe : C.walkSpeed * shoe; return Math.max(2.6, Math.min(6, v * 1.08 + 0.15)); }
 // a visible exit: it drops and scuttles away (across the ceiling where it can reach one) to somewhere you cannot see
 function flee(S, from, alive, rects, opts = {}) {
   const m = S.mon, here = dist(m.x, m.z, from.x, from.z);
@@ -145,26 +149,19 @@ export function tickStalker(S, dt) {
     if (dir.stare[p.pid] > dir.stareLim[p.pid] && !S.isInOffice(p) && !lock) {
       dir.stare[p.pid] = 0; dir.stareLim[p.pid] = 0;
       const r = S.rand();
-      if (r < 0.28 && canHunt(S, prog)) { m.pz = POSE.crawl; S.emit({ t: 'monfx', k: 'drop', x: m.x, z: m.z, pz: 1 }); return startHunt(S, p, alive, rects, 'charge'); }
+      if (r < 0.28 && canHunt(S, prog) && dist(m.x, m.z, p.x, p.z) > 9) return startHunt(S, p, alive, rects, 'charge');
       if (r < 0.82) return flee(S, p, alive, rects);
       S.emit({ t: 'scare', k: 'lightsout', x: m.x, z: m.z, r: 9, d: 2.5 + S.rand() * 2 }); m.vanishWhenUnseen = true; m.vanishAt = now + 1.4;
     }
   }
   if (m.vanishWhenUnseen && now > (m.vanishAt || 0)) { m.vanishWhenUnseen = false; return vanish(S, alive, rects); }
-  // ---- in a hunt, staring only slows it: it comes in jerks, a step at a time ----
+  // ---- in a hunt, your eyes hold it still; hold it long enough and it gives up and crawls off ----
   if (m.frozen && m.state === 'hunt') {
     m.watchT += dt;
-    if (m.watchT > m.twitchAfter) {
-      m.twitchT -= dt;
-      if (m.twitchT <= 0) {
-        m.twitchT = 0.3 + S.rand() * 1.0; const t = alive.find(q => q.pid === m.target);
-        if (t) { if (!m.path || m.pathT > 0.6) S.planPath(t.x, t.z); m.pathT += dt; S.followPath(0.5 / dt, dt, rects); m.yaw = Math.atan2(t.x - m.x, t.z - m.z); S.emit({ t: 'monfx', k: 'twitch', x: m.x, z: m.z });
-          if (dist(m.x, m.z, t.x, t.z) < C.catchRadius + 0.25 && !t.hidden) { S.emit({ t: 'hunt', on: 0 }); S.catchPlayer(t); return; } }
-      }
-    }
+    if (m.watchT > m.holdLimit) { const t = alive.find(q => q.pid === m.target) || watchers[0]; S.emit({ t: 'hunt', on: 0 }); return flee(S, t, alive, rects); }
     m.moving = 0; return;
   }
-  if (m.state === 'hunt') m.watchT = Math.max(0, (m.watchT || 0) - dt * 2);
+  if (m.state === 'hunt') m.watchT = Math.max(0, (m.watchT || 0) - dt * 0.5);
   if (m.frozen) { m.moving = 0; m.seenT = (m.seenT || 0) + dt; afterSeen(S, alive, rects); return; }
   // everything below happens while nobody is looking (or while it flees)
   if (lock && m.state !== 'hunt' && m.state !== 'siege' && m.state !== 'flee') {
@@ -230,7 +227,8 @@ export function tickStalker(S, dt) {
     let t = tgt;
     if (!t || t.downed || t.out) { t = outside.sort((a, b) => dist(a.x, a.z, m.x, m.z) - dist(b.x, b.z, m.x, m.z))[0]; if (t) m.target = t.pid; }
     if (!t) return vanish(S, alive, rects, 30);
-    m.pz = m.crawl ? (lowCeiling(m.x, m.z) && dist(m.x, m.z, t.x, t.z) > 5 ? POSE.ceil : POSE.crawl) : POSE.stand;
+    if (m.windup > 0) { m.windup -= dt; m.moving = 0; m.yaw = turnTo(m.yaw, Math.atan2(t.x - m.x, t.z - m.z), dt * 3); return; }
+    m.pz = m.pz === POSE.ceil && lowCeiling(m.x, m.z) && dist(m.x, m.z, t.x, t.z) > 4 ? POSE.ceil : POSE.crawl;
     const d = dist(m.x, m.z, t.x, t.z), sees = !t.hidden && !segBlocked(m.x, m.z, t.x, t.z, rects, { sight: true });
     if (sees) { m.lastKnown = { x: t.x, z: t.z }; m.lostT = 0; } else m.lostT += dt;
     if (S.isInOffice(t) && !S.doors.d_office.open) {
@@ -248,10 +246,10 @@ export function tickStalker(S, dt) {
     }
     const gx = t.hidden ? t.hx : (sees ? t.x : m.lastKnown.x), gz = t.hidden ? t.hz : (sees ? t.z : m.lastKnown.z);
     if (!m.path || m.pathT > 0.3) S.planPath(gx, gz); m.pathT += dt;
-    S.followPath(C.speed.chase * C.unseenSprint * (m.crawl ? 1.08 : 1), dt, rects);
+    S.followPath(huntSpeed(S, t), dt, rects);
     m.lookX = t.x; m.lookZ = t.z;
     if ((t.hidden ? dist(m.x, m.z, t.hx, t.hz) < 1.3 : d < C.catchRadius && sees)) { if (t.hidden) S.emit({ t: 'prank', k: 'rip', id: t.hidden, x: t.hx, z: t.hz }); S.emit({ t: 'hunt', on: 0 }); S.catchPlayer(t); return; }
-    if (m.huntT > C.huntMax || (m.lostT > 9 && d > 16)) return vanish(S, alive, rects, 35);
+    if (m.huntT > C.huntMax || (m.lostT > 10 && d > 18)) return vanish(S, alive, rects, 35);
   } else if (st === 'siege') tickSiege(S, dt, alive, rects);
 }
 // what it does while you are still looking at it
