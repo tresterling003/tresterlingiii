@@ -1259,7 +1259,7 @@ window.__bb = {
   get frameMs() { return frameMs; }, get boot() { return BOOT; }, get prof() { return prof; },
   // advance gameplay logic at a fixed 60 Hz without rendering (CPU-emulated test browsers render at a few fps)
   scareState() { return scareDebug(); },
-  get catchT() { return scareT; }, get audio() { return audio; }, get score() { return score; }, get monitor() { return monitor; }, scareMsg(m) { onMessage(m); }, set timeScale(v) { timeScale = v; }, get monPos() { return monitor && { x: monitor.root.position.x, y: monitor.root.position.y, z: monitor.root.position.z }; },
+  get catchT() { return scareT; }, get audio() { return audio; }, get score() { return score; }, get monitor() { return monitor; }, get netVia() { return net && (net.via || 'host'); }, scareMsg(m) { onMessage(m); }, set timeScale(v) { timeScale = v; }, get monPos() { return monitor && { x: monitor.root.position.x, y: monitor.root.position.y, z: monitor.root.position.z }; },
   scare(k, seed = 1) { if (k === 'clear') return clearScares(); if (k === 'lightsout') startLightsOut({ x: P.x, z: P.z, r: 11, d: 20 }); else spawnWatcher(seed); },
   step(seconds) { const n = Math.round(seconds * 60); for (let i = 0; i < n; i++) { const t = performance.now() / 1000 + i / 60; updatePlayer(1 / 60, t); updateTools(1 / 60, t); updateMonitor(1 / 60, t); animateWorld(1 / 60, t); updateScares(1 / 60, t); updateSiege(1 / 60, t); if (i % 4 === 0) sendState(); } updateMasks(1); updateHUD(1); },
   mirrorDoor(id) { return mirror && mirror.doors[id] && mirror.doors[id].open; },
