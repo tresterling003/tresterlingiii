@@ -751,7 +751,10 @@ describe("deleting leagues, accounts and messages", () => {
   it("deleting an account erases personal data, hands off leagues, and keeps rivals' history", async () => {
     const a = await db.signup({ name: "Alex" }); const b = await db.signup(); const c = await db.signup();
     const L = await league(a, { weeks: 2 });           // a commissions L with b and c
-    await join(b, L.code); await join(c, L.code);
+    await join(b, L.code);
+    await db.setClock("2026-11-04T18:05:00Z");         // c joins later, so b is longest-standing
+    await join(c, L.code);
+    await db.setClock(WED);
     const solo = await league(a);                      // a alone in this one
     await db.as(a, "select start_season($1, 'this_week')", [L.id]);
     await db.log(a, "run", TODAY, { min: 30 });
@@ -787,5 +790,110 @@ describe("deleting leagues, accounts and messages", () => {
     } finally {
       await db.setClock(WED);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("solo: programs, sessions and habits", () => {
+  const tpl = (over: Record<string, unknown> = {}) => JSON.stringify({
+    name: "Push Day", kind: "strength", est_minutes: 50,
+    exercises: [{ name: "Bench Press", sets: 4, reps: "6-8", weight: 135 }, { name: "Overhead Press", sets: 3, reps: "8" }],
+    ...over,
+  });
+
+  it("builds a program and schedules it; owner-only", async () => {
+    const u = await db.signup(); const other = await db.signup();
+    const [{ id }] = await db.as(u, "select save_template($1) as id", [tpl()]);
+    const ex = await db.as(u, "select name, sets, reps, weight from template_exercises where template_id = $1 order by position", [id]);
+    expect(ex.map((e) => e.name)).toEqual(["Bench Press", "Overhead Press"]);
+    expect(Number(ex[0].weight)).toBe(135);
+    await db.as(u, "select set_program_day(3, $1)", [id]);                 // Wednesday
+    // Edit replaces exercises.
+    await db.as(u, "select save_template($1)", [tpl({ id, exercises: [{ name: "Incline Press", sets: 3, reps: "10" }] })]);
+    expect((await db.as(u, "select name from template_exercises where template_id = $1", [id])).map((e) => e.name)).toEqual(["Incline Press"]);
+    // Others can't see, edit, schedule or delete it.
+    expect(await db.as(other, "select * from workout_templates where id = $1", [id])).toHaveLength(0);
+    await expectFail(db.as(other, "select save_template($1)", [tpl({ id })]), "not_found");
+    await expectFail(db.as(other, "select set_program_day(1, $1)", [id]), "not_found");
+    await expectFail(db.as(other, "select delete_template($1)", [id]), "not_found");
+    await expectFail(db.as(other, "insert into workout_templates (user_id, name) values ($1, 'x')", [other]), "permission denied");
+  });
+
+  it("finishing a scheduled workout logs it, earns the planned bonus, and is idempotent", async () => {
+    const u = await db.signup();
+    const [{ id }] = await db.as(u, "select save_template($1) as id", [tpl()]);
+    await db.as(u, "select set_program_day(3, $1)", [id]);                 // TODAY (2026-11-04) is a Wednesday
+    const logs = JSON.stringify([{ name: "Bench Press", done: true, sets_done: 4, reps: "8,8,7,6", weight: 145 }, { name: "Overhead Press", done: false }]);
+    await db.as(u, "select save_session($1, $2, $3)", [TODAY, id, logs]);
+    const req = randomUUID();
+    await db.as(u, "select finish_session($1, $2, 50, $3)", [TODAY, id, req]);
+    await db.as(u, "select finish_session($1, $2, 50, $3)", [TODAY, id, req]);   // double tap
+    expect(await db.as(u, "select id from workouts")).toHaveLength(1);
+    const [d] = await db.as(u, "select * from my_day_scores($1, $1, null)", [TODAY]);
+    expect(Number(d.strength_pts)).toBe(20);                              // 50 min strength
+    expect(d.plan_done).toBe(true);
+    expect(Number(d.plan_pts)).toBe(5);
+    // Reopen removes the logged workout and the bonus.
+    await db.as(u, "select reopen_session($1, $2)", [TODAY, id]);
+    const [d2] = await db.as(u, "select * from my_day_scores($1, $1, null)", [TODAY]);
+    expect(Number(d2.total)).toBe(0);
+    expect(await db.as(u, "select id from workouts")).toHaveLength(0);
+  });
+
+  it("an unscheduled workout counts but doesn't earn the planned bonus", async () => {
+    const u = await db.signup();
+    const [{ id }] = await db.as(u, "select save_template($1) as id", [tpl()]);
+    await db.as(u, "select save_session($1, $2, '[]')", [TODAY, id]);
+    await db.as(u, "select finish_session($1, $2, 30, $3)", [TODAY, id, randomUUID()]);
+    const [d] = await db.as(u, "select * from my_day_scores($1, $1, null)", [TODAY]);
+    expect(Number(d.strength_pts)).toBe(12);
+    expect(d.plan_done).toBe(false);
+  });
+
+  it("sessions respect the date window and the pledge", async () => {
+    const u = await db.signup();
+    const [{ id }] = await db.as(u, "select save_template($1) as id", [tpl()]);
+    await expectFail(db.as(u, "select save_session('2026-11-01', $1, '[]')", [id]), "invalid_date");
+    await expectFail(db.as(u, "select save_session('2026-11-06', $1, '[]')", [id]), "invalid_date");
+    const np = await db.signup({ noPledge: true });
+    const [{ id: id2 }] = await db.as(np, "select save_template($1) as id", [tpl()]);
+    await expectFail(db.as(np, "select save_session($1, $2, '[]')", [TODAY, id2]), "pledge_required");
+  });
+
+  it("habits score when targets are hit and respect settings", async () => {
+    const u = await db.signup();
+    await db.as(u, "select log_habits($1, 8, 150)", [TODAY]);
+    let [d] = await db.as(u, "select * from my_day_scores($1, $1, null)", [TODAY]);
+    expect(d.water_met).toBe(true);
+    expect(d.protein_met).toBe(true);
+    expect(Number(d.habit_pts)).toBe(6);
+    expect(Number(d.total)).toBe(6);
+    await db.as(u, "select set_habit_settings(true, 10, false, 150)");
+    [d] = await db.as(u, "select * from my_day_scores($1, $1, null)", [TODAY]);
+    expect(d.water_met).toBe(false);                                      // 8 < 10
+    expect(d.protein_met).toBe(false);                                    // disabled
+    expect(Number(d.habit_pts)).toBe(0);
+    await expectFail(db.as(u, "select log_habits('2026-11-01', 1, 1)"), "invalid_date");
+    await expectFail(db.as(u, "select set_habit_settings(true, 99, true, 150)"), /check|violates/);
+  });
+
+  it("weekly history for 'beat last week'", async () => {
+    const u = await db.signup();
+    await db.log(u, "run", TODAY, { min: 30 });
+    const weeks = await db.as(u, "select week_start::text, points from my_weeks(4)");
+    expect(weeks[weeks.length - 1].week_start).toBe(MONDAY);
+    expect(Number(weeks[weeks.length - 1].points)).toBe(17);
+  });
+
+  it("account deletion erases programs, sessions and habits", async () => {
+    const u = await db.signup();
+    const [{ id }] = await db.as(u, "select save_template($1) as id", [tpl()]);
+    await db.as(u, "select save_session($1, $2, '[]')", [TODAY, id]);
+    await db.as(u, "select log_habits($1, 3, 40)", [TODAY]);
+    await db.as(u, "select delete_account()");
+    const r = await db.owner.query(
+      `select (select count(*) from workout_templates where user_id = $1)::int t, (select count(*) from workout_sessions where user_id = $1)::int s,
+              (select count(*) from habit_logs where user_id = $1)::int h`, [u]);
+    expect(r.rows[0]).toEqual({ t: 0, s: 0, h: 0 });
   });
 });

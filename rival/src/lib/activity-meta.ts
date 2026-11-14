@@ -32,3 +32,5 @@ export const CATEGORY: Record<Category | "plan" | "goal" | "bonus", { label: str
 };
 
 export const KM_PER_MI = 1.609344;
+
+export const KIND_ICON = { strength: Dumbbell, cardio: HeartPulse, mobility: Flower2 } as const;

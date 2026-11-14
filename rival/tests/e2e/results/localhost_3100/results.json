@@ -1,146 +1,62 @@
 {
   "base": "http://localhost:3100",
-  "ranAt": "2026-11-05T21:59:06.831Z",
-  "passed": 23,
+  "ranAt": "2026-11-14T21:35:34.964Z",
+  "passed": 9,
   "failed": 0,
   "results": [
     {
-      "step": "1. User A creates an account",
+      "step": "Sign up and take the pledge; lands on Program",
       "ok": true,
-      "ms": 1672,
+      "ms": 1294,
       "detail": null
     },
     {
-      "step": "1b. User A creates a league",
+      "step": "Add a starter program (Push/Pull/Legs)",
       "ok": true,
-      "ms": 646,
-      "detail": "code WG89JMUH"
+      "ms": 136,
+      "detail": "5 workouts, schedule 6/7 days"
     },
     {
-      "step": "2. User B creates an account in a separate browser session",
+      "step": "Schedule Push Day for today",
       "ok": true,
-      "ms": 913,
+      "ms": 1108,
       "detail": null
     },
     {
-      "step": "3. User B joins with the invitation code",
+      "step": "Today shows the workout; check off exercises with a weight; finish",
       "ok": true,
-      "ms": 78,
+      "ms": 2489,
+      "detail": "today 32 pts (strength 22 + program bonus 5 + goal 5)"
+    },
+    {
+      "step": "Log water and protein; they persist and score",
+      "ok": true,
+      "ms": 2399,
+      "detail": "habits +6; today now 38 pts"
+    },
+    {
+      "step": "Progress shows level, weekly score and the personal record",
+      "ok": true,
+      "ms": 484,
       "detail": null
     },
     {
-      "step": "4. Both users appear in the same league",
+      "step": "Edit a workout in the program builder",
       "ok": true,
-      "ms": 615,
-      "detail": "Team Iron,The Grinders"
-    },
-    {
-      "step": "4b. Commissioner starts the season; weekly opponents assigned automatically",
-      "ok": true,
-      "ms": 172,
-      "detail": "8 weeks scheduled, Week 1"
-    },
-    {
-      "step": "5. User A logs a workout (Run, 30 min)",
-      "ok": true,
-      "ms": 796,
+      "ms": 955,
       "detail": null
     },
     {
-      "step": "6. Both users see the updated score (B's screen updates live, no reload)",
+      "step": "Another account can't see or change your program",
       "ok": true,
-      "ms": 1711,
-      "detail": "B saw 17.0 ~868ms after A's save returned"
+      "ms": 1370,
+      "detail": "delete → 404, schedule → 404, sees 0 workouts"
     },
     {
-      "step": "7. User B logs a workout (Strength, 20 min)",
+      "step": "Close the app, sign in fresh: everything is still there",
       "ok": true,
-      "ms": 648,
-      "detail": null
-    },
-    {
-      "step": "8. Matchup totals and standings update correctly for both",
-      "ok": true,
-      "ms": 2015,
-      "detail": "scores 17 – 8 identical on both devices"
-    },
-    {
-      "step": "Profile photo upload shows for the league-mate",
-      "ok": true,
-      "ms": 876,
-      "detail": "uploaded via Profile; B sees it on the scoreboard"
-    },
-    {
-      "step": "Trash talk reaches the other player live",
-      "ok": true,
-      "ms": 2057,
-      "detail": "B → A and A → B delivered without reload"
-    },
-    {
-      "step": "One-tap repeat logging",
-      "ok": true,
-      "ms": 587,
-      "detail": "recent workouts offered; identical repeat within 10 min correctly blocked as duplicate"
-    },
-    {
-      "step": "Installable as a home-screen app (manifest, icons, service worker)",
-      "ok": true,
-      "ms": 25,
-      "detail": "manifest ok, icons 192x192,512x512,512x512, apple icon /apple-icon.png?e48795ed05588ba9"
-    },
-    {
-      "step": "Feedback can be sent from Profile",
-      "ok": true,
-      "ms": 1626,
-      "detail": null
-    },
-    {
-      "step": "Duplicate submissions are rejected",
-      "ok": true,
-      "ms": 41,
-      "detail": "replay → same record; rapid re-submit → 400 duplicate"
-    },
-    {
-      "step": "Invalid activity entries are rejected",
-      "ok": true,
-      "ms": 56,
-      "detail": "6 invalid entries rejected"
-    },
-    {
-      "step": "12. Unauthorized users cannot modify another participant's workouts or scores",
-      "ok": true,
-      "ms": 219,
-      "detail": "B edit/delete A's workout → 404/404; forged points ignored (B's day total 20.5); anon → 401; A still 17.0"
-    },
-    {
-      "step": "A third user outside the league cannot see it",
-      "ok": true,
-      "ms": 986,
-      "detail": "outsider → 404"
-    },
-    {
-      "step": "Cross-origin (CSRF) writes are blocked",
-      "ok": true,
-      "ms": 46,
-      "detail": "403"
-    },
-    {
-      "step": "Commissioner reset link lets a member back in",
-      "ok": true,
-      "ms": 1548,
-      "detail": "commissioner issued link; member reset password and was signed in; non-commissioner → 403"
-    },
-    {
-      "step": "9–10. Both users close the app, sign in again on a new device, data is restored",
-      "ok": true,
-      "ms": 2389,
-      "detail": "A sees 17.0, B has 3 workouts, league intact; sign-out invalidates session"
-    },
-    {
-      "step": "Commissioner deletes the league; member deletes their account",
-      "ok": true,
-      "ms": 3768,
-      "detail": "league deleted (member now gets 404); account deleted, signed out, can't sign back in"
+      "ms": 942,
+      "detail": "workout + habits restored; test account deleted"
     }
   ]
 }

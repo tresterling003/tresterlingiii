@@ -2,64 +2,7 @@
 import clsx from "clsx";
 import { fmtPts } from "@/lib/client";
 import { addDays, dow } from "@/lib/dates";
-import { CATEGORY } from "@/lib/activity-meta";
-import { categorySums } from "@/lib/snapshot";
-import type { DayScore, Scoring } from "@/lib/types";
-
-type Sums = ReturnType<typeof categorySums>;
-
-/** Mirrored category comparison: where each side's points came from. */
-export function CategoryComparison({
-  left, right, leftBonus, rightBonus, leftLabel, rightLabel, scoring, leftColor = "#C8FF3D", rightColor = "#A2A7B1",
-}: {
-  left: Sums; right: Sums | null; leftBonus: number; rightBonus: number; leftLabel: string; rightLabel: string; scoring: Scoring;
-  leftColor?: string; rightColor?: string;
-}) {
-  const rows: { key: string; label: string; l: number; r: number; note: string }[] = [
-    { key: "steps", label: "Steps", l: left.steps, r: right?.steps ?? 0, note: `${scoring.steps.points} per ${scoring.steps.per.toLocaleString()}` },
-    { key: "cardio", label: "Cardio", l: left.cardio, r: right?.cardio ?? 0, note: `${scoring.cardio.points} per ${scoring.cardio.per} min` },
-    { key: "strength", label: "Strength", l: left.strength, r: right?.strength ?? 0, note: `${scoring.strength.points} per ${scoring.strength.per} min` },
-    { key: "mobility", label: "Mobility", l: left.mobility, r: right?.mobility ?? 0, note: `${scoring.mobility.points} per ${scoring.mobility.per} min` },
-    { key: "plan", label: "Planned workouts", l: left.plan, r: right?.plan ?? 0, note: `+${scoring.planned_workout} each` },
-    { key: "goal", label: "Daily goals", l: left.goal, r: right?.goal ?? 0, note: `+${scoring.daily_goal} each` },
-    { key: "bonus", label: "Consistency", l: leftBonus, r: rightBonus, note: `+${scoring.consistency.points} for ${scoring.consistency.days} active days` },
-  ];
-  if (left.capAdjust < 0 || (right && right.capAdjust < 0)) {
-    rows.push({ key: "cap", label: "Daily cap", l: left.capAdjust, r: right?.capAdjust ?? 0, note: `${scoring.daily_cap} pts max per day` });
-  }
-  const max = Math.max(1, ...rows.map((r) => Math.max(Math.abs(r.l), Math.abs(r.r))));
-  return (
-    <div>
-      <div className="mb-2 flex justify-between text-2xs font-bold uppercase text-fg-faint">
-        <span>{leftLabel}</span><span>{right ? rightLabel : ""}</span>
-      </div>
-      <ul className="divide-y divide-ink-700">
-        {rows.map((r) => (
-          <li key={r.key} className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className={clsx("tnum w-12 shrink-0 font-display text-lg font-bold", r.l === 0 && "text-fg-faint", r.l < 0 && "text-warn")}>{fmtPts(r.l)}</span>
-              <div className="flex h-1.5 flex-1 justify-end overflow-hidden rounded-full bg-ink-750">
-                <div className="h-full rounded-full" style={{ width: `${(Math.max(0, r.l) / max) * 100}%`, background: leftColor }} />
-              </div>
-            </div>
-            <div className="w-24 text-center sm:w-32">
-              <p className="text-xs font-semibold">{r.label}</p>
-              <p className="hidden text-[11px] text-fg-faint sm:block">{r.note}</p>
-            </div>
-            {right ? (
-              <div className="flex items-center gap-3">
-                <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-ink-750">
-                  <div className="h-full rounded-full" style={{ width: `${(Math.max(0, r.r) / max) * 100}%`, background: rightColor }} />
-                </div>
-                <span className={clsx("tnum w-12 shrink-0 text-right font-display text-lg font-bold", r.r === 0 && "text-fg-faint", r.r < 0 && "text-warn")}>{fmtPts(r.r)}</span>
-              </div>
-            ) : <div />}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+import type { DayScore } from "@/lib/types";
 
 /** Mon–Sun paired bars. Future days are outlined. */
 export function DayBars({
@@ -134,4 +77,3 @@ export function ActiveDays({ days, start, today, target }: { days: DayScore[]; s
   );
 }
 
-export { CATEGORY };

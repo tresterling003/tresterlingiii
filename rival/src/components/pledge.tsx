@@ -11,7 +11,7 @@ import type { MeResponse } from "@/lib/types";
 export const PLEDGE = [
   { icon: ShieldCheck, title: "I'll log honestly", body: "Only activity I actually did, with real minutes and steps. No padding, no guessing high." },
   { icon: HeartPulse, title: "I'll take care of myself", body: "I'll push hard, listen to my body, and rest when I need it. Recovery counts too." },
-  { icon: MessageCircleHeart, title: "I'll keep it fun", body: "Compete hard, trash talk with love, and cheer my rivals on when they show up." },
+  { icon: MessageCircleHeart, title: "I'll keep it fun", body: "Celebrate progress over perfection. A missed day is a reason to show up tomorrow, not to quit." },
   { icon: PencilLine, title: "I'll own my mistakes", body: "If I log something wrong, I'll fix or delete it." },
 ];
 
@@ -42,7 +42,7 @@ export function PledgeGate({ me }: { me: MeResponse }) {
         <p className="eyebrow mt-8 text-lime">Before you play</p>
         <h1 id="pledge-title" className="mt-2 font-display text-[44px] font-extrabold uppercase italic leading-[0.95]">The RIVAL Pledge</h1>
         <p className="mt-4 text-fg-muted">
-          RIVAL runs on the honor system. You could fudge a number and win a week, but the point is to get healthier together. Winning is the bonus.
+          RIVAL runs on the honor system. You could fudge a number and &ldquo;beat&rdquo; last week, but the only person you&rsquo;d fool is you. The point is getting healthier. Winning is the bonus.
         </p>
 
         <ol className="mt-8 flex flex-col gap-4">
@@ -75,7 +75,7 @@ export function PledgeGate({ me }: { me: MeResponse }) {
         <Button className="mt-6" size="lg" block disabled={!agreed} loading={busy} onClick={pledge} data-testid="pledge-submit">
           Take the pledge
         </Button>
-        <p className="mt-4 text-center text-xs text-fg-faint">Signed {today}. Your league sees that you&rsquo;ve pledged.</p>
+        <p className="mt-4 text-center text-xs text-fg-faint">Signed {today}.</p>
       </div>
     </div>
   );

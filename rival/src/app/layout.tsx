@@ -13,8 +13,8 @@ const display = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: { default: "RIVAL — Fantasy Fitness", template: "%s · RIVAL" },
-  description: "Head-to-head fantasy fitness leagues for friends and family. Every Move Counts. Every Week Matters.",
+  title: { default: "RIVAL — Fitness & Habit Tracker", template: "%s · RIVAL" },
+  description: "Your program, your habits, and a weekly score to beat. Every Move Counts. Every Week Matters.",
   applicationName: "RIVAL",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "RIVAL", statusBarStyle: "black-translucent" },
