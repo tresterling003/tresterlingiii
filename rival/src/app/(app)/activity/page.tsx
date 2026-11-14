@@ -1,26 +1,23 @@
 "use client";
 import clsx from "clsx";
 import { useState } from "react";
-import { useSWRConfig } from "swr";
-import { CalendarPlus, ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
+import { Beef, ChevronDown, Crown, Droplet, Pencil, Plus, Trophy } from "lucide-react";
 import { useApp } from "@/components/league-context";
 import { PageError, PageHeader, PageSkeleton } from "@/components/page";
 import { DayBars } from "@/components/breakdown";
 import { LogWorkoutSheet } from "@/components/log-workout";
 import { Button, IconButton } from "@/components/ui/button";
-import { Field, Segmented, Stepper } from "@/components/ui/form";
-import { Badge, EmptyState, SectionHeader } from "@/components/ui/states";
-import { useToast } from "@/components/ui/toast";
+import { Badge, EmptyState, ProgressBar, SectionHeader } from "@/components/ui/states";
 import { ACTIVITY, KM_PER_MI } from "@/lib/activity-meta";
-import { useActivity, useLeague } from "@/lib/hooks";
-import { api, ApiError, fmtPts } from "@/lib/client";
-import { addDays, dow, relativeDay, shortDate } from "@/lib/dates";
+import { useActivity, useProgress } from "@/lib/hooks";
+import { fmtPts } from "@/lib/client";
+import { addDays, relativeDay, shortDate } from "@/lib/dates";
 import type { DayScore, Scoring, Workout } from "@/lib/types";
 
 const DEFAULT_RULES: Scoring = {
   steps: { per: 1000, points: 2, daily_cap: 25000 }, cardio: { per: 10, points: 4, daily_cap: 120 },
   strength: { per: 10, points: 4, daily_cap: 90 }, mobility: { per: 10, points: 3, daily_cap: 60 },
-  planned_workout: 5, daily_goal: 5, active_day: { minutes: 20, steps: 5000 }, consistency: { days: 5, points: 10 }, daily_cap: 60,
+  planned_workout: 5, daily_goal: 5, habits: { water: 3, protein: 3 }, active_day: { minutes: 20, steps: 5000 }, consistency: { days: 5, points: 10 }, daily_cap: 60,
 };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -87,60 +84,104 @@ function WorkoutRow({ w, editable, onEdit }: { w: Workout; editable: boolean; on
   );
 }
 
-function PlanCard({ today, plans }: { today: string; plans: { plan_date: string; category: string; target_minutes: number }[] }) {
-  const { mutate } = useSWRConfig();
-  const toast = useToast();
-  const [date, setDate] = useState(addDays(today, 1));
-  const [cat, setCat] = useState<"cardio" | "strength" | "mobility">("strength");
-  const [mins, setMins] = useState(30);
-  const [busy, setBusy] = useState(false);
-  const options = [1, 2, 3, 4, 5, 6, 7].map((i) => addDays(today, i));
-  async function save() {
-    setBusy(true);
-    try {
-      await api("POST", "/api/plans", { date, category: cat, targetMinutes: mins });
-      toast({ kind: "success", title: "Workout planned", body: `${relativeDay(date, today) === "Today" ? "" : dow(date)} ${shortDate(date)} · ${mins} min ${cat}` });
-      await mutate("/api/me");
-    } catch (e) {
-      toast({ kind: "error", title: "Couldn't plan that", body: e instanceof ApiError ? e.message : undefined });
-    } finally { setBusy(false); }
-  }
-  async function remove(d: string) {
-    try { await api("DELETE", `/api/plans?date=${d}`); await mutate("/api/me"); } catch (e) {
-      toast({ kind: "error", title: "Couldn't remove", body: e instanceof ApiError ? e.message : undefined });
-    }
-  }
+function levelFor(points: number) {
+  // Level n starts at 50·n·(n−1) lifetime points: 0, 100, 300, 600, 1000…
+  let n = 1;
+  while (50 * (n + 1) * n <= points) n++;
+  const start = 50 * n * (n - 1), next = 50 * (n + 1) * n;
+  return { level: n, into: points - start, span: next - start, toNext: next - points };
+}
+
+function LevelAndWeeks() {
+  const { data } = useProgress();
+  if (!data) return <div className="skeleton h-64" />;
+  const lv = levelFor(data.lifetime);
+  const weeks = data.weeks.slice(-12);
+  const max = Math.max(10, ...weeks.map((w) => w.points));
+  let wins = 0, played = 0;
+  for (let i = 1; i < data.weeks.length - 1; i++) { played++; if (data.weeks[i].points > data.weeks[i - 1].points) wins++; }
   return (
-    <section className="panel p-4 sm:p-6">
-      <SectionHeader title="Plan ahead" />
-      <p className="mb-4 text-sm text-fg-muted">Plan a workout for a future day. Complete it on that day for a bonus — plans can&rsquo;t be made the same day.</p>
-      <div className="flex flex-col gap-4">
-        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
-          {options.map((d) => (
-            <button key={d} onClick={() => setDate(d)} aria-pressed={date === d}
-              className={clsx("focus-ring flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-md border text-xs font-semibold transition-colors",
-                date === d ? "border-lime bg-lime-soft text-fg" : "border-ink-700 bg-ink-800 text-fg-muted hover:text-fg")}>
-              <span>{dow(d)}</span><span className="tnum text-sm text-fg">{d.slice(8)}</span>
-            </button>
-          ))}
+    <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+      <section className="panel p-4 sm:p-6" data-testid="level-card">
+        <SectionHeader title="Level" />
+        <div className="flex items-end gap-4">
+          <p className="tnum font-display text-score font-bold leading-none">{lv.level}</p>
+          <div className="pb-1">
+            <p className="tnum text-sm font-semibold">{fmtPts(data.lifetime)} lifetime pts</p>
+            <p className="tnum text-xs text-fg-faint">{fmtPts(lv.toNext)} to level {lv.level + 1}</p>
+          </div>
         </div>
-        <Segmented className="w-full" value={cat} onChange={setCat} label="Workout type"
-          options={[{ value: "cardio", label: "Cardio" }, { value: "strength", label: "Strength" }, { value: "mobility", label: "Mobility" }]} />
-        <Field label="Target"><Stepper label="target minutes" value={mins} onChange={setMins} min={10} max={120} step={5} suffix="min" /></Field>
-        <Button variant="secondary" icon={<CalendarPlus className="h-4 w-4" />} loading={busy} onClick={save}>Save plan</Button>
-      </div>
-      {plans.length > 0 && (
-        <ul className="mt-6 divide-y divide-ink-700 border-t border-ink-700">
-          {plans.map((p) => (
-            <li key={p.plan_date} className="flex items-center gap-3 py-3 text-sm">
-              <span className="w-24 font-semibold">{relativeDay(p.plan_date, today) === "Today" ? "Today" : `${dow(p.plan_date)} ${shortDate(p.plan_date)}`}</span>
-              <span className="flex-1 text-fg-muted">{p.target_minutes} min {p.category}</span>
-              {p.plan_date > today && <IconButton label="Remove plan" onClick={() => remove(p.plan_date)}><Trash2 className="h-4 w-4" /></IconButton>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+        <ProgressBar className="mt-4" value={lv.into} max={lv.span} />
+        <div className="mt-6 flex items-center gap-3 rounded-md bg-ink-800 px-4 py-3">
+          <Crown className="h-5 w-5 shrink-0 text-lime" />
+          <p className="text-sm">{played === 0 ? "Finish a full week to start your record against yourself." :
+            <>You&rsquo;ve beaten the week before <span className="tnum font-bold">{wins}</span> of <span className="tnum font-bold">{played}</span> weeks.</>}</p>
+        </div>
+      </section>
+      <section className="panel p-4 sm:p-6">
+        <SectionHeader title="Weekly score" action={<span className="text-[11px] text-fg-faint">lime = beat the week before</span>} />
+        <div className="flex h-40 items-end gap-2" role="img" aria-label={weeks.map((w) => `Week of ${shortDate(w.week_start)}: ${fmtPts(w.points)}`).join(", ")}>
+          {weeks.map((w, i) => {
+            const prev = data.weeks[data.weeks.length - weeks.length + i - 1];
+            const won = prev ? w.points > prev.points : false;
+            const current = i === weeks.length - 1;
+            return (
+              <div key={w.week_start} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                <span className="tnum text-[10px] font-semibold text-fg-muted">{Math.round(w.points)}</span>
+                <div className={clsx("w-full max-w-[28px] rounded-t-sm", current ? "border border-dashed border-lime bg-lime/30" : won ? "bg-lime" : "bg-ink-600")}
+                  style={{ height: `${Math.max(3, (w.points / max) * 85)}%` }} />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-2 flex gap-2 border-t border-ink-700 pt-2">
+          {weeks.map((w, i) => <p key={w.week_start} className={clsx("flex-1 text-center text-[10px] font-semibold", i === weeks.length - 1 ? "text-lime" : "text-fg-faint")}>{i === weeks.length - 1 ? "Now" : shortDate(w.week_start).split(" ")[1]}</p>)}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RecordsAndSessions() {
+  const { data } = useProgress();
+  if (!data) return null;
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <section className="panel overflow-hidden" data-testid="prs">
+        <div className="px-4 pt-4 sm:px-6"><SectionHeader title="Personal records" /></div>
+        {data.prs.length === 0 ? (
+          <EmptyState icon={<Trophy className="h-5 w-5" />} title="No records yet" body="Enter the weight you use when you check off an exercise. Your best lift for each one shows up here." />
+        ) : (
+          <ul className="divide-y divide-ink-700">
+            {data.prs.map((p) => (
+              <li key={p.name} className="flex items-center gap-3 px-4 py-3 sm:px-6">
+                <Trophy className="h-4 w-4 shrink-0 text-warn" />
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{p.name}</span>
+                <span className="tnum font-display text-lg font-bold">{p.weight} lb</span>
+                <span className="w-16 text-right text-xs text-fg-faint">{shortDate(p.date)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="panel overflow-hidden">
+        <div className="px-4 pt-4 sm:px-6"><SectionHeader title="Recent workouts" /></div>
+        {data.sessions.length === 0 ? (
+          <EmptyState title="Nothing finished yet" body="Finish a workout from Today and it shows up here." />
+        ) : (
+          <ul className="divide-y divide-ink-700">
+            {data.sessions.slice(0, 8).map((s) => (
+              <li key={s.id} className="flex items-center gap-3 px-4 py-3 sm:px-6">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{s.template_name}</span>
+                  <span className="text-xs text-fg-faint">{shortDate(s.session_date)} · {s.duration_min} min · {s.done}/{s.total} exercises</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -163,6 +204,7 @@ function RulesCard({ rules }: { rules: Scoring }) {
                 [`${rules.mobility.per} min yoga / mobility`, `${rules.mobility.points} pts`, `cap ${rules.mobility.daily_cap} min`],
                 ["Completed planned workout", `${rules.planned_workout} pts`, "1 per day"],
                 ["Personal daily goal", `${rules.daily_goal} pts`, "your own target"],
+                ["Water goal / protein goal", "3 pts each", "your own targets"],
                 [`${rules.consistency.days} active days in a week`, `${rules.consistency.points} pts`, "weekly bonus"],
               ].map(([a, b, c]) => (
                 <tr key={a}><td className="py-2 text-fg-muted">{a}</td><td className="tnum py-2 text-right font-semibold">{b}</td><td className="py-2 pl-4 text-right text-xs text-fg-faint">{c}</td></tr>
@@ -174,7 +216,8 @@ function RulesCard({ rules }: { rules: Scoring }) {
             <li>Most points in one day: {rules.daily_cap}. More exercise past the cap isn&rsquo;t rewarded — recovery matters.</li>
             <li>An active day is {rules.active_day.minutes}+ active minutes or {rules.active_day.steps.toLocaleString()}+ steps.</li>
             <li>Steps count once a day: your daily total or your logged walks, whichever is higher.</li>
-            <li>Goal changes start tomorrow. These are RIVAL&rsquo;s rules — your commissioner can adjust them for the league.</li>
+            <li>Finishing the workout your program schedules for a day earns the planned-workout bonus.</li>
+            <li>Goal changes start tomorrow.</li>
           </ul>
         </div>
       )}
@@ -183,9 +226,8 @@ function RulesCard({ rules }: { rules: Scoring }) {
 }
 
 export default function ActivityPage() {
-  const { me, leagueId, openLog } = useApp();
-  const { data, error, isLoading, mutate } = useActivity(leagueId);
-  const { data: league } = useLeague(leagueId);
+  const { me, openLog } = useApp();
+  const { data, error, isLoading, mutate } = useActivity();
   const [editing, setEditing] = useState<Workout | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
   if ((isLoading && !data) || !me) return <PageSkeleton />;
@@ -207,13 +249,17 @@ export default function ActivityPage() {
     return { start, pts: Math.round(pts * 10) / 10 };
   });
   const maxW = Math.max(10, ...weeks.map((w) => w.pts));
-  const rules = league?.league.scoring ?? DEFAULT_RULES;
+  const rules = DEFAULT_RULES;
+  const last28 = data.days.slice(-28);
+  const waterHits = last28.filter((d) => d.water_met).length;
+  const proteinHits = last28.filter((d) => d.protein_met).length;
 
   return (
     <div className="animate-fade-up">
-      <PageHeader eyebrow={league ? `Scored with ${league.league.name} rules` : "Default RIVAL rules"} title="Activity"
+      <PageHeader eyebrow="Your record" title="Progress"
         action={<Button icon={<Plus className="h-4 w-4" />} onClick={openLog} className="hidden lg:inline-flex">Log activity</Button>} />
 
+      <div className="mb-6"><LevelAndWeeks /></div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
         <Stat label="This week" value={fmtPts(weekPts)} sub="daily points" />
         <Stat label="Active min" value={String(sum("active_minutes"))} sub="this week" />
@@ -242,6 +288,8 @@ export default function ActivityPage() {
           <p className="mt-2 text-xs text-fg-faint">Daily points only; weekly consistency bonuses not included.</p>
         </section>
       </div>
+
+      <div className="mt-6"><RecordsAndSessions /></div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <section className="panel p-4 sm:p-6">
@@ -276,7 +324,19 @@ export default function ActivityPage() {
           )}
         </section>
         <div className="flex flex-col gap-6">
-          <PlanCard today={today} plans={me.plans} />
+          <section className="panel p-4 sm:p-6">
+            <SectionHeader title="Habits · last 28 days" />
+            <div className="flex flex-col gap-4">
+              <div>
+                <div className="mb-2 flex justify-between text-sm"><span className="flex items-center gap-2 font-semibold"><Droplet className="h-4 w-4 text-info" />Water goal</span><span className="tnum text-fg-muted">{waterHits}/{last28.length} days</span></div>
+                <ProgressBar value={waterHits} max={last28.length} />
+              </div>
+              <div>
+                <div className="mb-2 flex justify-between text-sm"><span className="flex items-center gap-2 font-semibold"><Beef className="h-4 w-4 text-warn" />Protein goal</span><span className="tnum text-fg-muted">{proteinHits}/{last28.length} days</span></div>
+                <ProgressBar value={proteinHits} max={last28.length} />
+              </div>
+            </div>
+          </section>
           <RulesCard rules={rules} />
         </div>
       </div>

@@ -99,3 +99,27 @@ export const passwordSchema = z.object({
   current: z.string().min(1),
   next: z.string().min(8, "Use at least 8 characters.").max(200),
 });
+
+const num = (min: number, max: number) => z.number().min(min).max(max).nullable().optional();
+export const templateSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1, "Name your workout.").max(40),
+  kind: z.enum(["strength", "cardio", "mobility"]),
+  est_minutes: z.number().int().min(5).max(240),
+  exercises: z.array(z.object({
+    name: z.string().trim().min(1).max(60),
+    sets: num(1, 20), reps: z.string().max(20).nullable().optional(),
+    weight: num(0, 2000), minutes: num(1, 240), notes: z.string().max(120).nullable().optional(),
+  })).max(30),
+});
+
+
+export const logSchema = z.array(z.object({
+  exercise_id: z.string().uuid().nullable().optional(),
+  name: z.string().max(60),
+  done: z.boolean(),
+  sets_done: z.number().int().min(0).max(20).nullable().optional(),
+  reps: z.string().max(20).nullable().optional(),
+  weight: z.number().min(0).max(2000).nullable().optional(),
+})).max(30);
+

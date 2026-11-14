@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/home",
-    name: "RIVAL — Fantasy Fitness",
+    name: "RIVAL — Fitness & Habits",
     short_name: "RIVAL",
     description: "Every Move Counts. Every Week Matters.",
     start_url: "/home",

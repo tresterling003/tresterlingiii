@@ -8,6 +8,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { InstallCard } from "@/components/pwa";
 import { Segmented } from "@/components/ui/form";
 import { useApp } from "@/components/league-context";
+import { ACTIVITY_KEYS, useToday } from "@/lib/hooks";
 import { PageHeader, PageSkeleton } from "@/components/page";
 import { TeamAvatar, TEAM_COLORS } from "@/components/team-avatar";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ function TeamIdentity() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const photo = avatarUrl(a.id, a.avatar_updated_at);
-  const refreshAll = () => mutate((k) => typeof k === "string" && (k === "/api/me" || k.startsWith("/api/leagues/")));
+  const refreshAll = () => mutate("/api/me");
   async function upload(file: File | undefined) {
     if (!file) return;
     setPhotoBusy(true);
@@ -39,7 +40,7 @@ function TeamIdentity() {
       const res = await fetch("/api/me/avatar", { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob });
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error?.message ?? "Upload failed.");
       await refreshAll();
-      toast({ kind: "success", title: "Photo updated", body: "Your league sees it right away." });
+      toast({ kind: "success", title: "Photo updated" });
     } catch (e) {
       toast({ kind: "error", title: "Couldn't upload photo", body: (e as Error).message });
     } finally {
@@ -62,15 +63,15 @@ function TeamIdentity() {
     setBusy(true);
     try {
       await api("PATCH", "/api/me", f);
-      await mutate((k) => typeof k === "string" && (k === "/api/me" || k.startsWith("/api/leagues/")));
-      toast({ kind: "success", title: "Team updated", body: "Your league sees the new look right away." });
+      await mutate("/api/me");
+      toast({ kind: "success", title: "Profile updated" });
     } catch (e) {
       toast({ kind: "error", title: "Couldn't save", body: e instanceof ApiError ? e.message : undefined });
     } finally { setBusy(false); }
   }
   return (
     <section className="panel p-4 sm:p-6">
-      <SectionHeader title="Team identity" />
+      <SectionHeader title="You" />
       <div className="mb-6 flex items-center gap-4">
         <button type="button" onClick={() => fileRef.current?.click()} disabled={photoBusy}
           className="focus-ring group relative shrink-0 rounded-md" aria-label={photo ? "Change photo" : "Upload photo"}>
@@ -137,7 +138,7 @@ function Goals() {
     <section className="panel p-4 sm:p-6">
       <SectionHeader title="Daily goal" />
       <p className="mb-4 text-sm text-fg-muted">
-        Hit <span className="font-semibold text-fg">either</span> target to earn the daily goal bonus. Set what&rsquo;s right for you — everyone earns the same bonus for reaching their own goal.
+        Hit <span className="font-semibold text-fg">either</span> target to earn the daily goal bonus. Set what&rsquo;s right for you today, and raise it as you get fitter.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Active minutes"><Stepper label="active minutes" value={mins} onChange={setMins} min={10} max={180} step={5} suffix="min" /></Field>
@@ -168,11 +169,8 @@ function Privacy() {
   };
   return (
     <section className="panel p-4 sm:p-6">
-      <SectionHeader title="Privacy & time" />
-      <Switch label="Share workout details with my leagues" checked={me!.account.share_details}
-        description="Off: league-mates see your points only. On: they also see minutes and steps. Distance and notes are always private."
-        onChange={(v) => update({ share_details: v }, v ? "Details shared with your leagues" : "Details are private")} />
-      <div className="mt-6 flex items-end gap-2">
+      <SectionHeader title="Time zone" />
+      <div className="flex items-end gap-2">
         <Field label="Your time zone" htmlFor="utz" className="flex-1" hint="Decides what “today” means when you log.">
           <TimezoneSelect id="utz" value={tz} onChange={setTz} />
         </Field>
@@ -206,38 +204,34 @@ function Devices() {
   );
 }
 
-function Leagues() {
-  const { me, leagueId, setLeagueId } = useApp();
-  const { mutate } = useSWRConfig();
-  const router = useRouter();
+function HabitTargets() {
   const toast = useToast();
-  async function leave(id: string, name: string) {
-    if (!confirm(`Leave ${name}? Your current matchup becomes a forfeit.`)) return;
+  const { mutate } = useSWRConfig();
+  const { data } = useToday();
+  const cur = data?.habits.settings;
+  const [f, setF] = useState(cur ?? { water_enabled: true, water_target: 8, protein_enabled: true, protein_target: 150 });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (cur) setF(cur); }, [cur?.water_enabled, cur?.water_target, cur?.protein_enabled, cur?.protein_target]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function save() {
+    setBusy(true);
     try {
-      await api("POST", `/api/leagues/${id}/actions`, { action: "leave" });
-      await mutate("/api/me");
-      toast({ kind: "success", title: `You left ${name}` });
+      await api("PUT", "/api/habits/settings", f);
+      await mutate(ACTIVITY_KEYS);
+      toast({ kind: "success", title: "Habit targets saved" });
     } catch (e) {
-      toast({ kind: "error", title: "Couldn't leave", body: e instanceof ApiError ? e.message : undefined });
-    }
+      toast({ kind: "error", title: "Couldn't save", body: e instanceof ApiError ? e.message : undefined });
+    } finally { setBusy(false); }
   }
   return (
     <section className="panel p-4 sm:p-6">
-      <SectionHeader title="Leagues" action={<Button size="sm" variant="ghost" icon={<Plus className="h-4 w-4" />} onClick={() => router.push("/onboarding?more=1")}>Add</Button>} />
-      <ul className="divide-y divide-ink-700">
-        {me!.leagues.map((l) => (
-          <li key={l.id} className="flex items-center gap-3 py-3">
-            <button className="min-w-0 flex-1 text-left" onClick={() => setLeagueId(l.id)}>
-              <p className="flex items-center gap-2 truncate text-sm font-semibold">{l.name}{l.id === leagueId && <Check className="h-4 w-4 text-lime" />}</p>
-              <p className="text-xs text-fg-muted">{l.members} teams · {l.role === "commissioner" ? "Commissioner" : "Member"} · {l.status}</p>
-            </button>
-            {l.role === "commissioner"
-              ? <Button size="sm" variant="ghost" onClick={() => { setLeagueId(l.id); router.push("/league/manage"); }}>Manage</Button>
-              : <Button size="sm" variant="ghost" onClick={() => leave(l.id, l.name)}>Leave</Button>}
-          </li>
-        ))}
-        {me!.leagues.length === 0 && <li className="py-3 text-sm text-fg-muted">You&rsquo;re not in a league yet.</li>}
-      </ul>
+      <SectionHeader title="Daily habits" />
+      <div className="flex flex-col gap-6">
+        <Switch label="Track water" checked={f.water_enabled} onChange={(v) => setF({ ...f, water_enabled: v })} description="Hit your glass target for +3 points." />
+        {f.water_enabled && <Field label="Glasses per day"><Stepper label="glasses" value={f.water_target} onChange={(v) => setF({ ...f, water_target: v })} min={1} max={30} /></Field>}
+        <Switch label="Track protein" checked={f.protein_enabled} onChange={(v) => setF({ ...f, protein_enabled: v })} description="Hit your protein target for +3 points." />
+        {f.protein_enabled && <Field label="Protein goal"><Stepper label="grams of protein" value={f.protein_target} onChange={(v) => setF({ ...f, protein_target: v })} min={20} max={400} step={5} suffix="g" /></Field>}
+        <Button onClick={save} loading={busy}>Save habit targets</Button>
+      </div>
     </section>
   );
 }
@@ -382,7 +376,7 @@ export default function ProfilePage() {
     <div className="animate-fade-up">
       <PageHeader eyebrow="Profile" title={me.account.team_name} />
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="flex flex-col gap-6"><TeamIdentity /><Goals /><Leagues /></div>
+        <div className="flex flex-col gap-6"><TeamIdentity /><Goals /><HabitTargets /></div>
         <div className="flex flex-col gap-6"><InstallCard /><Feedback /><Privacy /><Devices /><Account /><DeleteAccount /></div>
       </div>
       <p className="mt-8 text-center text-xs text-fg-faint">RIVAL v1.0 · Every Move Counts. Every Week Matters.</p>

@@ -7,6 +7,7 @@ export type Scoring = {
   mobility: { per: number; points: number; daily_cap: number };
   planned_workout: number;
   daily_goal: number;
+  habits?: { water: number; protein: number };
   active_day: { minutes: number; steps: number };
   consistency: { days: number; points: number };
   daily_cap: number;
@@ -33,6 +34,12 @@ export type DayScore = {
   cardio_min: number | null;
   strength_min: number | null;
   mobility_min: number | null;
+  // Habits (own data only).
+  habit_pts?: number;
+  water?: number;
+  protein?: number;
+  water_met?: boolean;
+  protein_met?: boolean;
 };
 
 export type Member = {

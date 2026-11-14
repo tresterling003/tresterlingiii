@@ -2,7 +2,9 @@
 
 **Every Move Counts. Every Week Matters.**
 
-**Live: https://tresterlingiii.vercel.app** — sign up, create a league, and send the invite link to friends and family.
+**Live: https://tresterlingiii.vercel.app**
+
+> **v2 (Solo):** RIVAL is now a personal fitness and habit tracker. Build your program (workouts with sets, reps and weights, assigned to days), check off today's workout, log water and protein, and compete against last week. League code below is kept in the database layer but is no longer part of the app's UI.
 
 RIVAL runs private head-to-head fantasy leagues for friends and family. Each person is their own team. Real activity (steps, cardio, strength, mobility) turns into fantasy points. Every week you face a new opponent from a round-robin schedule. A season brings standings, playoffs and a champion.
 

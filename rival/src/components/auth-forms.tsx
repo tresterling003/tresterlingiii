@@ -47,7 +47,7 @@ export function SignInForm() {
       </Field>
       {error && <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>}
       <Button type="submit" size="lg" block loading={busy}>Sign in</Button>
-      <p className="-mt-2 text-center text-xs text-fg-faint">Forgot your password? Ask your league commissioner to send you a reset link (League → Manage).</p>
+      
       <p className="text-center text-sm text-fg-muted">
         New to RIVAL? <Link className="font-semibold text-lime hover:underline" href={`/sign-up${params.get("next") ? `?next=${encodeURIComponent(params.get("next")!)}` : ""}`}>Create an account</Link>
       </p>
@@ -87,7 +87,7 @@ export function SignUpForm() {
     setBusy(true); setError(null);
     try {
       await api("POST", "/api/auth/signup", { ...f, timezone: tz });
-      router.replace(safeNext(params.get("next")) === "/home" ? "/onboarding" : safeNext(params.get("next")));
+      router.replace(safeNext(params.get("next")) === "/home" ? "/program" : safeNext(params.get("next")));
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't create your account.");
@@ -98,8 +98,8 @@ export function SignUpForm() {
   return (
     <form onSubmit={submit} className="panel flex flex-col gap-6 p-6 sm:p-8" noValidate>
       <div>
-        <h1 className="font-display text-3xl font-bold uppercase italic">Create your team</h1>
-        <p className="mt-1 text-sm text-fg-muted">You are the franchise. Pick a name your rivals will remember.</p>
+        <h1 className="font-display text-3xl font-bold uppercase italic">Create your account</h1>
+        <p className="mt-1 text-sm text-fg-muted">Your program, your habits, your record. The only rival is last week&rsquo;s you.</p>
       </div>
       <div className="flex items-center gap-4 rounded-md border border-ink-700 bg-ink-800 p-4">
         <TeamAvatar abbr={f.teamAbbr || "?"} color={f.teamColor} size="lg" />

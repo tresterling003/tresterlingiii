@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
 import { Info, RotateCcw, Trash2 } from "lucide-react";
-import { useActivity } from "@/lib/hooks";
+import { ACTIVITY_KEYS, useActivity } from "@/lib/hooks";
 import { Sheet } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Field, Input, Segmented, Stepper } from "./ui/form";
@@ -18,10 +18,10 @@ export function LogWorkoutSheet({
 }: {
   open: boolean; onClose: () => void; editing?: Workout | null;
 }) {
-  const { me, leagueId } = useApp();
+  const { me } = useApp();
   const { mutate } = useSWRConfig();
   const toast = useToast();
-  const { data: activity } = useActivity(leagueId);
+  const { data: activity } = useActivity();
   const recent = useMemo(() => {
     const seen = new Set<string>();
     const out: Workout[] = [];
@@ -69,8 +69,7 @@ export function LogWorkoutSheet({
   const durationRequired = meta ? meta.category !== "steps" : false;
   const showDistance = type && ["walk", "run", "cycle", "swim", "hike"].includes(type);
 
-  const refresh = () =>
-    mutate((k) => typeof k === "string" && (k.startsWith("/api/activity") || k.startsWith("/api/leagues/") || k === "/api/me"));
+  const refresh = () => mutate(ACTIVITY_KEYS);
 
   async function submit() {
     if (!type) return;
@@ -92,7 +91,7 @@ export function LogWorkoutSheet({
         await api("PATCH", `/api/workouts/${editing.id}`, body);
         toast({ kind: "success", title: "Workout updated", body: "Scores recalculated." });
       } else {
-        const r = await api<{ day: DayScore }>("POST", `/api/workouts${leagueId ? `?league=${leagueId}` : ""}`, { requestId, ...body });
+        const r = await api<{ day: DayScore }>("POST", "/api/workouts", { requestId, ...body });
         toast({
           kind: "success",
           title: `${ACTIVITY[type].label} logged`,
@@ -112,7 +111,7 @@ export function LogWorkoutSheet({
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ day: DayScore }>("POST", `/api/workouts${leagueId ? `?league=${leagueId}` : ""}`, {
+      const r = await api<{ day: DayScore }>("POST", "/api/workouts", {
         requestId, type: w.activity_type, date: today, durationMin: w.duration_min, steps: w.steps,
         distanceKm: w.distance_km, notes: null,
       });
@@ -193,7 +192,7 @@ export function LogWorkoutSheet({
           </div>
           <p className="mt-6 flex items-start gap-2 text-xs text-fg-faint">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Honor system: log only what you actually did — you took the RIVAL Pledge. Your league sees points only; RIVAL calculates every point from these details.
+            Honor system: log only what you actually did. The only person you&rsquo;re competing with is last week&rsquo;s you.
           </p>
         </div>
       ) : (
