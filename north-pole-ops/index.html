@@ -511,6 +511,20 @@ body.touch #dmgDir div{top:-100px}
 #countdown.pop{animation:cdPop .9s ease-out both}
 @keyframes cdPop{0%{opacity:0;transform:scale(1.8)}15%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(.85)}}
 #deathCamTag{position:absolute;left:50%;top:14%;transform:translateX(-50%);background:var(--panel);border-left:4px solid var(--santa);padding:6px 16px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:15px}
+body.camp #streakBox,body.camp #minimap,body.camp #vitals,body.camp #killfeed,body.camp #scoreFeed,body.camp #ribbon{display:none!important}
+body.camp #ammoBox{background:none;border:none;text-shadow:0 2px 6px rgba(0,0,0,.8)}
+body.camp #campHud{left:calc(18px + env(safe-area-inset-left,0px));top:calc(64px + env(safe-area-inset-top,0px));transform:none;background:none;border:none;text-align:left;padding:0;min-width:0;max-width:min(420px,60vw);text-shadow:0 2px 6px rgba(0,0,0,.85);transition:opacity .6s}
+body.camp #campHud::before{content:'OBJECTIVE';display:block;font-size:11px;letter-spacing:.24em;color:var(--gold);font-weight:800;margin-bottom:2px}
+body.camp #campHud.dim #campObj{opacity:.55}body.camp #campObj{font-size:16px;transition:opacity .8s}
+body.camp #campProg{width:180px;height:3px}
+#compass{position:absolute;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(440px,60vw);height:30px;pointer-events:none;display:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+body.camp #compass{display:block}
+#wayPt{position:absolute;left:0;top:0;pointer-events:none;display:none;transform:translate(-50%,-100%);text-align:center;font-weight:800;font-size:13px;color:#fff;text-shadow:0 1px 4px #000;transition:opacity .2s}
+#wayPt i{display:block;width:14px;height:14px;margin:0 auto 3px;border:2px solid var(--gold);background:rgba(245,196,81,.25);transform:rotate(45deg);box-shadow:0 0 10px rgba(245,196,81,.6)}
+#wayPt.near{opacity:.35}
+#cpToast{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:14px;color:#fff;text-shadow:0 2px 6px #000;opacity:0;transition:opacity .5s;pointer-events:none}
+#cpToast.on{opacity:1}
+body.touch.camp #campHud{top:calc(48px + env(safe-area-inset-top,0px));max-width:45vw}body.touch.camp #campObj{font-size:13px}
 #lowHp{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(120,0,20,.55) 100%);mix-blend-mode:multiply}
 body.touch #ribbon{top:56%}
 body.touch .rib{font-size:13px;padding:3px 24px}
@@ -666,7 +680,7 @@ body.camp #topbar{display:none}
   <div id="bossBar" hidden><b>The Frost King</b><div><i></i></div></div>
   <div id="countdown"></div>
   <div id="deathCamTag" hidden></div>
-  <div id="lowHp"></div>
+  <div id="lowHp"></div><canvas id="compass" width="440" height="30"></canvas><div id="wayPt"><i></i><span></span></div><div id="cpToast">Checkpoint reached</div>
   <div id="prompt" hidden></div>
   <div id="vitals">
     <div class="lbl"><span id="clsLabel">Class</span><span id="perkLabel">Perk</span></div>
@@ -1665,9 +1679,10 @@ function makeModelChar(team,outfit,rig){
 }
 const BLOBMAT=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false});
 function animChar(e,u,sp,dt){
-  let want=!e.alive?'Death':(!e.isPlayer&&!e.remote&&!e.onGround&&e.vel.y>1.5)?'Jump':sp>3.2?'Run':sp>.5?(u.acts.Walk?'Walk':'Run'):'Idle';
+  if(e.hitT>0)e.hitT-=dt;
+  let want=!e.alive?'Death':e.hitT>0&&u.acts.RecieveHit?'RecieveHit':(!e.isPlayer&&sp<.6&&G.time-e.lastFire<.35&&u.acts.Shoot_OneHanded)?'Shoot_OneHanded':(!e.isPlayer&&!e.remote&&!e.onGround&&e.vel.y>1.5)?'Jump':sp>3.2?'Run':sp>.5?(u.acts.Walk?'Walk':'Run'):'Idle';
   if(!u.acts[want])want='Idle';
-  if(want!==u.cur){const a=u.acts[want],b=u.acts[u.cur];if(a){a.reset();a.setLoop(want==='Death'||want==='Jump'?THREE.LoopOnce:THREE.LoopRepeat);a.clampWhenFinished=true;a.play();if(b&&b!==a)a.crossFadeFrom(b,.18,false)}u.cur=want}
+  if(want!==u.cur){const a=u.acts[want],b=u.acts[u.cur];if(a){a.reset();a.setLoop(want==='Death'||want==='Jump'||want==='RecieveHit'?THREE.LoopOnce:THREE.LoopRepeat);a.clampWhenFinished=true;a.play();if(b&&b!==a)a.crossFadeFrom(b,.18,false)}u.cur=want}
   if(want==='Run'&&u.acts.Run)u.acts.Run.timeScale=clamp(sp/6.2,.7,1.5);
   u.body.scale.y=.55*(e.crouch>.5&&e.alive?.78:1);
   u.mixer.update(e.frozenT>0&&e.alive?0:dt);
@@ -1862,7 +1877,7 @@ function damage(t,amt,src,wname,head,at){
   if(!t.alive||t.protT>0)return;
   if(src&&src!==t&&src.team===t.team)return;
   if(t.stealthGuard&&!t.alerted&&src&&src.isPlayer){amt*=3.5;if(t.hp-amt>0)guardAlert(t)}
-  t.hp-=amt;t.lastHurt=G.time;if(src&&src.isPlayer&&src!==t)t.pHurtT=G.time;
+  t.hp-=amt;t.lastHurt=G.time;if(!t.isPlayer&&t.hp>0&&amt>8)t.hitT=.32;if(src&&src.isPlayer&&src!==t)t.pHurtT=G.time;
   if(src&&src.isPlayer&&src!==t){hitMarker(head);sfx(head?'head':'hit')}
   if(t.isPlayer){flashVignette(Math.min(1,amt/50));sfx('hurt');if(src&&src!==t)showDmgDir(src.pos);else if(at)showDmgDir(at)}
   if(t.bot&&src&&src!==t&&!t.bot.target&&src.alive){t.bot.target=src;t.bot.react=DIFF[G.diff].react*.6}
@@ -2440,12 +2455,19 @@ function buildGun(def,shadow){
   return g;
 }
 const meleeVM=new THREE.Group();(function(){const c=mk(CYL,M.cane,0,0,-.25,.03,.6,.03,meleeVM,false);c.rotation.x=Math.PI/2;const h=mk(TORUS,M.cane,0,.0,-.55,.32,.32,.32,meleeVM,false);h.rotation.y=Math.PI/2;mk(SPH,mat(0xd7263d,{rough:.9}),0,-.02,.02,.065,.07,.08,meleeVM,false)})();meleeVM.visible=false;camera.add(meleeVM);
+// campaign guns lose the toy colours: gunmetal, polymer and worn wood, keeping a hint of the original paint
+function tacticalize(g){const cache=new Map();g.traverse(o=>{if(!o.isMesh||!o.material||!o.material.color||o.material.isShaderMaterial||o.material.isMeshBasicMaterial||o.material.transparent)return;
+  let m=cache.get(o.material);if(!m){m=o.material.clone();const c=m.color,l=.2126*c.r+.7152*c.g+.0722*c.b,warm=c.r>c.g*1.4&&c.g>c.b*1.2&&l<.35;
+    const base=warm?new THREE.Color(.17,.11,.07):l>.5?new THREE.Color(.22,.23,.24):new THREE.Color(.06+l*.12,.065+l*.12,.07+l*.13);m.color.copy(base.lerp(c,.12));
+    if('metalness' in m){m.metalness=Math.max(m.metalness||0,warm?.0:.45);m.roughness=warm?.7:.42}cache.set(o.material,m)}o.material=m})}
 function buildViewmodel(){
   while(vm.children.length)vm.remove(vm.children[0]);
   const def=P.w[P.cur].def;GUN_FOR_VM=true;const g=buildGun(def,false);GUN_FOR_VM=false;
-  // mitten + fur cuff
-  mk(SPH,mat(0xd7263d,{rough:.9}),0,-.12,.0,.065,.07,.08,g,false);mk(CYL,M.white,0,-.13,.08,.07,.06,.07,g,false).rotation.x=Math.PI/2;
-  mk(SPH,mat(0xd7263d,{rough:.9}),0,-.03,-def.model.len*.62,.055,.05,.065,g,false);
+  if(G.camp)tacticalize(g);
+  // mitten + fur cuff (campaign: tactical gloves and a red-trimmed sleeve)
+  const glove=G.camp?mat(0x2b2e33,{rough:.75}):mat(0xd7263d,{rough:.9}),cuff=G.camp?mat(0x7a1626,{rough:.85}):M.white;
+  mk(SPH,glove,0,-.12,.0,.065,.07,.08,g,false);mk(CYL,cuff,0,-.13,.08,.07,.06,.07,g,false).rotation.x=Math.PI/2;
+  mk(SPH,glove,0,-.03,-def.model.len*.62,.055,.05,.065,g,false);
   g.traverse(o=>{if(o.isMesh)o.renderOrder=5});
   vm.add(g);vm.userData.g=g;const bb=new THREE.Box3().setFromObject(g);vm.updateMatrixWorld(true);const bl=new THREE.Box3();g.traverse(o=>{if(o.isMesh&&o.geometry){o.geometry.computeBoundingBox();const b2=o.geometry.boundingBox.clone().applyMatrix4(o.matrix);if(o.parent===g)bl.union(b2)}});vm.userData.top=isFinite(bl.max.y)?bl.max.y:.07;
   // real sights: a red-dot housing if equipped, otherwise rear notch + front post. ADS lines this up with the screen centre.
@@ -3048,13 +3070,13 @@ function campLaunch(i,cine,fresh){CAMP.i=i;voPrime();$('end').hidden=true;resetE
   if(res){go();return}
   if(cine&&modelsDone){G.running=false;G.over=false;clearMatch();playBrief(mv,i,()=>mv.kingPath?go():playCut('intro_'+m.id,go))}else go()}
 function campCleanup(){vehStop();CAMP.grab=null;$('grabPrompt').hidden=true;radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];CAMP.marks=[];CAMP.obj=null;document.body.classList.remove('camp');$('campHud').hidden=true;$('bossBar').hidden=true}
-function beacon(x,y,z,color){const g=new THREE.Group();g.position.set(x,y,z);const beam=new THREE.Mesh(CYL,new THREE.MeshBasicMaterial({color:C(color),transparent:true,opacity:.18,depthWrite:false}));beam.scale.set(.5,40,.5);beam.position.y=20;g.add(beam);
+function beacon(x,y,z,color){const g=new THREE.Group();g.position.set(x,y,z);const beam=new THREE.Mesh(CYL,new THREE.MeshBasicMaterial({color:C(color),transparent:true,opacity:.07,depthWrite:false}));beam.scale.set(.3,40,.3);beam.position.y=20;g.add(beam);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(1,.06,8,40),new THREE.MeshBasicMaterial({color:C(color)}));ring.rotation.x=Math.PI/2;ring.position.y=.08;g.add(ring);
   const dia=markerMesh(color);dia.scale.set(.4,.6,.4);dia.position.y=3.2;g.add(dia);fx.add(g);CAMP.meshes.push(g);return g}
 function spawnEnemy(x,y,z,opts){const e=makeBot(1);spawn(e);e.pos.set(x+rand(-1,1),y,z+rand(-1,1));e.noRespawn=true;e.protT=.5;if(opts)Object.assign(e,opts);if(e.mesh)e.mesh.position.copy(e.pos);return e}
 function enemiesAlive(){return G.ents.filter(e=>e.team===1&&e.alive).length}
 function campSet(objTxt,sub,prog){if(!objTypeIv)$('campObj').textContent=objTxt;$('campSub').innerHTML=sub||'';$('campProg').firstChild.style.width=(prog===undefined?0:prog*100)+'%'}
-function campBegin(){const m=missionFor(G.camp.i);CAMP.m=m;CAMP.moral0=moral();CAMP.ending=null;CAMP.lives=m.lives;CAMP.state={};CAMP.marks=[];CAMP.obj=null;CAMP.meshes=[];const st=CAMP.state,ES=MAP.spawns[1];G.overPending=false;radioClear();st.chatT=28;
+function campBegin(){if(MAP)gradeFor(MAP.env);const m=missionFor(G.camp.i);CAMP.m=m;CAMP.moral0=moral();CAMP.ending=null;CAMP.lives=m.lives;CAMP.state={};CAMP.marks=[];CAMP.obj=null;CAMP.meshes=[];const st=CAMP.state,ES=MAP.spawns[1];G.overPending=false;radioClear();st.chatT=28;
   if(m.phases){CAMP.chatT=60;v2Begin(G.camp.pi||0);return}
   if(m.id!=='sleigh')campChatter(m.id,'start');
   if(m.id==='stealth'){st.ghost=true;st.phase=0;st.trickle=12;st.cap=4;st.plansT=0;const PX=53,PZ=-12,py=terrH(PX,PZ);st.plans={x:PX,z:PZ};
@@ -3167,7 +3189,24 @@ function v2Prop(kind,x,z,y,ps){const g=new THREE.Group();g.position.set(x,v2Y(x,
   fx.add(g);ps.meshes.push(g);return g}
 function v2Beacon(x,z,y,col,ps){const b=beacon(x,v2Y(x,z,y),z,col||0xf5c451);ps.meshes.push(b);return b}
 function v2Clean(ps){for(const o of ps.meshes)fx.remove(o);ps.meshes=[]}
-function v2Save(){if(!G.camp)return;CPROG.at={i:G.camp.i,pi:CAMP.pi};store('npo-camp-v2',CPROG)}
+let cpT=0;function cpToast(){if(!G.running||!CAMP.pi)return;cpT=3;$('cpToast').classList.add('on')}
+// compass strip + objective waypoint diamond with distance, like a console campaign
+const _wp=new THREE.Vector3();
+function campHudTick(dt){if(!G.camp||!P)return;objNewT-=dt;$('campHud').classList.toggle('dim',objNewT<=0);if(cpT>0){cpT-=dt;if(cpT<=0)$('cpToast').classList.remove('on')}
+  const cv=$('compass'),g=cv.getContext('2d'),W=cv.width,H=cv.height,ppd=W/120;g.clearRect(0,0,W,H);const head=((-P.yaw*180/Math.PI)%360+360)%360;
+  g.fillStyle='rgba(0,0,0,.35)';g.fillRect(0,H-11,W,1);g.textAlign='center';g.font='bold 12px Barlow, sans-serif';
+  for(let d=0;d<360;d+=15){let off=((d-head+540)%360)-180;if(Math.abs(off)>62)continue;const x=W/2+off*ppd,card=d%90===0;
+    g.fillStyle=card?'#fff':'rgba(255,255,255,.6)';if(d%45===0){g.fillText(['N','NE','E','SE','S','SW','W','NW'][d/45],x,13)}else g.fillRect(x-.5,H-16,1,6)}
+  g.fillStyle='#fff';g.fillRect(W/2-1,H-10,2,8);
+  const o=CAMP.obj,wp=$('wayPt');const show=o&&P.alive&&!CUT.on&&!G.veh&&!(CAMP.ph&&(CAMP.ph.type==='clear'||CAMP.ph.type==='boss')&&enemiesAlive()>2);
+  if(!show){wp.style.display='none';return}
+  const dx=o.x-P.pos.x,dz=o.z-P.pos.z,dist=Math.hypot(dx,dz);let brg=Math.atan2(dx,-dz)*180/Math.PI;brg=((brg%360)+360)%360;
+  const off=((brg-head+540)%360)-180;const cx=W/2+clamp(off,-58,58)*ppd;g.save();g.translate(cx,H-11);g.rotate(Math.PI/4);g.fillStyle='#f5c451';g.fillRect(-4,-4,8,8);g.restore();
+  const oy=(o.y!==undefined&&o.y!==null?o.y:terrH(o.x,o.z))+1.6;_wp.set(o.x,oy,o.z).project(camera);const vw=VIEW_SZ.w||innerWidth,vh=VIEW_SZ.h||innerHeight;
+  let sx=(_wp.x*.5+.5)*vw,sy=(-_wp.y*.5+.5)*vh;const behind=_wp.z>1;
+  if(behind||sx<30||sx>vw-30||sy<60||sy>vh-40){const a=off*Math.PI/180;sx=vw/2+Math.sin(a)*vw*.42;sy=clamp(vh/2-Math.cos(a)*vh*.38,70,vh-60);if(behind&&Math.abs(off)<90)sy=vh-60}
+  wp.style.display='block';wp.style.left=sx+'px';wp.style.top=sy+'px';wp.classList.toggle('near',dist<4);setT(wp.lastChild,Math.round(dist)+'m')}
+function v2Save(){if(!G.camp)return;cpToast();CPROG.at={i:G.camp.i,pi:CAMP.pi};store('npo-camp-v2',CPROG)}
 
 function v2Begin(startPi){const m=CAMP.m;CAMP.pi=-1;CAMP.lives=99;CAMP.nextAt=0;CAMP.grab=null;CAMP.pendingRestart=false;CAMP.state={};CAMP.v2meshes=[];
   const pi=startPi||0;if(pi>0){const prev=m.phases[pi-1];const c=m.phases[pi].cp||prev.at||null;if(c)CAMP.cp=[c[0],c[1],c[2]||0]}
@@ -3239,6 +3278,7 @@ function escortTick(a,dt){const ps=CAMP.state,ph=CAMP.ph;if(!ph||!ph.path){retur
 function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
   if(CAMP.pendingRestart&&P.alive){CAMP.pendingRestart=false;v2Restart();return}
   if(ps.finished){if(CAMP.nextAt&&G.time>=CAMP.nextAt){CAMP.nextAt=0;v2Phase(CAMP.nextPi,false)}return}ps.t+=dt;CAMP.marks=[];
+  if(!ps.faced&&ps.t>.05&&(ps.restart||CAMP.pi===0)&&CAMP.obj&&P.alive){ps.faced=true;const dx=CAMP.obj.x-P.pos.x,dz=CAMP.obj.z-P.pos.z;if(Math.hypot(dx,dz)>2){const oy=Math.atan2(-dx,-dz),eye=_a.set(P.pos.x,P.pos.y+1.5,P.pos.z);let best=oy,bs=-1e9;for(let i=0;i<24;i++){const y=oy+i/24*Math.PI*2,open=Math.min(14,rayWorld(eye,_b.set(-Math.sin(y),0,-Math.cos(y)),14)),sc=open*1.2+Math.cos(y-oy)*6;if(sc>bs){bs=sc;best=y}}P.yaw=best;P.pitch=0}}
   const tot=m.phases.length,cpTxt=`Checkpoint ${CAMP.pi+1}/${tot}`;let sub='',prog=0,status='';
   if(ph.blizzard){G.blizzardT=Math.max(G.blizzardT,1.5)}
   if(ph.timer&&!ps.finished){const left=ph.timer-ps.t;if(left<=0&&P.alive){centerMsg(ph.timerFail||'Too late!');kill(P,null,'snow');return}status+=`<b>${Math.ceil(Math.max(0,left))} s</b> · `}
@@ -3293,7 +3333,8 @@ function v2Stairs(o){if(!o||!MAP||MAP!==MAPS.citadel)return null;if(o.y===undefi
   if(Math.hypot(P.pos.x-A[0],P.pos.z-A[1])<1.1&&Math.abs(P.pos.x-A[0])<.8){CAMP.stairOn=true;CAMP.stairB=B}
   const t=CAMP.stairOn?B:A;return{x:t[0],z:t[1]}}
 // objective text types itself in, like a field terminal
-let objTypeIv=null;function objType(t){const el=$('campObj');if(objTypeIv)clearInterval(objTypeIv);let i=0;el.dataset.full=t;el.textContent='';el.classList.add('typing');
+let hbeatT=0;function heartbeat(k){if(!AC)return;for(const [dt,f] of [[0,62],[.16,54]]){const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+dt;o.type='sine';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.6,t+.14);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.35*k,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(g);g.connect(busSfx);o.start(t);o.stop(t+.2)}}
+let objTypeIv=null,objNewT=0;function objType(t){const el=$('campObj');objNewT=7;$('campHud').classList.remove('dim');if(objTypeIv)clearInterval(objTypeIv);let i=0;el.dataset.full=t;el.textContent='';el.classList.add('typing');
   objTypeIv=setInterval(()=>{i+=1;el.textContent=t.slice(0,i);if(i%2===0)typeTick(.35);if(i>=t.length){clearInterval(objTypeIv);objTypeIv=null;el.classList.remove('typing')}},28)}
 function typeTick(v){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=1800+Math.random()*900;g.gain.setValueAtTime(.05*(v||1),AC.currentTime);g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.025);o.connect(g);g.connect(busSfx);o.start();o.stop(AC.currentTime+.03)}
 
@@ -4125,7 +4166,7 @@ function setupBloom(){if(composer||!THREE.EffectComposer||SETTINGS.bloom==='off'
     if(!rt&&THREE.SMAAPass){composer.addPass(new THREE.SMAAPass(w*pr,h*pr))}
     fitView(true)}catch(e){console.log('postfx off',e);composer=null}}
 function gradeFor(env){if(!gradePass||!env)return;const u=gradePass.uniforms;const night=env.stars>.8,storm=env.snowfall>.8;
-  u.uSat.value=storm?1.0:night?1.08:1.14;u.uCon.value=night?1.1:1.06;u.uVig.value=night?.42:.3;
+  u.uSat.value=storm?1.0:night?1.08:1.14;u.uCon.value=night?1.1:1.06;u.uVig.value=night?.42:.3;if(G.camp){u.uSat.value*=.8;u.uCon.value*=1.06;u.uVig.value+=.12}
   const t=new THREE.Color(env.sun);u.uGain.value.set(.94+t.r*.08,.94+t.g*.08,.94+t.b*.08);u.uLift.value.set(night?.0:.012,night?.006:.006,night?.03:.014)}
 let bloomSlow=0,bloomLast=0;
 function renderFrame(){const now=performance.now(),ft=now-(bloomLast||now);bloomLast=now;scopePass();
@@ -4347,8 +4388,9 @@ function update(dt){
   updateProjs(dt);updateNades(dt);updateParts(dt);updateGifts(dt);updateSleighs(dt);updateDecals(dt);updateSentries(dt);
   edgeTurn(dt);
   if(P&&!G.veh)updateCamera(dt);if(G.veh)vm.visible=false;
-  $('lowHp').style.opacity=P&&P.alive&&P.hp<P.maxHp*.3?(.55+.25*Math.sin(G.time*7)):0;
-  updateHud(dt);if(G.veh)vehHud();
+  if(G.camp&&P){const k=P.alive?clamp((1-P.hp/P.maxHp-.25)/.6,0,1):0;$('lowHp').style.opacity=k?(k*.85+.12*k*Math.sin(G.time*6)):0;if(k>.45){hbeatT-=dt;if(hbeatT<=0){hbeatT=.9-k*.35;heartbeat(k)}}}
+  else $('lowHp').style.opacity=P&&P.alive&&P.hp<P.maxHp*.3?(.55+.25*Math.sin(G.time*7)):0;
+  updateHud(dt);campHudTick(dt);if(G.veh)vehHud();
 }
 function updatePlayer(dt){
   const p=P,w=p.w[p.cur],def=w.def;if(p.trav){travTick(p,dt);return}
@@ -4440,7 +4482,8 @@ function updateCamera(dt){
   x+=(Math.sin(bobT)*.02*bob+swayX)*(1-ads*.92);y+=swayY*(1-ads*.92);
   let rx=(vmKick*.18+swayY*1.5)*(1-ads*.85),ry=swayX*2*(1-ads*.9),rz=-swayX*1.5*(1-ads*.9);
   if(p.sprinting){rx=-.35;ry=.5;y-=.06;x+=.04}
-  if(p.reloadT>0){const k=Math.sin(Math.PI*(1-p.reloadT/p.reloadMax));rx-=.7*k;y-=.12*k;rz+=.3*k}
+  if(p.reloadT>0){const f=1-p.reloadT/p.reloadMax,k=Math.sin(Math.PI*f),slap=f>.72&&f<.86?Math.sin((f-.72)/.14*Math.PI):0;rx-=.55*k-.12*slap;y-=.1*k+.025*slap;rz+=.55*k;ry-=.22*k;x-=.04*k}
+  {const br=G.time*1.7;y+=Math.sin(br)*.0035*(1-ads*.7);x+=Math.cos(br*.5)*.0025*(1-ads*.7)}
   if(p.swapT>0){y-=p.swapT*.6}
   if((p.meleeT||0)>0){p.meleeT-=dt;const k=1-p.meleeT/.4;meleeVM.visible=true;meleeVM.position.set(.35-k*.5,-.25+Math.sin(k*Math.PI)*.12,-.5);meleeVM.rotation.set(-.4+Math.sin(k*Math.PI)*.4,.9-k*1.8,-.6+k*.9);y-=.3}else meleeVM.visible=false;
   vm.position.set(x,y,z);vm.rotation.set(rx,ry,rz);
