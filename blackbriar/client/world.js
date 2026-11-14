@@ -369,6 +369,23 @@ export function buildWorld(scene, renderer, opts = {}) {
   for (let k = 0; k < 14; k++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.009, 6, 12), M.chrome); l.position.set(0.16, 1.0 + Math.sin(k * 0.45) * 0.03, 1.35 + k * 0.065); l.rotation.y = k % 2 ? Math.PI / 2 : 0; out.chain.add(l); }
   { const lk = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.06), new THREE.MeshStandardMaterial({ color: 0xb08a2a, metalness: 0.9, roughness: 0.3 })); lk.position.set(0.17, 0.92, 1.8); out.chain.add(lk); }
   { const ex = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.42), new THREE.MeshStandardMaterial({ map: TX.textCanvas(256, 110, (x, w, h) => { x.fillStyle = '#f2f0ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#d8231d'; x.font = 'bold 74px Helvetica'; x.textAlign = 'center'; x.fillText('EXIT', w / 2, 82); }), emissive: 0xff3a30, emissiveIntensity: 0.6, emissiveMap: null })); ex.position.set(0.16, 2.35, 1.8); scene.add(ex); }
+  // glowing EXIT signs hung under the ceiling at the ends of corridors: only the letters glow, with a soft red halo
+  { const tex = TX.textCanvas(256, 110, (x, w, h) => { x.fillStyle = '#000'; x.fillRect(0, 0, w, h); x.fillStyle = '#fff'; x.font = 'bold 76px Helvetica'; x.textAlign = 'center'; x.fillText('EXIT', w / 2, 82); x.fillRect(18, 96, w - 36, 4); });
+    const face = new THREE.MeshStandardMaterial({ color: 0x1a0606, roughness: 0.4, emissive: 0xff2a1c, emissiveMap: tex, emissiveIntensity: 3.2 });
+    const halo = new THREE.MeshBasicMaterial({ map: TX.textCanvas(128, 64, (x, w, h) => { const g = x.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2); g.addColorStop(0, 'rgba(255,40,25,0.55)'); g.addColorStop(1, 'rgba(255,40,25,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const sign = (x, y, z, yaw) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g);
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.2, 0.05), M.white); g.add(box);
+      for (const sd of [1, -1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.17), face); f.position.z = sd * 0.026; f.rotation.y = sd > 0 ? 0 : Math.PI; g.add(f);
+        const hl = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.65), halo); hl.position.z = sd * 0.03; hl.rotation.y = f.rotation.y; g.add(hl); }
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.25), M.chrome); rod.position.y = 0.22; g.add(rod); };
+    sign(38.6, 2.62, 1.8, Math.PI / 2); sign(6.2, 2.62, 1.8, Math.PI / 2); sign(-14, -1.3, -4.6, 0); sign(-14, -1.3, 10.6, 0); sign(42, 2.38, -4.8, 0); }
+  // ---------- the hall tells the story: posters and flyers above the lockers ----------
+  { const P = POSTERS(), R = (() => { let a = 1234567; return () => ((a = (a * 16807) % 2147483647) / 2147483647); })();
+    const put = (draw, x, z, face, w = 0.46, h = 0.62, y = 2.42) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: draw, roughness: 0.88, transparent: true, alphaTest: 0.05, emissive: 0xffffff, emissiveMap: draw, emissiveIntensity: 0.22 }));
+      m.position.set(x, y + (R() - 0.5) * 0.06, z); m.rotation.set(0, face, (R() - 0.5) * 0.08); scene.add(m); };
+    const S = 0.112, N = 3.488, F = 0, B = Math.PI;
+    put(P.missing, 2.2, S, F); put(P.attendance, 6.5, S, F); put(P.formal, 18.0, S, F); put(P.pennant, 24.5, S, F, 0.95, 0.45); put(P.missingScratched, 30.5, S, F); put(P.fire, 35.5, S, F, 0.5, 0.36);
+    put(P.formal, 1.8, N, B); put(P.pennant, 7.8, N, B, 0.95, 0.45); put(P.missing, 15.5, N, B); put(P.attendance, 18.6, N, B); put(P.missingScratched, 26, N, B); put(P.pennant, 31, N, B, 0.95, 0.45); put(P.missing, 36, N, B); }
   // painted-over room plate (Room 014): a faint outline; made legible as a clue on Day 2
   const plate014 = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.13), new THREE.MeshStandardMaterial({ map: TX.textCanvas(256, 110, (x, w, h) => { x.fillStyle = '#e2ddcc'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(120,110,80,.35)'; x.lineWidth = 6; x.strokeRect(10, 10, w - 20, h - 20); x.fillStyle = 'rgba(110,100,70,.22)'; x.font = 'bold 60px Helvetica'; x.textAlign = 'center'; x.fillText('014', w / 2, 78); }), roughness: 0.9 }));
   plate014.position.set(0.105, 1.6, 2.75); plate014.rotation.y = Math.PI / 2; scene.add(plate014); out.plate014 = plate014;
@@ -614,6 +631,47 @@ export function makeMopModel() {
   return { root, head, handle, strands, strandMat };
 }
 
+// ======================= posters, flyers and banners (drawn, not downloaded) =======================
+let _posters = null;
+function POSTERS() {
+  if (_posters) return _posters;
+  const age = (x, w, h, k = 1) => { // yellowing, a stain, a crease, tape at the corners
+    const g = x.createRadialGradient(w * 0.7, h * 0.8, 4, w * 0.7, h * 0.8, w); g.addColorStop(0, 'rgba(120,90,30,0)'); g.addColorStop(1, `rgba(120,90,30,${0.22 * k})`); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.strokeStyle = 'rgba(0,0,0,0.08)'; x.lineWidth = 2; x.beginPath(); x.moveTo(0, h * 0.48); x.lineTo(w, h * 0.52); x.stroke();
+    x.fillStyle = 'rgba(230,225,190,0.55)'; for (const [tx, ty] of [[10, 6], [w - 50, 6]]) x.fillRect(tx, ty, 40, 16);
+  };
+  const face = (x, cx, cy, s, scratched) => { x.fillStyle = '#9a958a'; x.fillRect(cx - s / 2, cy - s * 0.6, s, s * 1.2); x.fillStyle = '#5a564e'; x.beginPath(); x.arc(cx, cy - s * 0.12, s * 0.22, 0, 7); x.fill(); x.beginPath(); x.ellipse(cx, cy + s * 0.5, s * 0.4, s * 0.3, 0, Math.PI, 0); x.fill();
+    if (scratched) { x.strokeStyle = 'rgba(20,10,10,0.85)'; x.lineWidth = 3; for (let i = 0; i < 9; i++) { x.beginPath(); x.moveTo(cx - s * 0.35 + Math.random() * 6, cy - s * 0.35 + i * 3); x.lineTo(cx + s * 0.35, cy - s * 0.1 + i * 3 - 8); x.stroke(); } } };
+  const missing = (scratched) => TX.textCanvas(368, 496, (x, w, h) => {
+    x.fillStyle = '#efe9d6'; x.fillRect(0, 0, w, h); x.fillStyle = '#b3141a'; x.font = 'bold 66px Arial'; x.textAlign = 'center'; x.fillText('MISSING', w / 2, 70);
+    x.fillStyle = '#222'; x.font = 'bold 20px Arial'; x.fillText('HAVE YOU SEEN THESE STUDENTS?', w / 2, 102);
+    for (let i = 0; i < 14; i++) face(x, 46 + (i % 5) * 69, 150 + Math.floor(i / 5) * 92, 56, scratched && (i === 3 || i === 7 || i === 12 || Math.random() < 0.3));
+    x.fillStyle = '#222'; x.font = '18px Courier New'; x.fillText('ROOM 014 · JUNE 11, 1998', w / 2, 430); x.fillText('LAST SEEN DURING PERIOD 7', w / 2, 452); x.font = 'bold 18px Arial'; x.fillText('CALL 555-0148', w / 2, 480);
+    if (scratched) { x.fillStyle = 'rgba(120,10,10,0.8)'; x.font = 'italic 34px Georgia'; x.save(); x.translate(w / 2, 300); x.rotate(-0.25); x.fillText('PRESENT', 0, 0); x.restore(); }
+    age(x, w, h); });
+  const P = {
+    missing: missing(false), missingScratched: missing(true),
+    formal: TX.textCanvas(368, 496, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#1b1640'); g.addColorStop(1, '#3a2a6a'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 70; i++) { x.fillStyle = `rgba(255,240,200,${Math.random() * 0.8})`; x.fillRect(Math.random() * w, Math.random() * h * 0.6, 2, 2); }
+      x.fillStyle = '#f4d77a'; x.textAlign = 'center'; x.font = 'italic 46px Georgia'; x.fillText('Spring Formal', w / 2, 240); x.font = 'bold 30px Georgia'; x.fillText("UNDER THE STARS '98", w / 2, 285);
+      x.fillStyle = '#e9e2ff'; x.font = '22px Georgia'; x.fillText('Friday, June 12 · 8 PM', w / 2, 360); x.fillText('Blackbriar Gymnasium', w / 2, 390); x.font = '16px Georgia'; x.fillText('Tickets $15 in the front office', w / 2, 440); age(x, w, h, 0.7); }),
+    attendance: TX.textCanvas(368, 496, (x, w, h) => { x.fillStyle = '#f3f1ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#1d3b6b'; x.fillRect(0, 0, w, 96); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 40px Arial'; x.fillText('ATTENDANCE', w / 2, 46); x.fillText('MATTERS', w / 2, 86);
+      x.fillStyle = '#222'; x.font = '24px Georgia'; ['Every absence', 'is recorded.', '', 'Every student', 'is accounted for.'].forEach((t, i) => x.fillText(t, w / 2, 170 + i * 34));
+      x.font = 'italic 20px Georgia'; x.fillText('— R. Voss, Attendance Officer', w / 2, 440); x.strokeStyle = '#1d3b6b'; x.lineWidth = 6; x.strokeRect(8, 8, w - 16, h - 16); age(x, w, h); }),
+    pennant: TX.textCanvas(512, 240, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = '#7a1622'; x.beginPath(); x.moveTo(0, 0); x.lineTo(w, h / 2); x.lineTo(0, h); x.closePath(); x.fill(); x.fillStyle = '#e5b931'; x.fillRect(0, 0, 26, h);
+      x.font = 'bold 64px Arial'; x.textAlign = 'left'; x.fillText('BOBCATS', 46, h / 2 + 22); }),
+    fire: TX.textCanvas(400, 288, (x, w, h) => { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.fillStyle = '#c4161c'; x.fillRect(0, 0, w, 70); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 40px Arial'; x.fillText('IN CASE OF FIRE', w / 2, 50);
+      x.fillStyle = '#222'; x.font = '22px Arial'; ['Leave by the nearest exit.', 'Do not stop for belongings.', 'Report to your teacher', 'for attendance.'].forEach((t, i) => x.fillText(t, w / 2, 120 + i * 40)); age(x, w, h, 0.6); }),
+    banner: (a, b) => TX.textCanvas(300, 460, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = '#6d141d'; x.beginPath(); x.moveTo(0, 0); x.lineTo(w, 0); x.lineTo(w, h - 60); x.lineTo(w / 2, h); x.lineTo(0, h - 60); x.closePath(); x.fill();
+      x.strokeStyle = '#e1b23a'; x.lineWidth = 8; x.stroke(); x.fillStyle = '#e1b23a'; x.textAlign = 'center'; x.font = 'bold 40px Arial'; x.fillText('BOBCATS', w / 2, 70);
+      x.font = 'bold 26px Arial'; a.split(' ').forEach((t, i) => x.fillText(t, w / 2, 170 + i * 34)); x.font = 'bold 62px Arial'; x.fillText(b, w / 2, 320); }),
+    memorial: TX.textCanvas(1500, 260, (x, w, h) => { x.fillStyle = '#16141a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#b89a52'; x.lineWidth = 6; x.strokeRect(10, 10, w - 20, h - 20); x.fillStyle = '#d8c38a'; x.textAlign = 'center';
+      x.font = 'bold 64px Georgia'; x.fillText('CLASS OF 1998 · WE WILL NEVER FORGET', w / 2, 100); x.font = '26px Georgia';
+      x.fillText('A. Arden · M. Arden · T. Bell · J. Cruz · D. Fenn · L. Hale · K. Ibsen · R. Lowe · S. Marsh · E. Nolan · P. Ortiz · C. Price · W. Shaw · N. Webb', w / 2, 170); x.font = 'italic 24px Georgia'; x.fillText('Room 014', w / 2, 220); }),
+  };
+  return (_posters = P);
+}
+
 // ======================= athletics floor props =======================
 function buildAthletics(scene, col, M, std, out) {
   const Y = -4;
@@ -629,6 +687,13 @@ function buildAthletics(scene, col, M, std, out) {
   for (let k = 0; k < 5; k++) col.box(M.darkSteel, -28, Y + (k * 0.38) / 2 + 0.1, -11.25 - k * 0.55, 21, k * 0.38 + 0.2, 0.04);
   // hoops on both end walls
   for (const [x, dir] of [[-39.7, 1], [-16.3, -1]]) { col.box(M.steel, x + dir * 0.5, Y + 3.0, -5.5, 1.0, 0.08, 0.08); col.box(M.white, x + dir * 1.0, Y + 3.3, -5.5, 0.04, 1.05, 1.8); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.012, 6, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xd2501c, metalness: 0.6, roughness: 0.4 })); rim.position.set(x + dir * 1.28, Y + 3.05, -5.5); scene.add(rim); const net = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.14, 0.4, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true })); net.position.set(x + dir * 1.28, Y + 2.84, -5.5); scene.add(net); }
+  // championship banners over the bleachers, and the class that never graduated
+  { const P = POSTERS();
+    const hang = (map, x, y, z, ry, w, h) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map, roughness: 0.95, side: THREE.DoubleSide, transparent: true, alphaTest: 0.05, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.16 })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m); };
+    [['STATE CHAMPIONS', '1984'], ['DISTRICT CHAMPIONS', '1991'], ['STATE CHAMPIONS', '1994'], ['CONFERENCE TITLE', '1997']].forEach(([a, b], i) => hang(P.banner(a, b), -35 + i * 4.6, Y + 4.6, -13.86, 0, 1.5, 2.3));
+    hang(P.memorial, -28, Y + 4.4, 6.1, Math.PI, 7.5, 1.3);
+    col.box(M.plasticBlue, -39.84, Y + 1.0, -5.5, 0.08, 1.8, 7.0); // wall pad under the west hoop
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(23.8, 0.35), new THREE.MeshStandardMaterial({ color: 0x6a1820, roughness: 0.7 })); stripe.position.set(-28, Y + 2.3, -13.88); scene.add(stripe); }
   // mats, ball cart, scoreboard
   col.box(M.plasticBlue, -36, Y + 0.3, 4.15, 4, 0.6, 3.3, 0, 0.04);
   col.box(M.darkSteel, -18, Y + 0.5, 4.0, 1.2, 0.04, 0.8); for (let k = 0; k < 10; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), M.plasticOrange); b.position.set(-18.45 + (k % 5) * 0.22, Y + 0.65 + Math.floor(k / 5) * 0.2, 3.85 + (k % 2) * 0.25); scene.add(b); }

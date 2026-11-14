@@ -7,6 +7,7 @@ import { buildWorld, makeVacuumModel, makeMopModel, makeCartModel, makeRoombaMod
 import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd, updateCrowd } from './models.js';
 import { loadProps } from './props.js';
 import { makePost } from './post.js';
+import { makeAtmos } from './atmos.js';
 import { Audio3D } from './audio.js';
 import { Score } from './music.js';
 import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo, getRoomApi, RoomHost, RoomGuest, newRoomCode, PeerHost, PeerGuest, peerSupported } from './net.js';
@@ -34,10 +35,11 @@ const scene = new THREE.Scene(); scene.background = new THREE.Color(0x020202); s
 const camera = new THREE.PerspectiveCamera(settings.fov, 1, 0.03, 120); camera.rotation.order = 'YXZ'; scene.add(camera);
 scene.add(new THREE.HemisphereLight(0xdfe4ee, 0x2a2a26, 0.16));
 const flash = new THREE.SpotLight(0xfff2dc, 0, 16, 0.42, 0.45, 1.6); flash.position.set(-0.2, -0.2, 0); camera.add(flash); camera.add(flash.target); flash.target.position.set(0, -0.05, -1);
+let atmos = null; // light shafts, dust, the beam in the air (atmos.js)
 flash.castShadow = settings.quality >= 2; flash.shadow.mapSize.set(512, 512); flash.shadow.bias = -0.0005; flash.shadow.camera.near = 0.2;
 const POOL = []; for (let i = 0; i < (settings.quality === 0 ? 2 : settings.quality === 1 ? 3 : 4); i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); scene.add(l); POOL.push(l); }
 let renderScale = 1; // adaptive: lowered when frames run slow, raised again when there is headroom
-function resize() { const pr = Math.min(devicePixelRatio, settings.quality === 0 ? 1 : settings.quality === 1 ? 1.25 : 1.5) * (settings.quality === 0 ? 0.75 : 1) * renderScale; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); if (post) post.setSize(innerWidth, innerHeight, pr); camera.aspect = innerWidth / innerHeight; camera.fov = settings.fov; camera.updateProjectionMatrix(); }
+function resize() { const pr = Math.min(devicePixelRatio, settings.quality === 0 ? 1 : settings.quality === 1 ? 1.25 : 1.5) * (settings.quality === 0 ? 0.75 : 1) * renderScale; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); if (atmos) atmos.setPixelRatio(pr); if (post) post.setSize(innerWidth, innerHeight, pr); camera.aspect = innerWidth / innerHeight; camera.fov = settings.fov; camera.updateProjectionMatrix(); }
 let post = null;
 addEventListener('resize', resize); resize();
 try { post = makePost(renderer, scene, camera, settings.quality); resize(); } catch (e) { console.warn('post-processing unavailable', e); post = null; }
@@ -62,6 +64,7 @@ async function boot() {
   const tl0 = performance.now(); let props = {};
   try { [, props] = await Promise.all([loadModels(), loadProps()]); BOOT.load = Math.round(performance.now() - tl0); } catch (e) { console.error(e); loadingEl.textContent = 'Could not load models: ' + e.message; }
   const tw0 = performance.now(); W = buildWorld(scene, renderer, { props }); BOOT.world = Math.round(performance.now() - tw0);
+  try { atmos = makeAtmos(scene, camera, { quality: settings.quality, isTouch }); atmos.setPixelRatio(renderer.getPixelRatio()); } catch (e) { console.warn('atmosphere unavailable', e); atmos = null; }
   mirror = new Sim(null);
   buildDebris(); buildMasks(); buildFX(); buildPrints(); buildViewmodels(); buildCCTV();
   if (monitorAvailable()) { monitor = makeMonitor(); monitor.root.position.set(47.5, 0, 11); scene.add(monitor.root); }
@@ -888,6 +891,7 @@ function placePool(cx, cz, force) {
 }
 let poolT = 0;
 function updateLights(dt, t) {
+  if (atmos) atmos.update(dt, t, (L) => fixtureLevel(L, t), P, flash, flash.angle);
   poolT += dt; if (poolT > 0.3) { poolT = 0; placePool(P.x, P.z); }
   for (const pl of POOL) if (pl.userData.L) pl.intensity = pl.userData.base * fixtureLevel(pl.userData.L, t);
   for (const f of W.fixtures) f.mat.emissiveIntensity = f.base * fixtureLevel(f.L, t);

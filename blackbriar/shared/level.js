@@ -266,11 +266,11 @@ export const LIGHTS = (() => {
   L.push({ x: -1, z: 1.8, y: 2.95, state: 'on', room: 'stair', color: 0xf0f2ff, i: 0.8 });
   L.push({ x: -11, z: 1.8, y: -1.05, state: 'flicker', room: 'stair', color: 0xf0f2ff, i: 0.8 });
   for (const z of [-3, 4, 10]) L.push({ x: -14, z, y: -1.05, state: z === 4 ? 'off' : 'on', room: 'lcorr', color: 0xf2f4ff, i: 0.9 });
-  for (const x of [-35, -28, -21]) for (const z of [-8, 1]) L.push({ x, z, y: 3.4, state: x === -28 && z === 1 ? 'flicker' : 'on', room: 'gym', color: 0xfff4e0, i: 2.2, high: true });
+  for (const x of [-35, -28, -21]) for (const z of [-8, 1]) L.push({ x, z, y: 3.4, state: x === -28 && z === 1 ? 'flicker' : 'on', room: 'gym', color: 0xfff4e0, i: 3.4, high: true });
   for (const x of [-23, -19]) L.push({ x, z: 11.5, y: -1.25, state: x === -19 ? 'flicker' : 'on', room: 'lockers', color: 0xe8f4ff, i: 0.8 });
   { const R = rng(1414), { xs, zs } = W014; for (let j = 0; j < zs.length - 1; j++) for (let i = 0; i < xs.length - 1; i++) { if (!w014Cell(i, j)) continue; const r = R(); L.push({ x: (xs[i] + xs[i + 1]) / 2, z: (zs[j] + zs[j + 1]) / 2, y: 2.68, state: r < 0.1 ? 'off' : r < 0.28 ? 'flicker' : 'on', room: 'w014', color: 0xfff0c2, i: 0.85 }); } }
   for (const x of [-9, -3]) for (const z of [6.5, 11.5, 16.5]) L.push({ x, z, y: -0.08, state: x === -3 && z === 11.5 ? 'off' : x === -9 && z === 16.5 ? 'flicker' : 'on', room: 'cafe', color: 0xf4f0e2, i: 0.85 });
-  for (const x of [-42, -34]) for (const z of [11, 19]) L.push({ x, z, y: 2.4, state: x === -42 && z === 19 ? 'off' : 'on', room: 'pool', color: 0xe8f8ff, i: 1.6, high: true });
+  for (const x of [-42, -34]) for (const z of [11, 19]) L.push({ x, z, y: 2.4, state: x === -42 && z === 19 ? 'off' : 'on', room: 'pool', color: 0xe8f8ff, i: 2.4, high: true });
   return L;
 })();
 
