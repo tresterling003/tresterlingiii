@@ -1,0 +1,17 @@
+{
+  "name": "snitch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SNITCH — a heist-crew social deduction game. Play online with friends or solo against bots.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
