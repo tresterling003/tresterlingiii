@@ -525,6 +525,9 @@ body.camp #compass{display:block}
 #cpToast{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:14px;color:#fff;text-shadow:0 2px 6px #000;opacity:0;transition:opacity .5s;pointer-events:none}
 #cpToast.on{opacity:1}
 body.touch.camp #campHud{top:calc(48px + env(safe-area-inset-top,0px));max-width:45vw}body.touch.camp #campObj{font-size:13px}
+#fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .45s}#fade.on{opacity:1;transition:none}
+#slowOv{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,transparent 45%,rgba(170,215,255,.35) 100%);box-shadow:inset 0 0 120px rgba(200,230,255,.35)}
+body.slowmo #slowOv{opacity:1}
 #lowHp{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(120,0,20,.55) 100%);mix-blend-mode:multiply}
 body.touch #ribbon{top:56%}
 body.touch .rib{font-size:13px;padding:3px 24px}
@@ -680,7 +683,7 @@ body.camp #topbar{display:none}
   <div id="bossBar" hidden><b>The Frost King</b><div><i></i></div></div>
   <div id="countdown"></div>
   <div id="deathCamTag" hidden></div>
-  <div id="lowHp"></div><canvas id="compass" width="440" height="30"></canvas><div id="wayPt"><i></i><span></span></div><div id="cpToast">Checkpoint reached</div>
+  <div id="lowHp"></div><div id="fade"></div><div id="slowOv"></div><canvas id="compass" width="440" height="30"></canvas><div id="wayPt"><i></i><span></span></div><div id="cpToast">Checkpoint reached</div>
   <div id="prompt" hidden></div>
   <div id="vitals">
     <div class="lbl"><span id="clsLabel">Class</span><span id="perkLabel">Perk</span></div>
@@ -1727,7 +1730,9 @@ const G={byId:new Map(),running:false,paused:false,over:false,ents:[],projs:[],n
 let P=null;
 function mkWeapon(def){return{def,ammo:def.mag}}
 function addEnt(e){G.ents.push(e);G.byId.set(e.id,e);return e}
-function removeEnt(e){if(e.mesh)chars.remove(e.mesh);const i=G.ents.indexOf(e);if(i>=0)G.ents.splice(i,1);G.byId.delete(e.id)}
+// free a character's GPU-side extras (skeleton bone texture, per-character materials) when it leaves for good
+function disposeChar(g){if(!g)return;g.traverse(o=>{if(o.isSkinnedMesh&&o.skeleton&&o.skeleton.dispose)o.skeleton.dispose();if(o.isSprite&&o.material){if(o.material.map)o.material.map.dispose();o.material.dispose()}});const u=g.userData;if(u&&u.spawnShield)u.spawnShield.material.dispose()}
+function removeEnt(e){if(e.mesh){chars.remove(e.mesh);disposeChar(e.mesh)}const i=G.ents.indexOf(e);if(i>=0)G.ents.splice(i,1);G.byId.delete(e.id)}
 function makeEntity(team,isPlayer,name,cls){
   const e={id:'',kb:{},ld:null,team,isPlayer,name,cls,pendingCls:cls,pos:new THREE.Vector3(),vel:new THREE.Vector3(),yaw:0,pitch:0,hp:100,maxHp:100,alive:false,respawnT:0,kills:0,deaths:0,score:0,streak:0,onGround:true,crouch:0,lastHurt:-99,lastFire:-99,slowT:0,frozenT:0,protT:0,w:[],cur:0,cd:0,reloadT:0,swapT:0,nades:2,radius:.45,h:1.8,deadT:0,
     bot:isPlayer?null:{think:0,target:null,react:0,goal:null,strafeT:0,strafeDir:1,stuckT:0,lastX:0,lastZ:0,stuck:0,burst:0,walk:0}};
@@ -1891,7 +1896,7 @@ function kill(v,k,wname,head){
   if(!suicide){const kb=v.kb[k.id]||(v.kb[k.id]=[k.team,0]);kb[1]++;
     k.kills++;k.score+=100;k.streak++;
     if(G.mode==='tdm'&&!NET.on){G.scores[k.team]++}
-    if(k.isPlayer){onPlayerKill(v,head)}
+    if(k.isPlayer){k.lastKillT=G.time;onPlayerKill(v,head)}
     else if(P&&k.team===P.team&&v.team!==P.team&&G.time-(v.pHurtT||-99)<6){P.score+=50;addXP(50,'Assists');scorePop(50,'Assist')}
     if(G.mode==='tdm'&&!G.camp&&P){const ls=Math.sign(G.scores[P.team]-G.scores[1-P.team]);if(G.leadSign!==undefined&&ls!==G.leadSign&&ls!==0)announce(ls>0?"We've taken the lead.":"We've lost the lead.");G.leadSign=ls;
       if(G.scores[P.team]===G.limit-5&&!G.near0){G.near0=true;announce('Five more and we win it!')}if(G.scores[1-P.team]===G.limit-5&&!G.near1){G.near1=true;announce("They're five away. Dig in!")}}
@@ -2328,7 +2333,7 @@ function updateBot(b,dt){
     bt.react-=dt;
     if(b.reloadT<=0&&b.swapT<=0){
       if(w.ammo<=0){if(b.cur===0&&d<9&&Math.random()<.4)swapTo(b,1);else startReload(b)}
-      else if(bt.react<=0&&Math.abs(ad)<.22&&b.cd<=0){_te.set(t.pos.x,t.pos.y+1.2,t.pos.z);if(los(_eye,_te))botFire(b,t,d,D)}
+      else if(bt.react<=0&&Math.abs(ad)<.22&&b.cd<=0&&b.machine!=='generator'&&b.machine!=='boiler'){_te.set(t.pos.x,t.pos.y+1.2,t.pos.z);if(los(_eye,_te))botFire(b,t,d,D)}
     }
     if(d<1.9&&(b.meleeCd||0)<G.time&&Math.abs(ad)<.6){b.meleeCd=G.time+1.2+Math.random();const dir=_v.set(dx/d,0,dz/d);const o=_org.set(b.pos.x,b.pos.y+1.5,b.pos.z);meleeHits(b,o,dir);publishShot(b,'ml',o,dir,0);play('throw',{pos:o,vol:.6,rate:1.3});b.meleeT=.4}
     if(b.nades>0&&d>9&&d<24&&Math.random()<dt*.07){_a.set(dx,0,dz).normalize();_a.y=.25+d*.012;_a.normalize();throwNade(b,_a,Math.min(18,d*.75+4))}
@@ -2463,9 +2468,8 @@ function tacticalize(g){const cache=new Map();g.traverse(o=>{if(!o.isMesh||!o.ma
 function buildViewmodel(){
   while(vm.children.length)vm.remove(vm.children[0]);
   const def=P.w[P.cur].def;GUN_FOR_VM=true;const g=buildGun(def,false);GUN_FOR_VM=false;
-  if(G.camp)tacticalize(g);
   // mitten + fur cuff (campaign: tactical gloves and a red-trimmed sleeve)
-  const glove=G.camp?mat(0x2b2e33,{rough:.75}):mat(0xd7263d,{rough:.9}),cuff=G.camp?mat(0x7a1626,{rough:.85}):M.white;
+  const glove=mat(0xd7263d,{rough:.9}),cuff=M.white;
   mk(SPH,glove,0,-.12,.0,.065,.07,.08,g,false);mk(CYL,cuff,0,-.13,.08,.07,.06,.07,g,false).rotation.x=Math.PI/2;
   mk(SPH,glove,0,-.03,-def.model.len*.62,.055,.05,.065,g,false);
   g.traverse(o=>{if(o.isMesh)o.renderOrder=5});
@@ -2556,7 +2560,7 @@ function updateHud(dt){
   $('frostOverlay').style.opacity=Math.max(P.frozenT>0?.8:0,G.blizzardT>0?.35:0);
   cmT-=dt;if(cmT<=0)$('centerMsg').style.opacity=0;
   xpT-=dt;const xe=$('xpPop');xe.style.opacity=xpT>0?Math.min(1,xpT*2):0;xe.style.transform=`translateX(-50%) translateY(${-(1.2-Math.max(0,xpT))*20}px)`;
-  const scoped=d.scope&&P.adsAmt>.85;$('scope').style.opacity=scoped?1:0;vm.visible=!scoped&&P.alive&&!G.veh&&!G.hub;
+  const scoped=d.scope&&P.adsAmt>.85;$('scope').style.opacity=scoped?1:0;vm.visible=!scoped&&P.alive&&!G.veh&&!G.hub&&!(G.camp&&CAMP.state&&CAMP.state.tur&&CAMP.state.tur.on);
   const spr=lerp(d.spread*(1+Math.hypot(P.vel.x,P.vel.z)/7)*(P.onGround?1:2)*(1+Math.min(1,P.bloom||0)*.6),d.ads,Math.pow(P.adsAmt,2));const gap=4+spr*260;
   const gr=Math.round(gap);if(gr!==chGap){chGap=gr;const ch=$('crosshair').children;ch[0].style.top=(-gr-9)+'px';ch[1].style.top=gr+'px';ch[2].style.left=(-gr-9)+'px';ch[3].style.left=gr+'px'}
   $('crosshair').style.opacity=scoped||P.sprinting||G.veh?(G.veh?1:0):(P.adsAmt>.35?Math.max(0,1-(P.adsAmt-.35)*3):1);
@@ -3070,8 +3074,9 @@ function campLaunch(i,cine,fresh){CAMP.i=i;voPrime();$('end').hidden=true;resetE
   if(res){go();return}
   if(cine&&modelsDone){G.running=false;G.over=false;clearMatch();playBrief(mv,i,()=>mv.kingPath?go():playCut('intro_'+m.id,go))}else go()}
 function campCleanup(){vehStop();CAMP.grab=null;$('grabPrompt').hidden=true;radioClear();for(const o of CAMP.meshes)fx.remove(o);CAMP.meshes=[];CAMP.marks=[];CAMP.obj=null;document.body.classList.remove('camp');$('campHud').hidden=true;$('bossBar').hidden=true}
+let RING_GEO=null;
 function beacon(x,y,z,color){const g=new THREE.Group();g.position.set(x,y,z);const beam=new THREE.Mesh(CYL,new THREE.MeshBasicMaterial({color:C(color),transparent:true,opacity:.07,depthWrite:false}));beam.scale.set(.3,40,.3);beam.position.y=20;g.add(beam);
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(1,.06,8,40),new THREE.MeshBasicMaterial({color:C(color)}));ring.rotation.x=Math.PI/2;ring.position.y=.08;g.add(ring);
+  const ring=new THREE.Mesh(RING_GEO||(RING_GEO=new THREE.TorusGeometry(1,.06,8,40)),new THREE.MeshBasicMaterial({color:C(color)}));ring.rotation.x=Math.PI/2;ring.position.y=.08;g.add(ring);
   const dia=markerMesh(color);dia.scale.set(.4,.6,.4);dia.position.y=3.2;g.add(dia);fx.add(g);CAMP.meshes.push(g);return g}
 function spawnEnemy(x,y,z,opts){const e=makeBot(1);spawn(e);e.pos.set(x+rand(-1,1),y,z+rand(-1,1));e.noRespawn=true;e.protT=.5;if(opts)Object.assign(e,opts);if(e.mesh)e.mesh.position.copy(e.pos);return e}
 function enemiesAlive(){return G.ents.filter(e=>e.team===1&&e.alive).length}
@@ -3188,12 +3193,12 @@ function v2Prop(kind,x,z,y,ps){const g=new THREE.Group();g.position.set(x,v2Y(x,
   else if(kind==='tree'){}
   fx.add(g);ps.meshes.push(g);return g}
 function v2Beacon(x,z,y,col,ps){const b=beacon(x,v2Y(x,z,y),z,col||0xf5c451);ps.meshes.push(b);return b}
-function v2Clean(ps){for(const o of ps.meshes)fx.remove(o);ps.meshes=[]}
+function v2Clean(ps){v2TurretOff(ps);if(ps.doorCol){removeCollider(ps.doorCol);ps.doorCol=null}for(const o of ps.meshes)fx.remove(o);ps.meshes=[]}
 let cpT=0;function cpToast(){if(!G.running||!CAMP.pi)return;cpT=3;$('cpToast').classList.add('on')}
 // compass strip + objective waypoint diamond with distance, like a console campaign
 const _wp=new THREE.Vector3();
 function campHudTick(dt){if(!G.camp||!P)return;objNewT-=dt;$('campHud').classList.toggle('dim',objNewT<=0);if(cpT>0){cpT-=dt;if(cpT<=0)$('cpToast').classList.remove('on')}
-  const cv=$('compass'),g=cv.getContext('2d'),W=cv.width,H=cv.height,ppd=W/120;g.clearRect(0,0,W,H);const head=((-P.yaw*180/Math.PI)%360+360)%360;
+  const cv=$('compass'),W=cv.width,H=cv.height,ppd=W/120,head=((-P.yaw*180/Math.PI)%360+360)%360,now=performance.now();if(now-(cv._t||0)<33)return;cv._t=now;const g=cv.getContext('2d');g.clearRect(0,0,W,H);
   g.fillStyle='rgba(0,0,0,.35)';g.fillRect(0,H-11,W,1);g.textAlign='center';g.font='bold 12px Barlow, sans-serif';
   for(let d=0;d<360;d+=15){let off=((d-head+540)%360)-180;if(Math.abs(off)>62)continue;const x=W/2+off*ppd,card=d%90===0;
     g.fillStyle=card?'#fff':'rgba(255,255,255,.6)';if(d%45===0){g.fillText(['N','NE','E','SE','S','SW','W','NW'][d/45],x,13)}else g.fillRect(x-.5,H-16,1,6)}
@@ -3206,6 +3211,40 @@ function campHudTick(dt){if(!G.camp||!P)return;objNewT-=dt;$('campHud').classLis
   let sx=(_wp.x*.5+.5)*vw,sy=(-_wp.y*.5+.5)*vh;const behind=_wp.z>1;
   if(behind||sx<30||sx>vw-30||sy<60||sy>vh-40){const a=off*Math.PI/180;sx=vw/2+Math.sin(a)*vw*.42;sy=clamp(vh/2-Math.cos(a)*vh*.38,70,vh-60);if(behind&&Math.abs(off)<90)sy=vh-60}
   wp.style.display='block';wp.style.left=sx+'px';wp.style.top=sy+'px';wp.classList.toggle('near',dist<4);setT(wp.lastChild,Math.round(dist)+'m')}
+const SLOW={t:0,k:1};function slowmo(dur,k){SLOW.t=Math.max(SLOW.t,dur);SLOW.k=k||.3;document.body.classList.add('slowmo');heartbeat(.9)}
+function v2Boom(x,z,y,r,dmg){const p=new THREE.Vector3(x,(y!==undefined?y:terrH(x,z))+1.2,z);puff(p,34,0xffffff,11,.3,1.0,7);puff(p,18,0xffb060,6,.2,.5,4);sfx('boom',p);shake=Math.max(shake,clamp(1.2-P.pos.distanceTo(p)/30,.2,1));
+  for(const e of G.ents)if(e.team===1&&e.alive&&e.pos.distanceTo(p)<(r||5))damage(e,dmg||80,P,'Breach charge',false,p)}
+function removeCollider(b){const i=boxes.indexOf(b);if(i>=0)boxes.splice(i,1);for(const a of grid.values()){const j=a.indexOf(b);if(j>=0)a.splice(j,1)}}
+// a breach: stack up on a door, blow it, and the room goes slow-motion for a few seconds
+function v2BreachSetup(ph,ps){const [x,z,y0,ry]=ph.breach,y=y0!==undefined?y0:terrH(x,z);ps.bp={x,z,y,t:0};
+  if(ph.door){const [w,h]=ph.door,g=new THREE.Group();const m=mk(BOX,mat(0x5b3a24,{rough:.8}),0,h/2,0,w,h,.3,g,true);for(let i=0;i<3;i++)mk(BOX,mat(0x2c2f36,{metal:.6,rough:.4}),0,.4+i*(h-.8)/2,.17,w*.96,.12,.06,g,false);
+    const c=mk(BOX,mat(0xd23a3a,{emissive:0xff2020,emissiveIntensity:1.5}),w*.3,h*.5,.2,.18,.12,.08,g,false);g.position.set(x,y,z);g.rotation.y=ry||0;fx.add(g);ps.meshes.push(g);ps.door=g;
+    const sx=Math.abs(Math.cos(ry||0))>.5?w/2:.35,sz=Math.abs(Math.cos(ry||0))>.5?.35:w/2;ps.doorCol=addCollider(x-sx,x+sx,y,y+h,z-sz,z+sz)}}
+function v2BreachTick(ph,ps,dt){if(ps.breached)return false;const b=ps.bp;CAMP.obj={x:b.x,z:b.z,y:b.y};CAMP.marks.push(CAMP.obj);
+  const live=ps.ents.filter(e=>e.alive&&!e.v2extra);if(!live.length){v2Breach(ph,ps,true);return false}
+  const near=v2Near(b.x,b.z,4.2,b.y);CAMP.grab=near?{p:b,txt:ph.breachTxt||'Breach'}:null;
+  if(b.grab&&near){b.grab=false;v2Breach(ph,ps);return false}b.grab=false;grabHud();
+  campSet(ph.breachObj||'Breach the door',(near?'Ready to breach · ':'Stack up on the door · ')+`Checkpoint ${CAMP.pi+1}/${CAMP.m.phases.length}`,0);return true}
+function v2Breach(ph,ps,quiet){ps.breached=true;CAMP.grab=null;$('grabPrompt').hidden=true;const b=ps.bp;
+  if(ps.door){fx.remove(ps.door);ps.door=null}if(ps.doorCol){removeCollider(ps.doorCol);ps.doorCol=null}if(quiet)return;
+  v2Boom(b.x,b.z,b.y,4.5,60);slowmo(ph.slow||2.4,.3);objType(ph.obj);
+  for(const e of ps.ents)if(e.alive){e.cd=Math.max(e.cd,1.6);e.slowT=Math.max(e.slowT||0,1.5);if(e.bot){e.bot.react=Math.max(e.bot.react||0,1.2);e.bot.target=P}}
+  if(ph.breachSay)radio(ph.breachSay[0],ph.breachSay[1],true)}
+// a mounted snow cannon: walk up, press interact, and hold the line with it
+const TURRET_DEF=Object.assign({},PRIMARIES.frost,{key:'turret',base:'frost',name:'Snow Cannon',type:'Mounted',dmg:34,rpm:700,mag:120,reload:2.4,spread:.028,ads:.004,rv:.007,rh:.004,zoom:1.35,mobility:0,size:.13,range:45,att:[],model:{len:.95,body:0x2b3038,accent:0x9fe0ff}});
+function v2TurretSetup(ph,ps){const [x,z,y0]=ph.turret,y=y0!==undefined?y0:terrH(x,z);const src=ph.from||MAP.spawns[1];let ax=0,az=0;for(const s2 of src){ax+=s2[0];az+=s2[1]}ax/=src.length;az/=src.length;
+  const yaw=Math.atan2(-(ax-x),-(az-z));ps.tur={x,z,y,yaw,on:false};const g=new THREE.Group(),dm=mat(0x2b3038,{metal:.6,rough:.4}),lm=mat(0x9fe0ff,{emissive:0x3aa0ff,emissiveIntensity:.8});
+  for(let i=0;i<3;i++){const l=mk(BOX,dm,Math.sin(i*2.1)*.35,.45,Math.cos(i*2.1)*.35,.07,.95,.07,g,true);l.rotation.set(Math.cos(i*2.1)*.35,0,-Math.sin(i*2.1)*.35)}
+  mk(CYL,dm,0,1.0,0,.18,.25,.18,g,true);const gun=new THREE.Group();gun.position.y=1.15;g.add(gun);mk(BOX,dm,0,0,.1,.36,.3,.6,gun,true);mk(CYL,dm,0,.02,-.55,.09,.9,.09,gun,true).rotation.x=Math.PI/2;mk(CYL,lm,0,.02,-1.0,.11,.06,.11,gun,false).rotation.x=Math.PI/2;
+  mk(BOX,mat(0x9aa3ad,{metal:.7,rough:.3}),0,.08,.48,.7,.4,.05,gun,true);
+  g.position.set(x,y,z);g.rotation.y=yaw;fx.add(g);ps.meshes.push(g);ps.turG=gun}
+function v2TurretOff(ps){const t=ps&&ps.tur;if(!t||!t.on)return;t.on=false;if(P.alive&&t.saved){P.w=t.saved.w;P.cur=t.saved.cur;buildViewmodel();updateClassHud()}t.saved=null}
+function v2TurretTick(ps,dt){const t=ps.tur;if(!t)return;
+  if(!P.alive){t.on=false;t.saved=null;return}
+  if(!t.on){const near=v2Near(t.x,t.z,2.4,t.y);if(near){CAMP.grab={p:t,txt:'Man the snow cannon'};if(t.grab){t.grab=false;t.on=true;t.saved={w:P.w,cur:P.cur};P.w=[mkWeapon(TURRET_DEF)];P.cur=0;P.reloadT=0;buildViewmodel();updateClassHud();sfx('swap');P.yaw=t.yaw;centerMsg('Snow cannon manned')}}else if(CAMP.grab&&CAMP.grab.p===t)CAMP.grab=null;t.grab=false;return}
+  CAMP.grab={p:t,txt:'Leave the cannon'};if(t.grab){t.grab=false;v2TurretOff(ps);P.pos.x+=Math.sin(t.yaw)*1.2;P.pos.z+=Math.cos(t.yaw)*1.2;return}
+  P.pos.set(t.x+Math.sin(t.yaw)*.9,t.y,t.z+Math.cos(t.yaw)*.9);P.vel.set(0,0,0);P.onGround=true;const d=angDiff(t.yaw,P.yaw);if(Math.abs(d)>1.25)P.yaw=t.yaw+Math.sign(d)*1.25;
+  if(ps.turG){ps.turG.rotation.y=P.yaw-t.yaw;ps.turG.rotation.x=P.pitch}}
 function v2Save(){if(!G.camp)return;cpToast();CPROG.at={i:G.camp.i,pi:CAMP.pi};store('npo-camp-v2',CPROG)}
 
 function v2Begin(startPi){const m=CAMP.m;CAMP.pi=-1;CAMP.lives=99;CAMP.nextAt=0;CAMP.grab=null;CAMP.pendingRestart=false;CAMP.state={};CAMP.v2meshes=[];
@@ -3214,8 +3253,9 @@ function v2Begin(startPi){const m=CAMP.m;CAMP.pi=-1;CAMP.lives=99;CAMP.nextAt=0;
   if(CAMP.cp){P.pos.set(CAMP.cp[0],0,CAMP.cp[1]);collideXZ(P.pos,P.radius,P.h);P.pos.y=groundAt(P.pos.x,P.pos.z,P.radius,(CAMP.cp[2]||0)+1.5);if(m.phases[pi].yaw!==undefined)P.yaw=m.phases[pi].yaw}
   v2Phase(pi,false)}
 function v2Phase(i,restart){const m=CAMP.m;while(i<m.phases.length&&m.phases[i].if&&!m.phases[i].if())i++;if(i>=m.phases.length){CPROG.at=null;store('npo-camp-v2',CPROG);return campWin()}const ph=m.phases[i];CAMP.pi=i;CAMP.ph=ph;CAMP.grab=null;
-  const ps=CAMP.state={t:0,ents:[],meshes:[],prog:0,pts:[],k:0,restart};CAMP.marks=[];CAMP.obj=null;
-  if(!restart){const c=ph.cp||[P.pos.x,P.pos.z,P.pos.y];CAMP.cp=[c[0],c[1],c[2]!==undefined?c[2]:P.pos.y];v2Save()}
+  const ps=CAMP.state={t:0,ents:[],meshes:[],prog:0,pts:[],k:0,restart};CAMP.stairOn=false;CAMP.marks=[];CAMP.obj=null;
+  if(!restart){const c=ph.cp||[P.pos.x,P.pos.z,P.pos.y];CAMP.cp=[c[0],c[1],c[2]!==undefined?c[2]:P.pos.y];v2Save();
+    if(ph.warp&&P.alive){P.pos.set(CAMP.cp[0],CAMP.cp[2]+.2,CAMP.cp[1]);P.vel.set(0,0,0);P.protT=Math.max(P.protT,2);for(const e of G.ents)if(e.team===0&&!e.isPlayer&&e.alive){e.pos.set(CAMP.cp[0]+rand(-2.5,2.5),CAMP.cp[2]+.2,CAMP.cp[1]+rand(-2.5,2.5));e.vel.set(0,0,0)}const f=$('fade');if(f){f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450)}}}
   v2Allies(typeof ph.allies==='function'?ph.allies():ph.allies);
   if(ph.stealth){ps.ghost=true;ps.trickle=(ph.alarmTrickle||[10,5])[0];ps.cap=(ph.alarmTrickle||[10,5])[1];giveHush(ps)}
   else if(P.w[0]&&P.w[0].def.sup&&CAMP.hushed){P.w[0]=mkWeapon(effDef(P.cls));if(P.cur===0)buildViewmodel();updateClassHud()}
@@ -3224,6 +3264,7 @@ function v2Phase(i,restart){const m=CAMP.m;while(i<m.phases.length&&m.phases[i].
   const pts=ph.points||(ph.at?[ph.at]:[]);
   if(ph.type==='interact'||ph.type==='collect'){ps.pts=pts.map(p=>({x:p[0],z:p[1],y:p[2],t:0,done:false,prop:ph.kind?v2Prop(ph.kind,p[0],p[1],p[2],ps):null,b:v2Beacon(p[0],p[1],p[2],0xf5c451,ps)}))}
   if(ph.type==='goto'&&ph.at)ps.b=v2Beacon(ph.at[0],ph.at[1],ph.at[2],0x5cff9a,ps);
+  if(ph.breach)v2BreachSetup(ph,ps);if(ph.turret)v2TurretSetup(ph,ps);
   if(ph.type==='hold'||ph.type==='defend'){const [x,z,y]=ph.at;ps.b=v2Beacon(x,z,y,0x5cff9a,ps);const ring=new THREE.Mesh(CIRCLE,new THREE.MeshBasicMaterial({color:C(ph.type==='hold'?0x5cff9a:0x7fc8ff),transparent:true,opacity:.12,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.scale.setScalar(ph.type==='hold'?5:(ph.r||12));ring.position.y=.06;ps.b.add(ring)}
   if(ph.type==='destroy')for(const t of ph.targets)v2Enemy({at:[t[0],t[1]],y:t[2],kind:ph.kind||'cannon',hp:ph.hp||420,name:ph.tname||'Ice Cannon',target:true,weapon:ph.tweapon},ps);
   if(ph.type==='escort'){const a=makeBot(0);a.escort=true;a.name=ph.npc==='santa'?'Santa':ph.npc==='flurry'?'Pvt. Flurry':'Pip';spawn(a);a.pos.set(ph.path[0][0],0,ph.path[0][1]);a.pos.y=groundAt(a.pos.x,a.pos.z,a.radius,10);a.hp=a.maxHp=ph.npcHp||500;a.protT=0;a.pathI=1;ps.npc=a;
@@ -3245,11 +3286,12 @@ function v2Phase(i,restart){const m=CAMP.m;while(i<m.phases.length&&m.phases[i].
 // ▢ / F / tap: interact with whatever objective you're standing next to
 function tryInteract(){if(!v2On()||!CAMP.grab||!P.alive)return false;CAMP.grab.p.grab=true;sfx('hover');return true}
 function grabHud(){const g=v2On()&&CAMP.grab&&P.alive&&!G.over?CAMP.grab:null;const el=$('grabPrompt');if(!g){if(!el.hidden)el.hidden=true;return}
-  if(el.hidden){el.hidden=false;const k=$('grabKey');k.className=padActive?'sq':'';k.textContent=padActive?'▢':touchMode?'TAP':'F';$('grabTxt').textContent=g.txt}}
+  if(el.hidden){el.hidden=false;const k=$('grabKey');k.className=padActive?'sq':'';k.textContent=padActive?'▢':touchMode?'TAP':'F'}setT($('grabTxt'),g.txt)}
 $('grabPrompt').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tryInteract()});
 function v2Done(){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(ps.finished)return;ps.finished=true;CAMP.grab=null;$('grabPrompt').hidden=true;
   (ph.end||[]).forEach(l=>radio(l[0],l[1]));addXP(ph.xp||120,'Objectives');sfx('jingle');
   if(ph.onEnd)ph.onEnd(ps);
+  if(ph.type==='boss'){let n=0;for(const e of G.ents.slice())if(e.team===1&&e.alive&&!e.isPlayer){puff(_a.set(e.pos.x,e.pos.y+1,e.pos.z),14,0xffffff,4,.16,.7);removeEnt(e);n++}if(n)centerMsg('The Legion throws down its snowballs!')}
   if(ps.npc){removeEnt(ps.npc)}
   if(ph.type==='vehicle'){vehStop();const l=ph.land||[-50,0];P.pos.set(l[0],0,l[1]);P.pos.y=groundAt(l[0],l[1],P.radius,10);P.vel.set(0,0,0);P.alive=true;P.hp=P.maxHp=100;buildViewmodel();updateClassHud()}
   const keep=ph.keep;v2Clean(ps);
@@ -3258,7 +3300,7 @@ function v2Done(){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(ps.finished)return;
   CAMP.nextPi=next;if(ph.type!=='choice')centerMsg(ph.doneMsg||'Objective complete');
   CAMP.nextAt=G.time+(ph.gap!==undefined?ph.gap:2.2)}
 // retry from the checkpoint: clear out this objective's enemies and set it up again
-function v2Restart(){const ps=CAMP.state;v2Clean(ps);if(VEH.on)vehStop();
+function v2Restart(){const ps=CAMP.state;v2Clean(ps);if(P)P.protT=Math.max(P.protT,4);if(VEH.on)vehStop();
   for(const e of G.ents.slice()){if(e.team===1||e.escort)removeEnt(e)}
   for(const q of G.projs)if(q.mesh)fx.remove(q.mesh);G.projs.length=0;
   G.blizzardT=0;for(const e of G.ents)if(e.team===0&&!e.isPlayer&&CAMP.cp){e.pos.set(CAMP.cp[0]+rand(-3,3),0,CAMP.cp[1]+rand(-3,3));collideXZ(e.pos,e.radius,e.h);e.pos.y=groundAt(e.pos.x,e.pos.z,e.radius,(CAMP.cp[2]||0)+1.5);e.hp=e.maxHp}
@@ -3287,11 +3329,13 @@ function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
   else if(ph.trickle&&ph.type!=='defend')v2Trickle(dt,ph.trickle[0],ph.trickle[1],ph.from);
   if(ph.mortar&&P.alive){ps.mT=(ps.mT===undefined?ph.mortar:ps.mT)-dt;if(ps.mT<=0){ps.mT=ph.mortar*rand(.8,1.2);const o=G.ents.find(e=>e.team===1&&e.alive)||P;centerMsg('Incoming mortars! Move!');for(let k=0;k<3;k++)dropMortar(o,_a.set(P.pos.x+rand(-5,5),0,P.pos.z+rand(-5,5)),k*.5,BOSS_MORTAR)}}
   const T_=ph.type;
+  if(ph.breach&&v2BreachTick(ph,ps,dt))return;
+  if(ph.turret)v2TurretTick(ps,dt);
   if(T_==='goto'){const [x,z,y]=ph.at;CAMP.obj={x,z,y};CAMP.marks.push(CAMP.obj);const d=Math.hypot(P.pos.x-x,P.pos.z-z);sub=Math.round(d)+' m';if(v2Near(x,z,ph.r||6,y))return v2Done()}
   else if(T_==='clear'||T_==='destroy'){const want=e=>T_==='destroy'?!!e.machine:ph.targetsOnly?e.v2target:!e.v2extra;const live=ps.ents.filter(e=>e.alive&&want(e));const all=ps.ents.filter(want).length||1;
     for(const e of live)if(T_==='destroy'||e.v2target||live.length<=3)CAMP.marks.push({x:e.pos.x,z:e.pos.z});CAMP.obj=live[0]?{x:live[0].pos.x,z:live[0].pos.z,y:live[0].pos.y}:null;
-    if(ph.at&&live.length>3&&!ph.targetsOnly&&T_==='clear')CAMP.obj={x:ph.at[0],z:ph.at[1]};
-    sub=T_==='destroy'?`${all-live.length} of ${all} destroyed`:ph.targetsOnly?`${all-live.length} of ${all} down`:`${live.length} left`;prog=1-live.length/all;if(!live.length&&ps.t>.5)return v2Done()}
+    if(ph.at&&live.length>3&&!ph.targetsOnly&&T_==='clear')CAMP.obj={x:ph.at[0],z:ph.at[1],y:ph.at[2]};
+    sub=T_==='destroy'?`${all-live.length} of ${all} destroyed`:ph.targetsOnly?`${all-live.length} of ${all} down`:`${live.length} left`;prog=1-live.length/all;if(!live.length&&ps.t>.5){if(T_==='clear'&&G.time-(P.lastKillT||-9)<.25)slowmo(1.1,.3);return v2Done()}}
   else if(T_==='interact'||T_==='collect'){let cur=null,n=0;for(const p of ps.pts){if(p.done){n++;continue}CAMP.marks.push(p);
       if(T_==='collect'){if(p.prop)p.prop.rotation.y+=dt;if(v2Near(p.x,p.z,1.8,p.y)){p.done=true;fx.remove(p.prop);fx.remove(p.b);sfx('gift');xpPop((ph.item||'Item')+' '+(n+1)+'/'+ps.pts.length)}continue}
       if(v2Near(p.x,p.z,ph.r||2.6,p.y)){cur=p;if(p.grab){p.grab=false;p.t=(ph.t||3)}
@@ -3311,7 +3355,7 @@ function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
     CAMP.obj={x:a.pos.x,z:a.pos.z};CAMP.marks.push(CAMP.obj);const end=ph.path[ph.path.length-1];CAMP.marks.push({x:end[0],z:end[1]});prog=(a.pathI-1)/(ph.path.length-1);
     status=ps.escortWait==='wait'?`${a.name} is waiting for you · `:ps.escortWait==='danger'?`${a.name} is pinned down! Clear the enemies · `:'';sub=`${a.name} ${Math.round(a.hp/a.maxHp*100)}%`;
     if(Math.hypot(a.pos.x-end[0],a.pos.z-end[1])<2)return v2Done()}
-  else if(T_==='boss'){const b=ps.boss;if(b&&b.alive){$('bossBar').hidden=false;$('bossBar').querySelector('i').style.width=(b.hp/b.maxHp*100)+'%';CAMP.marks.push({x:b.pos.x,z:b.pos.z});CAMP.obj={x:b.pos.x,z:b.pos.z,y:b.pos.y};prog=1-b.hp/b.maxHp;
+  else if(T_==='boss'){const b=ps.boss;if(b&&b.alive){if(ph.at[2]>2&&b.pos.y<ph.at[2]-2&&ph.home){const h=pick(ph.home);puff(_a.set(b.pos.x,b.pos.y+1,b.pos.z),20,0xbfe6ff,6,.2,.7);b.pos.set(h[0],ph.at[2]+.2,h[1]);b.vel.set(0,0,0);puff(_a.set(h[0],ph.at[2]+1,h[1]),24,0xbfe6ff,6,.2,.8);sfx('boomsmall',b.pos);centerMsg((b.name||'The boss')+' leaps back to the throne floor!')}$('bossBar').hidden=false;$('bossBar').querySelector('i').style.width=(b.hp/b.maxHp*100)+'%';CAMP.marks.push({x:b.pos.x,z:b.pos.z});CAMP.obj={x:b.pos.x,z:b.pos.z,y:b.pos.y};prog=1-b.hp/b.maxHp;
       if(!ps.half&&b.hp<b.maxHp*.5){ps.half=true;if(ph.half)radio(ph.half[0],ph.half[1],true);v2Wave(ph.halfAdds||4,ph.from)}
       ps.mortarT-=dt;if(ps.mortarT<=0&&P.alive){ps.mortarT=rand(ps.half?5:7,ps.half?7:10);centerMsg(ph.bossKind==='santa'?'Santa calls in a present drop!':'The Frost King calls a mortar barrage!');for(let k=0;k<(ps.half?4:3);k++)dropMortar(b,_a.set(P.pos.x+rand(-4,4),0,P.pos.z+rand(-4,4)),k*.55,BOSS_MORTAR)}}
     else{$('bossBar').hidden=true;return v2Done()}}
@@ -3322,14 +3366,20 @@ function v2Tick(dt){const m=CAMP.m,ph=CAMP.ph,ps=CAMP.state;if(!ph)return;
   else if(T_==='vehicle'){return}
   // multi-floor buildings: when the objective is on another floor, the marker leads you to the stairs first
   grabHud();
-  {const st=v2Stairs(CAMP.obj);if(st){CAMP.obj=st;CAMP.marks=[st];status=(P.pos.y<CAMP.objY?'Take the stairs up':'Take the stairs down')+' · '+status}}
+  {const st=v2Stairs(CAMP.obj);if(st){CAMP.obj=st;CAMP.marks=[st];if(!st.ring)status=(P.pos.y<CAMP.objY?'Take the stairs up':'Take the stairs down')+' · '+status}}
   campSet(ph.obj,status+(sub?sub+' · ':'')+cpTxt,prog)}
 function v2Stairs(o){if(!o||!MAP||MAP!==MAPS.citadel)return null;if(o.y===undefined)o={x:o.x,z:o.z,y:terrH(o.x,o.z)};CAMP.objY=o.y;
+  if(CAMP.stairOn&&CAMP.stairB&&(!P.alive||Math.abs(P.pos.x-CAMP.stairB[0])>1.8||Math.abs(P.pos.z)>6.5))CAMP.stairOn=false;
   if(CAMP.stairOn&&CAMP.stairB&&P.alive){if(Math.hypot(P.pos.x-CAMP.stairB[0],P.pos.z-CAMP.stairB[1])<1){CAMP.stairOn=false}else return{x:CAMP.stairB[0],z:CAMP.stairB[1]}}
-  if(Math.abs(o.y-P.pos.y)<2.2||!P.alive)return null;
+  if(!P.alive)return null;
+  if(Math.abs(o.y-P.pos.y)<2.2){if(P.pos.y<2)return null;const hole=(x,z)=>Math.abs(x)<4.6&&Math.abs(z)<4.6;let cross=false;for(let k=1;k<12;k++){const f=k/12;if(hole(lerp(P.pos.x,o.x,f),lerp(P.pos.z,o.z,f))){cross=true;break}}
+    if(!cross)return null;let best=null,bd=1e9;for(const c of [[6,6],[6,-6],[-6,6],[-6,-6],[0,8.5],[0,-8.5],[8.5,0],[-8.5,0]]){if(Math.hypot(c[0]-P.pos.x,c[1]-P.pos.z)<2)continue;let ok=true;for(let k=1;k<10;k++){const f=k/10;if(hole(lerp(P.pos.x,c[0],f),lerp(P.pos.z,c[1],f))){ok=false;break}}if(!ok)continue;const d=Math.hypot(c[0]-P.pos.x,c[1]-P.pos.z)+Math.hypot(o.x-c[0],o.z-c[1]);if(d<bd){bd=d;best=c}}
+    return best?{x:best[0],z:best[1],ring:true}:null}
   const up=o.y>P.pos.y,lvl=P.pos.y<2?0:P.pos.y<6.5?1:2;let A,B;
-  if(up){if(lvl===0){A=[-2.9,4.8];B=[-2.9,-4.4]}else{A=[2.9,-4.8];B=[2.9,4.4]}}else{if(lvl===2){A=[2.9,4.4];B=[2.9,-4.8]}else{A=[-2.9,-4.4];B=[-2.9,4.8]}}
+  if(up){if(lvl===0){A=[-2.9,4.8];B=[-2.9,-5.6]}else{A=[2.9,-6.2];B=[2.9,5.6]}}else{if(lvl===2){A=[2.9,6.2];B=[2.9,-4.8]}else{A=[-2.9,-6.2];B=[-2.9,4.8]}}
   if(Math.max(Math.abs(P.pos.x),Math.abs(P.pos.z))>12.6&&lvl===0){const w=P.pos.x<0,dx=w?-15.5:15.5,dz=w?-6:6;return Math.hypot(P.pos.x-dx,P.pos.z-dz)<2.2?{x:w?-9:9,z:dz}:{x:dx,z:dz}}
+  // upper floors are a ring around a central hole: walk round the ring to the stair landing instead of cutting across the edge
+  if(!CAMP.stairOn&&lvl>=1){const sz=Math.sign(A[1]);if(P.pos.z*sz<5){if(Math.abs(P.pos.x)>4.6)return{x:Math.sign(P.pos.x)*7.5,z:sz*8.5};return{x:P.pos.x<0?-7.5:7.5,z:P.pos.z}}}
   if(Math.hypot(P.pos.x-A[0],P.pos.z-A[1])<1.1&&Math.abs(P.pos.x-A[0])<.8){CAMP.stairOn=true;CAMP.stairB=B}
   const t=CAMP.stairOn?B:A;return{x:t[0],z:t[1]}}
 // objective text types itself in, like a field terminal
@@ -3385,7 +3435,7 @@ function v2Avalanche(ps,av){const g=new THREE.Group();const m=new THREE.MeshStan
 const ENDINGS={hero:{t:'Christmas saved!',s:"You stayed on Santa's side from the first snowball to the last. The sleigh lifts off on time, and your name is at the very top of the Nice List."},
   redemption:{t:'A Christmas miracle',s:"You walked the Frost King's road... and turned back at the last moment. Santa takes the sack, and his hand, and says: everybody deserves a second chance. Even you. Even the King."},
   king:{t:'Long live the Frost King',s:"The sack stays in the Citadel. Christmas is cancelled, and every child gets a snow day instead. The Frost King names you his General. Somewhere, Holly is still very disappointed in you."}};
-function v2Skin(e,team,rig){if(!e.mesh||!MODELS.elf)return;const old=e.mesh;chars.remove(old);const nm=makeModelChar(team,'classic',rig||null);nm.position.copy(e.pos);e.mesh=nm;if(nm.userData.gunHolder&&e.w&&e.w[0])gunMesh(e.w[0].def,nm.userData.gunHolder)}
+function v2Skin(e,team,rig){if(!e.mesh||!MODELS.elf)return;const old=e.mesh;chars.remove(old);disposeChar(old);const nm=makeModelChar(team,'classic',rig||null);nm.position.copy(e.pos);e.mesh=nm;if(nm.userData.gunHolder&&e.w&&e.w[0])gunMesh(e.w[0].def,nm.userData.gunHolder)}
 
 /* ---------- the campaign script: seven missions, each a chain of checkpoints ---------- */
 const MSCRIPT={
@@ -3400,10 +3450,10 @@ workshop:{brief:{loc:"Santa's Workshop · 90°N · Dec 24, 23:52",lines:[
   {type:'interact',obj:'Grab your gear from the armory',at:[-25,-29],cp:[-38,2],yaw:Math.PI*.75,kind:'crate',t:2,doing:'Gearing up',doneEach:'Geared up',contest:false,
    say:[['santa',"Elves! Wake up! Everybody up! They're at the gates!"],['jingle',"Rookie. You're with me. Armory first. Grab a blaster."],['holly',"Is this a drill? Please tell me this is a drill."]],
    enemies:[{at:[-14,-40],n:2,spread:4}]},
-  {type:'clear',obj:'Clear the courtyard',at:[0,-16],allies:2,
+  {type:'clear',obj:'Clear the courtyard',at:[0,-16],allies:3,
    say:[['jingle',"They're coming over the north wall. On me. Push them back!"],['holly',"Okay. Okay. Snowballs. I can do snowballs."]],
-   enemies:[{at:[-6,-22],n:2},{at:[12,-26],n:2},{at:[2,-36],n:1}],end:[['jingle',"Courtyard's clear. Don't celebrate. That was the welcome party."]]},
-  {type:'defend',obj:'Hold the factory doors',at:[0,-9],r:13,t:75,allies:3,clearAfter:true,
+   enemies:[{at:[-6,-24],n:2,home:true},{at:[12,-26],n:1,home:true},{at:[2,-36],n:1}],end:[['jingle',"Courtyard's clear. Don't celebrate. That was the welcome party."]]},
+  {type:'defend',obj:'Hold the factory doors',at:[0,-9],r:13,t:75,allies:3,clearAfter:true,turret:[0,-11],
    say:[['santa',"Hold the factory! Nobody touches the toy line!"],['pip',"Pip from Toy Research. If you break the conveyor belt, please don't. It took me ages."]],
    waves:[{t:0,n:4},{t:22,n:5,say:['jingle',"Second wave! Find cover!"]},{t:46,n:6,say:['holly',"There's so many of them!"]},{t:64,n:4}]},
   {type:'clear',obj:'Retake the reindeer stables',at:[36,-2],
@@ -3422,7 +3472,7 @@ workshop:{brief:{loc:"Santa's Workshop · 90°N · Dec 24, 23:52",lines:[
    say:[['pip',"Booting up. This takes about a minute. Maybe two. Please don't let me get snowballed."],['jingle',"Nobody gets near the lab. Nobody."]],
    waves:[{t:0,n:4},{t:20,n:5},{t:40,n:6,say:['pip',"Almost there! Ninety percent! Ninety one!"]}],
    end:[['pip',"Got them! All three collars! The Frozen Lake. They're dragging them onto the ice!"]]},
-  {type:'destroy',obj:'Destroy the ice cannons shelling the workshop',targets:[[-20,-44],[0,-47],[20,-44]],kind:'cannon',hp:380,tname:'Ice Cannon',trickle:[10,4],mortar:14,
+  {type:'destroy',obj:'Destroy the ice cannons shelling the workshop',targets:[[-20,-44],[0,-47],[20,-44]],kind:'cannon',hp:300,tname:'Ice Cannon',trickle:[12,3],mortar:18,
    say:[['santa',"Those cannons are pounding my roof! Knock them out before they hit the sleigh!"],['jingle',"Three cannons, north field. Flank them. Don't charge them."]]},
   {type:'goto',obj:"Get to Santa's sleigh",at:[8,-36],trickle:[12,3],sayK:[['king',"A badge thief AND a sleigh guard? You're wasted on Santa, elf."]],
    say:[['santa',"The sleigh! Somebody check the sleigh!"]],
@@ -3511,7 +3561,7 @@ stealth:{brief:{loc:'Reindeer Ridge · Frost Legion war camp · 01:20',lines:[
    say:[['pip',"Charges armed. I need fifty seconds for the bells to sync. Don't ask."]],
    waves:[{t:0,n:3},{t:16,n:3},{t:32,n:4},{t:46,n:3}],
    next:'snRun',end:[['pip',"Three, two, one... ho ho BOOM!"]],onEnd:()=>{for(const [x,z] of [[18,-34],[24,24]]){const p=_a.set(x,terrH(x,z)+1,z);puff(p,60,0xffffff,12,.3,1.4,6);sfx('boom',p)}for(const o of CAMP.v2meshes)fx.remove(o);CAMP.v2meshes=[]}},
-  {id:'snRun',type:'goto',obj:"Run for Rudolph's sled",at:[-54,0],trickle:[6,6],from:[[54,14],[54,-10],[30,0]],
+  {id:'snRun',type:'goto',obj:"Run for Rudolph's sled",at:[-54,0],next:'END',trickle:[6,6],from:[[54,14],[54,-10],[30,0]],
    say:[['holly',"Run! Rudolph's warming up the sled!"]],
    enemies:[{at:[-26,8],n:2,home:true},{at:[-30,-10],n:1,home:true}],
    end:[['jingle',"Plans are in the sled. Let's see what the King's been doodling."]]},
@@ -3541,11 +3591,11 @@ lane:{brief:{loc:'Candy Cane Lane · elf village · 02:15',lines:[
   {type:'choice',q:"Two Frost soldiers are frozen solid in the fountain. The King left them there when they lost a fight.",opts:[
     {label:'Thaw them out',desc:"It costs a minute. They might even fight beside you.",moral:1,flag:'thawed',say:[['flurry',"Brr! Thanks! We're with you, elves. The King left us to freeze!"]]},
     {label:'Leave them in the ice',desc:"They're the enemy. No time for this.",moral:-1,say:[['holly',"We're really just going to leave them there?"]]}]},
-  {type:'hold',allies:()=>4+((CPROG.flags||{}).thawed?2:0),obj:'Capture light station B',at:[0,7],t:35,trickle:[6,6],enemies:[{at:[4,4],n:4,home:true}],
+  {type:'hold',allies:()=>4+((CPROG.flags||{}).thawed?2:0),obj:'Capture light station B',at:[0,7],t:35,trickle:[8,5],enemies:[{at:[4,4],n:4,home:true}],
    say:[['sleet',"Hold the stations! The King said no overtime pay if we lose!"]],end:[['pip',"Power's back on that block. One more grid to go!"]]},
   {type:'destroy',obj:'Destroy the Snow Plow tanks',targets:[[20,-22],[-18,-24]],kind:'plow',hp:650,tname:'Snow Plow Tank',tweapon:'yule',trickle:[11,4],
    say:[['holly',"Is that a tank? That's a tank. Why do they have a tank?"],['jingle',"Grenades and heavy snow. Hit it from the sides."]],end:[['jingle',"Armor down. Push to the last station."]]},
-  {type:'hold',obj:'Capture light station C',at:[13,-13],t:40,trickle:[6,6],enemies:[{at:[16,-16],n:4,home:true},{at:[10,-18],n:1,hp:200,name:'Frost Commando',home:true}],
+  {type:'hold',obj:'Capture light station C',at:[13,-13],t:35,trickle:[9,4],enemies:[{at:[16,-16],n:3,home:true},{at:[10,-18],n:1,hp:200,name:'Frost Commando',home:true}],
    say:[['sleet',"Everybody to station C! It's our last one!"]]},
   {type:'defend',obj:'Hold the big tree until the power comes on',at:[0,0],r:12,t:90,allies:4,clearAfter:true,
    say:[['pip',"Rerouting all three stations to the tree. This is the big one. Sixty seconds!"]],
@@ -3572,15 +3622,15 @@ yard:{brief:{loc:'Polar Express rail yard · 03:30',lines:[
   {type:'choice',q:"The Frost King cuts into your radio: \"Bring three of those sacks to my train, and I'll make you a General.\"",opts:[
     {label:'Hang up on him',desc:'Every sack goes back to Santa.',moral:1,say:[['king',"Hmph. Your loss, elf."]]},
     {label:'Slip him three sacks',desc:"Nobody will notice three sacks. Probably.",moral:-2,flag:'gave',say:[['king',"Excellent. I knew you'd see reason."]]}]},
-  {type:'defend',obj:'Protect Santa while he loads the sleigh',at:[0,36],r:12,t:60,clearAfter:true,sayK:[['santa',"Ho ho! Hand them up! Hmm. I could have sworn there were more sacks..."]],
+  {type:'defend',obj:'Protect Santa while he loads the sleigh',at:[0,36],r:12,t:60,clearAfter:true,turret:[0,32],sayK:[['santa',"Ho ho! Hand them up! Hmm. I could have sworn there were more sacks..."]],
    say:[['santa',"Ho ho! Hand them up! Quickly now, quickly!"]],
    waves:[{t:0,n:4},{t:20,n:5},{t:40,n:6,say:['sleet',"Somebody's stealing our stolen sacks!"]}]},
   {type:'clear',obj:'Storm the station platform',at:[0,-26],
    say:[['jingle',"The train's still loading. Take the platform."]],
-   enemies:[{at:[-10,-27],n:2,home:true},{at:[10,-27],n:2,home:true},{at:[0,-29],n:1,hp:180,name:'Frost Commando',home:true}]},
-  {type:'destroy',obj:"Sabotage the Polar Express boiler",targets:[[-24,-6]],kind:'boiler',hp:600,tname:'Polar Express Boiler',trickle:[8,5],
+   allies:3,enemies:[{at:[-10,-27],n:1,home:true},{at:[10,-27],n:2,home:true},{at:[0,-29],n:1,hp:140,name:'Frost Commando',home:true}]},
+  {type:'destroy',obj:"Sabotage the Polar Express boiler",targets:[[-24,-6]],kind:'boiler',hp:450,tname:'Polar Express Boiler',trickle:[11,3],
    say:[['pip',"The Polar Express runs on cocoa steam. Technically you could drink the exhaust. Please don't."],['pip',"Hit the boiler on the engine. Hard."]],
-   enemies:[{at:[-20,-10],n:3,home:true}],end:[['pip',"Boiler's cracked! That train isn't going anywhere."]]},
+   enemies:[{at:[-20,-10],n:2,home:true}],end:[['pip',"Boiler's cracked! That train isn't going anywhere."]]},
   {type:'escort',obj:'Escort Santa back to his sleigh',npc:'santa',npcHp:700,path:[[0,-22],[0,-12],[0,0],[0,12],[0,24],[0,34]],trickle:[9,5],
    say:[['santa',"I'll walk, thank you! My knees could use the stretch."],['jingle',"Keep him covered. All sides."]],
    end:[['santa',"Every sack is home. Except the big one. My sack. He's taken it to his Citadel."]]}]},
@@ -3605,11 +3655,11 @@ peak:{brief:{loc:'Frostpeak · 4,200 m · 03:10',lines:[
    say:[['pip',"Whiteout up there. They can barely see their own mittens. Neither can you, so stay close to the beacons."],['jingle',"Three terminals. Quiet is good. Loud is fine. Dead is not."]],
    enemies:[{at:[-24,6],guard:true,patrol:[[-24,6],[-36,-6]]},{at:[-34,-14],guard:true},{at:[24,-4],guard:true,patrol:[[24,-4],[36,-16]]},{at:[36,6],guard:true},{at:[-6,-28],guard:true,patrol:[[-6,-28],[8,-38]]},{at:[10,-24],guard:true},{at:[0,0],guard:true,patrol:[[0,0],[0,16],[-12,10]]}],
    eachSay:[['pip',"One down. The radar's getting confused. Like me in the morning."],['pip',"Two! I can see the Engine's control codes now."],['pip',"Three! Their radar is blind. The Engine's door code is... one, two, three, four. Seriously?"]]},
-  {type:'goto',obj:'Get inside the Everwinter Engine',at:[0,-62],stealth:true,blizzard:true,alarmSquad:2,
+  {type:'goto',obj:'Reach the Everwinter Engine',at:[0,-55],stealth:true,blizzard:true,alarmSquad:2,
    enemies:[{at:[-10,-54],guard:true,patrol:[[-10,-54],[10,-54]]},{at:[12,-50],guard:true}]},
-  {type:'clear',obj:'Clear the Engine hall',at:[0,-70],allies:2,regroup:true,
+  {type:'clear',obj:'Clear the Engine hall',at:[0,-70],allies:2,regroup:true,breach:[0,-60,undefined,0],door:[4,3.4],breachObj:'Breach the Engine hall',breachSay:['jingle',"Door's down! Go, go, go!"],
    say:[['king',"Who let an ELF into my weather machine?!"]],
-   enemies:[{at:[-6,-72],n:2},{at:[6,-74],n:1},{at:[0,-76],n:1,hp:220,name:'Engine Warden'}]},
+   enemies:[{at:[-6,-72],n:2},{at:[6,-74],n:1},{at:[0,-76],n:1,hp:160,name:'Engine Warden'}]},
   {type:'choice',q:"The Everwinter Engine is humming. Pip can shut it down gently... or you could overload it. That would bury the King's camp on the mountain.",opts:[
     {label:'Shut it down safely',desc:'Destroy the core and let the storm die out.',moral:1,next:'pkShut',say:[['pip',"Good call. Gentle and festive."]]},
     {label:'Overload it',desc:"Bury the King's whole camp. The avalanche will be a lot faster.",moral:-1,flag:'overload',next:'pkOver',say:[['jingle',"That's a lot of snow coming down on a lot of soldiers."]]}]},
@@ -3658,18 +3708,17 @@ citadel:{brief:{loc:'Igloo Citadel · 05:58 · before sunrise',lines:[
    say:[['king',"I can SEE you, elves! I have a very large window!"],['jingle',"Mind the mortars. When he shouts, move."]],
    enemies:[{at:[-34,-10],n:2,home:true},{at:[-34,10],n:2,home:true}]},
   {type:'interact',obj:'Plant charges on the Citadel gate',at:[-15,-6],kind:'charge',t:3,doing:'Planting',doneEach:'Gate charge set',trickle:[8,5],
-   say:[['holly',"This whole place is made of ice. How does he heat it? Does he heat it?"]],end:[['pip',"Gate's open! Well. Gate's gone."]],
-   onEnd:()=>{const p=_a.set(-15,1.5,-6);puff(p,60,0xffffff,12,.3,1.4,6);sfx('boom',p)}},
-  {type:'clear',obj:'Clear the ground floor',at:[0,0],
+   say:[['holly',"This whole place is made of ice. How does he heat it? Does he heat it?"]],end:[['jingle',"Charges set. Stack up. On your go."]]},
+  {type:'clear',obj:'Clear the ground floor',at:[0,0],breach:[-15,-6],breachTxt:'Blow the gate',breachObj:'Blow the Citadel gate',breachSay:['pip',"Gate's open! Well. Gate's gone."],
    enemies:[{at:[-8,-8],n:1,y:0,home:true},{at:[8,8],n:2,y:0,home:true},{at:[8,-8],n:1,y:0,home:true},{at:[-8,8],n:1,y:0,hp:180,name:'Frost Commando',home:true}]},
   {type:'interact',obj:'Free the captured elves',points:[[-8,-8,0],[8,8,0],[8,-8,0]],kind:'prisoner',t:2.5,doing:'Thawing',doneEach:'Elf rescued',trickle:[10,4],from:[[8,-8,4.4],[-8,8,4.4]],
    eachSay:[['holly',"Tinsel! You're okay!"],['pip',"Sprocket from Engineering! Grab a snowball, we need you!"],['holly',"That's all of them!"]]},
-  {type:'clear',obj:'Fight up to the second floor',at:[0,0],
+  {type:'clear',obj:'Fight up to the second floor',at:[8,0,4.4],
    say:[['king',"Do you know how hard it is to get a decent cup of cocoa in an ice castle?!"]],
    enemies:[{at:[-9,-9],y:4.4,n:2,home:true},{at:[9,9],y:4.4,n:2,home:true},{at:[9,-9],y:4.4,n:1,home:true}]},
-  {type:'destroy',obj:"Shut down the King's ice generators",targets:[[-9,0,4.4],[9,0,4.4],[0,-9,4.4]],kind:'generator',hp:360,tname:'Ice Generator',trickle:[9,4],from:[[-9,9,4.4],[9,-9,4.4]],
+  {type:'destroy',obj:"Shut down the King's ice generators",targets:[[-9,0,4.4],[9,0,4.4],[0,-9,4.4]],kind:'generator',hp:300,tname:'Ice Generator',trickle:[14,2],allies:2,from:[[-9,9,4.4],[9,-9,4.4]],
    say:[['pip',"Those generators shield the roof. Knock out all three and the King's wide open."]],end:[['king',"My generators! Do you know what those cost?!"]]},
-  {type:'boss',obj:'Defeat the Frost King',at:[8,8,8.8],home:[[8,8],[-8,8],[8,-8],[-8,-8],[0,9],[0,-9]],from:[[8,-8,8.8],[-8,8,8.8]],
+  {type:'boss',obj:'Defeat the Frost King',at:[9,0,8.8],cp:[-9,9,8.8],warp:true,home:[[9,8],[9,-8],[10,0],[11,5],[11,-5]],from:[[8,-8,8.8],[-8,8,8.8]],
    say:[['santa',"Up the stairs, onto the roof. I'll be right behind you!"]],
    half:['king',"Guards! GUARDS! Somebody get up here!"]},
   {type:'interact',obj:"Take back Santa's sack",at:[-8,-8,8.8],kind:'sack',t:2,doing:'Grabbing the sack',doneEach:'Sack recovered',contest:false,
@@ -3693,7 +3742,7 @@ citadel:{brief:{loc:'Igloo Citadel · 05:58 · before sunrise',lines:[
    say:[['holly',"Why are you doing this?! You were one of us!"],['jingle',"Rookie. Put it down. It's not too late."]],
    enemies:[{at:[-30,6],target:true,name:'Holly',hp:260},{at:[-30,-6],target:true,name:'Jingle',hp:320},{at:[-34,0],n:2}],
    end:[['holly',"Just... think about what you're doing. Please."]]},
-  {type:'boss',obj:'Face Santa',bossKind:'santa',at:[-36,0,0],home:[[-36,0],[-30,8],[-30,-8],[-42,6],[-42,-6]],from:[[-55,-10],[-55,10]],hp:1300,halfAdds:3,
+  {type:'boss',obj:'Face Santa',bossKind:'santa',at:[-36,0,0],home:[[-36,0],[-30,8],[-30,-8],[-42,6],[-42,-6]],from:[[-55,-10],[-55,10]],hp:1100,halfAdds:2,
    say:[['santa',"I'm not angry. I'm just very, very disappointed. Ho... ho."]],half:['santa',"Elves! To me!"]},
   {type:'choice',q:"Santa is down. The sack is at your feet. The Frost King is holding out his hand.",opts:[
     {label:'Give the sack back to Santa',desc:'Turn your back on the King. Christmas goes on.',moral:3,ending:'redemption',next:'kRedeem',say:[['king',"What are you doing? No. NO! Traitor!"],['santa',"Ho ho! I knew it. Run, my friend!"]]},
@@ -4166,7 +4215,7 @@ function setupBloom(){if(composer||!THREE.EffectComposer||SETTINGS.bloom==='off'
     if(!rt&&THREE.SMAAPass){composer.addPass(new THREE.SMAAPass(w*pr,h*pr))}
     fitView(true)}catch(e){console.log('postfx off',e);composer=null}}
 function gradeFor(env){if(!gradePass||!env)return;const u=gradePass.uniforms;const night=env.stars>.8,storm=env.snowfall>.8;
-  u.uSat.value=storm?1.0:night?1.08:1.14;u.uCon.value=night?1.1:1.06;u.uVig.value=night?.42:.3;if(G.camp){u.uSat.value*=.8;u.uCon.value*=1.06;u.uVig.value+=.12}
+  u.uSat.value=storm?1.0:night?1.08:1.14;u.uCon.value=night?1.1:1.06;u.uVig.value=night?.42:.3;
   const t=new THREE.Color(env.sun);u.uGain.value.set(.94+t.r*.08,.94+t.g*.08,.94+t.b*.08);u.uLift.value.set(night?.0:.012,night?.006:.006,night?.03:.014)}
 let bloomSlow=0,bloomLast=0;
 function renderFrame(){const now=performance.now(),ft=now-(bloomLast||now);bloomLast=now;scopePass();
@@ -4348,6 +4397,7 @@ function menuScene(dt){
   if(Math.abs(camera.fov-50)>.01){camera.fov=50;camera.updateProjectionMatrix()}
 }
 function update(dt){
+  if(SLOW.t>0){SLOW.t-=dt;dt*=SLOW.k;if(SLOW.t<=0)document.body.classList.remove('slowmo')}
   G.time+=dt;
   if(G.countdown>0){G.countdown-=dt;const n=Math.ceil(G.countdown-.6);if(n!==G.cdShown){G.cdShown=n;const el=$('countdown');el.classList.remove('pop');void el.offsetWidth;
       if(n>0){el.textContent=n;sfx('count')}else{el.textContent='Snow!';sfx('go');centerMsg(MAP.name)}el.classList.add('pop')}}
@@ -4475,7 +4525,7 @@ function updateCamera(dt){
   camera.position.x+=rand(-1,1)*shake*.03;camera.position.y+=rand(-1,1)*shake*.03;   // shake moves the view, never your aim
   camera.rotation.set(p.pitch+p.recoil,p.yaw,camRoll*.6-(p.leanT||0)*.2);
   const zz=Math.max(def.zoom||1,1.18);p.punch=(p.punch||0)*Math.exp(-dt*14);MFL.intensity=Math.max(0,MFL.intensity-dt*16);const tf=(SETTINGS.fov+(p.sprinting?(p.tacT>0?15:7):0)-p.punch*(1-p.adsAmt*.6))/(1+(zz-1)*p.adsAmt);fovK=lerp(fovK,tf,Math.min(1,dt*10));if(Math.abs(camera.fov-fovK)>.01){camera.fov=fovK;camera.updateProjectionMatrix()}
-  vm.visible=true;
+  vm.visible=!(G.camp&&CAMP.state&&CAMP.state.tur&&CAMP.state.tur.on);
   vmKick=Math.max(0,vmKick-dt*8);swayX*=Math.exp(-dt*9);swayY*=Math.exp(-dt*9);
   const sightY=(vm.userData.sightY!==undefined?vm.userData.sightY:(vm.userData.top||.07)+.03)*vm.scale.y;
   let x=lerp(.24,0,ads),y=lerp(-.24,-sightY,ads)+(Math.abs(Math.sin(bobT))*-.025*bob-landDip*.3)*(1-ads*.85),z=lerp(-.45,vm.userData.dot==='scope2'?-.13:vm.userData.dot==='red'?-.24:-.3,ads)+vmKick*.07*(1-ads*.6);
