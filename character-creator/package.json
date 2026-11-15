@@ -1,0 +1,33 @@
+{
+  "name": "character-creator",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Cartoon Character Creator - a personality-quiz style character discovery tool for Digital Arts & Animation students",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "node scripts/e2e.mjs",
+    "art": "node scripts/build-art.mjs",
+    "build:live": "tsc --noEmit && vite build --outDir play --emptyOutDir"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0",
+    "jspdf": "^4.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@iconify-json/fluent-emoji-flat": "^1.2.6",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "5.6",
+    "vite": "5.4",
+    "vitest": "2.1"
+  }
+}
