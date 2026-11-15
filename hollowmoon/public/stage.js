@@ -279,9 +279,19 @@ export class Stage {
   async load(onProgress) {
     const loader = new GLTFLoader();
     let done = 0;
+    // Hosts that can't serve .glb files get the models packed into a script instead.
+    const packed = window.HOLLOWMOON_PACKED ? (await import('./assets/models.js')).default : null;
+    const unpack = async b64 => {
+      const bin = atob(b64), buf = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) buf[k] = bin.charCodeAt(k);
+      // decode textures through <img> rather than fetch(), which such hosts may block
+      const cib = self.createImageBitmap;
+      self.createImageBitmap = undefined;
+      try { return await loader.parseAsync(buf.buffer, ''); } finally { self.createImageBitmap = cib; }
+    };
     await Promise.all(MODEL_FILES.map(async (name, i) => {
       try {
-        const g = await loader.loadAsync(`assets/${name}.glb`);
+        const g = packed ? await unpack(packed[name]) : await loader.loadAsync(`assets/${name}.glb`);
         this.models[i] = g.scene;
         if (g.animations.length) this.clips = g.animations;
       } catch (e) { console.warn('model failed to load:', name, e); }
