@@ -1,24 +1,27 @@
-'use strict';
-// SNITCH — game engine. Pure logic: no sockets, no HTTP. The server owns
-// transport and calls into a Room; the Room calls onChange() when clients
+// HOLLOWMOON — game engine. Pure logic: no sockets, no DOM. Runs in Node
+// (server.js) and in the browser (solo play, or a friend hosting a table).
+// A transport calls into a Room; the Room calls onChange() when players
 // need a fresh view.
+(function (root) {
+'use strict';
 
-const TIMES = { reveal: 9000, night: 40000, nightMin: 6000, dawn: 8000, day: 90000, vote: 35000, verdict: 8000, idleDay: 9000 };
+const TIMES = { reveal: 11000, night: 40000, nightMin: 7000, dawn: 16000, day: 90000, vote: 35000, verdict: 14000, idleDay: 10000 };
 const MIN_PLAYERS = 5;
 const MAX_PLAYERS = 10;
-const ICONS = ['🦊', '🦉', '🐺', '🦝', '🐍', '🦇', '🐻', '🐸', '🦅', '🐱', '🦈', '🐙'];
-const BOT_NAMES = ['Vex', 'Domino', 'Sable', 'Knuckles', 'Marlowe', 'Pix', 'Duchess', 'Ratchet', 'Juno', 'Fig', 'Echo', 'Brick', 'Lux', 'Moth'];
-const ROLE_NAMES = { crew: 'Crew', lookout: 'the Lookout', fixer: 'the Fixer', snitch: 'a Snitch', fallguy: 'the Fall Guy' };
+const COLORS = ['#ff6b6b', '#ffb629', '#f7e463', '#6fdc8c', '#3ecfcf', '#6aa8ff', '#b48cff', '#ff8ad1', '#c9d1e0', '#ff9457'];
+const MODELS = 5;
+const BOT_NAMES = ['Agnes', 'Bram', 'Cedric', 'Dalia', 'Edda', 'Finn', 'Greta', 'Hugo', 'Isolde', 'Jasper', 'Kasimir', 'Liesel', 'Mirela', 'Osric'];
+const ROLE_NAMES = { villager: 'a Villager', sheriff: 'the Sheriff', doctor: 'the Doctor', werewolf: 'a Werewolf', jester: 'the Jester' };
 
 const LINES = {
-  accuse: ['I don\'t like how {X} is acting.', '{X} is way too calm for someone in this crew.', 'My gut says {X} is wired.', 'Anyone else notice {X} dodging questions?', 'I\'m voting {X} unless someone talks me out of it.', '{X}. That\'s my read.'],
-  filler: ['I\'ve got nothing solid yet.', 'Somebody here is talking to the cops. Think.', 'Let\'s not cut one of our own on a hunch.', 'Watch who votes with who.', 'Too quiet in here.', 'We lose one more and this job is cooked.', 'If the Lookout has something, now\'s the time.'],
-  deny: ['Me? I\'ve been on this crew longer than you.', 'I\'m clean. {X} is making things up.', 'That\'s exactly what a snitch would say, {X}.', 'Cut me and you\'ll see you wasted a vote.', 'Not me. Look harder.'],
-  claimSnitch: ['I\'m the Lookout. I tailed {X} last night — they\'re wearing a wire.', 'Lookout here. {X} met with the cops. Cut them.'],
-  claimClean: ['Lookout here. I tailed {X} — they\'re clean.', 'For what it\'s worth, I watched {X} all night. Solid.'],
-  counter: ['{X} is lying. I\'M the Lookout, and {X} is the one wearing a wire.', 'Funny — I\'m the real Lookout and I caught {X} with the cops.'],
-  fallguy: ['Fine, cut me then. See what happens.', 'Maybe I did talk to somebody. So what?', 'You\'ll never guess what I was doing last night.', 'Honestly? I\'d vote for me.', 'I\'m not saying I\'m the snitch. I\'m not saying I\'m not.'],
-  mourn: ['{X} was one of ours. Damn.', 'They got {X}. We need to move faster.', 'Losing {X} hurts.'],
+  accuse: ['I don\'t like how {X} is acting.', '{X} is far too calm for a night like that.', 'My gut says {X} is a wolf.', 'Did anyone else see {X} slip out after dark?', 'I\'m voting {X} unless someone talks me out of it.', '{X}. That\'s my read.'],
+  filler: ['I\'ve got nothing solid yet.', 'One of us howls at the moon. Think.', 'Let\'s not banish one of our own on a hunch.', 'Watch who votes with who.', 'It\'s too quiet around this fire.', 'We lose one more and the village is finished.', 'If the Sheriff knows something, now\'s the time.'],
+  deny: ['Me? I\'ve lived here my whole life.', 'I\'m no wolf. {X} is making things up.', 'That\'s exactly what a werewolf would say, {X}.', 'Banish me and you\'ll see you wasted a vote.', 'Not me. Look harder.'],
+  claimWolf: ['I\'m the Sheriff. I investigated {X} last night — WEREWOLF.', 'Sheriff here. {X} is a wolf. Banish them.'],
+  claimClean: ['Sheriff here. I investigated {X} — innocent.', 'For what it\'s worth, I watched {X} all night. No fangs.'],
+  counter: ['{X} is lying. I\'M the Sheriff, and {X} is the wolf.', 'Funny — I\'m the real Sheriff and I caught {X} with blood on their hands.'],
+  jester: ['Fine, banish me then. See what happens.', 'Maybe I do have claws. Who\'s to say?', 'You\'ll never guess what I was doing last night.', 'Honestly? I\'d vote for me.', 'Awoooo! ...Just kidding. Or am I?'],
+  mourn: ['{X} didn\'t deserve that.', 'They got {X}. We need to move faster.', 'Losing {X} hurts.'],
 };
 
 class Room {
@@ -43,7 +46,7 @@ class Room {
     this.votes = {};
     this.ready = new Set();
     this.night = null;
-    this.kiteHolder = null;
+    this.blessed = null;
     this.claims = [];
     this.winner = null;
     this.lastActive = Date.now();
@@ -101,7 +104,7 @@ class Room {
 
   say(ch, from, text, only) {
     const m = { id: ++this.feedSeq, ch, text, ts: Date.now() };
-    if (from) { m.from = from.id; m.name = from.name; m.icon = from.icon; }
+    if (from) { m.from = from.id; m.name = from.name; m.color = from.color; }
     if (only) m.only = only;
     this.feed.push(m);
     if (this.feed.length > 300) this.feed.splice(0, this.feed.length - 300);
@@ -121,9 +124,11 @@ class Room {
     name = String(name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 14) || 'Player';
     let final = name, n = 2;
     while (used.has(final.toLowerCase())) final = `${name}${n++}`;
-    const icons = ICONS.filter(i => !this.players.some(p => p.icon === i));
+    const colors = COLORS.filter(c => !this.players.some(p => p.color === c));
+    const uses = m => this.players.filter(p => p.model === m).length;
+    const model = [...Array(MODELS).keys()].sort((a, b) => uses(a) - uses(b) || this.rng() - 0.5)[0];
     const p = {
-      id: 'p' + (++this.idSeq), name: final, icon: this.pick(icons.length ? icons : ICONS),
+      id: 'p' + (++this.idSeq), name: final, color: colors.length ? colors[0] : this.pick(COLORS), model,
       isBot, connected: true, alive: true, role: null, revealed: false, notes: [], lastShield: null, bot: null,
     };
     this.players.push(p);
@@ -155,11 +160,11 @@ class Room {
 
   // ---------- setup ----------
   static deck(n) {
-    const snitches = n >= 7 ? 2 : 1;
-    const deck = ['lookout', 'fixer'];
-    for (let i = 0; i < snitches; i++) deck.push('snitch');
-    if (n === 6 || n >= 8) deck.push('fallguy');
-    while (deck.length < n) deck.push('crew');
+    const wolves = n >= 7 ? 2 : 1;
+    const deck = ['sheriff', 'doctor'];
+    for (let i = 0; i < wolves; i++) deck.push('werewolf');
+    if (n === 6 || n >= 8) deck.push('jester');
+    while (deck.length < n) deck.push('villager');
     return deck;
   }
   start() {
@@ -178,13 +183,16 @@ class Room {
       if (p.bot) this.players.forEach(q => { if (q !== p) p.bot.sus[q.id] = this.rng(); });
     });
     this.round = 1;
+    this.dawn = null;
+    this.verdict = null;
     this.feed = [];
     this.claims = [];
     this.winner = null;
-    this.kiteHolder = null;
+    this.blessed = null;
     this.votes = {};
-    const s = deck.filter(r => r === 'snitch').length;
-    this.sys(`The crew is assembled: ${this.players.length} of you, and ${s === 1 ? 'one is' : s + ' are'} wearing a wire.${deck.includes('fallguy') ? ' There\'s also a Fall Guy who wants to be voted out.' : ''}`);
+    const s = deck.filter(r => r === 'werewolf').length;
+    this.wolfCount = s;
+    this.sys(`${this.players.length} souls gather at the fire in Hollowmoon. ${s === 1 ? 'One of them is a werewolf.' : s + ' of them are werewolves.'}${deck.includes('jester') ? ' And one is a Jester who wants to be banished.' : ''}`);
     this.enter('reveal', TIMES.reveal, () => this.beginNight());
     this.changed();
     return {};
@@ -196,7 +204,7 @@ class Room {
     this.feed = [];
     this.votes = {};
     this.winner = null;
-    this.kiteHolder = null;
+    this.blessed = null;
     this.night = null;
     this.players = this.players.filter(p => p.isBot || p.connected);
     this.players.forEach(p => Object.assign(p, { alive: true, role: null, revealed: false, notes: [], bot: null }));
@@ -205,38 +213,39 @@ class Room {
 
   // ---------- night ----------
   beginNight() {
-    this.kiteHolder = null;
+    this.blessed = null;
     this.votes = {};
-    this.night = { picks: {}, look: null, shield: null, kite: {}, done: new Set(), started: Date.now() };
+    this.verdict = null;
+    this.night = { picks: {}, look: null, shield: null, bless: {}, done: new Set(), started: Date.now() };
     this.enter('night', TIMES.night, () => this.resolveNight());
-    this.sys(`🌙 Night ${this.round}. The safehouse goes dark.`);
+    this.sys(`🌙 Night ${this.round}. The village sleeps.`);
     this.players.filter(p => p.isBot).forEach(b => {
-      if (b.alive && ['snitch', 'lookout', 'fixer'].includes(b.role)) this.later(this.rnd(2500, 7000), () => this.botNight(b));
-      if (!b.alive) this.later(this.rnd(2000, 6000), () => this.botKite(b));
+      if (b.alive && ['werewolf', 'sheriff', 'doctor'].includes(b.role)) this.later(this.rnd(2500, 7000), () => this.botNight(b));
+      if (!b.alive) this.later(this.rnd(2000, 6000), () => this.botBless(b));
     });
     this.changed();
     this.tryEndNight();
   }
   nightActors() {
-    return this.players.filter(p => (p.isBot || p.connected) && (p.alive ? ['snitch', 'lookout', 'fixer'].includes(p.role) : true));
+    return this.players.filter(p => (p.isBot || p.connected) && (p.alive ? ['werewolf', 'sheriff', 'doctor'].includes(p.role) : true));
   }
   nightAction(p, targetId) {
     if (this.phase !== 'night' || !p.alive) return;
     const t = this.get(targetId);
     if (!t || !t.alive) return;
     const n = this.night;
-    if (p.role === 'snitch') { if (t.role === 'snitch') return; n.picks[p.id] = t.id; }
-    else if (p.role === 'lookout') { if (t === p) return; n.look = t.id; }
-    else if (p.role === 'fixer') { if (t.id === p.lastShield) return; n.shield = t.id; }
+    if (p.role === 'werewolf') { if (t.role === 'werewolf') return; n.picks[p.id] = t.id; }
+    else if (p.role === 'sheriff') { if (t === p) return; n.look = t.id; }
+    else if (p.role === 'doctor') { if (t.id === p.lastShield) return; n.shield = t.id; }
     else return;
     n.done.add(p.id);
     this.changed();
     this.tryEndNight();
   }
-  kite(p, targetId) {
+  bless(p, targetId) {
     if (this.phase !== 'night' || p.alive) return;
     const t = this.get(targetId);
-    if (t && t.alive) this.night.kite[p.id] = t.id; else delete this.night.kite[p.id];
+    if (t && t.alive) this.night.bless[p.id] = t.id; else delete this.night.bless[p.id];
     this.night.done.add(p.id);
     this.changed();
     this.tryEndNight();
@@ -255,40 +264,40 @@ class Room {
   resolveNight() {
     const n = this.night;
     const alive = this.alive();
-    const snitches = alive.filter(p => p.role === 'snitch');
+    const wolves = alive.filter(p => p.role === 'werewolf');
     const valid = id => id && this.get(id) && this.get(id).alive;
-    let picks = snitches.filter(p => !p.isBot).map(p => n.picks[p.id]).filter(valid);
-    if (!picks.length) picks = snitches.map(p => n.picks[p.id]).filter(valid);
-    const targetId = picks.length ? this.top(picks) : this.pick(alive.filter(p => p.role !== 'snitch')).id;
+    let picks = wolves.filter(p => !p.isBot).map(p => n.picks[p.id]).filter(valid);
+    if (!picks.length) picks = wolves.map(p => n.picks[p.id]).filter(valid);
+    const targetId = picks.length ? this.top(picks) : this.pick(alive.filter(p => p.role !== 'werewolf')).id;
     const target = this.get(targetId);
 
-    const fixer = alive.find(p => p.role === 'fixer');
-    const saved = !!(fixer && n.shield === target.id);
-    if (fixer) fixer.lastShield = n.shield || null;
+    const doctor = alive.find(p => p.role === 'doctor');
+    const saved = !!(doctor && n.shield === target.id);
+    if (doctor) doctor.lastShield = n.shield || null;
     if (!saved) { target.alive = false; target.revealed = true; }
 
-    const lookout = alive.find(p => p.role === 'lookout');
-    if (lookout && lookout.alive && valid(n.look)) {
+    const sheriff = alive.find(p => p.role === 'sheriff');
+    if (sheriff && sheriff.alive && valid(n.look)) {
       const t = this.get(n.look);
-      const isSnitch = t.role === 'snitch';
-      lookout.notes.push({ round: this.round, id: t.id, name: t.name, snitch: isSnitch });
-      if (lookout.bot) lookout.bot.known[t.id] = isSnitch;
-      this.sys(`🔭 You tailed ${t.name}: ${isSnitch ? 'they met with the cops. SNITCH.' : 'nothing shady. Clean.'}`, [lookout.id]);
+      const isWolf = t.role === 'werewolf';
+      sheriff.notes.push({ round: this.round, id: t.id, name: t.name, wolf: isWolf });
+      if (sheriff.bot) sheriff.bot.known[t.id] = isWolf;
+      this.sys(`⭐ You investigated ${t.name}: ${isWolf ? 'WEREWOLF.' : 'innocent.'}`, [sheriff.id]);
     }
 
     if (saved) {
-      this.sys('🚨 The cops kicked in a door overnight — but somebody\'s alibi held. Nobody was busted.');
-      if (fixer) this.sys(`🧰 Your alibi saved ${target.name} tonight.`, [fixer.id]);
+      this.sys('🌅 The wolves struck in the night — but the Doctor was there. Nobody died.');
+      if (doctor) this.sys(`💉 You saved ${target.name} tonight.`, [doctor.id]);
     } else {
-      this.sys(`🚨 Sirens at dawn. ${target.icon} ${target.name} got busted. They were ${ROLE_NAMES[target.role]}.`);
+      this.sys(`🌅 ${target.name} was killed in the night. They were ${ROLE_NAMES[target.role]}.`);
     }
 
-    const kites = Object.values(n.kite).filter(valid);
-    if (kites.length) {
-      this.kiteHolder = this.top(kites);
-      this.sys(`🪁 Lockup smuggled a kite to ${this.get(this.kiteHolder).name}. Their vote counts double today.`);
+    const omens = Object.values(n.bless).filter(valid);
+    if (omens.length) {
+      this.blessed = this.top(omens);
+      this.sys(`👻 The spirits bless ${this.get(this.blessed).name}. Their vote counts double today.`);
     }
-    this.dawn = { busted: saved ? null : target.id, saved };
+    this.dawn = { killed: saved ? null : target.id, saved, blessed: this.blessed };
     this.enter('dawn', TIMES.dawn, () => { if (!this.checkWin()) this.beginDay(); });
     this.changed();
   }
@@ -298,7 +307,7 @@ class Room {
   beginDay() {
     this.ready = new Set();
     this.enter('day', this.livingHumans().length ? TIMES.day : TIMES.idleDay, () => this.beginVote());
-    this.sys(`☀️ Day ${this.round}. Talk it out, then vote on who to cut loose.`);
+    this.sys(`☀️ Day ${this.round}. Talk it out, then vote on who to banish.`);
     this.botDayTalk();
     this.changed();
   }
@@ -316,7 +325,7 @@ class Room {
   beginVote() {
     this.votes = {};
     this.enter('vote', TIMES.vote, () => this.resolveVote());
-    this.sys('🗳️ Voting is open. Majority cuts someone loose; a tie cuts no one.');
+    this.sys('🗳️ Voting is open. Most votes is banished; a tie banishes no one.');
     this.alive().filter(p => p.isBot).forEach(b => this.later(this.rnd(2000, 11000), () => this.botVote(b)));
     this.changed();
   }
@@ -340,7 +349,7 @@ class Room {
     this.alive().forEach(p => {
       const v = this.votes[p.id];
       if (!v) return;
-      tally[v] = (tally[v] || 0) + (p.id === this.kiteHolder ? 2 : 1);
+      tally[v] = (tally[v] || 0) + (p.id === this.blessed ? 2 : 1);
     });
     const max = Math.max(0, ...Object.values(tally));
     const tops = Object.keys(tally).filter(k => tally[k] === max);
@@ -349,19 +358,19 @@ class Room {
     if (cut) {
       cut.alive = false;
       cut.revealed = true;
-      this.sys(`✂️ The crew cut ${cut.icon} ${cut.name} loose (${max} vote${max === 1 ? '' : 's'}). They were ${ROLE_NAMES[cut.role]}.`);
+      this.sys(`⚖️ The village banished ${cut.name} (${max} vote${max === 1 ? '' : 's'}). They were ${ROLE_NAMES[cut.role]}.`);
       // Everyone learns from who pushed the vote.
       this.players.forEach(b => {
         if (!b.bot) return;
         Object.entries(this.votes).forEach(([vid, tid]) => {
-          if (tid === cut.id && vid !== b.id) b.bot.sus[vid] += cut.role === 'snitch' ? -1.2 : 0.8;
+          if (tid === cut.id && vid !== b.id) b.bot.sus[vid] += cut.role === 'werewolf' ? -1.2 : 0.8;
         });
       });
     } else {
-      this.sys(max === 0 ? '✂️ Nobody voted. The crew holds together — for now.' : '✂️ The vote was split. Nobody gets cut today.');
+      this.sys(max === 0 ? '⚖️ Nobody voted. The village holds together — for now.' : '⚖️ The vote was split. Nobody is banished today.');
     }
     this.enter('verdict', TIMES.verdict, () => {
-      if (cut && cut.role === 'fallguy') return this.end('fallguy');
+      if (cut && cut.role === 'jester') return this.end('jester');
       if (this.checkWin()) return;
       this.round++;
       this.beginNight();
@@ -372,9 +381,9 @@ class Room {
   // ---------- endgame ----------
   checkWin() {
     const alive = this.alive();
-    const s = alive.filter(p => p.role === 'snitch').length;
-    if (s === 0) { this.end('crew'); return true; }
-    if (s >= alive.length - s) { this.end('snitch'); return true; }
+    const s = alive.filter(p => p.role === 'werewolf').length;
+    if (s === 0) { this.end('villager'); return true; }
+    if (s >= alive.length - s) { this.end('werewolf'); return true; }
     return false;
   }
   end(winner) {
@@ -383,17 +392,35 @@ class Room {
     clearTimeout(this.phaseTimer);
     this.deadline = 0;
     this.sys({
-      crew: '💰 Every wire is out. The crew cracks the vault and vanishes. CREW WINS.',
-      snitch: '🚔 The snitches own the room. Everyone left goes down. SNITCHES WIN.',
-      fallguy: '🃏 You cut the Fall Guy — exactly what they wanted. THE FALL GUY WINS ALONE.',
+      villager: '☀️ The last werewolf is gone. Hollowmoon is safe. THE VILLAGE WINS.',
+      werewolf: '🐺 The wolves outnumber the living. Hollowmoon falls. THE WEREWOLVES WIN.',
+      jester: '🃏 You banished the Jester — exactly what they wanted. THE JESTER WINS ALONE.',
     }[winner]);
     this.changed();
   }
   isWinner(p) {
-    if (this.winner === 'crew') return ['crew', 'lookout', 'fixer'].includes(p.role);
-    if (this.winner === 'snitch') return p.role === 'snitch';
-    if (this.winner === 'fallguy') return p.role === 'fallguy' && this.verdict && this.verdict.cut === p.id;
+    if (this.winner === 'villager') return ['villager', 'sheriff', 'doctor'].includes(p.role);
+    if (this.winner === 'werewolf') return p.role === 'werewolf';
+    if (this.winner === 'jester') return p.role === 'jester' && this.verdict && this.verdict.cut === p.id;
     return false;
+  }
+
+  // One player's request, from any transport. Returns an error string or nothing.
+  command(me, m) {
+    const host = this.hostId === me.id;
+    let r;
+    switch (m.t) {
+      case 'addBot': if (host) r = this.addPlayer('', true); break;
+      case 'removeBot': { const b = this.get(m.id); if (host && b && b.isBot && this.phase === 'lobby') this.removePlayer(b.id); break; }
+      case 'start': if (host) r = this.start(); break;
+      case 'again': if (host && this.phase === 'over') this.backToLobby(); break;
+      case 'night': this.nightAction(me, m.target); break;
+      case 'bless': this.bless(me, m.target); break;
+      case 'ready': this.setReady(me); break;
+      case 'vote': this.vote(me, m.target); break;
+      case 'chat': this.chat(me, m.ch, m.text); break;
+    }
+    return r && r.error;
   }
 
   // ---------- chat ----------
@@ -401,8 +428,8 @@ class Room {
     text = String(text || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200);
     if (!text) return;
     const playing = !['lobby', 'over'].includes(this.phase);
-    if (ch === 'snitch') { if (!playing || p.role !== 'snitch' || !p.alive) return; }
-    else if (ch === 'lockup') { if (!playing || p.alive) return; }
+    if (ch === 'wolf') { if (!playing || p.role !== 'werewolf' || !p.alive) return; }
+    else if (ch === 'grave') { if (!playing || p.alive) return; }
     else {
       ch = 'pub';
       if (playing && (!p.alive || this.phase === 'night')) return;
@@ -419,16 +446,16 @@ class Room {
     this.changed();
   }
   // A public Lookout claim (true or not) shifts what the bots believe.
-  applyClaim(by, target, isSnitch, weight) {
-    this.claims.push({ by: by.id, target: target.id, snitch: isSnitch, round: this.round });
+  applyClaim(by, target, isWolf, weight) {
+    this.claims.push({ by: by.id, target: target.id, werewolf: isWolf, round: this.round });
     this.players.forEach(b => {
       if (!b.bot || b === by) return;
-      if (b.role === 'lookout') { b.bot.sus[by.id] = (b.bot.sus[by.id] || 0) + 4; return; } // the real one knows a fake
-      if (b.id !== target.id) b.bot.sus[target.id] += (isSnitch ? 3 : -2) * weight;
+      if (b.role === 'sheriff') { b.bot.sus[by.id] = (b.bot.sus[by.id] || 0) + 4; return; } // the real one knows a fake
+      if (b.id !== target.id) b.bot.sus[target.id] += (isWolf ? 3 : -2) * weight;
     });
-    if (isSnitch && target.isBot && target.alive) {
+    if (isWolf && target.isBot && target.alive) {
       this.later(this.rnd(1800, 4500), () => {
-        if (target.role === 'snitch' && this.rng() < 0.5 && !this.claims.some(c => c.by === target.id)) {
+        if (target.role === 'werewolf' && this.rng() < 0.5 && !this.claims.some(c => c.by === target.id)) {
           this.botSay(target, this.line('counter', by.name));
           this.applyClaim(target, by, true, 0.6);
         } else {
@@ -442,9 +469,9 @@ class Room {
     const named = this.alive().filter(q => q !== p && new RegExp(`(^|[^a-z0-9])${q.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}([^a-z0-9]|$)`).test(low));
     if (named.length !== 1) return;
     const t = named[0];
-    const accuse = /(snitch|rat\b|wire|sus\b|suspicious|lying|liar|\bcut\b|vote|dirty|\bcop|guilty|shady)/.test(low);
-    const clear = /(clean|clear|innocent|trust|legit|solid|not the snitch|isn'?t the snitch)/.test(low);
-    const claim = /lookout/.test(low) && /\b(i|i'?m|im|my)\b/.test(low);
+    const accuse = /(wolf|sus\b|suspicious|lying|liar|banish|vote|kill|guilty|shady|evil|fangs|claws)/.test(low);
+    const clear = /(clean|clear|innocent|trust|legit|solid|not (a|the) (were)?wolf|isn'?t (a|the) (were)?wolf|villager)/.test(low);
+    const claim = /sheriff/.test(low) && /\b(i|i'?m|im|my)\b/.test(low);
     if (clear) {
       if (claim) this.applyClaim(p, t, false, 0.8);
       else this.players.forEach(b => { if (b.bot && b !== t) b.bot.sus[t.id] -= 0.3; });
@@ -454,21 +481,21 @@ class Room {
         this.players.forEach(b => { if (b.bot && b !== t) b.bot.sus[t.id] += 0.6; });
         if (t.isBot && t.bot.defended < this.round) {
           t.bot.defended = this.round;
-          this.later(this.rnd(1500, 4000), () => this.botSay(t, this.line(t.role === 'fallguy' ? 'fallguy' : 'deny', p.name)));
+          this.later(this.rnd(1500, 4000), () => this.botSay(t, this.line(t.role === 'jester' ? 'jester' : 'deny', p.name)));
         }
       }
     }
   }
   botDayTalk() {
-    const busted = this.dawn && this.dawn.busted ? this.get(this.dawn.busted) : null;
+    const busted = this.dawn && this.dawn.killed ? this.get(this.dawn.killed) : null;
     this.alive().filter(p => p.isBot).forEach(b => {
       this.later(this.rnd(1500, 22000), () => {
         const k = b.bot.known;
-        if (b.role === 'lookout') {
+        if (b.role === 'sheriff') {
           const dirty = Object.keys(k).find(id => k[id] && this.get(id).alive && !b.bot.told.has(id));
           if (dirty) {
             b.bot.told.add(dirty);
-            this.botSay(b, this.line('claimSnitch', this.get(dirty).name));
+            this.botSay(b, this.line('claimWolf', this.get(dirty).name));
             return this.applyClaim(b, this.get(dirty), true, 1);
           }
           const clean = Object.keys(k).find(id => !k[id] && this.get(id).alive && !b.bot.told.has(id));
@@ -478,12 +505,12 @@ class Room {
             return this.applyClaim(b, this.get(clean), false, 1);
           }
         }
-        if (b.role === 'fallguy' && this.rng() < 0.6) return this.botSay(b, this.line('fallguy'));
+        if (b.role === 'jester' && this.rng() < 0.6) return this.botSay(b, this.line('jester'));
         if (this.rng() > 0.65) return;
-        const opts = this.alive().filter(q => q !== b && !(b.role === 'snitch' && q.role === 'snitch'));
+        const opts = this.alive().filter(q => q !== b && !(b.role === 'werewolf' && q.role === 'werewolf'));
         const worst = opts.sort((x, y) => b.bot.sus[y.id] - b.bot.sus[x.id])[0];
         if (worst && b.bot.sus[worst.id] > 1.4) this.botSay(b, this.line('accuse', worst.name));
-        else if (busted && busted.role !== 'snitch' && this.rng() < 0.3) this.botSay(b, this.line('mourn', busted.name));
+        else if (busted && busted.role !== 'werewolf' && this.rng() < 0.3) this.botSay(b, this.line('mourn', busted.name));
         else this.botSay(b, this.line('filler'));
       });
     });
@@ -493,27 +520,27 @@ class Room {
     const others = this.alive().filter(p => p !== b);
     const claimed = this.claims.map(c => this.get(c.by)).filter(p => p && p.alive);
     let t;
-    if (b.role === 'snitch') {
-      const marks = others.filter(p => p.role !== 'snitch');
+    if (b.role === 'werewolf') {
+      const marks = others.filter(p => p.role !== 'werewolf');
       const loud = marks.filter(p => claimed.includes(p));
       t = loud.length && this.rng() < 0.7 ? this.pick(loud) : this.pick(marks);
-    } else if (b.role === 'lookout') {
+    } else if (b.role === 'sheriff') {
       const fresh = others.filter(p => !(p.id in b.bot.known));
       t = this.pick(fresh.length ? fresh : others);
-    } else if (b.role === 'fixer') {
+    } else if (b.role === 'doctor') {
       const ok = this.alive().filter(p => p.id !== b.lastShield);
       const loud = ok.filter(p => claimed.includes(p) && b.bot.sus[p.id] < 3);
       t = loud.length && this.rng() < 0.75 ? this.pick(loud) : this.pick(ok);
     }
     if (t) this.nightAction(b, t.id);
   }
-  botKite(b) {
+  botBless(b) {
     if (this.phase !== 'night' || b.alive) return;
     const alive = this.alive();
     let t;
-    if (b.role === 'snitch') t = this.pick(alive.filter(p => p.role === 'snitch'));
+    if (b.role === 'werewolf') t = this.pick(alive.filter(p => p.role === 'werewolf'));
     if (!t) t = alive.slice().sort((x, y) => b.bot.sus[x.id] - b.bot.sus[y.id])[0];
-    this.kite(b, t ? t.id : null);
+    this.bless(b, t ? t.id : null);
   }
   botVote(b) {
     if (this.phase !== 'vote' || !b.alive || this.votes[b.id]) return;
@@ -522,13 +549,13 @@ class Room {
     const others = this.alive().filter(p => p !== b);
     const sus = b.bot.sus;
     let choice;
-    if (b.role === 'fallguy') {
+    if (b.role === 'jester') {
       choice = this.pick(others).id;
-    } else if (b.role === 'snitch') {
-      const partner = others.find(p => p.role === 'snitch' && (count[p.id] || 0) >= Math.ceil(others.length / 2) - 1);
+    } else if (b.role === 'werewolf') {
+      const partner = others.find(p => p.role === 'werewolf' && (count[p.id] || 0) >= Math.ceil(others.length / 2) - 1);
       if (partner && this.rng() < 0.35) choice = partner.id; // bus a doomed partner for cover
       else {
-        const marks = others.filter(p => p.role !== 'snitch');
+        const marks = others.filter(p => p.role !== 'werewolf');
         const best = marks.map(p => ({ p, s: sus[p.id] * 0.6 + (count[p.id] || 0) * 0.8 + this.rng() })).sort((x, y) => y.s - x.s)[0];
         choice = this.round === 1 && !Object.keys(count).length && this.rng() < 0.3 ? 'skip' : best.p.id;
       }
@@ -547,17 +574,17 @@ class Room {
   view(me) {
     const over = this.phase === 'over';
     const playing = !['lobby', 'over'].includes(this.phase);
-    const amSnitch = me.role === 'snitch';
+    const amWolf = me.role === 'werewolf';
     const showVotes = ['vote', 'verdict'].includes(this.phase);
     const n = this.night;
     const state = {
       t: 'state', code: this.code, phase: this.phase, round: this.round,
       left: this.deadline ? Math.max(0, this.deadline - Date.now()) : 0,
-      hostId: this.hostId, winner: this.winner, kiteHolder: this.kiteHolder,
-      min: MIN_PLAYERS, max: MAX_PLAYERS,
+      hostId: this.hostId, winner: this.winner, blessed: this.blessed,
+      min: MIN_PLAYERS, max: MAX_PLAYERS, wolves: this.wolfCount || 0,
       players: this.players.map(p => ({
-        id: p.id, name: p.name, icon: p.icon, isBot: p.isBot, alive: p.alive, connected: p.connected,
-        role: over || p.revealed || p === me || (amSnitch && p.role === 'snitch') ? p.role : null,
+        id: p.id, name: p.name, color: p.color, model: p.model, isBot: p.isBot, alive: p.alive, connected: p.connected,
+        role: over || p.revealed || p === me || (amWolf && p.role === 'werewolf') ? p.role : null,
         vote: showVotes ? this.votes[p.id] || null : null,
         ready: this.phase === 'day' && this.ready.has(p.id),
         won: over ? this.isWinner(p) : undefined,
@@ -565,24 +592,28 @@ class Room {
       you: { id: me.id, role: me.role, alive: me.alive, notes: me.notes, lastShield: me.lastShield },
       feed: this.feed.filter(m => {
         if (m.only) return m.only.includes(me.id);
-        if (m.ch === 'snitch') return amSnitch || over;
-        if (m.ch === 'lockup') return (playing && !me.alive) || over;
+        if (m.ch === 'wolf') return amWolf || over;
+        if (m.ch === 'grave') return (playing && !me.alive) || over;
         return true;
       }),
     };
     if (this.phase === 'night' && n) {
       const y = state.you;
-      if (!me.alive) y.pick = n.kite[me.id] || null;
-      else if (amSnitch) {
+      if (!me.alive) y.pick = n.bless[me.id] || null;
+      else if (amWolf) {
         y.pick = n.picks[me.id] || null;
-        y.teamPicks = this.alive().filter(p => p.role === 'snitch' && p !== me && n.picks[p.id]).map(p => ({ by: p.id, target: n.picks[p.id] }));
-      } else if (me.role === 'lookout') y.pick = n.look;
-      else if (me.role === 'fixer') y.pick = n.shield;
+        y.teamPicks = this.alive().filter(p => p.role === 'werewolf' && p !== me && n.picks[p.id]).map(p => ({ by: p.id, target: n.picks[p.id] }));
+      } else if (me.role === 'sheriff') y.pick = n.look;
+      else if (me.role === 'doctor') y.pick = n.shield;
       y.done = n.done.has(me.id);
     }
-    if (showVotes && this.phase === 'verdict') state.verdict = this.verdict;
+    if (this.phase === 'verdict' || this.phase === 'over') state.verdict = this.verdict || null;
+    if (this.phase === 'dawn') state.dawn = this.dawn;
     return state;
   }
 }
 
-module.exports = { Room, TIMES, MIN_PLAYERS, MAX_PLAYERS };
+const api = { Room, TIMES, MIN_PLAYERS, MAX_PLAYERS };
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+else root.Hollowmoon = api;
+})(typeof self !== 'undefined' ? self : this);

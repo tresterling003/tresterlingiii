@@ -1,14 +1,15 @@
 {
-  "name": "snitch",
+  "name": "hollowmoon",
   "version": "1.0.0",
   "private": true,
-  "description": "SNITCH — a heist-crew social deduction game. Play online with friends or solo against bots.",
+  "description": "HOLLOWMOON — a 3D werewolf social deduction game. Play online with friends or solo against bots.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node --test"
   },
   "dependencies": {
+    "three": "^0.170.0",
     "ws": "^8.18.0"
   },
   "engines": {

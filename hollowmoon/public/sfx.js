@@ -1,0 +1,161 @@
+// Every sound in the game is synthesised here with WebAudio — no audio files.
+export class Sfx {
+  constructor() { this.ctx = null; this.muted = false; }
+  // Browsers only allow audio after a click, so call this from one.
+  unlock() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+      this.out = this.ctx.createGain();
+      this.out.gain.value = this.muted ? 0 : 0.8;
+      const comp = this.ctx.createDynamicsCompressor();
+      this.out.connect(comp).connect(this.ctx.destination);
+      // a little echo so howls carry
+      this.echo = this.ctx.createDelay(1);
+      this.echo.delayTime.value = 0.28;
+      const fb = this.ctx.createGain();
+      fb.gain.value = 0.35;
+      this.echo.connect(fb).connect(this.echo);
+      this.echo.connect(this.out);
+      this.wind();
+    } catch { this.ctx = null; }
+  }
+  setMuted(m) { this.muted = m; if (this.out) this.out.gain.value = m ? 0 : 0.8; }
+  get t() { return this.ctx.currentTime; }
+  noise(dur) {
+    const n = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    return src;
+  }
+  env(peak, at, attack, decay) {
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + attack + decay);
+    return g;
+  }
+  tone(type, freq, at, attack, decay, peak, dest) {
+    const o = this.ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, at);
+    const g = this.env(peak, at, attack, decay);
+    o.connect(g).connect(dest || this.out);
+    o.start(at);
+    o.stop(at + attack + decay + 0.05);
+    return o;
+  }
+  run(fn) { if (this.ctx && !this.muted) { try { fn(this.t + 0.02); } catch { /* audio is optional */ } } }
+
+  wind() {
+    const src = this.noise(4);
+    src.loop = true;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 320;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.05;
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 0.13;
+    const lg = this.ctx.createGain();
+    lg.gain.value = 160;
+    lfo.connect(lg).connect(f.frequency);
+    src.connect(f).connect(g).connect(this.out);
+    src.start();
+    lfo.start();
+  }
+  howl() {
+    this.run(t => [0, 7].forEach((cents, i) => {
+      const o = this.ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.detune.value = cents * 5;
+      o.frequency.setValueAtTime(190, t);
+      o.frequency.exponentialRampToValueAtTime(430 + i * 4, t + 0.7);
+      o.frequency.setValueAtTime(430 + i * 4, t + 1.5);
+      o.frequency.exponentialRampToValueAtTime(300, t + 2.6);
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 700;
+      f.Q.value = 1.4;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.5);
+      g.gain.setValueAtTime(0.22, t + 1.6);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+      o.connect(f).connect(g);
+      g.connect(this.out);
+      g.connect(this.echo);
+      o.start(t);
+      o.stop(t + 3);
+    }));
+  }
+  heartbeat(strength = 1) {
+    this.run(t => [0, 0.2].forEach((d, i) => {
+      const o = this.tone('sine', 62, t + d, 0.01, 0.22, (i ? 0.5 : 0.8) * strength);
+      o.frequency.exponentialRampToValueAtTime(38, t + d + 0.2);
+    }));
+  }
+  slash() {
+    this.run(t => {
+      const n = this.noise(0.4);
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.Q.value = 2;
+      f.frequency.setValueAtTime(4200, t);
+      f.frequency.exponentialRampToValueAtTime(500, t + 0.3);
+      n.connect(f).connect(this.env(0.9, t, 0.01, 0.32)).connect(this.out);
+      n.start(t);
+      const o = this.tone('sawtooth', 75, t + 0.05, 0.05, 0.9, 0.35);
+      o.frequency.linearRampToValueAtTime(48, t + 0.9);
+      const boom = this.tone('sine', 110, t, 0.01, 0.7, 0.9);
+      boom.frequency.exponentialRampToValueAtTime(34, t + 0.6);
+    });
+  }
+  boom() {
+    this.run(t => {
+      const o = this.tone('sine', 100, t, 0.01, 1.1, 0.9);
+      o.frequency.exponentialRampToValueAtTime(30, t + 0.9);
+    });
+  }
+  drumroll(dur) {
+    this.run(t => {
+      for (let x = 0; x < dur; x += 0.055) {
+        const n = this.noise(0.05);
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = 240;
+        n.connect(f).connect(this.env(0.12 + 0.5 * (x / dur), t + x, 0.004, 0.045)).connect(this.out);
+        n.start(t + x);
+      }
+    });
+  }
+  tick() { this.run(t => this.tone('square', 880, t, 0.003, 0.05, 0.12)); }
+  pop() { this.run(t => { const o = this.tone('sine', 520, t, 0.005, 0.09, 0.1); o.frequency.exponentialRampToValueAtTime(820, t + 0.08); }); }
+  bell() {
+    this.run(t => [[523, 0.3], [1046, 0.12], [1569, 0.06]].forEach(([f, p]) => {
+      const g = this.env(p, t, 0.005, 2.6);
+      const o = this.ctx.createOscillator();
+      o.frequency.value = f;
+      o.connect(g);
+      g.connect(this.out);
+      g.connect(this.echo);
+      o.start(t);
+      o.stop(t + 2.8);
+    }));
+  }
+  chord(notes, type, step, decay, peak) {
+    this.run(t => notes.forEach((f, i) => this.tone(type, f, t + i * step, 0.02, decay, peak, i === notes.length - 1 ? this.echo : this.out)));
+  }
+  sting(kind) {
+    if (kind === 'good') this.chord([262, 330, 392, 523, 659], 'triangle', 0.11, 1.2, 0.3);
+    else if (kind === 'sad') this.chord([440, 349, 294, 220], 'triangle', 0.3, 1.6, 0.28);
+    else if (kind === 'evil') this.chord([98, 139, 165, 233], 'sawtooth', 0.02, 2.4, 0.16);
+    else if (kind === 'jester') this.chord([659, 784, 659, 523, 784, 1047], 'square', 0.09, 0.2, 0.12);
+    else if (kind === 'calm') this.chord([330, 392, 494], 'sine', 0.14, 1.6, 0.25);
+  }
+  chime() { this.chord([784, 988, 1175, 1568], 'sine', 0.07, 1.4, 0.2); }
+}

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hollowmoon — a 3D werewolf game</title>
+<meta name="description" content="A 3D game of Werewolf with cinematic cutscenes. Play solo against bots or with friends.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐺</text></svg>">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
+</head>
+<body data-phase="home">
+<canvas id="stage" aria-label="The village of Hollowmoon"></canvas>
+<div id="labels"></div>
+
+<div id="cine" aria-live="polite">
+  <div class="bar top"></div>
+  <div id="caption"></div>
+  <div class="bar bottom"></div>
+</div>
+<div id="flash"></div>
+<svg id="slash" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M18 8 L44 92"/><path d="M40 4 L62 96"/><path d="M62 8 L84 90"/>
+</svg>
+
+<main id="home">
+  <div class="hero">
+    <h1 class="logo">HOLLOW<span>MOON</span></h1>
+    <p class="tag">A village. A campfire. Someone here isn't human.</p>
+  </div>
+  <div class="card home-card">
+    <label for="name">Your name</label>
+    <input id="name" maxlength="14" autocomplete="off" placeholder="e.g. Rowan">
+    <div class="row">
+      <button id="solo" class="btn primary">Play solo vs bots</button>
+      <select id="size" aria-label="Village size">
+        <option value="5">5 players</option><option value="6">6 players</option>
+        <option value="7" selected>7 players</option><option value="8">8 players</option>
+        <option value="9">9 players</option><option value="10">10 players</option>
+      </select>
+    </div>
+    <button id="create" class="btn">Host a table for friends</button>
+    <div class="row">
+      <input id="code" maxlength="4" autocomplete="off" placeholder="CODE" aria-label="Table code">
+      <button id="join" class="btn">Join a table</button>
+    </div>
+    <p id="homeErr" class="err" role="alert"></p>
+  </div>
+  <button class="link" data-open="how">How to play</button>
+  <p class="credit">Characters: KayKit by Kay Lousberg (CC0) · 3D: three.js</p>
+</main>
+
+<div id="hud" hidden>
+  <header class="top">
+    <div class="phase">
+      <div id="phaseName" class="phase-name"></div>
+      <div id="phaseSub" class="small"></div>
+    </div>
+    <div id="timer" class="timer"></div>
+    <button id="roleChip" class="chip" data-open="role"></button>
+    <button id="chatToggle" class="chip icon" aria-label="Show or hide chat">💬</button>
+    <button id="mute" class="chip icon" aria-label="Sound on or off">🔊</button>
+    <button id="help" class="chip icon" data-open="how" aria-label="How to play">?</button>
+    <button id="leave" class="chip icon" aria-label="Leave game">✕</button>
+  </header>
+  <section id="action" class="card panel"></section>
+  <aside id="chat" class="card panel">
+    <div id="tabs" class="tabs"></div>
+    <div id="feed" class="feed"></div>
+    <form id="chatForm" class="chatbar">
+      <input id="chatInput" maxlength="200" autocomplete="off" aria-label="Chat message">
+      <button class="btn">Send</button>
+    </form>
+  </aside>
+</div>
+
+<dialog id="how">
+  <h2>How to play</h2>
+  <p>Hollowmoon is a village with a secret: some of the people around the fire are <b>werewolves</b>.</p>
+  <ul>
+    <li><b>🌙 Night:</b> everyone sleeps. The werewolves choose someone to kill. The Sheriff and Doctor act in secret.</li>
+    <li><b>☀️ Day:</b> everyone talks, then votes to <b>banish</b> one person. A tie banishes nobody.</li>
+    <li><b>The village wins</b> when every werewolf is gone. <b>The werewolves win</b> when they equal the villagers in number.</li>
+  </ul>
+  <h3>Roles</h3>
+  <ul class="roles">
+    <li><span>🧑‍🌾</span><div><b>Villager</b> — no power but a vote and a good read on people.</div></li>
+    <li><span>⭐</span><div><b>Sheriff</b> — each night, investigates one player and learns if they are a werewolf.</div></li>
+    <li><span>💉</span><div><b>Doctor</b> — each night, protects one player from the wolves. Never the same player twice in a row.</div></li>
+    <li><span>🐺</span><div><b>Werewolf</b> — knows the other wolves, shares a secret chat, and picks the night's victim.</div></li>
+    <li><span>🃏</span><div><b>Jester</b> (6 or 8+ players) — wins <i>alone</i> by getting banished. Careful who you vote for.</div></li>
+  </ul>
+  <h3>The dead still play</h3>
+  <p>Dead players become <b>ghosts</b> in the graveyard with their own chat. Each night they bless one living player, whose vote counts <b>double</b> the next day.</p>
+  <p class="small">Drag to look around the village. Tap a character or their name to choose them.</p>
+  <form method="dialog"><button class="btn primary">Got it</button></form>
+</dialog>
+<dialog id="role">
+  <div id="roleCard"></div>
+  <form method="dialog"><button class="btn primary">Close</button></form>
+</dialog>
+
+<div id="loading"><div class="logo small-logo">HOLLOW<span>MOON</span></div><div class="loadbar"><i id="loadFill"></i></div></div>
+<div id="toast" class="toast" hidden></div>
+<script src="game.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

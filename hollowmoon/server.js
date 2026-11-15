@@ -1,15 +1,15 @@
 'use strict';
-// SNITCH server: serves the client and runs every room over WebSockets.
+// HOLLOWMOON server: serves the client and runs every room over WebSockets.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
-const { Room, MAX_PLAYERS, MIN_PLAYERS } = require('./game');
+const { Room, MAX_PLAYERS, MIN_PLAYERS } = require('./public/game');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon' };
 
 const rooms = new Map(); // code -> Room
 const seats = new Map(); // room code -> Map(playerId -> { token, ws })
@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
   if (!file.startsWith(PUBLIC + path.sep)) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': /\/(vendor|assets)\//.test(url.pathname) ? 'public, max-age=86400' : 'no-cache' });
     res.end(data);
   });
 });
@@ -124,25 +124,14 @@ function handle(ws, m) {
   const room = s.room;
   const me = room.get(s.pid);
   if (!me) return;
-  const host = room.hostId === me.id;
-  switch (m.t) {
-    case 'addBot': if (host) { const r = room.addPlayer('', true); if (r.error) send(ws, { t: 'error', msg: r.error }); } break;
-    case 'removeBot': { const b = room.get(m.id); if (host && b && b.isBot && room.phase === 'lobby') room.removePlayer(b.id); break; }
-    case 'start': if (host) { const r = room.start(); if (r.error) send(ws, { t: 'error', msg: r.error }); } break;
-    case 'again': if (host && room.phase === 'over') room.backToLobby(); break;
-    case 'night': room.nightAction(me, m.target); break;
-    case 'kite': room.kite(me, m.target); break;
-    case 'ready': room.setReady(me); break;
-    case 'vote': room.vote(me, m.target); break;
-    case 'chat': {
-      const now = Date.now();
-      if (now - ws.lastChat < 350) return;
-      ws.lastChat = now;
-      room.chat(me, m.ch, m.text);
-      break;
-    }
-    case 'leave': leave(ws, true); send(ws, { t: 'left' }); break;
+  if (m.t === 'leave') { leave(ws, true); return send(ws, { t: 'left' }); }
+  if (m.t === 'chat') {
+    const now = Date.now();
+    if (now - ws.lastChat < 350) return;
+    ws.lastChat = now;
   }
+  const err = room.command(me, m);
+  if (err) send(ws, { t: 'error', msg: err });
 }
 
 // Drop dead sockets, and rooms nobody has been in for a while.
@@ -163,4 +152,4 @@ setInterval(() => {
   }
 }, 30000).unref();
 
-server.listen(PORT, () => console.log(`SNITCH running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`HOLLOWMOON running on http://localhost:${PORT}`));
