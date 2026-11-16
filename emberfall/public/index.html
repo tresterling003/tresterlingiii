@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emberfall — a co-op fantasy quest</title>
+<meta name="description" content="A 3D fantasy quest with choices, dice rolls, a trail to survive and cutscenes. Play solo with companions or with friends.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
+</head>
+<body data-phase="home">
+<canvas id="stage" aria-label="The world of Emberfall"></canvas>
+<div id="labels"></div>
+<div id="cine"><div class="bar top"></div><div id="title"></div><div id="caption"></div><div class="bar bottom"></div></div>
+<div id="fade"></div>
+<div id="flash"></div>
+<div id="rollchip" hidden></div>
+
+<div id="dice" hidden>
+  <div id="diceLabel"></div>
+  <div id="die"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27"/><polygon class="in" points="50,22 76,66 24,66"/><path d="M50 3 L50 22 M93 27 L76 66 M7 27 L24 66 M93 73 L76 66 M7 73 L24 66 M50 97 L24 66 M50 97 L76 66 M7 27 L50 22 M93 27 L50 22"/></svg><span id="dieNum">20</span></div>
+  <div id="diceMath"></div>
+  <div id="diceVerdict"></div>
+</div>
+
+<main id="home">
+  <div class="hero">
+    <h1 class="logo">EMBER<span>FALL</span></h1>
+    <p class="tag-line">Gather a party. Survive the trail. Roll the dice.</p>
+  </div>
+  <div class="card home-card">
+    <label for="name">Your hero's name</label>
+    <input id="name" maxlength="14" autocomplete="off" placeholder="e.g. Rowan">
+    <button id="solo" class="btn primary">Start a solo quest</button>
+    <button id="create" class="btn">Host a table for friends</button>
+    <div class="row">
+      <input id="code" maxlength="4" autocomplete="off" placeholder="CODE" aria-label="Table code">
+      <button id="join" class="btn">Join a table</button>
+    </div>
+    <p id="homeErr" class="err" role="alert"></p>
+  </div>
+  <button class="link" id="howLink">New to this kind of game? How it works</button>
+  <p class="credit">Characters: KayKit by Kay Lousberg (CC0) · 3D: three.js</p>
+</main>
+
+<div id="hud" hidden>
+  <header class="top">
+    <div class="where"><div id="place"></div><div id="sub" class="small"></div></div>
+    <div id="res" class="res"></div>
+    <button id="logToggle" class="chip icon" aria-label="Show or hide the log">📜</button>
+    <button id="mute" class="chip icon" aria-label="Sound on or off">🔊</button>
+    <button id="help" class="chip icon" aria-label="How it works">?</button>
+    <button id="leave" class="chip icon" aria-label="Leave">✕</button>
+  </header>
+  <section id="panel" class="card"></section>
+  <aside id="log" class="card" hidden>
+    <div id="feed" class="feed"></div>
+    <form id="chatForm" class="chatbar"><input id="chatInput" maxlength="200" autocomplete="off" placeholder="Say something to the party…" aria-label="Message"><button class="btn">Send</button></form>
+  </aside>
+</div>
+
+<dialog id="how">
+  <div class="pages">
+    <section>
+      <h2>What kind of game is this?</h2>
+      <p>Emberfall is a <b>tabletop role-playing adventure</b>, the same family as Dungeons &amp; Dragons. There is no board and no score. You play <b>one hero</b> in a story, and the story changes with what you decide.</p>
+      <p>You are never against the other players. The whole party — you, your friends, and any computer companions — <b>wins or loses together</b>.</p>
+      <p>Each scene, the game describes what is happening and offers some choices. You pick one. Often, the dice decide whether it works.</p>
+    </section>
+    <section>
+      <h2>Your hero</h2>
+      <p>Every hero has four <b>abilities</b>. Each is a number, usually between −1 and +5, that gets added to your dice rolls:</p>
+      <ul>
+        <li><b>💪 Might</b> — lifting, breaking, charging, intimidating.</li>
+        <li><b>🤸 Agility</b> — sneaking, dodging, lock-picking, aiming.</li>
+        <li><b>🧠 Mind</b> — magic, puzzles, medicine, noticing things.</li>
+        <li><b>💬 Charm</b> — persuading, bargaining, bluffing, befriending.</li>
+      </ul>
+      <p>Your <b>class</b> (Knight, Mage, Rogue…) sets your starting numbers and gives you one special move. You also have <b>health</b> (how much hurt you can take) and <b>armor</b> (how hard you are to hit).</p>
+    </section>
+    <section>
+      <h2>The d20: the heart of the game</h2>
+      <p>When you try something risky, you roll a <b>20-sided die</b> and add your ability. If the total reaches the <b>target number</b>, you succeed.</p>
+      <p class="eg">Picking a lock is an Agility check with target 13. Your Agility is +4. You roll a 10: 10 + 4 = 14. <b>Success!</b></p>
+      <ul>
+        <li>A <b>natural 20</b> always succeeds, and earns the party a point of Fate.</li>
+        <li>A <b>natural 1</b> always fails. It happens to everyone.</li>
+        <li><b>✨ Fate</b> lets you re-roll a failed check. It is scarce — spend it when it matters.</li>
+      </ul>
+      <p>Failing is not losing. The story just goes a different, usually bumpier, way.</p>
+      <button type="button" class="btn" id="tryRoll">🎲 Try a roll (Agility +4, target 13)</button>
+    </section>
+    <section>
+      <h2>Battles</h2>
+      <p>Fights go in <b>turns</b>: each hero acts, then each enemy. On your turn you choose one thing:</p>
+      <ul>
+        <li><b>⚔️ Attack</b> — roll the d20, add your attack bonus, and try to reach the enemy's armor. If you hit, a second roll decides the damage.</li>
+        <li><b>★ Special move</b> — your class's signature trick. Two uses per battle.</li>
+        <li><b>🛡️ Brace</b> — much harder to hit until your next turn.</li>
+        <li><b>🧪 Potion</b> — heal yourself or an ally. Potions are shared by the party.</li>
+      </ul>
+      <p>A hero at 0 health falls, but gets back up if healed, or when the fight is won. If the whole party falls, you simply try the battle again.</p>
+    </section>
+    <section>
+      <h2>The trail</h2>
+      <p>Between the big scenes you have to <b>get there</b>, and the trail is a game of its own:</p>
+      <ul>
+        <li><b>📅 Days</b> — the new moon rises after day 8. Arrive late and the final enemy is stronger.</li>
+        <li><b>🍖 Rations</b> — four heroes eat four a day. Run out and everyone goes hungry and gets hurt.</li>
+        <li><b>Pace</b> — march hard (fast but painful), steady, or careful (slow, but you forage and rest).</li>
+        <li><b>Trail events</b> — each day brings something: a troll's toll, goblins, a storm, stranger things.</li>
+      </ul>
+      <p>Buy supplies before you leave. And be polite to old women with cooking pots.</p>
+    </section>
+  </div>
+  <div class="pager">
+    <button type="button" class="btn" id="howBack">Back</button>
+    <span id="howDots" class="dots"></span>
+    <button type="button" class="btn primary" id="howNext">Next</button>
+  </div>
+</dialog>
+
+<div id="loading"><div class="logo small-logo">EMBER<span>FALL</span></div><div class="loadbar"><i id="loadFill"></i></div></div>
+<div id="toast" class="toast" hidden></div>
+<script src="quest.js"></script>
+<script src="engine.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
