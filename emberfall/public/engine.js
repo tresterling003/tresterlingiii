@@ -574,7 +574,10 @@ class Room {
     this.heroes = s.heroes;
     this.party = s.party;
     this.stats.retries++;
-    this.log('…but the tale is not over. You gather yourselves and try again.');
+    // A second wind, stronger each time, so no party can get stuck at a battle it cannot win.
+    this.heroes.forEach(h => { h.hp = h.max; h.down = false; });
+    this.party.potions += this.stats.retries;
+    this.log('…but the tale is not over. You catch your breath, find a spare potion, and try again.');
     this.startBattle(this.battle.id, true);
   }
 

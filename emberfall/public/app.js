@@ -489,7 +489,7 @@ function pVictory(kids) {
   kids.push(nextRow('Continue ▸'));
 }
 function pDefeat(kids) {
-  kids.push(el('div', 'note no', 'The party has fallen'), el('p', 'story', 'Darkness… and then a campfire, and the memory of a fight that has not happened yet. The tale is not over.'));
+  kids.push(el('div', 'note no', 'The party has fallen'), el('p', 'story', 'Darkness… and then a campfire, and the memory of a fight that has not happened yet. The tale is not over: you return at full health, with a spare potion.'));
   kids.push(row(btn('Try the battle again', 'primary', () => send({ t: 'retry' }))));
 }
 function pEnd(kids) {

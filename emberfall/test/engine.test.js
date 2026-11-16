@@ -103,5 +103,6 @@ test('defeat restores the party and retries the same battle', () => {
   assert.strictEqual(room.phase, 'defeat');
   room.command(a, { t: 'retry' });
   assert.strictEqual(room.phase, 'combat');
-  assert.deepStrictEqual(room.heroes.map(h => h.hp), before.heroes.map(h => h.hp));
+  assert.deepStrictEqual(room.heroes.map(h => h.hp), before.heroes.map(h => h.max), 'the party returns at full health');
+  assert.strictEqual(room.party.potions, before.party.potions + 1);
 });
