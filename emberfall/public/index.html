@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Emberfall — a co-op fantasy quest</title>
-<meta name="description" content="A 3D fantasy quest with choices, dice rolls, a trail to survive and cutscenes. Play solo with companions or with friends.">
+<meta name="description" content="A 3D fantasy quest with choices, dice rolls, battles, loot and cutscenes. Play solo with companions or with friends.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
@@ -27,7 +27,7 @@
 <main id="home">
   <div class="hero">
     <h1 class="logo">EMBER<span>FALL</span></h1>
-    <p class="tag-line">Gather a party. Survive the trail. Roll the dice.</p>
+    <p class="tag-line">Gather a party. Choose your path. Roll the dice.</p>
   </div>
   <div class="card home-card">
     <label for="name">Your hero's name</label>
@@ -60,6 +60,8 @@
   </aside>
 </div>
 
+<dialog id="sheet"><div id="sheetBody"></div><form method="dialog"><button class="btn primary">Close</button></form></dialog>
+
 <dialog id="how">
   <div class="pages">
     <section>
@@ -87,31 +89,32 @@
         <li>A <b>natural 20</b> always succeeds, and earns the party a point of Fate.</li>
         <li>A <b>natural 1</b> always fails. It happens to everyone.</li>
         <li><b>✨ Fate</b> lets you re-roll a failed check. It is scarce — spend it when it matters.</li>
+        <li><b>Advantage</b> — when a companion who is good at the task helps, you roll two dice and keep the better one.</li>
       </ul>
       <p>Failing is not losing. The story just goes a different, usually bumpier, way.</p>
       <button type="button" class="btn" id="tryRoll">🎲 Try a roll (Agility +4, target 13)</button>
     </section>
     <section>
       <h2>Battles</h2>
-      <p>Fights go in <b>turns</b>: each hero acts, then each enemy. On your turn you choose one thing:</p>
+      <p>When a fight starts, everyone <b>rolls initiative</b> — a d20 plus Agility — and takes turns in that order, heroes and monsters mixed together. On your turn you choose one thing:</p>
       <ul>
-        <li><b>⚔️ Attack</b> — roll the d20, add your attack bonus, and try to reach the enemy's armor. If you hit, a second roll decides the damage.</li>
-        <li><b>★ Special move</b> — your class's signature trick. Two uses per battle.</li>
+        <li><b>⚔️ Attack</b> — roll the d20, add your attack bonus, and try to reach the enemy's armor. If you hit, a second roll decides the damage. A natural 20 is a <b>critical hit</b>: double damage.</li>
+        <li><b>★ Special move</b> — your class's signature tricks. A few uses per battle.</li>
         <li><b>🛡️ Brace</b> — much harder to hit until your next turn.</li>
         <li><b>🧪 Potion</b> — heal yourself or an ally. Potions are shared by the party.</li>
       </ul>
-      <p>A hero at 0 health falls, but gets back up if healed, or when the fight is won. If the whole party falls, you simply try the battle again.</p>
+      <p>Some enemy magic hits everyone. Each hero then makes a <b>saving throw</b> — an automatic d20 roll — to take only half.</p>
+      <p>A hero at 0 health falls, but gets back up if healed, or when the fight is won. If the whole party falls, you try the battle again, refreshed.</p>
     </section>
     <section>
-      <h2>The trail</h2>
-      <p>Between the big scenes you have to <b>get there</b>, and the trail is a game of its own:</p>
+      <h2>Levels, loot and your hero sheet</h2>
       <ul>
-        <li><b>📅 Days</b> — the new moon rises after day 8. Arrive late and the final enemy is stronger.</li>
-        <li><b>🍖 Rations</b> — four heroes eat four a day. Run out and everyone goes hungry and gets hurt.</li>
-        <li><b>Pace</b> — march hard (fast but painful), steady, or careful (slow, but you forage and rest).</li>
-        <li><b>Trail events</b> — each day brings something: a troll's toll, goblins, a storm, stranger things.</li>
+        <li><b>⭐ Levelling up</b> — win the big fights and the party gains a level: more health, more special moves, a <b>new power</b> at level 2, and you choose an ability to raise.</li>
+        <li><b>Magic items</b> — a burning sword, a ring of warding, a lucky coin. Whoever finds one keeps it, and it makes them permanently better.</li>
+        <li><b>🪙 Gold</b> buys potions and charms from traders, tolls from trolls, and songs from bards.</li>
+        <li><b>📖 Hero</b> — tap this at any time to see your character sheet: abilities, attack, armor, moves and items.</li>
       </ul>
-      <p>Buy supplies before you leave. And be polite to old women with cooking pots.</p>
+      <p>The <b>Game Master</b> — the game itself — describes each scene and plays every monster and villager. All you have to do is decide what your hero does next.</p>
     </section>
   </div>
   <div class="pager">

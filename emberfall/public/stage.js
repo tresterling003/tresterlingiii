@@ -682,6 +682,7 @@ export class Stage {
     if (!t || t.dead) return;
     t.setHp((t.hp ?? 0) - h.dmg);
     this.float(h.to, `−${h.dmg}`, t.kind === 'hero' ? 'bad' : 'dmg');
+    if (h.save) setTimeout(() => this.float(h.to, 'Saved! Half damage', 'heal small'), 250);
     if (h.ko) { if (t.kind === 'foe') this.kill(t); else t.setDown(true); } else if (!t.downed) t.once(Math.random() < 0.5 ? 'Hit_A' : 'Hit_B');
   }
   async playFx(e, DATA) {
@@ -715,7 +716,7 @@ export class Stage {
     this.ui.rollChip(e);
     a.face(t.home.x, t.home.z);
     if (big) this.focus(e.to, 0.7);
-    if (e.abil) this.ui.caption(DATA.CLASSES[a.modelName] ? DATA.CLASSES[a.modelName].ability.name : '', 'good');
+    if (e.abil) this.ui.caption(e.name || '', 'good');
     const from = a.home.clone();
     if (melee) {
       const dir = t.home.clone().sub(a.home).setY(0).normalize();
@@ -770,8 +771,9 @@ export class Stage {
   async fx_aoe(e) {
     const a = this.actors.get(e.from);
     const fire = e.name === 'Fireball';
-    this.ui.caption(e.name, fire ? 'good' : 'bad');
-    if (a) a.play(fire ? 'Spellcast_Long' : 'Spellcast_Raise', { once: true, fade: 0.1, then: () => a.play(a.idle) });
+    const heroic = e.from[0] === 'h';
+    this.ui.caption(e.name + (heroic ? '' : ' — saving throws!'), heroic ? 'good' : 'bad');
+    if (a) a.play(fire ? 'Spellcast_Long' : e.name === 'Whirlwind' ? '2H_Melee_Attack_Spin' : e.name === 'Volley' ? '2H_Ranged_Shoot' : 'Spellcast_Raise', { once: true, fade: 0.1, then: () => a.play(a.idle) });
     const centre = V(0, 0, 0);
     const hit = e.hits.map(h => this.actors.get(h.to)).filter(Boolean);
     hit.forEach(t => centre.add(t.home));
@@ -788,10 +790,10 @@ export class Stage {
     } else await this.wait(0.3);
     this.sfx.fire();
     this.sfx.boom();
-    this.ui.flash(fire ? '#ff8a30' : '#7fffd0', 450);
-    this.flash(fire ? 0xff7a20 : 0x60ffc0, 90, centre);
+    this.ui.flash(fire ? '#ff8a30' : heroic ? '#ffffff' : '#7fffd0', heroic && !fire ? 200 : 450);
+    this.flash(fire ? 0xff7a20 : heroic ? 0xffffff : 0x60ffc0, 90, centre);
     this.shake(0.4);
-    this.wave.material.color.set(fire ? 0xff9a40 : 0x8dffc0);
+    this.wave.material.color.set(fire ? 0xff9a40 : heroic ? 0xffffff : 0x8dffc0);
     this.wave.position.copy(centre).setY(0.08);
     this.tween(0.8, k => { this.wave.scale.setScalar(1 + k * 5); this.wave.material.opacity = 0.8 * (1 - k); }, easeOut);
     e.hits.forEach(h => this.hitActor(h));
@@ -812,6 +814,12 @@ export class Stage {
     t.setDown(false);
     this.float(e.to, `+${e.amt}`, 'heal');
     await this.wait(1.0);
+  }
+  async fx_skip(e) {
+    this.float(e.who, 'Stunned!', 'miss');
+    const a = this.actors.get(e.who);
+    if (a) a.once('Hit_B');
+    await this.wait(1.1);
   }
   async fx_guard(e) {
     const a = this.actors.get(e.from);

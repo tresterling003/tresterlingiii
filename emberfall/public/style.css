@@ -182,3 +182,18 @@ dialog .eg { background: rgba(8, 10, 20, .6); border-left: 3px solid var(--accen
   #die { width: 130px; height: 130px; } #dieNum { font-size: 2.3rem; }
 }
 @media (prefers-reduced-motion: reduce) { #die.spin { animation: none; } #cine .bar, #fade { transition: none; } }
+.gm { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: -4px; }
+.init { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ini { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(8, 10, 20, .65); border: 1.5px solid transparent; white-space: nowrap; }
+.ini.hero { color: #bfd8ff; } .ini.foe { color: #ffb4bb; }
+.ini.on { border-color: #fff; background: rgba(255, 255, 255, .16); color: #fff; }
+.locked { opacity: .6; }
+.float.small { font-size: .95rem; }
+#title.good { color: #ffd34d; }
+#sheet form { margin-top: 14px; text-align: right; }
+#sheet h3 { margin-top: 14px; }
+#sheet p { margin: .3em 0; font-size: .92rem; }
+.sheetstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.sheetstats div { background: rgba(8, 10, 20, .6); border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px; text-align: center; display: flex; flex-direction: column; }
+.sheetstats b { font-size: 1.5rem; } .sheetstats span { font-size: .74rem; color: var(--dim); }
+#diceMath { text-align: center; }

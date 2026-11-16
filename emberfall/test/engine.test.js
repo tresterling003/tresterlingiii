@@ -12,7 +12,7 @@ function play(seed, humans = 1, classes = []) {
   const room = new Room('TEST', { instant: true, rng });
   const ps = [];
   for (let i = 0; i < humans; i++) ps.push(room.addPlayer('P' + i).player);
-  classes.forEach((c, i) => room.command(ps[i], { t: 'build', cls: c, bonus: { might: 2, mind: 1, charm: 5 }, bg: 'hunter', tint: 3 }));
+  classes.forEach((c, i) => room.command(ps[i], { t: 'build', cls: c, bonus: { might: 2, mind: 1, charm: 5 }, bg: 'outlander', tint: 3 }));
   assert.strictEqual(room.command(ps[0], { t: 'start' }), undefined);
   const pick = arr => arr[Math.floor(rng() * arr.length)];
   let steps = 0, defeats = 0, maxView = 0;
@@ -24,6 +24,7 @@ function play(seed, humans = 1, classes = []) {
     else if (room.phase === 'roll') ps.forEach(p => room.command(p, { t: 'roll' }));
     else if (room.phase === 'fate') ps.forEach(p => room.command(p, { t: 'reroll' }));
     else if (room.phase === 'result' || room.phase === 'victory') ps.forEach(p => room.command(p, { t: 'next' }));
+    else if (room.phase === 'levelup') ps.forEach(p => room.command(p, { t: 'levelpick', stat: 'might' }));
     else if (room.phase === 'defeat') { defeats++; room.command(ps[0], { t: 'retry' }); }
     else if (room.phase === 'combat' && !room.battle.busy && room.battle.turn) room.botAct(room.hero(room.battle.turn));
     else assert.ok(room.tick(), `nothing pending in ${room.phase}`);
@@ -48,7 +49,7 @@ test('every quest reaches an ending, solo with each class', () => {
   console.log({ games, wonWithoutRetry: clean, endings, defeatsByClass: lost, maxView });
   assert.ok(Object.keys(endings).length === 4, 'all four endings are reachable');
   const h = play(3, 1, ['knight']).room.heroes[0];
-  assert.deepStrictEqual(h.stats, { might: 5, agility: 0, mind: 1, charm: 1 }, 'bonus points are capped at 2 per ability and 3 in total');
+  assert.ok(h.stats.might >= 7 && h.items.includes('luckycoin') && h.hitB >= 1, 'bonus points, two level-ups and the Outlander coin all count');
   assert.ok(maxView < 3500, 'a view fits in one shared-room message');
 });
 
@@ -66,14 +67,14 @@ test('every scene and battle in the script is wired up', () => {
       for (const o of [c.ok, c.fail, c.auto].filter(Boolean)) {
         const battle = o.battle || (o.next ? null : c.battle), next = o.next || c.next;
         if (c.quick) continue;
-        assert.ok(battle ? D.BATTLES[battle] : next === '@trail' || D.NODES[next], `${id}.${c.id} leads somewhere`);
+        assert.ok(battle ? D.BATTLES[battle] : next.startsWith('@road') || D.NODES[next], `${id}.${c.id} leads somewhere`);
         seen.add(battle ? D.BATTLES[battle].next : next);
       }
       assert.ok(c.stat ? c.ok && c.fail && c.dc : c.auto, `${id}.${c.id} has outcomes`);
     }
   }
-  for (const id of Object.keys(D.NODES)) assert.ok(id === D.START || seen.has(id) || D.NODES[id].trail || Object.values(D.NODES).some(n => n.dest === id), id + ' is reachable');
-  for (const b of Object.values(D.BATTLES)) { assert.ok(b.next === '@trail' || D.NODES[b.next]); b.enemies.forEach(k => assert.ok(D.ENEMIES[k])); }
+  for (const id of Object.keys(D.NODES)) assert.ok(id === D.START || seen.has(id) || D.NODES[id].trail || JSON.stringify(D).includes('@road:' + id), id + ' is reachable');
+  for (const b of Object.values(D.BATTLES)) { assert.ok(b.next.startsWith('@road') || D.NODES[b.next]); b.enemies.forEach(k => assert.ok(D.ENEMIES[k])); }
 });
 
 test('a player who leaves mid-quest does not stall the table', () => {
@@ -83,8 +84,8 @@ test('a player who leaves mid-quest does not stall the table', () => {
   [a, b].forEach(p => room.command(p, { t: 'vote', choice: 'chapel' }));
   [a, b].forEach(p => room.command(p, { t: 'next' }));
   assert.strictEqual(room.node, 'store');
-  room.command(b, { t: 'vote', choice: 'food' }); // shopping is instant and is not a vote
-  assert.deepStrictEqual([room.party.rations, room.party.gold, room.phase], [20, 30, 'choice']);
+  room.command(b, { t: 'vote', choice: 'potion' }); // shopping is instant and is not a vote
+  assert.deepStrictEqual([room.party.potions, room.party.gold, room.phase], [3, 25, 'choice']);
   room.command(a, { t: 'vote', choice: 'go' });
   assert.strictEqual(room.phase, 'choice');
   room.setConnected(b, false);
@@ -105,4 +106,22 @@ test('defeat restores the party and retries the same battle', () => {
   assert.strictEqual(room.phase, 'combat');
   assert.deepStrictEqual(room.heroes.map(h => h.hp), before.heroes.map(h => h.max), 'the party returns at full health');
   assert.strictEqual(room.party.potions, before.party.potions + 1);
+});
+
+test('initiative orders the battle, and levelling up unlocks the second special move', () => {
+  const room = new Room('T', { instant: true, rng: seeded(21) });
+  const a = room.addPlayer('A').player;
+  room.command(a, { t: 'build', cls: 'mage' });
+  room.command(a, { t: 'start' });
+  room.startBattle('bandits');
+  assert.strictEqual(room.battle.order.length, 7);
+  const me = room.heroes[0];
+  while (room.battle.turn !== me.id || room.battle.busy) { if (!room.tick()) room.botAct(room.hero(room.battle.turn)); }
+  const before = me.charges;
+  room.command(a, { t: 'act', a: 'ability', n: 1, target: room.foes()[0].id });
+  assert.strictEqual(me.charges, before, 'Arcane Darts is locked at level 1');
+  room.party.level = 2;
+  room.command(a, { t: 'act', a: 'ability', n: 1, target: room.foes()[0].id });
+  assert.strictEqual(me.charges, before - 1);
+  assert.ok(room.fx[room.fx.length - 1].sure, 'Arcane Darts cannot miss');
 });

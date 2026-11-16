@@ -4,13 +4,14 @@
 (function (root) {
 'use strict';
 const D = typeof module !== 'undefined' && module.exports ? require('./quest.js') : root.EmberfallData;
-const { CLASSES, CLASS_ORDER, COMPANIONS, ENEMIES, BATTLES, NODES, START, BACKGROUNDS, TINTS, BONUS_POINTS, MOON_DAY } = D;
+const { CLASSES, CLASS_ORDER, COMPANIONS, ENEMIES, BATTLES, NODES, START, BACKGROUNDS, TINTS, BONUS_POINTS, ITEMS } = D;
 
 const MAX_PLAYERS = 4;
 const PARTY = 4;
 // How long humans get to decide (only enforced when more than one is playing).
 const T = { vote: 75000, roll: 25000, next: 30000, turn: 45000, bot: 1100, foe: 900 };
 // How long each event takes to play out on screen before the game moves on.
+const AOE = { fireball: [2, 6, 0], whirl: [1, 10, 3], volley: [1, 8, 2] };
 const FX_MS = { roll: 3100, begin: 3000, mod: 2400, atk: 2100, aoe: 2600, heal: 1800, guard: 1400, defend: 1200, summon: 2600, skip: 1400, bossdown: 4200 };
 
 class Room {
@@ -116,6 +117,7 @@ class Room {
     else if (this.phase === 'roll' && !this.controller(this.hero(this.rolling.who))) this.doRoll();
     else if (this.phase === 'fate' && !this.controller(this.hero(this.rolling.who))) this.applyOutcome('fail');
     else if (['result', 'victory'].includes(this.phase)) this.checkReady();
+    else if (this.phase === 'levelup' && this.humans().every(q => this.picks[q.id])) this.finishLevel();
     else if (this.phase === 'combat' && this.battle.turn && !this.battle.busy) {
       const h = this.hero(this.battle.turn);
       if (h && !this.controller(h)) this.botAct(h);
@@ -152,14 +154,14 @@ class Room {
       if (!this.heroes.some(h => h.cls === cls)) this.heroes.push(this.makeHero(COMPANIONS[cls], cls, null));
     }
     this.heroes.forEach((h, i) => { h.id = 'h' + i; });
-    this.party = { potions: 2, gold: 40, fate: 1, rations: 12, day: 1, flags: {} };
+    this.party = { potions: 2, gold: 40, fate: 1, level: 1, flags: {} };
     const bgs = this.players.map(p => p.bg);
     this.party.fate += bgs.filter(b => b === 'scholar').length;
     this.party.gold += 30 * bgs.filter(b => b === 'merchant').length;
     this.party.potions += 2 * bgs.filter(b => b === 'herbalist').length;
-    this.party.rations += 8 * bgs.filter(b => b === 'hunter').length;
+    this.heroes.forEach(h => { const p = this.get(h.owner); if (p && p.bg === 'outlander') this.giveItem('luckycoin', h); });
     this.party.fate = Math.min(3, this.party.fate);
-    this.trail = { left: 0, dest: null, forage: false };
+    this.trail = { dest: null };
     this.deck = Object.keys(NODES).filter(k => NODES[k].trail).sort(() => this.rng() - 0.5);
     this.stats = { rolls: 0, nat20: 0, nat1: 0, retries: 0, dmg: {}, heals: {}, path: [] };
     this.rollCount = {};
@@ -173,7 +175,7 @@ class Room {
     const c = CLASSES[cls], stats = { ...c.stats };
     if (build) for (const k of Object.keys(build.bonus)) stats[k] += build.bonus[k];
     const hp = c.hp + (build && build.bg === 'soldier' ? 5 : 0);
-    return { id: '', name, cls, owner, stats, tint: build ? build.tint : 0, hp, max: hp, down: false, charges: 2, guard: false, defend: false };
+    return { id: '', name, cls, owner, stats, tint: build ? build.tint : 0, hp, max: hp, armor: c.armor, hitB: 0, dmgB: 0, items: [], down: false, charges: 2, guard: false, defend: false };
   }
   backToLobby() {
     this.idle();
@@ -198,7 +200,6 @@ class Room {
     this.ready = new Set();
     this.stats.path.push(id);
     this.arrive = node.enter ? this.applyFx(node.enter, null) : [];
-    if (this.dayNotes) { this.arrive.unshift(...this.dayNotes); this.dayNotes = null; }
     if (node.ending) {
       this.phase = 'end';
       this.idle();
@@ -219,30 +220,27 @@ class Room {
   }
   canPick(c) { return !c.cost || Object.keys(c.cost).every(k => this.party[k] >= c.cost[k]); }
   pay(c) { if (c.cost) for (const k of Object.keys(c.cost)) this.party[k] -= c.cost[k]; }
-  // A day on the trail: everyone eats, or goes hungry.
-  passDay() {
-    const P = this.party, need = this.heroes.length, notes = [];
-    P.day++;
-    if (P.rations >= need) { P.rations -= need; notes.push(`Day ${P.day} · ate ${need} rations`); }
-    else { P.rations = 0; this.heroes.forEach(h => { h.hp = Math.max(1, h.hp - 3); }); notes.push(`Day ${P.day} · no food! Everyone −3`); }
-    if (this.trail.forage && this.trail.left >= 0 && NODES[this.node] && !NODES[this.node].enter) {
-      P.rations += 2;
-      this.heroes.forEach(h => { h.hp = Math.min(h.max, h.hp + 3); });
-      notes.push('Foraged +2 rations, rested +3');
+  // '@road:camp' = meet something on the road to the camp; '@road' = carry on to where you were going.
+  goto(id) {
+    if (id.startsWith('@road:')) {
+      this.trail = { dest: id.slice(6) };
+      if (!this.deck.length) this.deck = Object.keys(NODES).filter(k => NODES[k].trail).sort(() => this.rng() - 0.5);
+      return this.enterNode(this.deck.pop());
     }
-    this.log(notes.join(' · '));
-    return notes;
+    this.enterNode(id === '@road' ? this.trail.dest : id);
   }
-  // Carry on down the trail: another day, another event — or arrival.
-  goTrail() {
-    const T = this.trail;
-    if (T.left <= 0) { T.forage = false; return this.enterNode(T.dest); }
-    T.left--;
-    this.dayNotes = this.passDay();
-    if (!this.deck.length) this.deck = Object.keys(NODES).filter(k => NODES[k].trail).sort(() => this.rng() - 0.5);
-    this.enterNode(this.deck.pop());
+  // Magic items change their owner's numbers for good.
+  giveItem(key, h) {
+    const it = ITEMS[key];
+    h.items.push(key);
+    if (it.hit) h.hitB += it.hit;
+    if (it.dmg) h.dmgB += it.dmg;
+    if (it.armor) h.armor += it.armor;
+    if (it.hp) { h.max += it.hp; h.hp += it.hp; }
+    if (it.stat) for (const k of Object.keys(it.stat)) h.stats[k] += it.stat[k];
+    this.log(`${h.name} gains ${it.name} (${it.text}).`);
+    return `${h.name}: ${it.icon} ${it.name} — ${it.text}`;
   }
-  goto(id) { if (id === '@trail') this.goTrail(); else this.enterNode(id); }
   vote(p, id) {
     if (this.phase !== 'choice') return;
     const c = this.choices().find(x => x.id === id);
@@ -275,7 +273,7 @@ class Room {
     const who = this.pickRoller(c.stat);
     const mod = who.stats[c.stat];
     const helper = this.heroes.find(h => h !== who && h.stats[c.stat] >= 3 && h.stats[c.stat] > mod);
-    this.rolling = { who: who.id, choice: c.id, stat: c.stat, dc: c.dc, mod, assist: helper ? 2 : 0, helper: helper ? helper.id : null, d: 0 };
+    this.rolling = { who: who.id, choice: c.id, stat: c.stat, dc: c.dc, mod, assist: 0, adv: !!helper, helper: helper ? helper.id : null, d: 0 };
     this.phase = 'roll';
     if (this.controller(who)) { this.gate(T.roll, () => this.doRoll()); this.changed(); } else this.doRoll();
   }
@@ -292,15 +290,17 @@ class Room {
     const r = this.rolling;
     if (!r || !['roll', 'fate'].includes(this.phase)) return;
     r.d = this.d(20);
+    r.d2 = 0;
+    if (r.adv) { const other = this.d(20); r.d2 = Math.min(r.d, other); r.d = Math.max(r.d, other); } // advantage: roll twice, keep the best
     r.total = r.d + r.mod + r.assist;
     r.ok = r.d === 20 || (r.d !== 1 && r.total >= r.dc);
     this.stats.rolls++;
     if (r.d === 20) { this.stats.nat20++; this.party.fate = Math.min(3, this.party.fate + 1); }
     if (r.d === 1) this.stats.nat1++;
     const who = this.hero(r.who);
-    this.log(`${who.name} rolls ${D.STATS[r.stat]}: ${r.d}${r.mod + r.assist ? (r.mod + r.assist > 0 ? ' + ' : ' − ') + Math.abs(r.mod + r.assist) : ''} = ${r.total} vs ${r.dc} — ${r.d === 20 ? 'NATURAL 20!' : r.d === 1 ? 'natural 1…' : r.ok ? 'success' : 'failure'}`);
+    this.log(`${who.name} rolls ${D.STATS[r.stat]}${r.adv ? ' with advantage' : ''}: ${r.d}${r.mod + r.assist ? (r.mod + r.assist > 0 ? ' + ' : ' − ') + Math.abs(r.mod + r.assist) : ''} = ${r.total} vs ${r.dc} — ${r.d === 20 ? 'NATURAL 20!' : r.d === 1 ? 'natural 1…' : r.ok ? 'success' : 'failure'}`);
     this.phase = 'rolled';
-    const ms = this.pushFx({ k: 'roll', who: r.who, stat: r.stat, d: r.d, mod: r.mod, assist: r.assist, dc: r.dc, ok: r.ok });
+    const ms = this.pushFx({ k: 'roll', who: r.who, stat: r.stat, d: r.d, d2: r.d2, mod: r.mod, assist: r.assist, dc: r.dc, ok: r.ok });
     this.wait(ms, () => {
       if (!r.ok && this.party.fate > 0) {
         this.phase = 'fate';
@@ -333,11 +333,12 @@ class Room {
     const notes = [], P = this.party;
     if (!fx) return notes;
     if (fx.flag) P.flags[fx.flag] = true;
-    if (fx.leg) this.trail = { left: fx.leg, dest: NODES[this.node].dest, forage: !!fx.forage };
-    if (fx.days) for (let i = 0; i < fx.days; i++) notes.push(...this.passDay());
-    if (fx.rations) { const before = P.rations; P.rations = Math.max(0, P.rations + fx.rations); if (P.rations !== before) notes.push(`${P.rations > before ? '+' : '−'}${Math.abs(P.rations - before)} rations`); }
+    if (fx.item) {
+      const owned = this.heroes.filter(h => h.owner).sort((a, b) => a.items.length - b.items.length);
+      notes.push(this.giveItem(fx.item, roller || owned[0] || this.heroes[0]));
+    }
     if (fx.potions) { const before = P.potions; P.potions = Math.max(0, P.potions + fx.potions); if (P.potions !== before) notes.push(`${P.potions > before ? '+' : '−'}${Math.abs(P.potions - before)} potion${Math.abs(P.potions - before) === 1 ? '' : 's'}`); }
-    if (fx.gold) { P.gold = Math.max(0, P.gold + fx.gold); notes.push(`${fx.gold > 0 ? '+' : '−'}${Math.abs(fx.gold)} gold`); }
+    if (fx.gold) { const before = P.gold; P.gold = Math.max(0, P.gold + fx.gold); if (P.gold !== before) notes.push(`${P.gold > before ? '+' : '−'}${Math.abs(P.gold - before)} gold`); }
     if (fx.fate) { const before = P.fate; P.fate = Math.min(3, P.fate + fx.fate); if (P.fate > before) notes.push(`+${P.fate - before} Fate`); }
     if (fx.heal) {
       this.heroes.forEach(h => { h.hp = Math.min(h.max, h.hp + (fx.heal === 'half' ? Math.ceil(h.max / 2) : fx.heal)); h.down = false; });
@@ -358,7 +359,12 @@ class Room {
     if (['result', 'victory'].includes(this.phase) && this.humans().every(p => this.ready.has(p.id))) this.advance();
   }
   advance() {
-    if (this.phase === 'victory') return this.goto(BATTLES[this.battle.id].next);
+    if (this.phase === 'victory') {
+      const def = BATTLES[this.battle.id];
+      if (def.levelUp && this.party.level < 3 && !this.battle.leveled) return this.levelUp();
+      return this.goto(def.next);
+    }
+    if (this.phase === 'levelup') return this.finishLevel();
     if (this.phase !== 'result') return;
     if (this.out.kind === 'intro') return this.startBattle(NODES[this.node].battle);
     const c = this.choice, o = c[this.out.kind];
@@ -369,14 +375,18 @@ class Room {
   // ---------- battle ----------
   startBattle(id, isRetry) {
     const def = BATTLES[id], flags = this.party.flags;
-    if (def.boss) flags.newmoon = this.party.day > MOON_DAY;
     if (!isRetry) this.snapshot = JSON.stringify({ heroes: this.heroes, party: this.party });
     const mods = (def.mods || []).filter(m => flags[m.flag]);
     let keys = def.enemies.slice();
     mods.forEach(m => { if (m.remove) keys = keys.slice(0, Math.max(1, keys.length - m.remove)); if (m.add) keys.push(...m.add); });
-    this.battle = { id, enemies: [], round: 1, turn: null, idx: -1, busy: true, stun: false, mods };
+    this.battle = { id, enemies: [], order: [], round: 1, turn: null, idx: -1, busy: true, stun: false, mods };
     keys.forEach(k => this.spawn(k));
-    this.heroes.forEach(h => { h.charges = 2; h.guard = h.defend = false; });
+    this.heroes.forEach(h => { h.charges = 1 + this.party.level; h.guard = h.defend = false; });
+    // Roll initiative: d20 + Agility for heroes, d20 + 1 for monsters. Highest goes first.
+    const init = {};
+    this.heroes.forEach(h => { init[h.id] = this.d(20) + h.stats.agility + 0.5; });
+    this.battle.enemies.forEach(e => { init[e.id] = this.d(20) + (ENEMIES[e.key].boss ? 3 : 1); });
+    this.battle.order = Object.keys(init).sort((a, b) => init[b] - init[a]);
     this.phase = 'combat';
     this.out = null;
     this.log(`⚔️ ${def.title}`);
@@ -387,6 +397,7 @@ class Room {
     const def = ENEMIES[key];
     const e = { id: 'e' + (++this.idSeq), key, hp: def.hp, max: def.hp, armor: def.armor, turns: 0, summoned: false };
     this.battle.enemies.push(e);
+    this.battle.order.push(e.id);
     return e;
   }
   runMods() {
@@ -430,7 +441,7 @@ class Room {
     const B = this.battle;
     if (this.checkEnd()) return;
     for (let guard = 0; guard < 40; guard++) {
-      const list = [...this.heroes, ...B.enemies];
+      const list = B.order.map(id => this.hero(id) || B.enemies.find(e => e.id === id));
       B.idx++;
       if (B.idx >= list.length) { B.idx = 0; B.round++; }
       const a = list[B.idx];
@@ -441,6 +452,12 @@ class Room {
       if (!isHero) {
         if (B.stun && B.round === 1) continue;
         B.busy = true;
+        if (a.stunned) {
+          a.stunned = false;
+          this.log(`${ENEMIES[a.key].name} is reeling and loses its turn.`);
+          this.wait(this.pushFx({ k: 'skip', who: a.id }), () => this.nextTurn());
+          return this.changed();
+        }
         this.wait(T.foe, () => this.foeAct(a));
       } else {
         a.guard = a.defend = false;
@@ -476,13 +493,15 @@ class Room {
       return this.after({ k: 'heal', from: h.id, to: t.id, amt, kind: 'potion' });
     }
     if (m.a !== 'ability' || h.charges < 1) return;
-    const id = C.ability.id;
+    const ab = m.n === 1 ? (this.party.level >= 2 ? C.ability2 : null) : C.ability;
+    if (!ab) return;
+    const id = ab.id;
     if (id === 'guard') { h.charges--; h.guard = true; this.log(`${h.name} raises a Shield Wall.`); return this.after({ k: 'guard', from: h.id }); }
-    if (id === 'fireball') {
+    if (AOE[id]) {
       h.charges--;
-      const hits = this.foes().map(e => this.hurtFoe(e, this.roll([2, 6, 0]), h));
-      this.log(`${h.name} hurls a Fireball for ${hits.reduce((s, x) => s + x.dmg, 0)} total.`);
-      return this.after({ k: 'aoe', from: h.id, name: 'Fireball', hits });
+      const hits = this.foes().map(e => this.hurtFoe(e, this.roll(AOE[id]) + h.dmgB, h));
+      this.log(`${h.name} uses ${ab.name} for ${hits.reduce((s, x) => s + x.dmg, 0)} total.`);
+      return this.after({ k: 'aoe', from: h.id, name: ab.name, hits });
     }
     if (id === 'mend') {
       if (!ally || (ally.hp >= ally.max && !ally.down)) return;
@@ -491,23 +510,26 @@ class Room {
       this.log(`${h.name} mends ${ally === h ? 'their own wounds' : ally.name}: +${amt}.`);
       return this.after({ k: 'heal', from: h.id, to: ally.id, amt, kind: 'mend' });
     }
-    if ((id === 'rage' || id === 'backstab') && foe) { h.charges--; return this.heroAttack(h, foe, id); }
+    if (foe) { h.charges--; return this.heroAttack(h, foe, id, ab.name); }
   }
-  heroAttack(h, e, abil) {
+  heroAttack(h, e, abil, abilName) {
     const C = CLASSES[h.cls];
-    const d = this.d(20), bonus = h.stats[C.atk] + 2 + (abil === 'backstab' ? 5 : 0);
-    const crit = d === 20;
-    const hit = abil === 'rage' || crit || (d !== 1 && d + bonus >= e.armor);
+    const d = this.d(20), bonus = h.stats[C.atk] + 2 + h.hitB + (abil === 'backstab' ? 5 : 0);
+    const crit = d === 20, sure = abil === 'rage' || abil === 'darts';
+    const hit = sure || crit || (d !== 1 && d + bonus >= e.armor);
     let dmg = 0;
     if (hit) {
-      dmg = this.roll([C.dmg[0] * (abil === 'backstab' ? 3 : 1), C.dmg[1], C.dmg[2]]);
+      dmg = abil === 'darts' ? this.roll([3, 4, 3]) : this.roll([C.dmg[0] * (abil === 'backstab' ? 3 : 1), C.dmg[1], C.dmg[2]]);
+      if (abil === 'smite') dmg += this.roll([2, 6, 0]);
+      dmg += h.dmgB;
       if (abil === 'rage') dmg *= 2;
       if (crit) dmg *= 2;
+      if (abil === 'cripple') e.stunned = true;
     }
     const res = hit ? this.hurtFoe(e, dmg, h) : { to: e.id, dmg: 0, ko: false };
     const name = ENEMIES[e.key].name;
-    this.log(`${h.name}${abil ? ` uses ${C.ability.name} on` : ' attacks'} ${name}: ${d}${crit ? ' — CRITICAL!' : ''} ${hit ? `hits for ${dmg}${res.ko ? ' and fells it' : ''}` : 'misses'}.`);
-    this.after({ k: 'atk', from: h.id, to: e.id, d, bonus, need: e.armor, hit, crit, dmg, ko: res.ko, abil, style: C.style, bossKo: res.ko && !!ENEMIES[e.key].boss });
+    this.log(`${h.name}${abil ? ` uses ${abilName} on` : ' attacks'} ${name}: ${sure ? 'cannot miss —' : d}${crit ? ' — CRITICAL!' : ''} ${hit ? `hits for ${dmg}${res.ko ? ' and fells it' : ''}` : 'misses'}.`);
+    this.after({ k: 'atk', from: h.id, to: e.id, d, bonus, need: e.armor, hit, crit, sure, dmg, ko: res.ko, abil, name: abilName, style: abil === 'darts' ? 'magic' : C.style, bossKo: res.ko && !!ENEMIES[e.key].boss });
   }
   // Companions (and humans who run out of time) fight sensibly.
   botAct(h, simple) {
@@ -522,7 +544,10 @@ class Room {
     if (this.party.potions > 0 && (hurt.down || hurt.hp / hurt.max <= 0.3) && (hurt === h || hurt.down)) return this.heroAct(h, { a: 'potion', target: hurt.id });
     if (id === 'fireball' && can && foes.length >= 2) return this.heroAct(h, { a: 'ability' });
     if (id === 'guard' && can && this.up().some(x => x !== h && x.hp / x.max <= 0.5)) return this.heroAct(h, { a: 'ability' });
+    const id2 = can && this.party.level >= 2 ? C.ability2.id : null;
+    if (id2 && AOE[id2] && foes.length >= 2) return this.heroAct(h, { a: 'ability', n: 1 });
     if ((id === 'rage' || id === 'backstab') && can && toughest.hp >= 10) return this.heroAct(h, { a: 'ability', target: toughest.id });
+    if (id2 && !AOE[id2] && toughest.hp >= 10 && this.rng() < 0.7) return this.heroAct(h, { a: 'ability', n: 1, target: toughest.id });
     this.heroAct(h, { a: 'attack', target: weakest.id });
   }
   foeAct(e) {
@@ -536,14 +561,19 @@ class Room {
       return this.after({ k: 'summon', from: e.id, ids });
     }
     if (def.chill && e.turns % 3 === 0) {
-      const hits = ups.map(h => this.hurtHero(h, this.roll(def.chill)));
-      this.log(`${def.name} breathes Grave Chill over the whole party.`);
+      // Each hero makes a Might saving throw (d20 + Might, 12 or more) to take half.
+      const hits = ups.map(h => {
+        const saved = this.d(20) + h.stats.might >= 12;
+        const dmg = this.roll(def.chill);
+        return { ...this.hurtHero(h, saved ? Math.ceil(dmg / 2) : dmg), save: saved };
+      });
+      this.log(`${def.name} breathes Grave Chill. ${hits.filter(x => x.save).length} of ${hits.length} heroes make their saving throw.`);
       return this.after({ k: 'aoe', from: e.id, name: 'Grave Chill', hits });
     }
     const wall = ups.find(h => h.guard);
     const t = wall || this.pick(ups);
     const d = this.d(20), crit = d === 20;
-    const armor = CLASSES[t.cls].armor + (t.defend ? 4 : 0);
+    const armor = t.armor + (t.defend ? 4 : 0);
     const hit = crit || (d !== 1 && d + def.hit >= armor);
     let res = { to: t.id, dmg: 0, ko: false };
     if (hit) res = this.hurtHero(t, this.roll(def.dmg) * (crit ? 2 : 1));
@@ -560,6 +590,30 @@ class Room {
     this.log(`Victory! ${def.win.text}`);
     this.gate(T.next, () => this.advance());
     this.changed();
+  }
+  // Milestone levelling: everyone grows tougher, and each player picks an ability to raise.
+  levelUp() {
+    this.party.level++;
+    this.battle.leveled = true;
+    this.heroes.forEach(h => { h.max += 6; h.hp = h.max; h.down = false; if (!this.controller(h)) h.stats[CLASSES[h.cls].atk]++; });
+    this.picks = {};
+    this.phase = 'levelup';
+    this.log(`⭐ The party reaches level ${this.party.level}!`);
+    this.gate(T.next, () => this.finishLevel());
+    this.changed();
+  }
+  levelPick(p, stat) {
+    const h = this.heroes.find(x => x.owner === p.id);
+    if (this.phase !== 'levelup' || !h || this.picks[p.id] || !(stat in h.stats)) return;
+    h.stats[stat]++;
+    this.picks[p.id] = stat;
+    this.changed();
+    if (this.humans().every(q => this.picks[q.id])) this.finishLevel();
+  }
+  finishLevel() {
+    if (this.phase !== 'levelup') return;
+    this.heroes.forEach(h => { const p = this.controller(h); if (p && !this.picks[p.id]) { h.stats[CLASSES[h.cls].atk]++; this.picks[p.id] = CLASSES[h.cls].atk; } });
+    this.goto(BATTLES[this.battle.id].next);
   }
   defeat() {
     this.battle.turn = null;
@@ -594,6 +648,7 @@ class Room {
       case 'accept': this.acceptRoll(me); break;
       case 'next': this.next(me); break;
       case 'act': this.act(me, m); break;
+      case 'levelpick': this.levelPick(me, m.stat); break;
       case 'retry': this.retry(); break;
       case 'again': if (host && this.phase === 'end') this.backToLobby(); break;
       case 'chat': {
@@ -617,9 +672,9 @@ class Room {
       feed: this.feed,
     };
     if (lobby) return s;
-    s.party = { potions: this.party.potions, gold: this.party.gold, fate: this.party.fate, rations: this.party.rations, day: this.party.day };
+    s.party = { potions: this.party.potions, gold: this.party.gold, fate: this.party.fate, level: this.party.level };
     if (this.arrive && this.arrive.length) s.arrive = this.arrive;
-    s.heroes = this.heroes.map(h => ({ id: h.id, name: h.name, cls: h.cls, hp: h.hp, max: h.max, st: h.stats, tint: h.tint, down: h.down, ch: h.charges, guard: h.guard, def: h.defend, owner: h.owner, bot: !this.controller(h) }));
+    s.heroes = this.heroes.map(h => ({ id: h.id, name: h.name, cls: h.cls, hp: h.hp, max: h.max, st: h.stats, tint: h.tint, ar: h.armor, hb: h.hitB, db: h.dmgB, it: h.items, down: h.down, ch: h.charges, guard: h.guard, def: h.defend, owner: h.owner, bot: !this.controller(h) }));
     s.node = this.node;
     s.step = this.stats.path.length;
     if (this.lastRoller) s.lastRoller = this.lastRoller;
@@ -634,7 +689,8 @@ class Room {
     if (['roll', 'rolled', 'fate', 'result'].includes(this.phase) && this.rolling) s.roll = this.rolling;
     if (this.out) s.out = this.out;
     if (['result', 'victory'].includes(this.phase)) s.ready = [...this.ready];
-    if (B) s.battle = { id: B.id, round: B.round, turn: B.busy ? null : B.turn, acting: B.turn, enemies: B.enemies.map(e => ({ id: e.id, key: e.key, hp: e.hp, max: e.max })) };
+    if (B) s.battle = { id: B.id, round: B.round, turn: B.busy ? null : B.turn, acting: B.turn, order: B.order, enemies: B.enemies.map(e => ({ id: e.id, key: e.key, hp: e.hp, max: e.max })) };
+    if (this.phase === 'levelup') s.picks = this.picks;
     if (this.phase === 'end') s.stats = this.stats;
     return s;
   }

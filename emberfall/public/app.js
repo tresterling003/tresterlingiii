@@ -4,7 +4,7 @@ import { Sfx } from './sfx.js';
 import { LocalConn, GuestConn, SocketConn, sharedRoom, hasServer } from './net.js';
 
 const DATA = self.EmberfallData;
-const { CLASSES, CLASS_ORDER, COMPANIONS, ENEMIES, BATTLES, NODES, STATS, BACKGROUNDS, TINTS, BONUS_POINTS, MOON_DAY } = DATA;
+const { CLASSES, CLASS_ORDER, COMPANIONS, ENEMIES, BATTLES, NODES, STATS, BACKGROUNDS, TINTS, BONUS_POINTS, ITEMS } = DATA;
 const STAT_ICON = { might: '💪', agility: '🤸', mind: '🧠', charm: '💬' };
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -27,7 +27,7 @@ const ui = {
   },
   rollChip(e) {
     const c = $('rollchip');
-    c.textContent = e.abil === 'rage' ? '🎲 Reckless Blow — cannot miss' : `🎲 ${e.d} ${sign(e.bonus)} = ${e.d + e.bonus} vs armor ${e.need} — ${e.crit ? 'CRITICAL HIT' : e.hit ? 'hit' : 'miss'}`;
+    c.textContent = e.sure ? `🎲 ${e.name} — cannot miss` : `🎲 ${e.d} ${sign(e.bonus)} = ${e.d + e.bonus} vs armor ${e.need} — ${e.crit ? 'CRITICAL HIT' : e.hit ? 'hit' : 'miss'}`;
     c.className = e.hit ? 'ok' : 'no';
     c.hidden = false;
     clearTimeout(ui.chipT);
@@ -104,7 +104,7 @@ async function playRoll(f, st) {
   num.textContent = f.d;
   die.className = f.d === 20 ? 'land crit' : f.d === 1 ? 'land fumble' : 'land';
   const bonus = f.mod + f.assist;
-  $('diceMath').textContent = `${f.d} ${bonus < 0 ? '−' : '+'} ${Math.abs(bonus)}${f.assist ? ' (with help)' : ''} = ${f.d + bonus}   ·   needs ${f.dc}`;
+  $('diceMath').textContent = `${f.d2 ? `Advantage: rolled ${f.d2} and ${f.d}, keeping ${f.d}\n` : ''}${f.d} ${bonus < 0 ? '−' : '+'} ${Math.abs(bonus)} = ${f.d + bonus}   ·   needs ${f.dc}`;
   await sleep(450);
   const v = $('diceVerdict');
   v.textContent = f.d === 20 ? 'NATURAL 20!' : f.d === 1 ? 'Natural 1…' : f.ok ? 'Success!' : 'Failure';
@@ -133,6 +133,7 @@ async function apply(st) {
   if (sceneStep !== st.step) await enterScene(st);
   stage.syncFoes(st.battle || null, DATA);
   stage.setTurn(st.battle ? st.battle.acting : null);
+  if (st.phase === 'levelup' && apply.leveled !== st.party.level) { apply.leveled = st.party.level; stage.cheer(); stage.burst({ x: -3.5, y: 0, z: 0.5 }); sfx.sting('good'); sfx.chime(); ui.flash('#ffd34d', 600); ui.title(`Level ${st.party.level}!`, 'good'); setTimeout(() => ui.title(''), 2200); }
   if (st.phase === 'victory' && apply.cheered !== st.step) { apply.cheered = st.step; stage.cheer(); sfx.sting('good'); stage.shot('party', 1); }
   if (st.phase === 'defeat' && apply.fell !== st.fx[st.fx.length - 1].id) { apply.fell = st.fx[st.fx.length - 1].id; sfx.sting('sad'); ui.flash('#700', 900); }
   if (st.phase !== 'combat' || !st.battle || st.battle.turn !== youHero) { mode = null; pickFor = null; }
@@ -155,7 +156,7 @@ async function enterScene(st) {
   const fmt = t => t.replace(/\{roller\}/g, who ? who.name : 'Someone');
   lines = node.text.map(fmt);
   line = 0;
-  const title = node.trail ? `Day ${st.party.day}` : node.title || (node.pace ? `Day ${st.party.day}` : null);
+  const title = node.title || null;
   stage.rest();
   await stage.setScene(node.set, first ? null : title, first, {
     walk: !!node.trail && !first, sky: node.sky,
@@ -295,7 +296,7 @@ function render() {
   const kids = [];
   if (busyScene) { panel.hidden = true; return; }
   panel.hidden = false;
-  const fn = { lobby: pLobby, choice: pChoice, roll: pRoll, rolled: pRoll, fate: pFate, result: pResult, combat: pCombat, victory: pVictory, defeat: pDefeat, end: pEnd }[S.phase];
+  const fn = { lobby: pLobby, choice: pChoice, roll: pRoll, rolled: pRoll, fate: pFate, result: pResult, combat: pCombat, victory: pVictory, levelup: pLevelup, defeat: pDefeat, end: pEnd }[S.phase];
   fn(kids);
   if (deadline && multi()) kids.push(el('div', 'small timer', ''));
   panel.replaceChildren(...kids);
@@ -310,12 +311,32 @@ function renderTop() {
   $('sub').textContent = S.phase === 'lobby' ? (info.online ? `Table code ${S.code}` : 'Solo quest') : B ? `Round ${S.battle.round}` : '';
   const res = $('res');
   if (!S.party) return res.replaceChildren();
-  const P = S.party, left = MOON_DAY - P.day;
-  const chip = (icon, val, title, warn) => { const c = el('span', 'chip stat' + (warn ? ' warn' : ''), `${icon} ${val}`); c.title = title; return c; };
-  res.replaceChildren(
-    chip('📅', `Day ${P.day}`, left >= 0 ? `New moon in ${left + 1} day${left ? 's' : ''}` : 'The new moon has risen', left < 1),
-    chip('🍖', P.rations, 'Rations: the party eats 4 a day on the trail', P.rations < 4),
-    chip('🧪', P.potions, 'Healing potions'), chip('🪙', P.gold, 'Gold'), chip('✨', P.fate, 'Fate: re-roll a failed check'));
+  const P = S.party;
+  const chip = (icon, val, title) => { const c = el('span', 'chip stat', `${icon} ${val}`); c.title = title; return c; };
+  const sheet = el('button', 'chip', '📖 Hero');
+  sheet.type = 'button';
+  sheet.id = 'sheetBtn';
+  sheet.onclick = openSheet;
+  res.replaceChildren(sheet, chip('⭐', `Level ${P.level}`, 'Party level'), chip('🧪', P.potions, 'Healing potions'), chip('🪙', P.gold, 'Gold'), chip('✨', P.fate, 'Fate: re-roll a failed check'));
+}
+// Your character sheet.
+function openSheet() {
+  const h = mine();
+  if (!h) return;
+  const C = CLASSES[h.cls], box = $('sheetBody'), lvl = S.party.level;
+  const kids = [el('h2', null, `${C.icon} ${h.name}`), el('p', 'small', `Level ${lvl} ${C.name}`)];
+  const top = el('div', 'gains');
+  [`❤️ ${h.hp}/${h.max} health`, `🛡️ ${h.ar} armor`, `🎯 attack ${sign(h.st[C.atk] + 2 + h.hb)}`, `💥 damage d${C.dmg[1]}${sign(C.dmg[2] + h.db)}`].forEach(t => top.append(el('span', 'good', t)));
+  kids.push(top);
+  const stats = el('div', 'sheetstats');
+  Object.keys(STATS).forEach(k => { const d = el('div'); d.append(el('b', null, sign(h.st[k])), el('span', null, `${STAT_ICON[k]} ${STATS[k]}`)); stats.append(d); });
+  kids.push(stats, el('h3', null, 'Special moves'));
+  [C.ability, C.ability2].forEach((a, i) => { const p = el('p'); p.append(el('b', null, `★ ${a.name}${i && lvl < 2 ? ' (unlocks at level 2)' : ''}: `), document.createTextNode(a.text)); if (i && lvl < 2) p.className = 'locked'; kids.push(p); });
+  kids.push(el('p', 'small', `You can use special moves ${1 + lvl} times per battle.`), el('h3', null, 'Magic items'));
+  if (!h.it.length) kids.push(el('p', 'small', 'None yet. Treasure turns up in odd places.'));
+  h.it.forEach(k => { const p = el('p'); p.append(el('b', null, `${ITEMS[k].icon} ${ITEMS[k].name}: `), document.createTextNode(ITEMS[k].text)); kids.push(p); });
+  box.replaceChildren(...kids);
+  $('sheet').showModal();
 }
 function placeName(node) {
   if (!node) return '';
@@ -348,6 +369,9 @@ function pLobby(kids) {
   const ab = el('p', 'abil');
   ab.append(el('b', null, `★ ${C.ability.name}: `), document.createTextNode(C.ability.text));
   a.append(ab);
+  const ab2 = el('p', 'abil locked');
+  ab2.append(el('b', null, `★ ${C.ability2.name} (level 2): `), document.createTextNode(C.ability2.text));
+  a.append(ab2);
 
   const b = el('div', 'col');
   b.append(el('h3', null, `2 · Abilities — ${left} point${left === 1 ? '' : 's'} to spend`));
@@ -387,7 +411,7 @@ function pLobby(kids) {
 // ---- story ----
 function story(kids, text, more) {
   if (S.arrive && line === 0 && S.phase === 'choice') kids.push(el('div', 'note', S.arrive.join(' · ')));
-  kids.push(el('p', 'story', text));
+  kids.push(el('div', 'gm', '🎲 Game Master'), el('p', 'story', text));
   if (more) kids.push(row(btn('Continue ▸', 'primary', () => showLine(line + 1))));
 }
 function pChoice(kids) {
@@ -416,7 +440,7 @@ function pRoll(kids) {
   const r = S.roll, who = hero(r.who), helper = r.helper && hero(r.helper);
   const c = NODES[S.node].choices.find(x => x.id === r.choice);
   kids.push(el('div', 'note', c.label));
-  kids.push(el('p', 'story', `${who.id === S.you.hero ? 'You step' : who.name + ' steps'} up. ${STAT_ICON[r.stat]} ${STATS[r.stat]} check: roll the d20, add ${sign(r.mod)}${helper ? `, plus +2 because ${helper.name} is helping` : ''}, and reach ${r.dc}.`));
+  kids.push(el('p', 'story', `${who.id === S.you.hero ? 'You step' : who.name + ' steps'} up. ${STAT_ICON[r.stat]} ${STATS[r.stat]} check: roll the d20, add ${sign(r.mod)}, and reach ${r.dc}.${helper ? ` ${helper.name} is helping, so you have advantage: roll twice and keep the better die.` : ''}`));
   if (S.phase === 'roll') kids.push(row(who.id === S.you.hero ? btn('🎲 Roll the d20', 'primary big', () => send({ t: 'roll' })) : btn(`Waiting for ${who.name} to roll…`, '', null, true)));
 }
 function pFate(kids) {
@@ -452,12 +476,14 @@ function pCombat(kids) {
   const B = S.battle, me = mine(), C = me && CLASSES[me.cls];
   const acting = B.acting && (hero(B.acting) || B.enemies.find(e => e.id === B.acting));
   if (!me || B.turn !== me.id) {
+    kids.push(initiative());
     const name = !acting ? '' : acting.name || ENEMIES[acting.key].name;
     kids.push(el('p', 'story dim', me && me.down ? 'You are down! An ally can get you back up with a potion or healing.' : name ? `${name}'s turn…` : '…'));
     stage.setTargets([], null);
     return;
   }
   const foes = B.enemies.filter(e => e.hp > 0);
+  kids.push(initiative());
   if (mode) {
     const allies = mode === 'ally';
     kids.push(el('p', 'story', allies ? 'Who gets it? Tap a hero.' : 'Choose a target — tap an enemy.'));
@@ -472,15 +498,40 @@ function pCombat(kids) {
   kids.push(el('p', 'story', `Your turn, ${me.name}. ❤️ ${me.hp}/${me.max}`));
   const target = (m, kind) => { pickFor = m; mode = kind; const opts = kind === 'ally' ? S.heroes.filter(h => h.down || h.hp < h.max) : foes; if (opts.length === 1) return pickTarget2(opts[0].id); render(); };
   const pickTarget2 = id => { const m = pickFor; mode = null; pickFor = null; send({ ...m, target: id }); };
-  const ab = C.ability, hurt = S.heroes.some(h => h.down || h.hp < h.max);
-  const bA = btn(`⚔️ Attack`, 'primary', () => target({ t: 'act', a: 'attack' }, 'foe'));
+  const hurt = S.heroes.some(h => h.down || h.hp < h.max);
+  const bA = btn('⚔️ Attack', 'primary', () => target({ t: 'act', a: 'attack' }, 'foe'));
   bA.dataset.act = 'attack';
-  const bS = btn(`★ ${ab.name} (${me.ch})`, '', () => (ab.target ? target({ t: 'act', a: 'ability' }, ab.target === 'ally' ? 'ally' : 'foe') : send({ t: 'act', a: 'ability' })), me.ch < 1 || (ab.target === 'ally' && !hurt));
-  bS.title = ab.text;
-  bS.dataset.act = 'ability';
+  const special = (ab, n) => {
+    const b = btn(`★ ${ab.name}`, '', () => (ab.target ? target({ t: 'act', a: 'ability', n }, ab.target === 'ally' ? 'ally' : 'foe') : send({ t: 'act', a: 'ability', n })), me.ch < 1 || (ab.target === 'ally' && !hurt));
+    b.title = ab.text;
+    b.dataset.act = 'ability';
+    return b;
+  };
   const bP = btn(`🧪 Potion (${S.party.potions})`, '', () => target({ t: 'act', a: 'potion' }, 'ally'), S.party.potions < 1 || !hurt);
-  kids.push(row(bA, bS, btn('🛡️ Brace', '', () => send({ t: 'act', a: 'defend' })), bP));
-  kids.push(el('div', 'small', `★ ${ab.text}`));
+  const specials = [special(C.ability, 0)];
+  if (S.party.level >= 2) specials.push(special(C.ability2, 1));
+  kids.push(row(bA, ...specials), row(btn('🛡️ Brace', '', () => send({ t: 'act', a: 'defend' })), bP));
+  kids.push(el('div', 'small', `★ Special moves left this battle: ${me.ch}. Hover or see 📖 Hero for what they do.`));
+}
+function initiative() {
+  const B = S.battle, d = el('div', 'init');
+  d.append(el('span', 'small', 'Initiative'));
+  B.order.forEach(id => {
+    const h = hero(id), e = B.enemies.find(x => x.id === id);
+    if (h ? h.down : !e || e.hp <= 0) return;
+    d.append(el('span', 'ini' + (h ? ' hero' : ' foe') + (id === B.acting ? ' on' : ''), h ? h.name : ENEMIES[e.key].name));
+  });
+  return d;
+}
+function pLevelup(kids) {
+  const me = mine(), picked = S.picks && S.picks[S.you.id];
+  kids.push(el('div', 'note ok', `Level ${S.party.level}!`));
+  kids.push(el('p', 'story', `The fight has taught you something. Everyone gains 6 health and is fully healed, and you get one more special move per battle.${S.party.level === 2 ? ` You also learn ${CLASSES[me.cls].ability2.name}: ${CLASSES[me.cls].ability2.text}` : ''}`));
+  if (picked) return kids.push(el('div', 'small', `You raised ${STATS[picked]}. Waiting for the others…`));
+  kids.push(el('p', 'small', 'Raise one ability by 1:'));
+  const list = el('div', 'chips');
+  Object.keys(STATS).forEach(k => { const b = el('button', 'pick', `${STAT_ICON[k]} ${STATS[k]} ${sign(me.st[k])} → ${sign(me.st[k] + 1)}`); b.type = 'button'; b.dataset.level = k; b.onclick = () => { sfx.chime(); send({ t: 'levelpick', stat: k }); }; list.append(b); });
+  kids.push(list);
 }
 function pVictory(kids) {
   const def = BATTLES[S.battle.id];
@@ -499,9 +550,9 @@ function pEnd(kids) {
   story(kids, lines[line]);
   const st = S.stats, best = S.heroes.slice().sort((a, b) => (st.dmg[b.id] || 0) - (st.dmg[a.id] || 0))[0];
   const g = el('div', 'gains');
-  [`${S.party.day} days on the trail`, `${st.rolls} checks rolled`, `${st.nat20} natural 20${st.nat20 === 1 ? '' : 's'}`, `${st.nat1} natural 1${st.nat1 === 1 ? '' : 's'}`,
+  [`Reached level ${S.party.level}`, `${S.heroes.reduce((n, h) => n + h.it.length, 0)} magic items found`, `${st.rolls} checks rolled`, `${st.nat20} natural 20${st.nat20 === 1 ? '' : 's'}`, `${st.nat1} natural 1${st.nat1 === 1 ? '' : 's'}`,
     `${st.retries} battle${st.retries === 1 ? '' : 's'} retried`, `Hardest hitter: ${best.name} (${st.dmg[best.id] || 0} damage)`].forEach(t => g.append(el('span', 'good', t)));
-  kids.push(g, el('div', 'small', 'There are four endings, two roads, and nine things that can happen on the trail. No two quests go the same way.'));
+  kids.push(g, el('div', 'small', 'There are four endings, two roads, seven road encounters and seven magic items. No two quests go the same way.'));
   kids.push(row(S.hostId === S.you.id ? btn('Play again', 'primary', () => send({ t: 'again' })) : btn('Waiting for the host…', '', null, true), btn('Leave', '', () => send({ t: 'leave' }))));
 }
 
