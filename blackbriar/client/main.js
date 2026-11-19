@@ -1,7 +1,7 @@
 // AFTER HOURS: BLACKBRIAR HIGH — client
 import * as THREE from 'three';
 import { CONFIG } from '../shared/config.js';
-import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng, initialMask, MANNEQUIN_SPOTS } from '../shared/level.js';
+import { ROOMS, DOORS, LOCKERS, SEARCHABLE, DEBRIS, PATCHES, LIGHTS, CLUES, BINS, TOOL_RACK, COMPUTER, COT, VENT, SPAWN, CLUE_SPOT, BUCKET, DUCTS, DUCT_CRAWLS, roomAt, progressRoom, solidRects, moveCircle, segBlocked, doorCenter, groundY, rng, initialMask, MANNEQUIN_SPOTS } from '../shared/level.js';
 import { Sim, clockText, gameClock, vacStats, mopStats, inOffice } from '../shared/sim.js';
 import { buildWorld, makeVacuumModel, makeMopModel, makeCartModel, makeRoombaModel } from './world.js';
 import { loadModels, makeMonitor, makeWorker, buildMannequinCrowd, updateCrowd } from './models.js';
@@ -11,7 +11,7 @@ import { makeAtmos } from './atmos.js';
 import { Audio3D } from './audio.js';
 import { Score } from './music.js';
 import { LocalTransport, WSTransport, serverAvailable, loadSolo, clearSolo, getRoomApi, RoomHost, RoomGuest, newRoomCode, PeerHost, PeerGuest, peerSupported } from './net.js';
-import { textCanvas, dirtTextures } from './textures.js';
+import { textCanvas, dirtTextures, grille as grilleTex } from './textures.js';
 import { initScares, updateScares, spawnWatcher, startLightsOut, startCreep, phantom, scareLight, clearScares, scareDebug } from './scares.js';
 
 const $ = (id) => document.getElementById(id);
@@ -272,7 +272,8 @@ function interactTargets() {
   const cy = groundY(cart.x, cart.z), cxF = Math.cos(cart.yaw), czF = -Math.sin(cart.yaw);
   list.push({ kind: 'cartbin', x: cart.x + cxF * 0.25, y: cy + 0.7, z: cart.z + czF * 0.25 }, { kind: 'cartbucket', x: cart.x - cxF * 0.25, y: cy + 0.4, z: cart.z - czF * 0.25 });
   for (const r of rbSnap) if (!r[5] || r[5] === pid) list.push({ kind: 'roomba', id: r[0], x: r[1], y: groundY(r[1], r[2]) + 0.1, z: r[2], state: r[4], mine: r[5] === pid, bag: r[6] });
-  for (const c of crewSnap) if (c.pid !== pid && c.dn) list.push({ kind: 'revive', pid: c.pid, name: c.name, x: c.x, y: 0.4, z: c.z });
+  for (const d of DUCTS) list.push({ kind: 'duct', id: d.id, x: d.x + d.nx * 0.15, y: d.y + 0.36, z: d.z + d.nz * 0.15 });
+  for (const c of crewSnap) if (c.pid !== pid && c.dn) list.push({ kind: 'revive', pid: c.pid, name: c.name, x: c.x, y: groundY(c.x, c.z) + 0.4, z: c.z });
   return list;
 }
 function pickTarget() {
@@ -285,7 +286,7 @@ function pickTarget() {
     if (it.kind === 'bolt' && (mirror.doors.d_office.open || !inOffice(P))) continue;
     const dx = it.x - cp.x, dy = it.y - cp.y, dz = it.z - cp.z, d = Math.hypot(dx, dy, dz);
     const range = it.kind === 'door' ? 2.1 : it.kind === 'bin' ? 1.8 : 1.9; if (d > range) continue;
-    const cos = (dx * fwd.x + dy * fwd.y + dz * fwd.z) / d; if (cos < (['computer', 'rack', 'cot', 'door', 'cart', 'bucket', 'cartbucket', 'cartbin', 'roomba'].includes(it.kind) ? 0.78 : 0.86)) continue;
+    const cos = (dx * fwd.x + dy * fwd.y + dz * fwd.z) / d; if (cos < (['computer', 'rack', 'cot', 'door', 'cart', 'bucket', 'cartbucket', 'cartbin', 'roomba', 'duct'].includes(it.kind) ? 0.78 : 0.86)) continue;
     if (it.kind !== 'door' && it.kind !== 'bolt' && segBlocked(cp.x, cp.z, it.x - (dx / d) * 0.3, it.z - (dz / d) * 0.3, rects)) continue;
     const s = cos - d * 0.03; if (s > bs) { bs = s; best = it; }
   }
@@ -302,6 +303,8 @@ function promptFor(it) {
     case 'computer': return `${K} Use the facilities computer`;
     case 'cot': return phase === 'shift' ? `${K} Rest until 4:00 (crew must be bolted in)` : null;
     case 'vent': return `${K} Listen at the grille`;
+    case 'duct': { if (!ducts[it.id]) return ductHold > 0 ? `Unscrewing the grate… ${Math.min(100, Math.round(ductHold / 2.2 * 100))}%` : `Hold ${K} to unscrew the vent grate`;
+      const left = crawlsLeft(); return left > 0 ? `${K} Crawl into the vent · ${left} crawl${left === 1 ? '' : 's'} left tonight` : 'You do not have another crawl in you tonight'; }
     case 'plate': return `${K} Examine the painted-over plate`;
     case 'revive': return `Hold ${K} to help ${it.name} up`;
     case 'cart': return cart.holder === pid ? `${K} Let go of the cart` : cart.holder ? 'Someone is pushing this cart' : `${K} Push the janitor cart`;
@@ -324,6 +327,7 @@ function interact(it, held) {
     case 'computer': openOS(); break;
     case 'cot': net.send({ t: 'wait' }); break;
     case 'vent': net.send({ t: 'vent' }); audio.ventVoice({ x: VENT.x, y: VENT.y, z: VENT.z }); break;
+    case 'duct': if (ducts[it.id] && crawlsLeft() > 0 && !DUCT) openDuctPick(it.id); break;
     case 'plate': net.send({ t: 'plate' }); break;
     case 'cart': net.send({ t: 'cart' }); break;
     case 'cartbin': net.send({ t: 'empty' }); break;
@@ -382,7 +386,7 @@ addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'Tab') { e.preventDefault(); if (!playing) return; if (ui === 'bag') closeUI(); else if (!ui) openBag(); return; }
   if (!playing) return;
-  if (e.code === 'Escape') { if (ui === 'os') closeOS(); else if (ui === 'bag' || ui === 'reader') closeUI(); else if (!ui && !locked) openPause(); return; }
+  if (e.code === 'Escape') { if (ui === 'duct') { closeDuctPick(); return; } if (ui === 'os') closeOS(); else if (ui === 'bag' || ui === 'reader') closeUI(); else if (!ui && !locked) openPause(); return; }
   if (ui) return;
   keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -470,6 +474,7 @@ function showMenu(id) { for (const k of ['mMain', 'sCoop', 'sOpts', 'sHow']) $(k
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => showMenu('mMain'));
 function showFear() { $('fearName').textContent = FEAR_NAMES[settings.fear]; $('fearDesc').textContent = FEAR_DESC[settings.fear]; }
 function cycleFear(d) { settings.fear = (settings.fear + d + 3) % 3; fearLevel = score.fear = settings.fear; saveSettings(); showFear(); if (settings.fear === 2) { score.init(); score.sting('hit', 0.7); rumble(0.6, 0.3, 250); } else audio.ui(); }
+$('ductBack').onclick = () => closeDuctPick();
 $('mFear').onclick = () => cycleFear(1); $('mFear').onkeydown = (e) => { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { e.preventDefault(); cycleFear(e.code === 'ArrowLeft' ? -1 : 1); } };
 showFear();
 $('mCoop').onclick = () => showMenu('sCoop'); $('mOpts').onclick = () => showMenu('sOpts'); $('mHow').onclick = () => showMenu('sHow');
@@ -521,12 +526,19 @@ function applySave(s) {
   for (const id in mirror.doors) setDoor(id, mirror.doors[id], true);
   for (const id in W.lockers) setLocker(id, mirror.lockers[id] || { open: false }, true);
   inv = Object.assign({ vacuum: false, mop: false }, s.inv[pid] || {}); mopDirt = inv.mopDirt || 0;
+  ducts = s.ducts || {}; ductUsed = (s.ductUsed || {})[pid] || 0; if (W && W.ducts) for (const id in W.ducts) setDuct(id, !!ducts[id]);
   keys2 = s.keys || {}; found = s.found || []; if (s.cart) cart = { ...s.cart, holder: null };
   updatePlate();
 }
 function onMessage(m) {
   switch (m.t) {
     case 'fear': fearLevel = score.fear = m.v; break;
+    case 'duct': { const d = DUCTS.find(v => v.id === (m.id || m.from)), pos = d && { x: d.x + d.nx * 0.3, y: d.y + 0.4, z: d.z + d.nz * 0.3 };
+      if (m.k === 'open') { ducts[m.id] = true; setDuct(m.id, true); audio.tone({ f: 260, f2: 120, type: 'triangle', v: 0.25, d: 0.5, pos, wet: 0.6 }); audio.noise({ f: 1400, q: 1, v: 0.2, d: 0.2, pos, wet: 0.5 }); }
+      else if (m.k === 'go') { if (m.pid === pid) startDuct(m); else if (pos) for (let i = 0; i < 6; i++) audio.tone({ f: 150 + Math.random() * 140, f2: 90, type: 'triangle', v: 0.12, d: 0.3, pos, wet: 0.7, delay: i * 0.3 }); }
+      else if (m.k === 'out') { ducts[m.id] = true; setDuct(m.id, true); const o = DUCTS.find(v => v.id === m.id), op = { x: o.x + o.nx * 0.3, y: o.y + 0.4, z: o.z + o.nz * 0.3 };
+        audio.tone({ f: 120, f2: 60, v: 0.4, d: 0.35, pos: op, lp: 700, wet: 0.6 }); audio.noise({ f: 900, q: 0.8, v: 0.3, d: 0.25, pos: op, wet: 0.6 }); if (m.pid === pid) endDuct(); }
+      break; }
     case 'welcome': {
       if (net instanceof WSTransport && !net.join && m.fear !== settings.fear) net.send({ t: 'fear', v: settings.fear });
       fearLevel = score.fear = m.fear ?? settings.fear;
@@ -657,7 +669,7 @@ function updateRemotes(dt) {
     r.w.root.position.set(s.x, groundY(s.x, s.z) + (s.dn ? -0.6 : 0), s.z); r.w.root.rotation.set(s.dn ? -1.3 : 0, s.yw, 0);
     r.w.update(dt, sp > 3.6 ? 'run' : sp > 0.3 ? 'walk' : 'idle', clamp(sp / (sp > 3.6 ? 5 : 2.8), 0.5, 1.5));
     r.w.root.visible = !s.out && !s.hid;
-    r.stepD += sp * dt; if (r.stepD > 0.75) { r.stepD = 0; audio.step({ x: s.x, y: 0.1, z: s.z }, s.cr ? 0.3 : 0.8); }
+    r.stepD += sp * dt; if (r.stepD > 0.75) { r.stepD = 0; audio.step({ x: s.x, y: groundY(s.x, s.z) + 0.1, z: s.z }, s.cr ? 0.3 : 0.8); }
     const showVac = s.tool === 'vacuum' && !s.dn && !s.out, showMop = s.tool === 'mop' && !s.dn && !s.out;
     r.tool.root.visible = showVac; r.mop.root.visible = showMop;
     if (showVac || showMop) {
@@ -690,13 +702,13 @@ function updateMonitor(dt, t) {
   if (s.fr && scareT <= 0) { m.frozen = true; } else { m.frozen = false; }
   if (m.lastPz !== pz) { m.lastPz = pz; m.posed = false; }
   if ((!m.frozen || !m.posed) && scareT <= 0) m.posed = true, m.update(dt, modeA, modeA === 'crawl' ? sp : clamp(sp / (modeA === "run" ? 4.3 : 1.2), 0.5, 1.4), t, rel);
-  monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: 0.1, z: s.z }); }
+  monStepD += sp * dt; if (monStepD > (modeA === 'run' ? 1.4 : 0.9)) { monStepD = 0; audio.monStep({ x: s.x, y: gyM + 0.1, z: s.z }); }
   const d = Math.hypot(s.x - P.x, s.z - P.z);
   if (audio.breath) { audio.breath.move(s.x, 1.9, s.z); audio.breath.g.gain.value = lerp(audio.breath.g.gain.value, d < 10 && s.st !== 'dormant' ? 0.14 * (1 - d / 10) : 0, 0.05); }
   if (audio.chaseG) audio.chaseG.gain.value = 0;
   monHunt = s.st === 'hunt'; monNear = s.st === 'dormant' ? 0 : clamp(1 - d / 14, 0, 1);
   // distant dragging now and then when it is far and moving
-  if (s.st !== 'dormant' && d > 14 && Math.random() < dt * 0.02) audio.drag({ x: s.x, y: 0.2, z: s.z });
+  if (s.st !== 'dormant' && d > 14 && Math.random() < dt * 0.02) audio.drag({ x: s.x, y: gyM + 0.2, z: s.z });
   heartT -= dt; if (d < 14 && s.st !== 'dormant' && heartT <= 0) { const k = 1 - d / 14; heartT = 0.32 + (1 - k) * 0.85; audio.tone({ f: 62, f2: 38, v: 0.06 + k * 0.28, d: 0.11, lp: 180, wet: 0 }); audio.tone({ f: 55, f2: 36, v: 0.04 + k * 0.2, d: 0.1, lp: 160, wet: 0, delay: 0.17 }); }
   if (audio.dreadG) audio.dreadG.gain.value = lerp(audio.dreadG.gain.value, dread * 0.32, 0.03);
   dread = clamp(dread + (d < 12 && s.st !== 'dormant' && s.st !== 'retreat' ? (s.st === 'hunt' ? 0.6 : 0.2) * dt : -0.15 * dt), 0, 1);
@@ -717,9 +729,73 @@ function setHidden(id) {
   if (hidden === id) return; hidden = id; $('lockerView').hidden = !id;
   if (id) { const L = LOCKERS.find(l => l.id === id); P.yaw = L.side === 'n' ? Math.PI : 0; P.pitch = 0; audio.locker({ x: L.x, y: 1.5, z: L.z }, false); audio.tone({ f: 120, f2: 80, v: 0.12, d: 0.3, lp: 400 }); }
 }
+// ======================= the ducts: rare, limited crawl-through shortcuts =======================
+let ducts = {}, ductUsed = 0, ductHold = 0, ductSqueakT = 0, DUCT = null, DUCTW = null, ductFrom = null;
+const crawlsLeft = () => Math.max(0, (DUCT_CRAWLS[fearLevel] ?? 2) - ductUsed);
+function setDuct(id, open) { const h = W && W.ducts && W.ducts[id]; if (!h) return; h.open = open; for (const sc of h.screws) sc.visible = !open; h.target = open ? 1.32 : 0; }
+function holdDuct(dt, held) {
+  if (ductHold < 0) { ductHold = Math.min(0, ductHold + dt); return; } // just opened one: let go first
+  const it = held && !DUCT && !ui ? pickTarget() : null;
+  if (!it || it.kind !== 'duct' || ducts[it.id]) { ductHold = 0; return; }
+  ductHold += dt; if ((ductSqueakT -= dt) <= 0) { ductSqueakT = 0.28 + Math.random() * 0.1; const d = DUCTS.find(v => v.id === it.id); audio.tone({ f: 2400 + Math.random() * 900, f2: 1700, type: 'square', v: 0.025, d: 0.09, lp: 4000, pos: { x: d.x, y: d.y + 0.36, z: d.z }, wet: 0.3 }); }
+  if (ductHold > 2.2) { net.send({ t: 'ductopen', id: it.id }); ductHold = -0.6; }
+}
+function openDuctPick(fromId) {
+  ductFrom = fromId; const a = DUCTS.find(v => v.id === fromId), list = $('ductList'); list.innerHTML = '';
+  for (const b of DUCTS.filter(v => v.id !== fromId).sort((x, y) => Math.hypot(x.x - a.x, x.z - a.z) - Math.hypot(y.x - a.x, y.z - a.z))) {
+    const btn = document.createElement('button'); btn.className = 'mi'; btn.innerHTML = `${b.name}<small>${b.y < -1 ? 'athletics floor' : 'upstairs'} · ${Math.round(Math.hypot(b.x - a.x, b.z - a.z) + Math.abs(b.y - a.y) * 2)} m of duct</small>`;
+    btn.onclick = () => { closeDuctPick(); net.send({ t: 'ductgo', from: fromId, to: b.id }); }; list.appendChild(btn);
+  }
+  const left = crawlsLeft(); $('ductLeft').textContent = `${left} crawl${left === 1 ? '' : 's'} left tonight. It is tight in there, and it is not empty.`;
+  openUI('duct'); $('ductPick').hidden = false; setTimeout(() => { const f = list.querySelector('button'); if (f) f.focus(); }, 40); audio.ui();
+}
+function closeDuctPick() { $('ductPick').hidden = true; if (ui === 'duct') { ui = null; requestLock(); canvas.focus(); } }
+function buildDuctWorld() { // a long galvanized duct, high above the building where nothing else is
+  if (DUCTW) return DUCTW; const g = new THREE.Group(); g.position.set(0, 80, 0); scene.add(g);
+  const tex = textCanvas(512, 256, (x, w, h) => { const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#8d9294'); gr.addColorStop(0.5, '#a9adae'); gr.addColorStop(1, '#7d8284'); x.fillStyle = gr; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '40,40,40'},${Math.random() * 0.06})`; x.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 30, 1 + Math.random() * 3); } // spangle
+    x.fillStyle = 'rgba(30,30,30,.55)'; x.fillRect(0, 0, 6, h); x.fillRect(w - 6, 0, 6, h); for (let y = 12; y < h; y += 24) { x.beginPath(); x.arc(14, y, 2.2, 0, 7); x.arc(w - 14, y, 2.2, 0, 7); x.fill(); } // seams and rivets
+    for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(90,60,30,.18)'; x.fillRect(Math.random() * w, h * 0.7 + Math.random() * h * 0.3, 40 + Math.random() * 120, 6 + Math.random() * 20); } }); // rust streaks
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(14, 1);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.55, roughness: 0.45, side: THREE.BackSide, envMapIntensity: 0.4 });
+  const tube = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.62, 16.4), mat); tube.position.set(0, 0.31, -8); g.add(tube);
+  const spill = new THREE.PointLight(0xfff0dc, 0.9, 3.2, 1.6); spill.position.set(0, 0.3, 0); g.add(spill); // flashlight spill off the sheet metal around you
+  const gt = grilleTex(); const glow = new THREE.MeshStandardMaterial({ map: gt, emissive: 0xffe2b0, emissiveMap: gt, emissiveIntensity: 0.9, color: 0x222222 });
+  const end = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.56), glow); end.position.set(0, 0.31, -16.15); g.add(end);
+  for (const [z, sd] of [[-5.2, 1], [-10.8, -1]]) { const j = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.42), new THREE.MeshBasicMaterial({ color: 0x010101 })); j.position.set(sd * 0.405, 0.3, z); j.rotation.y = -sd * Math.PI / 2; g.add(j);
+    const jg = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.42), new THREE.MeshStandardMaterial({ map: gt, transparent: true, alphaTest: 0.4, color: 0x777777 })); jg.position.set(sd * 0.4, 0.3, z); jg.rotation.y = -sd * Math.PI / 2; g.add(jg); }
+  return (DUCTW = { g, spill });
+}
+function startDuct(m) {
+  buildDuctWorld(); ductUsed = (DUCT_CRAWLS[fearLevel] ?? 2) - m.left; const F = fearLevel, r = Math.random();
+  DUCT = { t: 0, dur: m.dur, left: m.left, strideT: 0.2, breathT: 0.8, light0: P.light, beat: CALM ? null : F === 2 ? (r < 0.4 ? 'face' : r < 0.8 ? 'chase' : 'knock') : F === 1 ? (r < 0.45 ? 'knock' : r < 0.6 ? 'chase' : null) : (r < 0.3 ? 'knock' : null), beatAt: m.dur * (0.38 + Math.random() * 0.2), fired: false, safety: setTimeout(() => endDuct(), (m.dur + 4) * 1000) };
+  P.light = true; $('blinkFx').style.opacity = 1; setTimeout(() => { if (DUCT) $('blinkFx').style.opacity = 0; }, 260);
+  audio.tone({ f: 120, f2: 70, v: 0.3, d: 0.3, lp: 600, wet: 0.4 }); rumble(0.4, 0.2, 200);
+}
+function updateDuct(dt) {
+  const D = DUCT, G = DUCTW.g.position; D.t += dt; const u = Math.min(1, D.t / D.dur), e = u * 0.75 + u * u * (3 - 2 * u) * 0.25, ph = D.t * 7.2;
+  const z = -0.6 - 14.6 * e, cx = Math.sin(ph * 0.5) * 0.05, cy = 0.34 + Math.abs(Math.sin(ph)) * 0.035;
+  camera.position.set(G.x + cx, G.y + cy, G.z + z); DUCTW.spill.position.set(cx, 0.3, z - 0.4); camera.rotation.set(-0.06 + Math.sin(ph) * 0.02, Math.sin(ph * 0.5) * 0.035, Math.sin(ph * 0.5) * 0.03);
+  for (const k of ['handL', 'handR', 'torch']) if (VM[k]) VM[k].visible = false; VM.vac.root.visible = VM.mop.root.visible = false;
+  const here = (dx, dz) => ({ x: G.x + cx + dx, y: G.y + 0.05, z: G.z + z + dz });
+  if ((D.strideT -= dt) <= 0) { D.strideT = 0.4 + Math.random() * 0.06; const side = Math.random() < 0.5 ? -0.25 : 0.25, p = here(side, -0.35); // your own hands on the sheet metal
+    audio.play('hand', { pos: p, v: 0.5, lp: 2600, wet: 0.2 }); audio.tone({ f: 150 + Math.random() * 170, f2: 110, type: 'triangle', v: 0.05, d: 0.45, pos: p, wet: 0.45 }); if (Math.random() < 0.3) audio.noise({ f: 900, q: 6, v: 0.07, d: 0.08, pos: p, wet: 0.3 }); rumble(0.05, 0.12, 60); }
+  if ((D.breathT -= dt) <= 0) { D.breathT = 1.2 + Math.random() * 0.4; audio.noise({ f: 620, f2: 430, q: 1.2, v: 0.07, d: 0.7, a: 0.3, wet: 0 }); }
+  if (D.beat && !D.fired && D.t > D.beatAt) { D.fired = true; dread = Math.min(1, dread + 0.6);
+    if (D.beat === 'knock') audio.bang(here(0, 4));
+    else if (D.beat === 'chase') { audio.scramble({ ...here(0, 7), y: G.y + 0.05 }, { ...here(0, 1.2), y: G.y + 0.05 }, 1.3, false, 1.2); setTimeout(() => { if (DUCT) { audio.play('crack', { pos: here(0, 0.8), v: 0.6 }); shake = 0.5; } }, 1400); }
+    else if (D.beat === 'face') { if (phantom(G.x, G.z + z - 3.6, 0.45, 1.3, G.y - 1.38)) { score.sting('scare', 0.8); audio.play('crack', { v: 0.7, wet: 0.2 }); shake = 0.8; rumble(1, 0.8, 260); } } }
+  if (D.t > D.dur - 0.32) $('blinkFx').style.opacity = 1;
+}
+function endDuct() {
+  if (!DUCT) return; clearTimeout(DUCT.safety); P.light = DUCT.light0; const left = DUCT.left; DUCT = null;
+  for (const k of ['handL', 'torch']) if (VM[k]) VM[k].visible = true;
+  setTimeout(() => { $('blinkFx').style.opacity = 0; }, 140); toast(left > 0 ? `${left} crawl${left === 1 ? '' : 's'} left tonight.` : 'That was your last crawl tonight.');
+}
 // per-frame bits of the haunting that play out over time
 function updateHaunts(dt) {
-  if (echoT > 0) { echoT -= dt; if (echoMv && !P.moving) { const bx = P.x + Math.sin(P.yaw) * 4.5, bz = P.z + Math.cos(P.yaw) * 4.5; setTimeout(() => audio.step({ x: bx, y: 0.05, z: bz }, 1.1), 480); echoT = Math.min(echoT, 0.6); } echoMv = P.moving; } // you stop; it takes one more step
+  if (W && W.ducts) for (const id in W.ducts) { const h = W.ducts[id]; h.hinge.rotation.x += ((h.target || 0) - h.hinge.rotation.x) * Math.min(1, dt * 6); }
+  if (echoT > 0) { echoT -= dt; if (echoMv && !P.moving) { const bx = P.x + Math.sin(P.yaw) * 4.5, bz = P.z + Math.cos(P.yaw) * 4.5; setTimeout(() => audio.step({ x: bx, y: groundY(bx, bz) + 0.05, z: bz }, 1.1), 480); echoT = Math.min(echoT, 0.6); } echoMv = P.moving; } // you stop; it takes one more step
   if (neck) { neck.t -= dt; // turn around fast enough and, for an instant, it is standing right there
     if (Math.abs(angDiff(neck.yaw0, P.yaw)) > 2.2) { if (neck.see && phantom(neck.x, neck.z, 0.24, 1.2)) { score.sting('scare', 0.9); audio.play('crack', { v: 0.7, wet: 0.2 }); shake = Math.max(shake, 0.8); rumble(1, 0.8, 300); dread = 1; } neck = null; }
     else if (neck.t <= 0) neck = null; }
@@ -765,7 +841,7 @@ function prankFX(m) {
     neck = { t: 3.4, yaw0: P.yaw, see: m.see, x: P.x + Math.sin(P.yaw) * 0.95, z: P.z + Math.cos(P.yaw) * 0.95 }; dread = Math.min(1, dread + 0.4); rumble(0.15, 0.4, 900); }
   else if (m.k === 'flashface') { huntFlickerT = 1.3; flashT = 0.42 + Math.random() * 0.4; audio.noise({ f: 300, q: 1, v: 0.12, d: 0.3 }); }
   else if (m.k === 'skitter') audio.scramble({ x: m.x, y: m.y, z: m.z }, { x: m.x1, y: m.y, z: m.z1 }, 1.4 + Math.random() * 0.8, true, 1.1);
-  else if (m.k === 'runsteps') { for (let i = 0; i < 9; i++) { const k = i / 9; audio.step({ x: m.x + (m.x1 - m.x) * k, y: 0.1, z: m.z + (m.z1 - m.z) * k }, 1.4); } }
+  else if (m.k === 'runsteps') { for (let i = 0; i < 9; i++) { const k = i / 9; audio.step({ x: m.x + (m.x1 - m.x) * k, y: groundY(m.x, m.z) + 0.1, z: m.z + (m.z1 - m.z) * k }, 1.4); } }
   else if (m.k === 'thud') { audio.tone({ f: 70, f2: 35, v: 0.6, d: 0.5, pos, lp: 300, wet: 0.6 }); audio.noise({ f: 300, q: 1, v: 0.2, d: 0.3, pos, wet: 0.6 }); }
   else if (m.k === 'giggle') { for (let i = 0; i < 5; i++) { const f = 900 + Math.random() * 300; audio.tone({ f, f2: f * 0.85, type: 'sine', v: 0.035, d: 0.09, delay: i * 0.13, pos, wet: 0.8 }); audio.noise({ f: f * 2, q: 5, v: 0.02, d: 0.08, delay: i * 0.13, pos, wet: 0.8 }); } }
   else if (m.k === 'fake') { dread = 1; heartT = 0; const bp = { x: P.x + Math.sin(P.yaw) * 0.8, y: groundY(P.x, P.z) + 1.6, z: P.z + Math.cos(P.yaw) * 0.8 }; audio.noise({ f: 600, f2: 400, q: 1.2, v: 0.25, d: 1.1, a: 0.4, pos: bp, wet: 0 }); for (let i = 0; i < 6; i++) { audio.tone({ f: 62, f2: 38, v: 0.3, d: 0.11, lp: 180, wet: 0, delay: i * 0.42 }); audio.tone({ f: 55, f2: 36, v: 0.22, d: 0.1, lp: 160, wet: 0, delay: i * 0.42 + 0.17 }); } }
@@ -891,6 +967,11 @@ function placePool(cx, cz, force) {
 }
 let poolT = 0;
 function updateLights(dt, t) {
+  // the boiler: a deep rumble you hear before you see it, a firebox that breathes, pipes that knock and hiss
+  if (W.hums && audio.ctx && !W.humsOn) { W.humsOn = true; for (const h of W.hums) { const l = audio.spatialLoop(audio.brown, 'lowpass', 120, 1.4, 0.55); l.move(h.x, h.y, h.z); } }
+  if (W.fires) { const k = 2.6 + Math.sin(t * 7.3) * 0.5 + Math.sin(t * 13.1) * 0.35 + (Math.random() - 0.5) * 0.4; for (const m of W.fires) m.emissiveIntensity = k; }
+  if (W.hums && !CALM) for (const h of W.hums) { const d = Math.hypot(P.x - h.x, P.z - h.z); if (d < 16 && Math.random() < dt * 0.12) { const pos = { x: h.x + (Math.random() - 0.5) * 8, y: h.y + 1.6, z: h.z + (Math.random() - 0.5) * 4 };
+    if (Math.random() < 0.5) audio.noise({ f: 5200, f2: 3000, q: 0.6, v: 0.09, d: 1.4, a: 0.1, pos, wet: 0.5 }); else for (let i = 0; i < 3; i++) audio.tone({ f: 140, f2: 90, v: 0.22, d: 0.16, lp: 900, pos, wet: 0.6, delay: i * (0.12 + Math.random() * 0.2) }); } }
   if (atmos) atmos.update(dt, t, (L) => fixtureLevel(L, t), P, flash, flash.angle);
   poolT += dt; if (poolT > 0.3) { poolT = 0; placePool(P.x, P.z); }
   for (const pl of POOL) if (pl.userData.L) pl.intensity = pl.userData.base * fixtureLevel(pl.userData.L, t);
@@ -927,7 +1008,7 @@ function updateHUD(dt) {
   $('money').textContent = '$' + money.toFixed(2);
   $('earn').textContent = mirror.shiftStats ? '' : '';
   const ar = roomAt(P.x, P.z), pr = ar ? progressRoom(ar) : null;
-  $('area').textContent = ar ? ROOMS[ar].name : '—';
+  $('area').textContent = DUCT ? 'In the ducts' : ar ? ROOMS[ar].name : '—'; if (DUCT) $('areaProg').innerHTML = '';
   if (pr && pr !== 'office' && pr !== 'storage') { const rp = mirror.roomProgress()[pr]; if (rp) $('areaProg').innerHTML = `${Math.round((rp.debris * 0.5 + rp.surface * 0.5) * 100)}% restored${rp.done ? ' · done' : ''}<div class="pbar"><i style="width:${Math.round((rp.debris * 0.5 + rp.surface * 0.5) * 100)}%"></i></div>`; }
   else $('areaProg').innerHTML = ar === 'office' ? (mirror.doors.d_office.bolted ? '<span style="color:#9d9">Bolt engaged</span>' : '<span style="color:#f0b35a">Door not bolted</span>') : '';
   $('crew').innerHTML = mode === 'coop' ? crewSnap.map(c => `${c.pid === pid ? '▸ ' : ''}${c.name}${c.dn ? ' <span style="color:#f66">DOWN</span>' : c.out ? ' (out)' : ''}`).join('<br>') : '';
@@ -937,7 +1018,7 @@ function updateHUD(dt) {
   $('bagBar').hidden = P.tool !== 'vacuum' && P.tool !== 'mop'; const fillK = P.tool === 'mop' ? mopDirt : myBag / vs.bag; $('bagFill').style.width = (fillK * 100) + '%'; $('bagFill').style.background = fillK >= (P.tool === 'mop' ? 0.75 : 1) ? '#e55' : P.tool === 'mop' ? '#9a7a4a' : '';
   const it = hidden ? null : pickTarget(); let pt = promptFor(it);
   if (hidden) pt = `${isTouch ? 'HIDE' : '[H]'} Step out of the locker`; else if (!pt && hideTarget()) pt = `${isTouch ? 'HIDE' : '[H]'} Hide in the locker`;
-  $('prompt').hidden = !pt || scareT > 0; if (pt) $('prompt').textContent = pt; if (isTouch) $('aLbl').textContent = hidden ? 'EXIT' : siege && nearOfficeDoor() ? 'HOLD' : it ? 'USE' : hideTarget() ? 'HIDE' : 'ACT';
+  $('prompt').hidden = !pt || scareT > 0 || !!ui || !!DUCT; if (pt) $('prompt').textContent = pt; if (isTouch) $('aLbl').textContent = hidden ? 'EXIT' : siege && nearOfficeDoor() ? 'HOLD' : it ? 'USE' : hideTarget() ? 'HIDE' : 'ACT';
   $('hurt').style.opacity = P.downed ? 0.9 : Math.max(0, dread - 0.5) * 0.8;
 }
 
@@ -1002,6 +1083,10 @@ function renderOSApp() {
       <tr><td>East Hallway: remove debris, lift dust and mud</td><td>${pct(rp.hall.debris)} debris · ${pct(rp.hall.surface)} floor</td><td>$${CONFIG.pay.piece}/item · bonus $${CONFIG.roomBonus.hall}</td></tr>
       <tr><td>Room 112: debris and the mud by the desks</td><td>${pct(rp.class.debris)} · ${pct(rp.class.surface)}</td><td>bonus $${CONFIG.roomBonus.class}</td></tr>
       <tr><td>Service corridor and storage</td><td>${pct(rp.service.debris)} · ${pct(rp.service.surface)}</td><td>bonus $${CONFIG.roomBonus.service}</td></tr>
+      <tr><td>Library: stacks, reading tables, carpet</td><td>${pct(rp.lib.debris)} · ${pct(rp.lib.surface)}</td><td>bonus $${CONFIG.roomBonus.lib}</td></tr>
+      <tr><td>Science Lab 116: the spill under the benches</td><td>${pct(rp.lab.debris)} · ${pct(rp.lab.surface)}</td><td>bonus $${CONFIG.roomBonus.lab}</td></tr>
+      <tr><td>Band Room (athletics floor)</td><td>${pct(rp.band.debris)} · ${pct(rp.band.surface)}</td><td>bonus $${CONFIG.roomBonus.band}</td></tr>
+      <tr><td>Boiler Room: the oil on the floor</td><td>${pct(rp.boiler.debris)} · ${pct(rp.boiler.surface)}</td><td>bonus $${CONFIG.roomBonus.boiler}</td></tr>
       ${day >= 2 ? `<tr><td style="color:#a11"><b>PRIORITY: Room 014, deep clean</b></td><td>not on floor plan</td><td>$???</td></tr>` : ''}</table>
       <p><b>Clause 7.</b> Be inside the maintenance office, with the security bolt engaged, before 4:00 AM. ${day >= 2 ? '<b>Do not let them mark you absent.</b>' : 'Do not answer the attendance announcements.'}</p>
       <b>Evidence logged</b><br>${discoveries.length ? discoveries.map(d => '• ' + CLUES[d.id].title + ' — ' + CLUES[d.id].where).join('<br>') : '(none)'}`;
@@ -1051,6 +1136,7 @@ function frame(now) {
   pollGamepad(dt);
   if (playing) {
     PR('player', () => updatePlayer(dt, t));
+    if (DUCT) updateDuct(dt);
     PR('tools', () => updateTools(dt, t));
     PR('remotes', () => updateRemotes(dt));
     PR('monitor', () => updateMonitor(dt, t));
@@ -1066,6 +1152,7 @@ function frame(now) {
       if (W.crowd) { W.crowd.visible = (P.gy ?? groundY(P.x, P.z)) < -2; if (!CALM && updateCrowd(W.crowd, MANNEQUIN_SPOTS.filter(s => s.y < -1), -4, P.x, P.z, camera, dt, 0.35)) audio.tone({ f: 300 + Math.random() * 200, f2: 120, type: 'triangle', v: 0.05, d: 0.08, wet: 0.7, pos: { x: P.x - Math.sin(P.yaw) * -4, y: -3, z: P.z - Math.cos(P.yaw) * -4 } }); } });
     if (!P.out && touch.revive) holdRevive(dt);
     if (keys.KeyE) holdRevive(dt);
+    holdDuct(dt, keys.KeyE || touch.eHeld);
   } else if (W) { // attract view behind the entry screen
     score.update(dt, 0.3, false, 0, false);
     if (VM.handL) { VM.handL.visible = VM.torch.visible = false; if (VM.handR) VM.handR.visible = false; VM.vac.root.visible = VM.mop.root.visible = false; }
@@ -1103,7 +1190,7 @@ function updatePlayer(dt, t) {
   const crouch = keys.ControlLeft || keys.ControlRight || keys.KeyC || touch.crouch;
   const sprint = (keys.ShiftLeft || keys.ShiftRight || touch.sprint) && !crouch;
   let ml = Math.hypot(ix, iz); let mx = ix, mz = iz; if (ml > 1) { mx /= ml; mz /= ml; ml = 1; }
-  const canMove = !P.downed && !P.out && scareT <= 0;
+  const canMove = !P.downed && !P.out && scareT <= 0 && !DUCT;
   const spd = (sprint ? CONFIG.sprintSpeed : crouch ? CONFIG.crouchSpeed : CONFIG.walkSpeed) * (P.tool === 'vacuum' && (mouseL || touch.use) ? 0.8 : 1) * (upgrades.shoes ? 1.15 : 1) * (cart.holder === pid ? CONFIG.cart.speed : 1);
   const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
   const tvx = canMove ? (-sy * mz + cy * mx) * spd : 0, tvz = canMove ? (-cy * mz - sy * mx) * spd : 0;
@@ -1112,8 +1199,8 @@ function updatePlayer(dt, t) {
   updateCart(dt);
   const speed = Math.hypot(P.vx, P.vz); P.moving = speed > 0.3; P.sprint = sprint && P.moving; P.crouching = crouch;
   P.crouch = lerp(P.crouch, crouch ? 1 : 0, 1 - Math.pow(0.0005, dt));
-  if (P.moving) { P.bob += dt * speed * 2.3; P.stepD += speed * dt; if (P.stepD > (sprint ? 0.95 : 0.72)) { P.stepD = 0; const wetFloor = patchesAt(P.x, P.z).some(p => p.type === 'mud'); audio.step({ x: P.x, y: 0.05, z: P.z }, crouch ? 0.25 : sprint ? 1.3 : 0.8, wetFloor);
-    if (echoT > 0) { const bx = P.x + Math.sin(P.yaw) * 4.5, bz = P.z + Math.cos(P.yaw) * 4.5, h = crouch ? 0.45 : sprint ? 1.4 : 1; setTimeout(() => audio.step({ x: bx, y: 0.05, z: bz }, h), 200 + Math.random() * 90); } } } // something walks in step with you
+  if (P.moving) { P.bob += dt * speed * 2.3; P.stepD += speed * dt; if (P.stepD > (sprint ? 0.95 : 0.72)) { P.stepD = 0; const wetFloor = patchesAt(P.x, P.z).some(p => p.type === 'mud'); audio.step({ x: P.x, y: (P.gy ?? groundY(P.x, P.z)) + 0.05, z: P.z }, crouch ? 0.25 : sprint ? 1.3 : 0.8, wetFloor);
+    if (echoT > 0) { const bx = P.x + Math.sin(P.yaw) * 4.5, bz = P.z + Math.cos(P.yaw) * 4.5, h = crouch ? 0.45 : sprint ? 1.4 : 1; setTimeout(() => audio.step({ x: bx, y: groundY(bx, bz) + 0.05, z: bz }, h), 200 + Math.random() * 90); } } } // something walks in step with you
   P.gy = lerp(P.gy ?? groundY(P.x, P.z), groundY(P.x, P.z), 1 - Math.pow(0.00001, dt));
   const eye = P.gy + lerp(CONFIG.eyeHeight, CONFIG.crouchEye, P.crouch) - (P.downed ? 1.15 : 0);
   const bob = settings.bob && P.moving ? Math.sin(P.bob) * 0.035 * (sprint ? 1.4 : 1) : 0;
@@ -1234,10 +1321,10 @@ function vacuumPhysics(dt, on, focus, vs, rects) {
         const ty = iy + 0.05 * Math.min(1, hd / 0.5) + Math.sin(a.t * 18 + id) * 0.008, tvy = (ty - py) * 10;
         const k = 1 - Math.exp(-(4 + pullK * 0.6) * dt);
         a.vx += (tvx - a.vx) * k; a.vy += (tvy - a.vy) * k; a.vz += (tvz - a.vz) * k;
-        px += a.vx * dt; py = Math.max(0.003, py + a.vy * dt); pz += a.vz * dt; a.spin += dt * (8 + vin * 6);
+        px += a.vx * dt; py = Math.max(groundY(px, pz) + 0.003, py + a.vy * dt); pz += a.vz * dt; // the floor here, upstairs or down a.spin += dt * (8 + vin * 6);
         if (Math.hypot(ix - px, iz - pz) < 0.1) { // into the nozzle
           DB.pos[o] = px; DB.pos[o + 1] = py; DB.pos[o + 2] = pz; hideDebris(id); colQ.push(id);
-          tickCount++; if (tickCount % 2 === 0) audio.tick({ x: ix, y: 0.1, z: iz });
+          tickCount++; if (tickCount % 2 === 0) audio.tick({ x: ix, y: iy + 0.07, z: iz });
           rewardCount++; if (rewardCount % 50 === 0) audio.reward();
           continue;
         }

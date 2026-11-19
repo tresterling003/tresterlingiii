@@ -4,7 +4,7 @@ import { Sim, inOffice } from '../shared/sim.js';
 import { DEBRIS, PATCHES, DOORS, buildNav, findPath, doorCenter, COMPUTER, TOOL_RACK } from '../shared/level.js';
 import { CONFIG } from '../shared/config.js';
 import { startHunt } from '../shared/stalker.js';
-import { solidRects } from '../shared/level.js';
+import { solidRects, DUCTS } from '../shared/level.js';
 
 let pass = 0; const t = (name, fn) => { fn(); pass++; console.log('ok -', name); };
 const drain = (s) => { const o = s.out; s.out = []; return o; };
@@ -220,5 +220,21 @@ t('Sissy never gets the extreme scares; Nightmare does', () => {
   assert.ok(!a.has('neck') && !a.has('flashface'), 'no extreme scares on Sissy: ' + [...a]);
   assert.ok(b.has('neck') || b.has('flashface'), 'Nightmare has them: ' + [...b]);
   for (const k of ['echo', 'musicbox', 'creep']) assert.ok(a.has(k) || b.has(k), 'new scare happens: ' + k);
+});
+t('ducts: unscrew a grate, crawl to another room, a limited number of times a night; nothing can catch you in there', () => {
+  const s = new Sim(null, { fear: 1 }); s.join('a', 'A'); const p = s.players.get('a'), A = DUCTS.find(d => d.id === 'v_boiler'), B = DUCTS.find(d => d.id === 'v_office');
+  s.shiftT = CONFIG.shiftSeconds * 0.9; p.x = 0; p.z = 1.8; s.out = [];
+  s.handle('a', { t: 'ductopen', id: A.id }); assert.ok(!s.ducts[A.id], 'too far away to open it');
+  p.x = A.ex; p.z = A.ez; s.handle('a', { t: 'ductgo', from: A.id, to: B.id }); assert.ok(!p.invent, 'still screwed shut');
+  s.handle('a', { t: 'ductopen', id: A.id }); assert.ok(s.ducts[A.id], 'unscrewed');
+  s.handle('a', { t: 'ductgo', from: A.id, to: B.id }); assert.ok(p.invent, 'in the duct'); const go = s.out.map(o => o.ev).find(e => e.t === 'duct' && e.k === 'go'); assert.equal(go.left, 1);
+  s.mon.x = p.x; s.mon.z = p.z; s.setMon('hunt', { target: 'a', huntT: 0, lostT: 0, lastKnown: { x: p.x, z: p.z }, sawHide: false, bangT: 0, watchT: 0, holdLimit: 99, crawl: true, windup: 0 });
+  let caught = false; const ev = run(s, go.dur + 0.5); caught = ev.some(o => o.ev.t === 'caught');
+  assert.ok(!caught, 'nothing catches you in the ducts'); assert.ok(!p.invent && Math.hypot(p.x - B.ex, p.z - B.ez) < 0.01, 'out in the office');
+  assert.ok(ev.some(o => o.ev.t === 'teleport' && o.to === 'a'), 'the client is moved'); assert.ok(s.ducts[B.id], 'the far grate is open now');
+  s.handle('a', { t: 'ductgo', from: B.id, to: A.id }); assert.ok(p.invent, 'second crawl'); run(s, 9);
+  p.x = A.ex; p.z = A.ez; s.handle('a', { t: 'ductgo', from: A.id, to: B.id }); assert.ok(!p.invent, 'no third crawl on Bed Wetter');
+  s.startDay(2); assert.deepEqual(s.ductUsed, {}, 'a new night, fresh legs');
+  const rp = s.roomProgress(); for (const r of ['lib', 'lab', 'band', 'boiler']) assert.ok(rp[r] && rp[r].debrisTotal > 300, 'new room counts for pay: ' + r);
 });
 console.log(`\n${pass} passed`);

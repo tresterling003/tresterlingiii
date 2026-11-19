@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as TX from './textures.js';
-import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, BUCKET, TEACHER_DESK, CAFE_KEY, POOL_BASIN, roomAt, groundY, segBlocked, rng } from '../shared/level.js';
+import { ROOMS, WALLS, DOORS, WINDOWS, FURNITURE, LOCKERS, LOCKER_W, LOCKER_D, LOCKER_H, SEARCHABLE, LIGHTS, BINS, TOOL_RACK, COMPUTER, COT, VENT, T, BUCKET, TEACHER_DESK, CAFE_KEY, POOL_BASIN, DUCTS, roomAt, groundY, segBlocked, rng } from '../shared/level.js';
 
 let GRIME = null; const grimeTex = () => { if (!GRIME) { GRIME = new THREE.TextureLoader().load('assets/tex/grime_detail.jpg'); GRIME.wrapS = GRIME.wrapT = THREE.RepeatWrapping; } return GRIME; };
 const BAKE = { scale: { value: 1 }, black: { value: new THREE.Vector4(0, 0, 1, 0) } }; // black: x, z, radius, amount of a local power cut
@@ -143,6 +143,14 @@ export function buildWorld(scene, renderer, opts = {}) {
     for (const k of ['w014a', 'w014b', 'w014c']) floorMats[k] = carpet;
     const wp = { map: ltex('wallpaper_diff', 2, 2.7, true), normalMap: ltex('wallpaper_nor', 2, 2.7), roughnessMap: ltex('wallpaper_rough', 2, 2.7), uSize: 2, ceil: 2.7 };
     for (const k of ['w014a', 'w014b', 'w014c']) wallSets[k] = wp; }
+  // the new rooms: a carpeted library, a lab, the band room, the boiler room
+  { const c2 = std({ map: ltex('carpet_diff', 2.2, 2.2, true), normalMap: ltex('carpet_nor', 2.2), roughnessMap: ltex('carpet_rough', 2.2), roughness: 1, color: 0x8a96b2, envMapIntensity: 0.12 }); c2.userData.grime = 0.5; floorMats.lib = c2; }
+  floorMats.lab = floorMats.class; floorMats.boiler = floorMats.service.clone(); floorMats.boiler.color.setHex(0xe2ddd2); bakeMaterial(floorMats.boiler); floorMats.boiler.userData.grime = 0.45;
+  { const bT = TX.vctPlain([168, 150, 126], 34, [110, 80, 60]); floorMats.band = std({ map: bT.map, normalMap: bT.normalMap, roughnessMap: bT.roughnessMap, roughness: 0.65, envMapIntensity: 0.4 }); floorMats.band.userData.grime = 0.5; }
+  wallSets.lib = TX.paintedWall({ upper: [216, 206, 180], lower: [104, 74, 46], stripe: [62, 42, 26], bandTop: 1.0, ceil: 2.95, seed: 31 });
+  wallSets.lab = TX.paintedWall({ upper: [228, 232, 228], lower: [86, 136, 132], stripe: [40, 72, 72], bandTop: 1.0, ceil: 2.95, seed: 32 });
+  wallSets.band = TX.paintedWall({ upper: [196, 182, 156], lower: [104, 42, 48], stripe: [214, 176, 64], bandTop: 1.2, ceil: 3.2, seed: 33, block: true });
+  wallSets.boiler = TX.paintedWall({ upper: [196, 190, 174], lower: [128, 120, 106], bandTop: 1.0, ceil: 3.6, seed: 34, block: true });
   const wallMats = {}; for (const k in wallSets) { const w = wallSets[k]; wallMats[k] = std({ map: w.map, normalMap: w.normalMap, roughnessMap: w.roughnessMap, roughness: 1, envMapIntensity: 0.25 }); wallMats[k].userData.grime = 0.4; }
   const ceilT = TX.ceilingTiles(); // ambientCG OfficeCeiling001: 2'x2' acoustic tiles; the ceiling UV is metres / 2.4 and the texture spans ~3.6 m
   const ceilMat = std({ map: ltex('ceil_diff', 0.667, 0.667, true), normalMap: ltex('ceil_nor', 0.667), roughnessMap: ltex('ceil_rough', 0.667), roughness: 1, color: 0xe8e4da }); ceilMat.userData.grime = 0.35;
@@ -175,6 +183,7 @@ export function buildWorld(scene, renderer, opts = {}) {
     red: std({ color: 0xa8201a, roughness: 0.4 }),
     pipe: std({ color: 0x6c6e66, roughness: 0.5, metalness: 0.5 }),
     concreteDark: std({ map: conc.map, color: 0x6a6862, roughness: 0.9 }),
+    concreteLight: std({ map: conc.map, color: 0xa8a49a, roughness: 0.9 }),
   };
   // ---------- floors and ceilings ----------
   const floorRect = (fm, x0, z0, x1, z1, y, size) => col.add(quadGrid(new THREE.Vector3(x0, y, z1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), x1 - x0, z1 - z0, steps(x1 - x0, 0.5), steps(z1 - z0, 0.5), (q) => [q.x / size, -q.z / size]), fm);
@@ -189,7 +198,7 @@ export function buildWorld(scene, renderer, opts = {}) {
     }
     if (id === 'pool') { const B = POOL_BASIN; floorRect(fm, r.x0, r.z0, r.x1, B.z0, r.y, size); floorRect(fm, r.x0, B.z1, r.x1, r.z1, r.y, size); floorRect(fm, r.x0, B.z0, B.x0, B.z1, r.y, size); floorRect(fm, B.x1, B.z0, r.x1, B.z1, r.y, size); }
     else floorRect(fm, r.x0, r.z0, r.x1, r.z1, r.y, size);
-    const cm = ['service', 'storage', 'closet', 'gym', 'pool'].includes(id) ? M.concreteDark : r.wing ? ceil014 : ceilMat;
+    const cm = id === 'boiler' ? M.concreteLight : ['service', 'storage', 'closet', 'gym', 'pool'].includes(id) ? M.concreteDark : r.wing ? ceil014 : ceilMat;
     col.add(quadGrid(new THREE.Vector3(r.x0, r.y + r.ceil, r.z0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), r.x1 - r.x0, r.z1 - r.z0, steps(r.x1 - r.x0, 0.6), steps(r.z1 - r.z0, 0.6), (q) => [q.x / 2.4, q.z / 2.4]), cm);
   }
   // ---------- walls ----------
@@ -536,6 +545,18 @@ export function buildWorld(scene, renderer, opts = {}) {
   for (const b of BINS) { const g = new THREE.Group(); const can = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.21, 0.72, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0x3a5e46, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide })); can.position.y = 0.36; g.add(can); const liner = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16).rotateX(-Math.PI / 2), M.black); liner.position.y = 0.55; g.add(liner); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.015, 6, 20).rotateX(Math.PI / 2), M.darkSteel); rim.position.y = 0.72; g.add(rim); g.position.set(b.x, 0, b.z); scene.add(g); out.interact.push({ kind: 'bin', id: b.id, x: b.x, y: 0.7, z: b.z }); }
   // ---------- athletics floor ----------
   buildAthletics(scene, col, M, std, out);
+  buildNewRooms(scene, col, M, std, out, prop);
+  // duct grates: a steel frame screwed to the wall near the floor; the grille hinges down when it is opened
+  out.ducts = {};
+  for (const d of DUCTS) {
+    const g = new THREE.Group(); g.position.set(d.x + d.nx * 0.012, d.y + 0.36, d.z + d.nz * 0.012); g.rotation.y = Math.atan2(d.nx, d.nz); scene.add(g);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.48, 0.03), M.darkSteel); g.add(frame);
+    const hole = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.4), new THREE.MeshBasicMaterial({ color: 0x020202 })); hole.position.z = 0.017; g.add(hole);
+    const hinge = new THREE.Group(); hinge.position.set(0, -0.2, 0.03); g.add(hinge);
+    const grille = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.4), M.grille); grille.position.y = 0.2; hinge.add(grille);
+    const screws = []; for (const [sx, sy] of [[-0.27, 0.17], [0.27, 0.17], [-0.27, -0.17], [0.27, -0.17]]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 8).rotateX(Math.PI / 2), M.chrome); sc.position.set(sx, sy + 0.2, 0.006); hinge.add(sc); screws.push(sc); }
+    out.ducts[d.id] = { g, hinge, screws, d, open: false };
+  }
   // ---------- cafeteria: fold-out tables, the serving line ----------
   { const Y = -4, top = std({ color: 0xcfc6b0, roughness: 0.45 }), seat = std({ color: 0x2f5a8c, roughness: 0.4 }), steel = M.steel;
     for (const f of FURNITURE) {
@@ -670,6 +691,62 @@ function POSTERS() {
       x.fillText('A. Arden · M. Arden · T. Bell · J. Cruz · D. Fenn · L. Hale · K. Ibsen · R. Lowe · S. Marsh · E. Nolan · P. Ortiz · C. Price · W. Shaw · N. Webb', w / 2, 170); x.font = 'italic 24px Georgia'; x.fillText('Room 014', w / 2, 220); }),
   };
   return (_posters = P);
+}
+
+// ======================= library, science lab, band room, boiler room =======================
+function buildNewRooms(scene, col, M, std, out, prop) {
+  const R = rng(5150), plane = (mat, w, h, x, y, z, ry) => col.add(new THREE.PlaneGeometry(w, h), mat, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(1, 1, 1)));
+  const cyl = (mat, r, h, x, y, z, rx = 0, rz = 0, seg = 16, r2) => col.add(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, rz)), new THREE.Vector3(1, 1, 1)));
+  // book spines on shelves (a canvas: rows of spines in faded cloth colours)
+  const books = TX.textCanvas(512, 512, (x, w, h) => { x.fillStyle = '#2a1d12'; x.fillRect(0, 0, w, h); const rows = 5, rh = h / rows;
+    for (let r = 0; r < rows; r++) { let px = 4; while (px < w - 6) { const bw = 7 + R() * 16, bh = rh * (0.62 + R() * 0.3), hue = [12, 30, 200, 120, 0, 45, 220][(R() * 7) | 0], l = 18 + R() * 26;
+      x.fillStyle = `hsl(${hue},${20 + R() * 35}%,${l}%)`; x.fillRect(px, r * rh + rh - bh - 4, bw - 1, bh); if (R() < 0.5) { x.fillStyle = 'rgba(220,190,120,.5)'; x.fillRect(px + 1, r * rh + rh - bh + 6, bw - 3, 2); } px += bw; if (R() < 0.05) px += 14; }
+      x.fillStyle = '#4a3420'; x.fillRect(0, r * rh + rh - 4, w, 4); } });
+  const bookMat = std({ map: books, roughness: 0.85 });
+  for (const f of FURNITURE) {
+    const cx = (f.x0 + f.x1) / 2, cz = (f.z0 + f.z1) / 2, w = f.x1 - f.x0, d = f.z1 - f.z0, y0 = f.y0 || 0;
+    if (f.kind === 'bookshelf') { col.box(M.woodDark, cx, y0 + f.h / 2, cz, w, f.h, d); const front = cz < -4 ? 1 : -1; plane(bookMat, w - 0.08, f.h - 0.12, cx, y0 + f.h / 2, cz + front * (d / 2 + 0.004), front > 0 ? 0 : Math.PI); }
+    else if (f.kind === 'stack') { col.box(M.woodDark, cx, y0 + f.h / 2, cz, w, f.h, d); for (const s of [1, -1]) plane(bookMat, d - 0.08, f.h - 0.12, cx + s * (w / 2 + 0.004), y0 + f.h / 2, cz, s * Math.PI / 2); }
+    else if (f.kind === 'libtable') { col.box(M.wood, cx, 0.74, cz, w, 0.04, d); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) col.box(M.woodDark, cx + a * (w / 2 - 0.08), 0.36, cz + b * (d / 2 - 0.08), 0.06, 0.72, 0.06);
+      for (const s of [-1, 1]) for (const o of [-0.45, 0.45]) prop('SchoolChair_01', cx + o, 0, cz + s * 0.75, s > 0 ? Math.PI : 0, { h: 0.84 }) || col.box(M.plasticBlue, cx + o, 0.45, cz + s * 0.75, 0.42, 0.06, 0.42); }
+    else if (f.kind === 'libdesk') { col.box(M.woodDark, cx, 0.5, cz, w, 1.0, d); col.box(M.wood, cx, 1.02, cz, w + 0.06, 0.04, d + 0.06); col.box(M.cabinet, cx - 0.5, 1.12, cz, 0.3, 0.16, 0.3); // a date stamp, a lamp
+      col.box(M.woodDark, 28.6, 0.6, -5.6, 0.9, 1.2, 0.5); for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) col.box(M.wood, 28.6 - 0.3 + j * 0.3, 0.3 + i * 0.27, -5.34, 0.26, 0.22, 0.02); } // card catalogue
+    else if (f.kind === 'labbench') { col.box(M.white, cx, 0.44, cz, w - 0.1, 0.86, d - 0.1); col.box(M.black, cx, 0.9, cz, w, 0.05, d); col.box(M.darkSteel, cx + 0.55, 0.9, cz, 0.42, 0.06, 0.32);
+      cyl(M.chrome, 0.012, 0.36, cx + 0.55, 1.1, cz - 0.1); for (const o of [-0.6, 0, 0.6]) { cyl(M.chrome, 0.008, 0.1, cx + o - 0.2, 0.98, cz); // gas taps
+        cyl(M.steel, 0.018, 0.62, cx + o, 0.31, cz + (cz < -4 ? 0.85 : -0.85)); cyl(M.black, 0.17, 0.04, cx + o, 0.64, cz + (cz < -4 ? 0.85 : -0.85), 0, 0, 14); } } // stools
+    else if (f.kind === 'hood') { col.box(M.white, cx, 0.45, cz, w, 0.9, d); col.box(M.black, cx, 0.92, cz, w, 0.04, d); col.box(M.white, cx, 2.05, cz, w, 0.5, d); col.box(M.white, f.x0 + 0.04, 1.38, cz, 0.08, 0.9, d); col.box(M.white, f.x1 - 0.04, 1.38, cz, 0.08, 0.9, d);
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.12, 0.85), M.glassTint); g.position.set(cx, 1.36, f.z1 + 0.01); scene.add(g); }
+    else if (f.kind === 'bandchair') { prop('SchoolChair_01', f.cx, -4, f.cz, f.rot + Math.PI, { h: 0.84 }) || col.box(M.black, f.cx, -4 + 0.45, f.cz, 0.42, 0.06, 0.42);
+      const sx = f.cx + Math.sin(f.rot) * 0.55, sz = f.cz + Math.cos(f.rot) * 0.55; cyl(M.black, 0.01, 1.0, sx, -4 + 0.5, sz); col.box(M.black, sx, -4 + 1.05, sz, 0.48, 0.32, 0.02, f.rot, 0); } // music stand
+    else if (f.kind === 'piano') { col.box(M.black, cx, y0 + 0.65, cz + 0.05, w, 1.3, 0.5); col.box(M.black, cx, y0 + 0.72, cz - 0.3, w, 0.06, 0.25);
+      plane(std({ map: TX.textCanvas(512, 64, (x, W2, H2) => { x.fillStyle = '#efe9da'; x.fillRect(0, 0, W2, H2); x.fillStyle = '#222'; for (let k = 0; k < 52; k++) { x.fillRect(k * W2 / 52, 0, 1, H2); if ([1, 2, 4, 5, 6].includes(k % 7)) x.fillRect(k * W2 / 52 - 3, 0, 6, H2 * 0.62); } }), roughness: 0.4 }), w - 0.1, 0.16, cx, y0 + 0.76, cz - 0.42, 0);
+      col.box(M.woodDark, cx, y0 + 0.25, cz - 0.85, 0.9, 0.5, 0.35); }
+    else if (f.kind === 'drums') { cyl(M.red, 0.28, 0.4, cx, y0 + 0.3, cz, Math.PI / 2, 0, 20); for (const [ox, oz, r, hh] of [[-0.45, 0.25, 0.17, 0.62], [0.35, 0.3, 0.14, 0.78], [-0.1, -0.1, 0.13, 0.84]]) { cyl(M.red, r, 0.16, cx + ox, y0 + hh, cz + oz, 0, 0, 16); cyl(M.chrome, 0.012, hh, cx + ox, y0 + hh / 2, cz + oz); }
+      for (const [ox, oz, hh] of [[-0.6, -0.3, 1.0], [0.55, -0.25, 1.1]]) { cyl(M.yellow, 0.22, 0.01, cx + ox, y0 + hh, cz + oz, 0.1, 0, 20); cyl(M.chrome, 0.01, hh, cx + ox, y0 + hh / 2, cz + oz); } }
+    else if (f.kind === 'instcab') { col.box(M.woodDark, cx, y0 + 1.0, cz, w, 2.0, d); for (let k = 0; k < 5; k++) col.box(M.trim, f.x0 - 0.005, y0 + 1.0, f.z0 + 0.3 + k * 0.6, 0.01, 1.9, 0.02); }
+    else if (f.kind === 'boiler') { // a riveted horizontal boiler on a brick plinth, its firebox glowing
+      col.box(M.concreteDark, cx, y0 + 0.3, cz, w, 0.6, d); cyl(M.pipe, 1.05, w - 0.3, cx, y0 + 1.55, cz, 0, Math.PI / 2, 28);
+      for (let k = 0; k < 5; k++) cyl(M.darkSteel, 1.09, 0.06, f.x0 + 0.5 + k * (w - 1) / 4, y0 + 1.55, cz, 0, Math.PI / 2, 28);
+      const fire = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.32), new THREE.MeshStandardMaterial({ color: 0x220800, emissive: 0xff6a1a, emissiveIntensity: 3.2 })); fire.position.set(f.x1 - 0.12, y0 + 1.15, cz); fire.rotation.y = Math.PI / 2; scene.add(fire); out.fires = (out.fires || []).concat(fire.material);
+      col.box(M.black, f.x1 - 0.13, y0 + 1.15, cz, 0.04, 0.42, 0.62);
+      cyl(M.pipe, 0.16, 1.4, cx - 1.6, y0 + 3.0, cz, 0, 0, 14); cyl(M.pipe, 0.16, 1.4, cx + 1.2, y0 + 3.0, cz - 0.4, 0, 0, 14); // up into the ceiling
+      out.hums = (out.hums || []).concat([{ x: cx, y: y0 + 1.4, z: cz, kind: 'boiler' }]); }
+    else if (f.kind === 'tank') { cyl(M.cabinet, 0.48, f.h, cx, y0 + f.h / 2, cz, 0, 0, 22); cyl(M.chrome, 0.05, 0.6, cx, y0 + f.h + 0.3, cz); }
+  }
+  // boiler room: pipes along the ceiling, valve wheels, gauges, a shelf of spares
+  const Yb = -4;
+  for (const [z, r] of [[-9.0, 0.12], [-9.4, 0.08], [-15.6, 0.1]]) cyl(M.pipe, r, 13.6, -9, Yb + 3.25, z, 0, Math.PI / 2, 12);
+  for (const x of [-14.8, -10.5, -3.0]) cyl(M.pipe, 0.07, 3.0, x, Yb + 1.75, -15.75, 0, 0, 10);
+  for (const [x, z] of [[-14.8, -15.65], [-10.5, -15.65], [-6.2, -12.3]]) { const v = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.022, 6, 18), M.red); v.position.set(x, Yb + 1.4, z); scene.add(v); }
+  const gauge = TX.textCanvas(128, 128, (x, w, h) => { x.fillStyle = '#e8e2cc'; x.beginPath(); x.arc(64, 64, 60, 0, 7); x.fill(); x.strokeStyle = '#222'; x.lineWidth = 3; for (let k = 0; k <= 10; k++) { const a = Math.PI * (0.75 + k * 0.15); x.beginPath(); x.moveTo(64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44); x.lineTo(64 + Math.cos(a) * 54, 64 + Math.sin(a) * 54); x.stroke(); } x.strokeStyle = '#b01010'; x.lineWidth = 4; x.beginPath(); x.moveTo(64, 64); x.lineTo(64 + Math.cos(2.2 * Math.PI) * 46, 64 + Math.sin(2.2 * Math.PI) * 46); x.stroke(); });
+  for (const x of [-9.8, -8.6]) { const g = new THREE.Mesh(new THREE.CircleGeometry(0.11, 20), std({ map: gauge, roughness: 0.3 })); g.position.set(x, Yb + 2.0, -12.38); scene.add(g); }
+  prop('steel_frame_shelves_01', -2.4, Yb, -10.6, -Math.PI / 2, { h: 2.0, w: 1.6 });
+  prop('cardboard_box_01', -2.7, Yb, -12.6, 0.4, { h: 0.45 }); prop('power_box_01', -15.88, Yb + 1.1, -9.6, Math.PI / 2, { h: 0.6 });
+  // library: a QUIET PLEASE sign and the return cart; band room: a staff-lined chalkboard
+  plane(std({ map: TX.textCanvas(512, 128, (x, w, h) => { x.fillStyle = '#183a2a'; x.fillRect(0, 0, w, h); x.fillStyle = '#f1e9d0'; x.font = 'bold 64px Georgia'; x.textAlign = 'center'; x.fillText('QUIET PLEASE', w / 2, 86); }), roughness: 0.7 }), 1.2, 0.3, 24, 2.35, -8.43, 0);
+  plane(M.board, 3.2, 1.2, -6.5, -4 + 1.6, 0.29, Math.PI);
+  plane(std({ map: TX.textCanvas(1024, 384, (x, w, h) => { x.clearRect(0, 0, w, h); x.strokeStyle = 'rgba(235,235,225,.75)'; x.lineWidth = 3; for (const y0 of [60, 230]) for (let k = 0; k < 5; k++) { x.beginPath(); x.moveTo(30, y0 + k * 18); x.lineTo(w - 30, y0 + k * 18); x.stroke(); }
+    x.fillStyle = 'rgba(240,240,230,.85)'; x.font = 'italic 34px Georgia'; x.fillText('Spring Concert — June 13', 40, 200); x.font = '30px Georgia'; x.fillText('Seats: Room 014 students first row', 40, 360); }), transparent: true, roughness: 0.9 }), 3.1, 1.15, -6.5, -4 + 1.6, 0.28, Math.PI);
 }
 
 // ======================= athletics floor props =======================

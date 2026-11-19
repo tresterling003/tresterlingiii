@@ -156,9 +156,9 @@ function updateLO(dt, t) {
 
 // ---------------- phantoms: it is there for an instant, then it is not ----------------
 const PH = { on: false, t: 0, dur: 0 }, _cw = new THREE.Vector3();
-export function phantom(x, z, dur = 0.2, scr = 1.1) {
+export function phantom(x, z, dur = 0.2, scr = 1.1, y) {
   if (W.on) vanish(false); const g = ghost(); if (!g) return false; if (g.root.parent !== C.scene) C.scene.add(g.root);
-  g.root.visible = true; g.root.position.set(x, groundY(x, z), z); g.root.rotation.set(0, Math.atan2(C.P.x - x, C.P.z - z), 0); g.scr = scr; g.lock = true; g.update(0.016, 'idle', 1, 0, 0);
+  g.root.visible = true; g.root.position.set(x, y ?? groundY(x, z), z); g.root.rotation.set(0, Math.atan2(C.P.x - x, C.P.z - z), 0); g.scr = scr; g.lock = true; g.update(0.016, 'idle', 1, 0, 0);
   PH.on = true; PH.t = 0; PH.dur = dur; facePhantom(); return true;
 }
 function facePhantom() { const g = W.g; g.root.updateMatrixWorld(true); C.camera.getWorldPosition(_cw); g.face.lookAt(_cw); g.face.rotateZ(0.4); }

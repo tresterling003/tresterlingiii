@@ -2,7 +2,7 @@
 // All shared progress (money, debris, dirt masks, doors, discoveries, upgrades, clock, the Monitor) lives here.
 import { CONFIG } from './config.js';
 import { tickStalker, resetStalker } from './stalker.js';
-import {
+import { DUCTS, DUCT_CRAWLS,
   ROOMS, DOORS, LOCKERS, SEARCHABLE, TEACHER_DESK, CAFE_KEY, BUCKET, CART_HOME, ROOMBA_DOCK, groundY, DEBRIS, DEBRIS_TOTAL_BY_ROOM, PATCHES, initialMask, CLUE_SPOT, CLUES, BINS, TOOL_RACK,
   COMPUTER, COT, VENT, SPAWN, LIGHTS, PATROL, WATCH_POINTS, LAIR, roomAt, progressRoom, solidRects, segBlocked, wallsBetween,
   buildNav, findPath, doorCenter, rng, NAV,
@@ -49,7 +49,7 @@ export class Sim {
     this.doors = Object.fromEntries(DOORS.map(d => [d.id, { open: d.id === 'd_office', bolted: false }]));
     this.lockers = {};
     this.discoveries = []; this.purchased = []; this.upgrades = { suction: 0, bag: 0, quiet: 0, light: 0 };
-    this.roomBonus = {}; this.inv = {}; this.firedPA = {};
+    this.roomBonus = {}; this.inv = {}; this.firedPA = {}; this.ducts = {}; this.ductUsed = {};
     this.shiftStats = this.newStats(); this.summary = null; this.safeT = 0;
     this.collectedByRoom = {};
   }
@@ -62,7 +62,7 @@ export class Sim {
       v: CONFIG.saveVersion, savedAt: Date.now(), day: this.day, money: +this.money.toFixed(4), shiftT: this.shiftT, phase: this.phase === 'summary' ? 'summary' : this.phase === 'gameover' ? 'shift' : this.phase,
       collected: b64enc(this.collected), masks: Object.fromEntries(Object.entries(this.masks).map(([k, v]) => [k, b64enc(v)])),
       doors: this.doors, lockers: this.lockers, discoveries: this.discoveries, purchased: this.purchased, roomBonus: this.roomBonus,
-      inv: this.inv, firedPA: this.firedPA, shiftStats: this.shiftStats, summary: this.summary,
+      inv: this.inv, firedPA: this.firedPA, shiftStats: this.shiftStats, summary: this.summary, ducts: this.ducts, ductUsed: this.ductUsed,
       best: Object.fromEntries(Object.entries(this.maskBest).map(([k, v]) => [k, b64enc(v)])), keys: this.keys, found: this.found, searchedDesk: this.searchedDesk,
       cart: { x: this.cart.x, z: this.cart.z, yaw: this.cart.yaw }, roombas: this.roombas.map(r => ({ id: r.id, x: r.x, z: r.z, yaw: r.yaw, state: r.state === 'carried' ? 'idle' : r.state, bag: r.bag })),
     };
@@ -76,7 +76,7 @@ export class Sim {
     this.discoveries = s.discoveries || []; this.purchased = s.purchased || []; this.roomBonus = s.roomBonus || {}; this.inv = s.inv || {};
     this.firedPA = s.firedPA || {}; this.shiftStats = s.shiftStats || this.newStats(); this.summary = s.summary || null;
     for (const [k, v] of Object.entries(s.best || {})) { const m = b64dec(v); if (this.maskBest[k] && m.length === this.maskBest[k].length) this.maskBest[k] = m; }
-    this.keys = s.keys || {}; this.found = s.found || []; this.searchedDesk = !!s.searchedDesk;
+    this.keys = s.keys || {}; this.found = s.found || []; this.searchedDesk = !!s.searchedDesk; this.ducts = s.ducts || {}; this.ductUsed = s.ductUsed || {};
     if (s.cart) this.cart = { ...s.cart, holder: null };
     this.roombas = (s.roombas || []).map(r => ({ ...r, holder: null, t: 0 }));
     this.applyUpgrades();
@@ -114,7 +114,7 @@ export class Sim {
     switch (m.t) {
       case 'st': {
         p.hold = !!m.hd;
-        if (p.downed || p.out || p.hidden) { p.yaw = m.yw; p.pitch = m.pt; return; }
+        if (p.downed || p.out || p.hidden || p.invent) { p.yaw = m.yw; p.pitch = m.pt; return; }
         // light sanity: reject impossible jumps (except respawns the server initiated)
         if (dist(p.x, p.z, m.p[0], m.p[2]) < 4 || p.teleportOk || (m.tp && this.opts.allowTeleport)) { p.x = m.p[0]; p.y = m.p[1]; p.z = m.p[2]; p.teleportOk = false; }
         p.yaw = m.yw; p.pitch = m.pt; p.tool = m.tool; p.act = m.act ? 1 : 0; p.fl = m.fl ? 1 : 0; p.cr = m.cr ? 1 : 0; p.sp = m.sp ? 1 : 0; p.mv = m.mv ? 1 : 0; if (typeof m.hf === 'number' && m.hf > 0) p.hf = Math.min(1.4, Math.max(0.55, m.hf));
@@ -283,6 +283,15 @@ export class Sim {
       }
       case 'unhide': { if (!p.hidden) return; const L = LOCKERS.find(l => l.id === p.hidden); p.hidden = null; if (L) { p.x = L.x; p.z = L.side === 'n' ? L.z + 0.55 : L.z - 0.55; p.teleportOk = true; this.emit({ t: 'teleport', x: p.x, z: p.z, yaw: L.side === 'n' ? Math.PI : 0 }, { to: pid }); } this.emit({ t: 'hidden', pid, on: 0 }); return; }
       case 'retry': if (this.phase === 'gameover') this.restartNight(); return;
+      case 'ductopen': { const d = DUCTS.find(v => v.id === m.id); if (!d || this.ducts[d.id] || p.invent || Math.hypot(p.x - d.ex, p.z - d.ez) > 1.7) return;
+        this.ducts[d.id] = true; (this.noises = this.noises || []).push({ x: d.x, z: d.z, r: 8 }); this.emit({ t: 'duct', k: 'open', id: d.id }); return; } // the screws squeal: it may hear
+      case 'ductgo': { const a = DUCTS.find(v => v.id === m.from), b = DUCTS.find(v => v.id === m.to);
+        if (!a || !b || a === b || !this.ducts[a.id] || p.invent || p.downed || p.out || p.hidden || Math.hypot(p.x - a.ex, p.z - a.ez) > 1.9) return;
+        const used = this.ductUsed[pid] || 0, max = DUCT_CRAWLS[this.fear ?? 1] ?? 2; if (used >= max) return;
+        this.ductUsed[pid] = used + 1; if (this.cart.holder === pid) this.cart.holder = null;
+        const dur = Math.min(7.5, 4 + Math.hypot(a.x - b.x, a.z - b.z) * 0.05 + Math.abs(a.y - b.y) * 0.3);
+        p.invent = { to: b.id, t: dur }; p.act = 0;
+        this.emit({ t: 'duct', k: 'go', pid, from: a.id, to: b.id, dur, left: max - used - 1 }); return; }
       case 'fear': if (pid === [...this.players.keys()][0] && [0, 1, 2].includes(m.v)) { this.fear = m.v; this.emit({ t: 'fear', v: m.v }); } return; // only whoever started the crew
       case 'sleep': {
         if (this.phase !== 'summary') return;
@@ -334,7 +343,7 @@ export class Sim {
   roomProgress() {
     const res = {};
     const col = {}; for (let i = 0; i < DEBRIS.length; i++) if (this.collected[i]) col[DEBRIS[i].room] = (col[DEBRIS[i].room] || 0) + 1;
-    for (const room of ['hall', 'class', 'closet', 'service', 'lcorr', 'gym', 'lockers', 'pool', 'cafe', 'w014']) {
+    for (const room of ['hall', 'class', 'closet', 'service', 'lib', 'lab', 'lcorr', 'gym', 'lockers', 'pool', 'cafe', 'band', 'boiler', 'w014']) {
       const tot = DEBRIS_TOTAL_BY_ROOM[room] || 0, c = col[room] || 0;
       const patches = PATCHES.filter(p => p.room === room);
       let mi = 0, ms = 0; for (const p of patches) { mi += this.maskInit[p.id]; ms += this.maskSum[p.id]; }
@@ -348,7 +357,7 @@ export class Sim {
     const rp = this.roomProgress();
     for (const [room, r] of Object.entries(rp)) if (r.done && !this.roomBonus[room]) {
       this.roomBonus[room] = true; const b = CONFIG.roomBonus[room] || 0; this.money += b; this.shiftStats.earned += b;
-      this.emit({ t: 'roomdone', room, name: ROOMS[room].name, bonus: b });
+      this.emit({ t: 'roomdone', room, name: (ROOMS[room] || ROOMS[room + 'a'] || { name: room }).name, bonus: b });
       this.save('room complete');
     }
   }
@@ -369,6 +378,9 @@ export class Sim {
   tick(dt) {
     this.time = (this.time || 0) + dt;
     if (this.phase === 'summary' || this.phase === 'gameover') { this.snapTimer(dt); return; }
+    for (const p of this.players.values()) if (p.invent && (p.invent.t -= dt) <= 0) { // out of the duct, at the other end
+      const b = DUCTS.find(v => v.id === p.invent.to); p.invent = null; this.ducts[b.id] = true; p.x = b.ex; p.z = b.ez; p.teleportOk = true;
+      this.emit({ t: 'teleport', x: b.ex, z: b.ez, yaw: b.yaw }, { to: p.pid }); this.emit({ t: 'duct', k: 'out', pid: p.pid, id: b.id }); }
     this.shiftT += dt * this.timeScale;
     if (!this.keys['014'] && (this.day > 1 || this.shiftT > CONFIG.shiftSeconds * 0.3)) {
       this.keys['014'] = true; this.emit({ t: 'keys', keys: this.keys, quiet: true });
@@ -398,7 +410,7 @@ export class Sim {
     this.saveTimer = (this.saveTimer || 0) + dt; if (this.saveTimer > 20) { this.saveTimer = 0; this.save('periodic'); }
   }
   snapTimer(dt) { this.snapT = (this.snapT || 0) + dt; if (this.snapT >= 0.1) { this.snapT = 0; this.emit({ t: 'snap', shiftT: this.shiftT, phase: this.phase, money: this.money, players: this.snapPlayers(), mon: this.snapMon(), safeT: this.safeT, cart: [this.cart.x, this.cart.z, this.cart.yaw, this.cart.holder], rb: this.roombas.map(r => [r.id, +r.x.toFixed(3), +r.z.toFixed(3), +r.yaw.toFixed(3), r.state, r.holder, r.bag]) }); } }
-  snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, hid: p.hidden ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
+  snapPlayers() { return [...this.players.values()].filter(p => p.connected).map(p => ({ pid: p.pid, name: p.name, x: p.x, y: p.y, z: p.z, yw: p.yaw, pt: p.pitch, tool: p.tool, act: p.act, fl: p.fl, cr: p.cr, dn: p.downed ? 1 : 0, hid: p.hidden || p.invent ? 1 : 0, dnT: p.downT, out: p.out ? 1 : 0, bag: p.bag, rv: p.revive })); }
   snapMon() { const m = this.mon; return m ? { x: m.x, z: m.z, yaw: m.yaw, st: m.state, mv: m.moving, lx: m.lookX, lz: m.lookZ, v: m.visible, fr: m.frozen ? 1 : 0, tp: m.tpN || 0, pz: m.pz || 0 } : null; }
   save(reason) { if (this.opts.onSave) this.opts.onSave(this.serialize(), reason); }
   endShift(failed, clockedOut = false) {
@@ -412,7 +424,7 @@ export class Sim {
     this.save('shift end');
   }
   startDay(day) {
-    this.day = day; this.dir = null; this.shiftT = 0; this.phase = 'shift'; this.timeScale = 1; this.summary = null; this.safeT = 0; this.shiftStats = this.newStats();
+    this.day = day; this.dir = null; this.shiftT = 0; this.ductUsed = {}; this.phase = 'shift'; this.timeScale = 1; this.summary = null; this.safeT = 0; this.shiftStats = this.newStats();
     this.doors.d_office.bolted = false; this.doors.d_office.open = false;
     for (const p of this.players.values()) { p.downed = false; p.out = false; p.bag = p.bag; this.respawnInOffice(p); }
     this.resetMonster(false);

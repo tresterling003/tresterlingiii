@@ -23,9 +23,15 @@ export const ROOMS = {
   w014a: { name: 'Room 014', x0: 7, z0: 3.6, x1: 20, z1: 24, ceil: 2.7, wing: true },
   w014b: { name: 'Room 014', x0: 20, z0: 10, x1: 40, z1: 24, ceil: 2.7, wing: true },
   w014c: { name: 'Room 014', x0: 27, z0: 3.6, x1: 40, z1: 10, ceil: 2.7, wing: true },
+  // south of the hall: the library (through Room 112) and the science lab (through the library, or the service corridor)
+  lib: { name: 'Library', x0: 18, z0: -9, x1: 30, z1: 0, ceil: 2.95 },
+  lab: { name: 'Science Lab 116', x0: 30, z0: -9, x1: 40, z1: 0, ceil: 2.95 },
+  // the athletics floor goes deeper: the band room off the corridor, and the boiler room behind it, back into the gym
+  band: { name: 'Band Room', x0: -12, z0: -8, x1: -2, z1: 0.4, ceil: 3.2, y: -4 },
+  boiler: { name: 'Boiler Room', x0: -16, z0: -16, x1: -2, z1: -8, ceil: 3.6, y: -4 },
 };
 for (const r of Object.values(ROOMS)) if (r.y == null) r.y = 0;
-export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair', 'w014a', 'w014b', 'w014c'], athletics: ['lcorr', 'gym', 'lockers', 'pool', 'cafe'] };
+export const FLOORS = { upper: ['hall', 'class', 'closet', 'office', 'service', 'storage', 'stair', 'w014a', 'w014b', 'w014c', 'lib', 'lab'], athletics: ['lcorr', 'gym', 'lockers', 'pool', 'cafe', 'band', 'boiler'] };
 // walking height: the stairwell descends 4 m over 8 m of steps (x -2 -> -10)
 export function groundY(x, z) {
   const r = roomAt(x, z); if (!r) return x < -0.05 && z > 0 && z < 3.6 ? 0 : (x < -12 ? -4 : 0);
@@ -52,6 +58,12 @@ export const DOORS = [
   { id: 'd_pool', axis: 'z', x: -26, a0: 10.0, a1: 11.0, hinge: 0, swing: 1, kind: 'service', label: 'POOL', y: -4 },
   { id: 'd_014', axis: 'x', z: 3.6, a0: 11.4, a1: 12.4, hinge: 0, swing: 1, kind: 'classroom', label: '014', lock: '014' },
   { id: 'd_cafe', axis: 'z', x: -12, a0: 7.0, a1: 8.2, hinge: 0, swing: -1, kind: 'steel', label: 'CAFETERIA', y: -4, lock: 'cafekey' },
+  { id: 'd_lib', axis: 'z', x: 18, a0: -4.6, a1: -3.6, hinge: 0, swing: 1, kind: 'classroom', label: 'LIBRARY' },
+  { id: 'd_lab', axis: 'z', x: 30, a0: -4.6, a1: -3.6, hinge: 0, swing: 1, kind: 'classroom', label: '116' },
+  { id: 'd_labsvc', axis: 'z', x: 40, a0: -4.4, a1: -3.4, hinge: 0, swing: -1, kind: 'service', label: 'LAB' },
+  { id: 'd_band', axis: 'z', x: -12, a0: -3.6, a1: -2.4, hinge: 0, swing: -1, kind: 'classroom', label: 'BAND', y: -4 },
+  { id: 'd_boiler', axis: 'x', z: -8, a0: -6, a1: -5, hinge: 0, swing: 1, kind: 'steel', label: 'BOILER', y: -4 },
+  { id: 'd_gymboil', axis: 'z', x: -16, a0: -12, a1: -11, hinge: 0, swing: 1, kind: 'service', label: 'BOILER', y: -4 },
 ];
 for (const d of DOORS) if (d.y == null) d.y = 0;
 export const WINDOWS = [
@@ -104,9 +116,11 @@ export const WALLS = [
   { x0: 12, z0: -T / 2, x1: 16, z1: T / 2, h: 2.95, glass: true },
   ...hwall(3.6, -0.1, 40.1, [[3.5, 4.5], [11.4, 12.4], [21, 22]], 2.95),
   ...vwall(0, 0, 3.6, [[1.2, 2.4]], 2.95),
-  ...vwall(40, -6, 12, [[1.3, 2.3]], 2.95),
+  ...vwall(40, -9.1, 12, [[-4.4, -3.4], [1.3, 2.3]], 2.95),
   // classroom
-  ...vwall(8, -9.1, 0, [], 2.95), ...vwall(18, -9.1, 0, [], 2.95), ...hwall(-9, 7.9, 18.1, [], 2.95),
+  ...vwall(8, -9.1, 0, [], 2.95), ...vwall(18, -9.1, 0, [[-4.6, -3.6]], 2.95), ...hwall(-9, 7.9, 18.1, [], 2.95),
+  // library and science lab
+  ...vwall(30, -9.1, 0, [[-4.6, -3.6]], 2.95), ...hwall(-9, 17.9, 40.1, [], 2.95),
   // closet
   ...vwall(2, 3.6, 6.9, [], 2.6), ...vwall(6, 3.6, 6.9, [], 2.6), ...hwall(6.8, 1.9, 6.1, [], 2.6),
   // office
@@ -117,13 +131,16 @@ export const WALLS = [
   // west stairwell: 7 m tall shaft from the athletics floor (-4) up past the hallway ceiling
   ...hwall(0.4, -12, 0, [], 7, -4), ...hwall(3.2, -12, 0, [], 7, -4),
   // athletics floor (base -4)
-  ...vwall(-12, -6.1, 12.1, [[0.4, 3.2], [7.0, 8.2]], 3, -4),
+  ...vwall(-12, -6.1, 12.1, [[-3.6, -2.4], [0.4, 3.2], [7.0, 8.2]], 3, -4),
+  // band room and boiler room
+  ...vwall(-12, -8.1, -6.1, [], 3.2, -4), ...hwall(-8, -12.1, -1.9, [[-6, -5]], 3.6, -4), ...vwall(-2, -8.1, 0.5, [], 3.2, -4),
+  ...hwall(-8, -16.1, -12.1, [], 3.6, -4), ...vwall(-16, -16.1, -14.1, [], 3.6, -4), ...hwall(-16, -16.1, -1.9, [], 3.6, -4), ...vwall(-2, -16.1, -7.9, [], 3.6, -4),
   // Room 014: outer shell (the hall, office and service walls close the rest) and its maze
   ...vwall(7, 3.6, 24.1, [], 2.7), ...hwall(24, 6.9, 40.1, [], 2.7), ...vwall(40, 12, 24.1, [], 2.7),
   ...W014_WALLS,
   // cafeteria (locked; the mannequins are kept here)
   ...vwall(-12, 12, 20.1, [], 4, -4), ...hwall(3.6, -12.1, 0.1, [], 4, -4), ...vwall(0, 3.6, 20.1, [], 4, -4), ...hwall(20, -12.1, 0.1, [], 4, -4), ...hwall(-6, -16.1, -11.9, [], 3, -4), ...hwall(12, -16.1, -11.9, [], 3, -4),
-  ...vwall(-16, -14.1, 16.1, [[-2.0, -0.8], [9.0, 10.0]], 7.5, -4),
+  ...vwall(-16, -14.1, 16.1, [[-12, -11], [-2.0, -0.8], [9.0, 10.0]], 7.5, -4),
   ...hwall(-14, -40.1, -15.9, [], 7.5, -4), ...vwall(-40, -14.1, 6.25, [], 7.5, -4),
   ...hwall(6.25, -46.1, -15.9, [], 7.5, -4),
   ...vwall(-26, 6.25, 24.1, [[10.0, 11.0]], 6.5, -4), ...hwall(16, -26.1, -15.9, [], 2.8, -4),
@@ -184,6 +201,8 @@ export const MANNEQUIN_SPOTS = (() => {
   for (const o of out) o.y = -4;
   // a few stand in the sealed wing, facing the walls
   for (const [i, j] of [[0, 2], [2, 3], [3, 5], [6, 4], [8, 3], [9, 5], [7, 0], [0, 5], [5, 3]]) { const { xs, zs } = W014; out.push({ x: (xs[i] + xs[i + 1]) / 2 + (R() - 0.5) * 1.2, z: (zs[j] + zs[j + 1]) / 2 + (R() - 0.5) * 1.2, yaw: R() * 6.283, pose: (R() * 3) | 0, y: 0 }); }
+  // one stands in the science lab corner; one waits at the band room podium, facing the empty chairs
+  out.push({ x: 39.15, z: -0.95, yaw: -Math.PI * 0.75, pose: 1, y: 0 }); out.push({ x: -2.75, z: -3.9, yaw: -Math.PI / 2, pose: 2, y: -4 });
   return out;
 })();
 export const FURNITURE = (() => {
@@ -227,6 +246,23 @@ export const FURNITURE = (() => {
   // cafeteria: fold-out tables with benches, the serving line, and a crowd of display mannequins in storage
   for (const x of [-9.4, -6.0, -2.6]) for (const [z0, z1] of [[6.2, 9.6], [12.0, 15.4]]) f.push({ kind: 'cafetable', x0: x - 0.75, z0, x1: x + 0.75, z1, h: 0.78, y0: -4 });
   f.push({ kind: 'serving', x0: -10.4, z0: 18.7, x1: -3.0, z1: 19.6, h: 1.05, y0: -4 });
+  // library: stacks south of the aisle, reading tables north of it, the circulation desk
+  f.push({ kind: 'bookshelf', x0: 18.3, z0: -8.85, x1: 29.7, z1: -8.45, h: 2.1 });
+  f.push({ kind: 'bookshelf', x0: 18.3, z0: -0.55, x1: 22.6, z1: -0.15, h: 1.6 }); f.push({ kind: 'bookshelf', x0: 25.4, z0: -0.55, x1: 29.7, z1: -0.15, h: 1.6 });
+  for (const x of [20.2, 22.4, 24.6]) f.push({ kind: 'stack', x0: x - 0.22, z0: -7.9, x1: x + 0.22, z1: -5.4, h: 1.9 });
+  for (const x of [20.6, 24.0, 27.4]) f.push({ kind: 'libtable', x0: x - 0.8, z0: -2.6, x1: x + 0.8, z1: -1.5, h: 0.76 });
+  f.push({ kind: 'libdesk', x0: 27.2, z0: -7.4, x1: 29.0, z1: -6.6, h: 1.0 });
+  // science lab: four black-topped benches, the fume hood, the anatomy model in the corner
+  for (const x of [32.4, 35.8]) for (const [z0, z1] of [[-7.6, -6.5], [-2.0, -0.9]]) f.push({ kind: 'labbench', x0: x - 1.0, z0, x1: x + 1.0, z1, h: 0.92 });
+  f.push({ kind: 'hood', x0: 37.4, z0: -8.9, x1: 39.7, z1: -8.15, h: 2.3 });
+  // band room: two arcs of chairs facing the podium, an upright piano, the drum kit, instrument cabinets
+  for (const [r, n] of [[2.6, 5], [4.0, 7]]) for (let k = 0; k < n; k++) { const a = Math.PI * (0.62 + 0.76 * k / (n - 1)), x = -3.2 + Math.cos(a) * r, z = -3.9 + Math.sin(a) * r * 0.82; if (x > -11.5 && z > -7.6 && z < 0) f.push({ kind: 'bandchair', x0: x - 0.22, z0: z - 0.22, x1: x + 0.22, z1: z + 0.22, h: 0.8, y0: -4, cx: x, cz: z, rot: Math.atan2(-3.2 - x, -3.9 - z) }); }
+  f.push({ kind: 'piano', x0: -7.4, z0: -0.35, x1: -5.9, z1: 0.25, h: 1.3, y0: -4 });
+  f.push({ kind: 'drums', x0: -11.4, z0: -7.5, x1: -10.0, z1: -6.2, h: 1.1, y0: -4 });
+  f.push({ kind: 'instcab', x0: -2.6, z0: -7.6, x1: -2.1, z1: -4.6, h: 2.0, y0: -4 });
+  // boiler room: the boiler, the hot water tanks
+  f.push({ kind: 'boiler', x0: -12.2, z0: -14.7, x1: -6.8, z1: -12.4, h: 2.5, y0: -4 });
+  f.push({ kind: 'tank', x0: -4.6, z0: -15.6, x1: -3.6, z1: -14.6, h: 2.1, y0: -4 }); f.push({ kind: 'tank', x0: -3.3, z0: -15.6, x1: -2.3, z1: -14.6, h: 2.1, y0: -4 });
   for (const m of MANNEQUIN_SPOTS) f.push({ kind: 'mannequin', x0: m.x - 0.24, z0: m.z - 0.24, x1: m.x + 0.24, z1: m.z + 0.24, h: 1.95, y0: m.y });
   for (const f0 of f) if (f0.y0 == null) f0.y0 = 0;
   return f;
@@ -244,6 +280,16 @@ export const COMPUTER = { x: 26.1, z: 5.6 };
 export const COT = { x: 20.6, z: 7.6 };
 export const VENT = { x: 42.0, z: -5.85, y: 0.45 };
 export const SPAWN = { x: 23.5, z: 7.2, yaw: 0 };
+// ---------- crawlspaces: four air-duct grates you can squeeze through. Screwed shut until you open them, and you only
+// have so many crawls in you a night (by fear level). (x, z) is the grate on the wall face; (nx, nz) points into the room.
+export const DUCTS = [
+  { id: 'v_office', name: 'Maintenance Office', x: 21.45, z: 9.9, y: 0, nx: 0, nz: -1 },
+  { id: 'v_lab', name: 'Science Lab', x: 31.2, z: -8.9, y: 0, nx: 0, nz: 1 },
+  { id: 'v_boiler', name: 'Boiler Room', x: -5.4, z: -15.9, y: -4, nx: 0, nz: 1 },
+  { id: 'v_lockers', name: 'Locker Room', x: -17.25, z: 15.9, y: -4, nx: 0, nz: -1 },
+];
+for (const d of DUCTS) { d.ex = d.x + d.nx * 0.75; d.ez = d.z + d.nz * 0.75; d.yaw = Math.atan2(-d.nx, -d.nz); } // where you climb out, facing into the room
+export const DUCT_CRAWLS = [3, 2, 1]; // per worker per night: Sissy, Bed Wetter, Nightmare
 
 // ---------- lights (ceiling fixtures) ----------
 export const LIGHTS = (() => {
@@ -271,11 +317,17 @@ export const LIGHTS = (() => {
   { const R = rng(1414), { xs, zs } = W014; for (let j = 0; j < zs.length - 1; j++) for (let i = 0; i < xs.length - 1; i++) { if (!w014Cell(i, j)) continue; const r = R(); L.push({ x: (xs[i] + xs[i + 1]) / 2, z: (zs[j] + zs[j + 1]) / 2, y: 2.68, state: r < 0.1 ? 'off' : r < 0.28 ? 'flicker' : 'on', room: 'w014', color: 0xfff0c2, i: 0.85 }); } }
   for (const x of [-9, -3]) for (const z of [6.5, 11.5, 16.5]) L.push({ x, z, y: -0.08, state: x === -3 && z === 11.5 ? 'off' : x === -9 && z === 16.5 ? 'flicker' : 'on', room: 'cafe', color: 0xf4f0e2, i: 0.85 });
   for (const x of [-42, -34]) for (const z of [11, 19]) L.push({ x, z, y: 2.4, state: x === -42 && z === 19 ? 'off' : 'on', room: 'pool', color: 0xe8f8ff, i: 2.4, high: true });
+  // the new rooms
+  for (const x of [21, 24, 27]) for (const z of [-6.5, -2.5]) L.push({ x, z, y: 2.93, state: x === 24 && z === -6.5 ? 'flicker' : x === 27 && z === -2.5 ? 'off' : 'on', room: 'lib', color: 0xfff0d6, i: 0.95 });
+  for (const x of [32.5, 36.5]) for (const z of [-6.5, -2.5]) L.push({ x, z, y: 2.93, state: x === 36.5 && z === -2.5 ? 'flicker' : 'on', room: 'lab', color: 0xeef4ff, i: 1 });
+  for (const x of [-9.5, -4.5]) for (const z of [-5.5, -1.5]) L.push({ x, z, y: -0.82, state: x === -9.5 && z === -1.5 ? 'off' : 'on', room: 'band', color: 0xfff2e0, i: 1.15 });
+  for (const [x, z] of [[-13.5, -10.2], [-9, -10.6], [-4.5, -11.2], [-6.2, -14.4]]) L.push({ x, z, y: -0.75, state: x === -9 ? 'flicker' : 'on', room: 'boiler', color: 0xffdcb0, i: 2.6, bulb: true });
+  L.push({ x: -2.3, z: -9.0, y: -1.0, state: 'on', room: 'boiler', color: 0xff3020, i: 0.55, emergency: true });
   return L;
 })();
 
 // ---------- the Monitor's waypoints ----------
-export const PATROL = [[-14, 4], [-6, 11], [-3, 6], [13.5, 8.4], [30, 18.7], [22, 21.5], [37, 7], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
+export const PATROL = [[24, -4.1], [35, -4.1], [-8.6, -1.0], [-9, -10.5], [-14, 4], [-6, 11], [-3, 6], [13.5, 8.4], [30, 18.7], [22, 21.5], [37, 7], [-24, -4], [-30, 8.5], [-22, 11.5], [47.5, 11.0], [42, -3.5], [42, 7.5], [36, 1.8], [27, 1.8], [17, 1.8], [6, 1.8], [13, -4.5], [4, 2.2], [24, 1.8]];
 export const WATCH_POINTS = [
   { x: 14, z: -0.9, yaw: 0, note: 'classroom glass' },        // inside 112, looking out through the glass
   { x: 14, z: 1.0, yaw: Math.PI, note: 'hall at glass' },     // hallway, looking in
@@ -323,6 +375,11 @@ export const DEBRIS = (() => {
     { room: 'w014', x0: 7.25, z0: 3.85, x1: 19.75, z1: 23.75, n: 520, wing: true },
     { room: 'w014', x0: 20.25, z0: 10.25, x1: 39.75, z1: 23.75, n: 560, wing: true },
     { room: 'w014', x0: 27.25, z0: 3.85, x1: 39.75, z1: 9.75, n: 220, wing: true },
+    // the new rooms come last, so every earlier piece keeps its id (and old saves stay valid)
+    { room: 'lib', x0: 18.25, z0: -8.4, x1: 29.75, z1: -0.6, n: 700 },
+    { room: 'lab', x0: 30.25, z0: -8.0, x1: 39.75, z1: -0.25, n: 560 },
+    { room: 'band', x0: -11.75, z0: -7.75, x1: -2.25, z1: 0.1, n: 520 },
+    { room: 'boiler', x0: -15.75, z0: -15.75, x1: -2.25, z1: -8.25, n: 480 },
   ];
   for (const a of areas) {
     // clumps make satisfying drifts; the rest is scattered
@@ -354,10 +411,17 @@ export const PATCHES = [
   { id: 'class_mud', type: 'mud', room: 'class', x0: 10.2, z0: -7.3, x1: 16.9, z1: -1.4, res: 10 },
   { id: 'service_dust', type: 'dust', room: 'service', x0: 40.2, z0: -5.8, x1: 43.8, z1: 11.8, res: 4 },
   { id: 'class_dust', type: 'dust', room: 'class', x0: 8.2, z0: -8.8, x1: 17.8, z1: -0.2, res: 4 },
-  { id: 'gym_dust', type: 'dust', room: 'gym', x0: -39.8, z0: -10.9, x1: -16.2, z1: 6.05, res: 3 },
-  { id: 'gym_mud', type: 'mud', room: 'gym', x0: -31, z0: -6, x1: -24, z1: 1, res: 8 },
+  { id: 'gym_dust', type: 'dust', room: 'gym', x0: -39.8, z0: -10.9, x1: -16.2, z1: 6.05, res: 4 },
+  { id: 'gym_mud', type: 'mud', room: 'gym', x0: -31, z0: -6, x1: -24, z1: 1, res: 10 },
   { id: 'lockers_mud', type: 'mud', room: 'lockers', x0: -24.5, z0: 10.6, x1: -17.5, z1: 12.8, res: 10 },
-  { id: 'pool_mud', type: 'mud', room: 'pool', x0: -45.6, z0: 6.5, x1: -26.4, z1: 9.8, res: 6 },
+  { id: 'pool_mud', type: 'mud', room: 'pool', x0: -45.6, z0: 6.5, x1: -26.4, z1: 9.8, res: 10 },
+  { id: 'lcorr_dust', type: 'dust', room: 'lcorr', x0: -15.8, z0: -5.8, x1: -12.2, z1: 11.8, res: 4 },
+  { id: 'lockers_dust', type: 'dust', room: 'lockers', x0: -25.8, z0: 6.45, x1: -16.2, z1: 15.8, res: 4 },
+  { id: 'cafe_dust', type: 'dust', room: 'cafe', x0: -11.8, z0: 3.8, x1: -0.2, z1: 19.8, res: 4 },
+  { id: 'lib_dust', type: 'dust', room: 'lib', x0: 18.2, z0: -8.4, x1: 29.8, z1: -0.6, res: 4 },
+  { id: 'lab_mud', type: 'mud', room: 'lab', x0: 33.0, z0: -5.6, x1: 37.5, z1: -2.6, res: 10 },
+  { id: 'band_dust', type: 'dust', room: 'band', x0: -11.8, z0: -7.8, x1: -2.2, z1: 0.2, res: 4 },
+  { id: 'boiler_mud', type: 'mud', room: 'boiler', x0: -15.6, z0: -12.2, x1: -2.4, z1: -8.4, res: 8 },
 ];
 for (const p of PATCHES) { p.w = Math.round((p.x1 - p.x0) * p.res); p.h = Math.round((p.z1 - p.z0) * p.res); }
 function vnoise(R) { // tiny value-noise generator for blob shapes
@@ -441,7 +505,7 @@ export function wallsBetween(x0, z0, x1, z1, rects) { // count of wall/door slab
 }
 
 // ---------- navigation grid for the Monitor ----------
-export const NAV = { x0: -47, z0: -15, cell: 0.5, w: 196, h: 80 };
+export const NAV = { x0: -47, z0: -17, cell: 0.5, w: 196, h: 84 };
 export function buildNav(r = 0.32) {
   const g = new Uint8Array(NAV.w * NAV.h); // 0 open, 1 blocked, 2+i = door i gap
   const rects = [...WALLS, ...FURNITURE];

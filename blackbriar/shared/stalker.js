@@ -149,7 +149,7 @@ function scheduleNext(S, p, prog) { // the gap before this worker's next beat: u
 export function tickStalker(S, dt) {
   const m = S.mon, C = CONFIG.monitor, dir = S.dir || (S.dir = fresh());
   const rects = solidRects(S.doors), lock = S.phase === 'lockdown', prog = S.shiftT / CONFIG.shiftSeconds, now = S.time || 0;
-  const alive = [...S.players.values()].filter(p => p.connected && !p.downed && !p.out);
+  const alive = [...S.players.values()].filter(p => p.connected && !p.downed && !p.out && !p.invent); // nobody in the ducts
   const outside = alive.filter(p => !S.isInOffice(p));
   m.stateT += dt; if (m.pz == null) m.pz = POSE.stand;
   // ---- the mannequin rule (some things it still does in plain sight: fleeing, the twitch) ----
