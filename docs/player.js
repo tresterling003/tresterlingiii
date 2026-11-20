@@ -345,7 +345,8 @@ export class Player {
     // pull in when something is in the way
     for (let k = 1; k <= 8; k++) {
       const p = head.clone().addScaledVector(dir, (dist * k) / 8);
-      if (g.zone !== 'world' ? g.phys.blocked(head.x, head.z, p.x, p.z, 0.2) : p.y < g.phys.ground(p.x, p.z) + 0.4) { d2 = (dist * (k - 1)) / 8; break; }
+      if (g.zone !== 'world' || g.inTown ? g.phys.blocked(head.x, head.z, p.x, p.z, 0.35) && (g.zone !== 'world' || p.y < head.y + 9) : false) { d2 = (dist * (k - 1)) / 8; break; }
+      if (g.zone === 'world' && p.y < g.phys.ground(p.x, p.z) + 0.4) { d2 = (dist * (k - 1)) / 8; break; }
     }
     d2 = Math.max(1.6, d2);
     const want = head.clone().addScaledVector(dir, d2).add(side);

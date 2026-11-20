@@ -302,7 +302,7 @@ class Game {
     const { s, plan } = c, R = Math.random;
     const looks = [['rogue', '#d8b8a0'], ['mage', '#b8c8e8'], ['barbarian', '#e8d0a0'], ['warden', '#a8c8a0'], ['rogue', '#e8a8b8'], ['mage', '#e8e0c8'], ['barbarian', '#c8a890'], ['warden', '#d8c8e8'], ['rogue', '#a8b8d0'], ['mage', '#d8a888']];
     const names = ['Agnes', 'Bram', 'Cedric', 'Dalia', 'Edda', 'Finn', 'Greta', 'Hugo', 'Isolde', 'Jasper', 'Kira', 'Lothar', 'Mira', 'Nils', 'Orla', 'Piet', 'Quinn', 'Rosa'];
-    const n = s.kingdom ? 16 : 6;
+    const n = s.id === 'emberfall' ? 26 : s.kingdom ? 16 : 6;
     for (let i = 0; i < n; i++) {
       const [m, tint] = looks[Math.floor(R() * looks.length)], sp = plan.spots[i % plan.spots.length], name = names[Math.floor(R() * names.length)];
       const e = this.addEntity({ type: 'villager', name, def: { name }, model: m, gear: R() < 0.2 ? ['Mug'] : [], hat: R() < 0.35, tint, x: sp[0] + (R() - 0.5) * 4, z: sp[1] + (R() - 0.5) * 4, zone: 'world' });
@@ -454,6 +454,7 @@ class Game {
     if (!frozen && this.input.hit('KeyC', 'KeyI')) { this.togglePause('hero'); return; }
     if (this.cineActive && this.input.hit('Escape', 'Space', 'Enter')) this.skipCine = true;
     this.aiming = this.kit().style !== 'melee';
+    { const E = SETTLEMENTS[0]; this.inTown = this.zone === 'world' && Math.hypot(p.pos.x - E.x, p.pos.z - E.z) < E.r; }
     p.update(dt, this.input, frozen);
     // the world around you
     const night = this.scenery.dayK < 0.35;

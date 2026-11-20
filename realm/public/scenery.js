@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { HALF, height, groundColor, fbm, rng, roadDist, riverDist, biome, SITES, BUILDINGS, PROPS, DUNGEON, dTile, SHRINES, SETTLEMENTS, PLANS, ROADS, RIVER, RIVER_W, INSIDE_X, WOOD } from './world.js';
 import { A, part, baked, kitSize } from './assets.js';
 import { roomKind } from './interiors.js';
+import { buildTownhouses } from './townhouses.js';
 
 const RES = 4; // terrain sample spacing
 const N = (HALF * 2) / RES + 1;
@@ -275,6 +276,7 @@ export class Scenery {
     }
     for (const [name, mats] of Object.entries(groups)) this.instance(baked('town', name), mats, true);
     this.flowersDone();
+    for (const s of SETTLEMENTS) if (PLANS[s.id].rows) buildTownhouses(this, PLANS[s.id], s);
     if (PLANS.emberfall.arena) this.arena(PLANS.emberfall.arena, SETTLEMENTS[0]);
     this.camp(SITES.camp);
     // the wild places
@@ -481,6 +483,7 @@ export class Scenery {
     this.stars.position.copy(f);
     const night = 1 - day;
     this.winMat && (this.winMat.emissiveIntensity = night * 1.6);
+    if (this.townMat) this.townMat.emissiveIntensity = inside ? 0 : Math.max(0, night - 0.25) * 1.5;
     this.lightK = inside ? 1 : Math.max(0.12, night);
     this.inside = inside;
   }
@@ -703,6 +706,7 @@ export class Scenery {
     for (const s of SETTLEMENTS) {
       const plan = PLANS[s.id];
       g.fillStyle = 'rgba(70,52,40,.9)';
+      for (const h of plan.rows || []) { const [px, py] = P(h.x, h.z); g.save(); g.translate(px, py); g.rotate(-h.rot); g.fillRect(-h.w * sc / 2, -h.d * sc / 2, h.w * sc, h.d * sc); g.restore(); }
       for (const [name, x, z, rot, k] of plan.buildings) { const w = Math.max(2, (/castle|church|tavern|barracks/.test(name) ? 16 : 8) * sc); const [px, py] = P(x, z); g.fillRect(px - w / 2, py - w / 2, w, w); }
       if (s.kingdom) { g.strokeStyle = 'rgba(60,50,45,.95)'; g.lineWidth = 2.5; g.beginPath(); const [cx, cy] = P(s.x, s.z); g.arc(cx, cy, s.r * sc, 0, Math.PI * 2); g.stroke(); }
     }

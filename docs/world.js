@@ -325,28 +325,58 @@ export const PLANS = Object.fromEntries(SETTLEMENTS.map(s => [s.id, planSettleme
   P.arena = { x: s.x - 92, z: s.z - 74, r: 19 };
   P.buildings = P.buildings.filter(b => Math.hypot(b[1] - P.arena.x, b[2] - P.arena.z) > P.arena.r + 12);
   P.lamps = P.lamps.filter(([x, z]) => Math.hypot(x - P.arena.x, z - P.arena.z) > P.arena.r + 4);
-  // role: [where to look for a building, the model it becomes, sign text]
+  // An old town: the cottages give way to tall, narrow townhouses shoulder to shoulder along every street.
+  P.buildings = P.buildings.slice(0, 8); // castle, church, tavern, smithy, barracks, two markets, the well
+  const bigger = { castle: 13, church: 12, tavern: 11, blacksmith: 10, barracks: 10 };
+  for (const b of P.buildings) for (const [k, v] of Object.entries(bigger)) if (b[0].includes(k)) b[4] = v;
+  const L = P.landmarks, keep = [[L.castle.x, L.castle.z, 30], [L.church.x, L.church.z, 19], [L.tavern.x, L.tavern.z, 19], [L.smith.x, L.smith.z, 17], [L.barracks.x, L.barracks.z, 19],
+    [P.stable.x, P.stable.z, 17], [P.arena.x, P.arena.z, 31], [s.x, s.z - 58, 30]];
+  const R = rng(4242), rows = (P.rows = []);
+  const free = (x, z, rad) => keep.every(([kx, kz, kr]) => Math.hypot(x - kx, z - kz) > kr + rad);
+  const span = i => { let a = BLOCK * i + 5.4, b = BLOCK * (i + 1) - 5.4; if (a < 8.4 && b > 0) a = 8.4; if (b > -8.4 && a < 0) b = -8.4; return [a, b]; };
+  const r = s.r;
+  for (let i = -5; i < 5; i++) for (let j = -5; j < 5; j++) {
+    const [x0, x1] = span(i), [z0, z1] = span(j);
+    if (x1 - x0 < 14 || z1 - z0 < 14) continue;
+    const sides = [ // [start, end, along-axis, fixed coordinate, rot]
+      [x0, x1, 'x', z1, 0], [x0, x1, 'x', z0, Math.PI], [z0 + 9, z1 - 9, 'z', x1, Math.PI / 2], [z0 + 9, z1 - 9, 'z', x0, -Math.PI / 2]];
+    for (const [a, b, ax, fixed, rot] of sides) {
+      let t = a;
+      while (b - t > 4.5) {
+        let w = 5.4 + R() * 2.8; if (b - t - w < 5) w = b - t;
+        const d = 8 + R() * 1.5, mid = t + w / 2;
+        const fx = Math.sin(rot), fz = Math.cos(rot);
+        const lx = ax === 'x' ? mid : fixed - fx * (d / 2), lz = ax === 'x' ? fixed - fz * (d / 2) : mid;
+        const x = s.x + lx, z = s.z + lz, dc = Math.hypot(lx, lz);
+        const corners = [[-w / 2, -d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2]].map(([u, v]) => ax === 'x' ? Math.hypot(lx + u, lz + v) : Math.hypot(lx + v, lz + u));
+        if (Math.min(...corners) > 37 && Math.max(...corners) < r - 22 && free(x, z, Math.max(w, d) / 2)) {
+          const centre = 1 - dc / r;
+          const floors = 2 + (R() < 0.35 + centre * 0.6 ? 1 : 0) + (R() < centre * 0.5 ? 1 : 0);
+          rows.push({ x, z, rot, w: w - 0.06, d, floors, gable: R() < 0.42, tint: Math.floor(R() * 8), bay: Math.floor(R() * 4), roof: Math.floor(R() * 3), seed: Math.floor(R() * 1e6), chimney: R() < 0.45 });
+        }
+        t += w;
+      }
+    }
+  }
+  // the named shops take over townhouses near where they belong
   const ROLES = {
-    armory: [s.x + 70, s.z - 30, 'building_barracks_blue', 'Armory'],
-    alchemist: [s.x - 66, s.z + 52, 'building_tower_A_green', 'Alchemist'],
-    grocer: [s.x + 66, s.z + 100, 'building_home_B_yellow', 'General Store'],
-    bakery: [s.x - 64, s.z - 30, 'building_home_A_yellow', 'Bakery'],
-    guild: [s.x + 40, s.z + 70, 'building_church_green', "Adventurers' Guild"],
-    myhouse: [s.x - 30, s.z + 80, 'building_home_A_blue', 'Your House'],
+    armory: [s.x + 70, s.z - 30, 'Armory'], alchemist: [s.x - 66, s.z + 52, 'Alchemist'], grocer: [s.x + 66, s.z + 100, 'General Store'],
+    bakery: [s.x - 64, s.z - 30, 'Bakery'], guild: [s.x + 40, s.z + 70, "Adventurers' Guild"], myhouse: [s.x - 30, s.z + 80, 'Your House'],
   };
-  const taken = new Set();
-  for (const [role, [x, z, model, sign]] of Object.entries(ROLES)) {
+  for (const [role, [x, z, sign]] of Object.entries(ROLES)) {
     let best = null, bd = Infinity;
-    for (const b of P.buildings) { if (b.role || !/home|tower/.test(b[0]) || taken.has(b)) continue; const d = Math.hypot(b[1] - x, b[2] - z); if (d < bd) { bd = d; best = b; } }
+    for (const h of rows) { if (h.role) continue; const dd = Math.hypot(h.x - x, h.z - z); if (dd < bd) { bd = dd; best = h; } }
     if (!best) continue;
-    taken.add(best);
-    best[0] = model; best.role = role; best.sign = sign;
-    if (role === 'guild') best[4] = 7.5;
-    P.landmarks[role] = { x: best[1], z: best[2], rot: best[3] };
+    best.role = role; best.sign = sign;
+    L[role] = { x: best.x, z: best.z, rot: best.rot, door: true };
   }
   P.landmarks.smith.sign = 'Blacksmith'; P.landmarks.tavern.sign = 'The Ember Flagon';
   for (const b of P.buildings) { if (/blacksmith/.test(b[0]) && Math.hypot(b[1] - P.landmarks.smith.x, b[2] - P.landmarks.smith.z) < 1) { b.sign = 'Blacksmith'; b.role = 'forge'; } if (/tavern/.test(b[0]) && Math.hypot(b[1] - P.landmarks.tavern.x, b[2] - P.landmarks.tavern.z) < 1) b.sign = 'The Ember Flagon'; if (/castle/.test(b[0])) b.sign = 'Castle Emberfall'; if (/church/.test(b[0]) && !b.role) b.sign = 'Chapel of the Ember'; if (/barracks/.test(b[0]) && !b.role) b.sign = 'Barracks'; }
-  P.nightknife = [s.x - 112, s.z + 96];
+  P.nightknife = [s.x - 92, s.z + 100];
+  // more people about: spots along the side streets as well as the avenues
+  { const R2 = rng(99); for (let i = 0; i < 16; i++) { const k = (Math.floor(R2() * 6) - 3 || 1) * 46, t = (R2() - 0.5) * 2 * (r - 40); if (Math.hypot(k, t) > r - 30 || Math.hypot(k, t) < 36) { i--; continue; } P.spots.push(R2() < 0.5 ? [s.x + k + (R2() - 0.5) * 3, s.z + t] : [s.x + t, s.z + k + (R2() - 0.5) * 3]); } }
+  // lamps along the avenues sit at the kerb, clear of the house fronts
+  P.lamps = P.lamps.filter(([x, z]) => Math.min(Math.abs(x - s.x), Math.abs(z - s.z)) < 9 || Math.hypot(x - s.x, z - s.z) < 34).map(([x, z]) => Math.abs(x - s.x) < Math.abs(z - s.z) ? [s.x + Math.sign(x - s.x || 1) * 5.6, z] : [x, s.z + Math.sign(z - s.z || 1) * 5.6]);
 }
 
 // Where the named people of the story stand.
