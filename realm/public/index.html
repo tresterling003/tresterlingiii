@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Emberfall: Open Realm</title>
+<meta name="description" content="An open-world 3D fantasy adventure with real-time combat, d20 rolls, quests, horses and a bounty system. Play solo or with friends.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="plates"></div>
+<div id="floats"></div>
+<div id="qmark" hidden></div>
+<div id="fade"></div>
+<div id="flash"></div>
+<div id="vignette"></div>
+
+<div id="cine"><div class="bar top"></div><div id="cineTitle"></div><div id="caption"></div><div class="bar bottom"></div></div>
+
+<!-- loading -->
+<div id="loading">
+  <div class="logo">EMBER<span>FALL</span></div>
+  <div class="sublogo">OPEN REALM</div>
+  <div class="loadbar"><i id="loadFill"></i></div>
+  <p id="tip" class="tip"></p>
+  <p id="loadErr" class="err"></p>
+</div>
+
+<!-- title -->
+<main id="title" hidden>
+  <div class="logo">EMBER<span>FALL</span></div>
+  <div class="sublogo">OPEN REALM</div>
+  <p class="tagline">A whole realm to roam. Monsters to fight. A crown to find. Dice to roll.</p>
+  <div class="tbtns">
+    <button id="tContinue" class="btn primary big" hidden></button>
+    <button id="tNew" class="btn primary big">⚔️ New hero</button>
+    <button id="tHow" class="btn">📖 How to play</button>
+  </div>
+  <p class="credit">Characters, buildings & dungeon: KayKit by Kay Lousberg (CC0) · Wolves: glTF Fox by tomkranis (CC-BY 4.0) · Horse: three.js examples · 3D: three.js</p>
+</main>
+
+<!-- character creation -->
+<section id="creator" class="card" hidden>
+  <h2>Create your hero</h2>
+  <div class="crgrid">
+    <div class="col">
+      <label for="crName">Name</label>
+      <input id="crName" maxlength="14" autocomplete="off" placeholder="e.g. Rowan">
+      <p id="crErr" class="err"></p>
+      <h3>1 · Class</h3>
+      <div id="crClasses" class="classes"></div>
+      <p id="crBlurb" class="blurb"></p>
+      <p id="crNums" class="small"></p>
+      <div id="crAbil" class="abil"></div>
+    </div>
+    <div class="col">
+      <h3>2 · Abilities — <span id="crLeft"></span></h3>
+      <p class="small">These numbers are added to your dice rolls. Max +2 extra on any one.</p>
+      <div id="crStats" class="stats"></div>
+      <h3>3 · Background</h3>
+      <div id="crBgs" class="chips"></div>
+      <p id="crBgText" class="small"></p>
+      <h3>4 · Colours</h3>
+      <div id="crTints" class="chips"></div>
+    </div>
+  </div>
+  <div class="crfoot"><button id="crGo" class="btn primary big">Enter the realm ▸</button></div>
+</section>
+
+<!-- how to play -->
+<dialog id="rules">
+  <section>
+    <h2>Welcome to the realm</h2>
+    <p><b>Emberfall: Open Realm</b> is an open-world adventure built on the rules of tabletop role-playing games like <i>Dungeons &amp; Dragons</i>. You do not need to have played one. Everything is explained here, and the game does the maths for you.</p>
+    <p>You play <b>one hero</b> in a big world. Go anywhere: villages, forests, a swamp, mountains, ruins, and a haunted Barrow in the far north. Talk to people, take on quests, fight monsters, find treasure, steal horses (we will not tell)… or just ride around and watch the sun set.</p>
+    <p>There is a story — the stolen Ash Crown — but you can follow it whenever you like.</p>
+  </section>
+  <section>
+    <h2>Controls</h2>
+    <div class="keys">
+      <div><kbd>W A S D</kbd> move · <kbd>Mouse</kbd> look (click the game to capture the mouse)</div>
+      <div><kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Q</kbd> dodge-roll</div>
+      <div><kbd>Left click</kbd> attack · <kbd>Right click</kbd> hold to block</div>
+      <div><kbd>1</kbd> <kbd>2</kbd> class abilities · <kbd>R</kbd> drink a potion</div>
+      <div><kbd>E</kbd> talk / open / ride / pick up · <kbd>H</kbd> whistle for your horse</div>
+      <div><kbd>M</kbd> map &amp; fast travel · <kbd>J</kbd> quests · <kbd>C</kbd> your hero · <kbd>Esc</kbd> pause</div>
+    </div>
+    <p class="small">On a phone or tablet: the left thumb-stick moves (push it all the way to sprint), drag anywhere else to look, and the buttons on the right do the rest.</p>
+  </section>
+  <section>
+    <h2>The d20: the heart of the game</h2>
+    <p>Every time you swing, shoot or cast, the game rolls a <b>20-sided die</b> for you and adds your <b>attack bonus</b>. If the total reaches the enemy's <b>armor</b>, you hit — then more dice decide the damage. You will see the rolls float up: <span class="eg">🎲14+5 −9</span>.</p>
+    <ul>
+      <li>A <b>natural 20</b> is a <b>critical hit</b>: double damage dice, and time slows for a moment.</li>
+      <li>A <b>natural 1</b> always misses. It happens to everyone.</li>
+      <li>Monsters roll against <b>your</b> armor too. Dodge-rolling makes you untouchable for an instant. Blocking soaks up most of a hit from the front.</li>
+      <li>Big attacks glow as a <b>red circle</b> on the ground first. Get out! If you are still inside, you make a <b>saving throw</b> — a d20 roll that halves the damage if you make it.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Checks, Fate and your hero</h2>
+    <p>Out of combat, risky things — persuading a troll, picking a lock, picking a pocket — are <b>checks</b>: a big d20 roll plus one of your four abilities, against a target number.</p>
+    <ul>
+      <li><b>💪 Might</b> strength · <b>🤸 Agility</b> speed and stealth · <b>🧠 Mind</b> magic and wits · <b>💬 Charm</b> talking your way through.</li>
+      <li><b>✨ Fate</b> lets you re-roll a failed check. Natural 20s earn more.</li>
+      <li>Your <b>class</b> sets your health, armor, weapon and two special abilities. The second unlocks at level 3.</li>
+      <li>Defeat monsters and finish quests for <b>XP</b>. Each level gives more health and an ability point. Bosses and chests hold <b>magic items</b> that make you permanently stronger.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Life in the realm</h2>
+    <ul>
+      <li><b>Quests</b> — people with a <b class="gold">!</b> above them have work. The yellow ◆ marker and your minimap show where to go.</li>
+      <li><b>Shrines</b> — touch the glowing stones to heal and unlock <b>fast travel</b> from the map.</li>
+      <li><b>Horses</b> — buy one from Old Tom at the stables, or ride off on one that is not yours. Whistle (<kbd>H</kbd>) and your horse comes running.</li>
+      <li><b>Crime</b> — hitting townsfolk, stealing or horse theft gets you <b>wanted stars ★</b>. Guards hunt you. Lose them by staying out of sight, pay your fine to Captain Hale, or talk your way out.</li>
+      <li><b>Day and night</b> — wolves and the restless dead come out after dark. Glowcaps glow.</li>
+    </ul>
+    <p>That is everything. Good luck, hero.</p>
+  </section>
+  <div class="pager"><button type="button" class="btn" id="rBack">Back</button><span id="rDots" class="dots"></span><button type="button" class="btn primary" id="rNext">Next</button></div>
+</dialog>
+
+<!-- in-game HUD -->
+<div id="hud" hidden>
+  <div id="tracker" hidden><div id="trTitle"></div><div id="trStep"></div><div id="trDist"></div></div>
+  <div id="topright">
+    <div id="wanted" hidden></div>
+    <canvas id="minimap" width="170" height="170"></canvas>
+    <div class="money"><span>🪙 <b id="gold">0</b></span><span>✨ <b id="fate">0</b></span></div>
+  </div>
+  <div id="boss" hidden><div id="bossName"></div><div class="bar"><i id="bossFill"></i></div></div>
+  <div id="toasts"></div>
+  <div id="banner"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
+  <div id="crosshair" hidden></div>
+  <div id="prompt"></div>
+  <div id="bars">
+    <div class="lvl" id="lvl">1</div>
+    <div class="barcol">
+      <div class="bar hp"><i id="hpFill"></i><span id="hpText"></span></div>
+      <div class="bar st"><i id="stFill"></i></div>
+      <div class="bar xp"><i id="xpFill"></i></div>
+    </div>
+  </div>
+  <div id="slots">
+    <div class="slot" data-slot="1"><span class="ico"></span><span class="key">1</span><i class="cd"></i><span class="cdt"></span></div>
+    <div class="slot" data-slot="2"><span class="ico"></span><span class="key">2</span><i class="cd"></i><span class="cdt"></span></div>
+    <div class="slot potion"><span class="ico">🧪</span><span class="key">R</span><span class="cnt" id="hudPotions">0</span></div>
+  </div>
+  <div id="touchUI">
+    <div id="stick"><div id="knob"></div></div>
+    <div id="tbtns">
+      <button id="tAttack" class="tb big">⚔️</button>
+      <button id="tJump" class="tb">⤒</button>
+      <button id="tDodge" class="tb">💨</button>
+      <button id="tBlock" class="tb">🛡️</button>
+      <button id="tAb1" class="tb ab">1</button>
+      <button id="tAb2" class="tb ab">2</button>
+      <button id="tPotion" class="tb">🧪</button>
+      <button id="tUse" class="tb use">✋</button>
+      <button id="tHorse" class="tb">🐴</button>
+    </div>
+    <button id="tMenu" class="tb menu">☰</button>
+  </div>
+</div>
+
+<!-- dialogue -->
+<section id="dialog" hidden>
+  <div class="who"><span id="dlgWho"></span> <span id="dlgTitle"></span></div>
+  <p id="dlgText"></p>
+  <div id="dlgOpts"></div>
+</section>
+
+<!-- the d20 -->
+<div id="dice" hidden>
+  <div id="diceLabel"></div>
+  <div id="die"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27"/><polygon class="in" points="50,22 76,66 24,66"/><path d="M50 3 L50 22 M93 27 L76 66 M7 27 L24 66 M93 73 L76 66 M7 73 L24 66 M50 97 L24 66 M50 97 L76 66 M7 27 L50 22 M93 27 L50 22"/></svg><span id="dieNum">20</span></div>
+  <div id="diceMath"></div>
+  <div id="diceVerdict"></div>
+  <div id="diceAgain" hidden><button id="diceFate" class="btn primary"></button><button id="diceAccept" class="btn">Accept the result</button></div>
+</div>
+
+<!-- level up -->
+<section id="levelup" class="card" hidden>
+  <h2 id="luTitle"></h2>
+  <p id="luText"></p>
+  <div id="luOpts" class="chips"></div>
+</section>
+
+<!-- pause menu -->
+<section id="menu" hidden>
+  <div class="menucard card">
+    <div class="tabs">
+      <button data-tab="map" class="tab">🗺️ Map</button><button data-tab="quests" class="tab">📜 Quests</button><button data-tab="hero" class="tab">🧙 Hero</button><button data-tab="controls" class="tab">⚙️ Controls</button>
+      <span class="sp"></span><button id="mResume" class="btn primary">Resume</button>
+    </div>
+    <div class="pane" data-pane="map"><canvas id="bigmap" width="680" height="680"></canvas><p id="mapHint" class="small"></p></div>
+    <div class="pane" data-pane="quests"><div id="journal"></div></div>
+    <div class="pane" data-pane="hero"><div id="sheet"></div></div>
+    <div class="pane" data-pane="controls">
+      <div class="keys">
+        <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Q</kbd> dodge</div>
+        <div><kbd>Left click</kbd> attack · <kbd>Right click</kbd> block · <kbd>1</kbd>/<kbd>2</kbd> abilities · <kbd>R</kbd> potion</div>
+        <div><kbd>E</kbd> interact / ride · <kbd>H</kbd> whistle · <kbd>M</kbd> map · <kbd>J</kbd> quests · <kbd>C</kbd> hero · <kbd>V</kbd> sound · <kbd>Esc</kbd> pause</div>
+      </div>
+      <label class="small">Look sensitivity <input id="sens" type="range" min="0.3" max="2.5" step="0.1" value="1"></label>
+      <div class="row"><button id="mSave" class="btn">💾 Save</button><button id="mQuit" class="btn">Save &amp; quit to title</button></div>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>

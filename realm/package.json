@@ -1,0 +1,13 @@
+{
+  "name": "emberfall-open-realm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "EMBERFALL: OPEN REALM — an open-world 3D fantasy action RPG with d20 rolls, quests, horses and a bounty system.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "pack": "node tools/build-packed.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

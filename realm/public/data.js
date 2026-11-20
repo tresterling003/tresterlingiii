@@ -1,0 +1,311 @@
+// EMBERFALL: OPEN REALM — all the content: heroes, monsters, people, items, quests, dialogue.
+// Dialogue nodes are functions of `g`, the game API (see game.js → api()).
+
+export const STATS = { might: 'Might', agility: 'Agility', mind: 'Mind', charm: 'Charm' };
+export const STAT_ICON = { might: '💪', agility: '🤸', mind: '🧠', charm: '💬' };
+export const BONUS_POINTS = 3;
+export const XP_LEVELS = [0, 150, 400, 800, 1300, 2000]; // XP needed for levels 1–6
+export const TINTS = ['', '#ff9c9c', '#ffe08a', '#a6e3a1', '#9ecbff', '#d2b0ff', '#8d8fa3'];
+
+// dmg is [dice, sides]; the attack ability is added on top.
+export const CLASSES = {
+  knight: { name: 'Knight', icon: '🛡️', hp: 44, hpLv: 8, armor: 16, stats: { might: 3, agility: 0, mind: 0, charm: 1 }, atk: 'might', dmg: [1, 8], style: 'melee', reach: 2.7, rate: 0.62,
+    gear: ['1H_Sword', 'Round_Shield'], hat: true, attacks: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Slice_Horizontal', '1H_Melee_Attack_Chop'], block: 0.2,
+    blurb: 'Heavy armour, a big shield, and a habit of standing between monsters and everyone else.',
+    abilities: [
+      { id: 'bash', name: 'Shield Bash', icon: '🛡️', cd: 6, lvl: 1, text: 'Charge forward and slam everything in front: 1d8 + Might, and they are stunned.' },
+      { id: 'smite', name: 'Radiant Smite', icon: '✨', cd: 16, lvl: 3, text: 'Holy light bursts out of you: 3d6 to every enemy nearby, and you heal 10.' },
+    ] },
+  barbarian: { name: 'Barbarian', icon: '🪓', hp: 50, hpLv: 9, armor: 13, stats: { might: 4, agility: 1, mind: -1, charm: 0 }, atk: 'might', dmg: [1, 12], style: 'melee', reach: 3.0, rate: 0.78,
+    gear: ['2H_Axe'], hat: true, attacks: ['2H_Melee_Attack_Slice', '2H_Melee_Attack_Chop'], block: 0.45,
+    blurb: 'The biggest axe in the realm and the health to match. Subtlety not included.',
+    abilities: [
+      { id: 'whirl', name: 'Whirlwind', icon: '🌪️', cd: 7, lvl: 1, text: 'Spin your axe through everything around you: 2d6 + Might.' },
+      { id: 'rage', name: 'Rage', icon: '😡', cd: 24, lvl: 3, text: 'For 10 seconds: +50% damage, take 25% less, and every hit heals you.' },
+    ] },
+  mage: { name: 'Mage', icon: '🔥', hp: 30, hpLv: 6, armor: 11, stats: { might: -1, agility: 1, mind: 4, charm: 1 }, atk: 'mind', dmg: [1, 10], style: 'magic', reach: 28, rate: 0.6,
+    gear: ['2H_Staff'], hat: true, attacks: ['Spellcast_Shoot'], block: 0.5,
+    blurb: 'Fragile, clever, and able to set a troll on fire from across a river.',
+    abilities: [
+      { id: 'fireball', name: 'Fireball', icon: '☄️', cd: 5, lvl: 1, text: 'A ball of fire that bursts for 2d6 + Mind on everything nearby. Trolls hate it.' },
+      { id: 'nova', name: 'Frost Nova', icon: '❄️', cd: 14, lvl: 3, text: 'Freeze every enemy around you solid for 3 seconds: 1d6 cold.' },
+    ] },
+  rogue: { name: 'Rogue', icon: '🗡️', hp: 36, hpLv: 7, armor: 14, stats: { might: 0, agility: 4, mind: 1, charm: 2 }, atk: 'agility', dmg: [1, 6], style: 'melee', reach: 2.3, rate: 0.42,
+    gear: ['Knife', 'Knife_Offhand'], hat: false, attacks: ['Dualwield_Melee_Attack_Slice', 'Dualwield_Melee_Attack_Stab', 'Dualwield_Melee_Attack_Chop'], block: 0.55,
+    blurb: 'Two knives, quick feet, and a sneak attack for anyone who looks the other way. Best thief in town.',
+    abilities: [
+      { id: 'shadowstep', name: 'Shadowstep', icon: '🌑', cd: 8, lvl: 1, text: 'Vanish and reappear behind the nearest enemy, with a guaranteed critical stab.' },
+      { id: 'smoke', name: 'Smoke Bomb', icon: '💨', cd: 20, lvl: 3, text: 'Turn invisible for 6 seconds. Monsters — and guards — lose track of you.' },
+    ] },
+  warden: { name: 'Warden', icon: '🌿', hp: 38, hpLv: 7, armor: 13, stats: { might: 0, agility: 3, mind: 2, charm: 1 }, atk: 'agility', dmg: [1, 8], style: 'ranged', reach: 32, rate: 0.7,
+    gear: ['2H_Crossbow'], hat: false, attacks: ['2H_Ranged_Shoot'], block: 0.5,
+    blurb: 'A crossbow, a hood, and the old green magic of the woods. Hits hard from far away.',
+    abilities: [
+      { id: 'volley', name: 'Volley', icon: '🏹', cd: 9, lvl: 1, text: 'Rain bolts on the spot you aim at: six bolts of 1d6.' },
+      { id: 'grove', name: 'Mending Grove', icon: '🌱', cd: 18, lvl: 3, text: 'Heal 3d6 + Mind over 4 seconds — you and every ally nearby.' },
+    ] },
+};
+export const CLASS_ORDER = ['knight', 'barbarian', 'mage', 'rogue', 'warden'];
+
+export const BACKGROUNDS = {
+  soldier: { name: 'Soldier', icon: '⚔️', text: '+6 maximum health.' },
+  scholar: { name: 'Scholar', icon: '📜', text: 'Start with 2 Fate instead of 1.' },
+  merchant: { name: 'Merchant', icon: '🪙', text: 'Start with 60 more gold.' },
+  herbalist: { name: 'Herbalist', icon: '🧪', text: 'Start with 3 extra potions.' },
+  outlaw: { name: 'Outlaw', icon: '🎭', text: '+3 to every steal and pickpocket roll.' },
+};
+
+export const ITEMS = {
+  luckycoin: { name: 'Lucky Coin', icon: '🪙', text: '+1 to attack rolls', mods: { hit: 1 } },
+  emberbrand: { name: 'Emberbrand', icon: '🔥', text: '+3 fire damage on every hit — trolls cannot heal through it', mods: { dmg: 3, fire: 1 } },
+  wardring: { name: 'Ring of Warding', icon: '💍', text: '+1 armor', mods: { armor: 1 } },
+  trollbelt: { name: 'Troll-hide Belt', icon: '🥋', text: '+10 maximum health', mods: { hp: 10 } },
+  wyvernscale: { name: 'Wyvern Scale Mail', icon: '🐉', text: '+2 armor', mods: { armor: 2 } },
+  owlcharm: { name: 'Owl Charm', icon: '🦉', text: '+1 Mind', mods: { mind: 1 } },
+  silvertongue: { name: 'Silver Tongue Ring', icon: '💬', text: '+1 Charm', mods: { charm: 1 } },
+  vargcloak: { name: "Varg's Wolf Cloak", icon: '🐺', text: '+1 Agility', mods: { agility: 1 } },
+  gobcrown: { name: 'Tin Pie Crown', icon: '🥧', text: '+1 Might (it is mostly pie tin)', mods: { might: 1 } },
+  crownsov: { name: 'Ash Crown (mastered)', icon: '👑', text: '+1 to every ability', mods: { might: 1, agility: 1, mind: 1, charm: 1 } },
+  crowncursed: { name: 'Ash Crown (cursed)', icon: '💀', text: '+3 Might, −2 Charm', mods: { might: 3, charm: -2 } },
+};
+// Quest items have no bonuses; they show in the bag.
+export const KEY_ITEMS = {
+  gravekey: { name: 'The Grave Key', icon: '🗝️' }, piebasket: { name: "Pell's Pie Basket", icon: '🧺' }, lute: { name: "Lirel's Lute", icon: '🪕' },
+  ashcrown: { name: 'The Ash Crown', icon: '👑' },
+};
+
+// ---- monsters and people who can fight
+// kind: melee | ranged | caster. gear: weapons from the model (or the gear kit, for skeletons).
+export const MONSTERS = {
+  wolf: { name: 'Grey Wolf', model: 'wolf', hp: 16, armor: 12, hit: 4, dmg: [1, 6, 2], speed: 8.6, reach: 2.2, aggro: 20, xp: 25, gold: [0, 0], kind: 'melee' },
+  bandit: { name: 'Bandit', model: 'barbarian', tint: '#9a7a62', gear: ['1H_Axe'], hp: 26, armor: 12, hit: 4, dmg: [1, 8, 2], speed: 5.8, reach: 2.6, aggro: 18, xp: 40, gold: [3, 12], kind: 'melee', attacks: ['1H_Melee_Attack_Chop'] },
+  archer: { name: 'Bandit Archer', model: 'warden', tint: '#9a7a62', gear: ['2H_Crossbow'], hp: 18, armor: 12, hit: 5, dmg: [1, 8, 1], speed: 5.2, reach: 18, aggro: 24, xp: 40, gold: [3, 10], kind: 'ranged', attacks: ['2H_Ranged_Shoot'] },
+  varg: { name: 'Varg the Red', title: 'Bandit Chief', model: 'knight', tint: '#c25a4a', gear: ['2H_Sword'], scale: 1.3, boss: true, hp: 150, armor: 15, hit: 6, dmg: [2, 6, 3], speed: 6.4, reach: 3.4, aggro: 22, xp: 260, gold: [40, 40], kind: 'melee',
+    attacks: ['2H_Melee_Attack_Slice', '2H_Melee_Attack_Chop'], special: 'cleave', loot: ['gravekey', 'vargcloak'] },
+  goblin: { name: 'Goblin', model: 'rogue', tint: '#8bd36f', gear: ['Knife'], scale: 0.68, hp: 12, armor: 12, hit: 4, dmg: [1, 6, 1], speed: 7.4, reach: 2.0, aggro: 18, xp: 20, gold: [1, 6], kind: 'melee', attacks: ['1H_Melee_Attack_Stab'] },
+  shaman: { name: 'Goblin Shaman', model: 'mage', tint: '#8bd36f', gear: ['1H_Wand'], scale: 0.75, hp: 15, armor: 11, hit: 5, dmg: [1, 8, 1], speed: 5.5, reach: 15, aggro: 22, xp: 30, gold: [2, 8], kind: 'caster', attacks: ['Spellcast_Shoot'] },
+  grub: { name: 'Grub', title: 'The Pie King', model: 'barbarian', tint: '#7fc65f', gear: ['1H_Axe', 'Barbarian_Round_Shield'], scale: 1.12, boss: true, hp: 120, armor: 13, hit: 5, dmg: [1, 10, 3], speed: 6.0, reach: 2.9, aggro: 20, xp: 200, gold: [30, 30], kind: 'melee',
+    attacks: ['1H_Melee_Attack_Chop'], special: 'slam', loot: ['piebasket', 'gobcrown'] },
+  troll: { name: 'Gorm', title: 'The Toll Troll', model: 'barbarian', tint: '#6f9e7c', gear: ['2H_Axe'], scale: 2.0, boss: true, hp: 180, armor: 12, hit: 6, dmg: [2, 8, 3], speed: 5.6, reach: 4.4, aggro: 16, xp: 320, gold: [60, 60], kind: 'melee',
+    attacks: ['2H_Melee_Attack_Chop'], special: 'slam', regen: 3, loot: ['trollbelt'] },
+  mimic: { name: 'Mimic', title: 'It Was Never A Chest', model: 'mimic', boss: true, hp: 70, armor: 13, hit: 5, dmg: [2, 6, 2], speed: 6.6, reach: 2.6, aggro: 6, xp: 160, gold: [25, 25], kind: 'melee', loot: ['lute'] },
+  wyvern: { name: 'Skarn', title: 'Wyvern of the Peak', model: 'wyvern', boss: true, hp: 230, armor: 14, hit: 7, dmg: [2, 8, 3], speed: 9, reach: 4.6, aggro: 34, xp: 420, gold: [120, 120], kind: 'melee', special: 'flyer', loot: ['wyvernscale'] },
+  bones: { name: 'Restless Bones', model: 'bones', gear: ['Skeleton_Blade'], hp: 18, armor: 12, hit: 4, dmg: [1, 6, 2], speed: 5.0, reach: 2.4, aggro: 16, xp: 25, gold: [1, 4], kind: 'melee', undead: true, attacks: ['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal'] },
+  stalker: { name: 'Grave Stalker', model: 'stalker', gear: ['Skeleton_Crossbow'], hp: 20, armor: 13, hit: 5, dmg: [1, 8, 1], speed: 5.4, reach: 18, aggro: 22, xp: 30, gold: [1, 5], kind: 'ranged', undead: true, attacks: ['2H_Ranged_Shoot'] },
+  guardian: { name: 'Barrow Guardian', model: 'guard', gear: ['Skeleton_Axe', 'Skeleton_Shield_Small_A'], hp: 42, armor: 15, hit: 6, dmg: [1, 10, 3], speed: 4.6, reach: 2.8, aggro: 16, xp: 60, gold: [3, 9], kind: 'melee', undead: true, attacks: ['1H_Melee_Attack_Chop'] },
+  chanter: { name: 'Grave Chanter', model: 'chanter', gear: ['Skeleton_Staff'], hp: 24, armor: 12, hit: 5, dmg: [1, 8, 2], speed: 4.6, reach: 16, aggro: 22, xp: 40, gold: [2, 7], kind: 'caster', undead: true, attacks: ['Spellcast_Shoot'] },
+  boneking: { name: 'The Bone King', title: 'Wearer of the Ash Crown', model: 'chanter', gear: ['Skeleton_Staff'], scale: 1.85, crown: true, boss: true, hp: 340, armor: 15, hit: 7, dmg: [2, 8, 4], speed: 5.2, reach: 3.6, aggro: 30, xp: 650, gold: [200, 200],
+    kind: 'melee', undead: true, attacks: ['2H_Melee_Attack_Chop', '2H_Melee_Attack_Slice'], special: 'king', loot: [] },
+  // the town watch: only hostile when you are wanted, or if you attack them
+  watch: { name: 'Town Guard', model: 'knight', tint: '#8fb3ff', gear: ['1H_Sword', 'Badge_Shield'], hp: 40, armor: 16, hit: 5, dmg: [1, 8, 2], speed: 6.9, reach: 2.6, aggro: 40, xp: 0, gold: [0, 4], kind: 'melee', team: 'town',
+    attacks: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop'] },
+};
+
+// ---- the people of the realm. pos is [x, z] in the overworld.
+export const NPCS = {
+  maren: { name: 'Elder Maren', model: 'mage', tint: '#c9b8e6', gear: ['Spellbook'], hat: true, pos: [3, 80], face: 0, idle: 'Idle', title: 'Village Elder' },
+  hale: { name: 'Captain Hale', model: 'knight', tint: '#8fb3ff', gear: ['1H_Sword', 'Badge_Shield'], hat: true, pos: [20, 36], face: 1.6, title: 'Captain of the Watch' },
+  brida: { name: 'Brida', model: 'warden', tint: '#e6c27a', gear: [], pos: [-12, 70.5], face: 3.14, title: 'Trader' },
+  doran: { name: 'Doran', model: 'barbarian', tint: '#c48a5a', gear: ['1H_Axe'], hat: false, pos: [19, 54], face: -0.8, title: 'Blacksmith' },
+  tom: { name: 'Old Tom', model: 'rogue', tint: '#b9a27a', gear: [], pos: [-21, 38], face: 2.2, title: 'Stablemaster' },
+  pell: { name: 'Farmer Pell', model: 'barbarian', tint: '#d8c48a', gear: [], hat: false, pos: [50, 112], face: -2.4, title: 'Farmer' },
+  lirel: { name: 'Lirel', model: 'rogue', tint: '#ffb0d0', gear: ['Mug'], pos: [-16, 54], face: 0.9, idle: 'Sit_Chair_Idle', title: 'Bard', seatY: 0.0 },
+  morwen: { name: 'Morwen', model: 'mage', tint: '#8fd88a', gear: ['1H_Wand'], hat: true, pos: [-190, 60], face: 0.4, title: 'Hedge Witch' },
+  aldous: { name: 'Ser Aldous', model: 'knight', ghost: true, gear: ['1H_Sword'], hat: true, zone: 'barrow', title: 'The Bound Knight', idle: 'Sit_Floor_Idle' },
+};
+
+// ---- quests. Each step's `at` is where the marker points: an NPC id, a site id, or [x, z].
+export const QUESTS = {
+  main: { title: 'The Ash Crown', giver: 'maren', main: true, steps: [
+    { text: 'Talk to Elder Maren at the chapel', at: 'maren' },
+    { text: 'Take the Grave Key from Varg the Red at the Ruined Keep', at: 'keep' },
+    { text: 'Travel north to the Barrow and open its door', at: 'barrowdoor' },
+    { text: 'Find the Bone King in the depths of the Barrow', at: 'throne' },
+    { text: 'Decide the fate of the Ash Crown', at: 'throne' },
+    { text: 'Return to Elder Maren with the crown', at: 'maren' },
+  ], reward: { xp: 600 } },
+  goblins: { title: 'Goblin Trouble', giver: 'pell', steps: [
+    { text: 'Get back Pell\'s pie basket from the Goblin Warren in the east', at: 'warren' },
+    { text: 'Return the pies to Farmer Pell', at: 'pell' },
+  ], reward: { xp: 250, gold: 60 } },
+  lute: { title: 'The Lost Lute', giver: 'lirel', steps: [
+    { text: 'Look for Lirel\'s lute at the Old Watchtower, north-east of the bridge', at: 'tower' },
+    { text: 'Give the lute back to Lirel at the tavern', at: 'lirel' },
+  ], reward: { xp: 220, item: 'silvertongue' } },
+  glowcaps: { title: 'Glowcaps', giver: 'morwen', steps: [
+    { text: 'Gather 5 glowcap mushrooms in the Mirefen (easier to spot at night)', at: 'swamp', count: 'glowcap', need: 5 },
+    { text: 'Bring the glowcaps to Morwen', at: 'morwen' },
+  ], reward: { xp: 200, item: 'owlcharm', potions: 2 } },
+  wyvern: { title: 'Wings over the Peak', giver: 'hale', steps: [
+    { text: 'Slay Skarn the wyvern on the Wyvern Peak, far north-east', at: 'peak' },
+    { text: 'Report to Captain Hale', at: 'hale' },
+  ], reward: { xp: 400, gold: 150 } },
+  shards: { title: 'Ember Shards', giver: 'doran', steps: [
+    { text: 'Find the 6 Ember Shards scattered across the realm (they glow on the map)', at: 'shard', count: 'shard', need: 6 },
+    { text: 'Bring the shards to Doran the blacksmith', at: 'doran' },
+  ], reward: { xp: 300, item: 'emberbrand' } },
+  troll: { title: 'The Toll Troll', giver: 'troll', steps: [
+    { text: 'Get past Gorm the troll at the North Bridge — pay, talk, or fight', at: 'bridge' },
+  ], reward: { xp: 150 } },
+};
+
+// ---- dialogue. A node is { text, options:[{ t, next, do, check:{stat,dc}, ok, fail, cost, if, end }] }
+// ok / fail are nodes too. `do(g)` runs when the option (or outcome) is chosen.
+const bye = (t = 'Farewell.') => ({ t, end: true });
+export const DIALOGUE = {
+  maren: g => {
+    const s = g.step('main');
+    if (s === undefined || s === 0) return {
+      text: g.fmt('{name}, thank the stars. The Ash Crown has been stolen from this very chapel — and since it went, the dead in the old Barrow have begun to walk.'),
+      options: [
+        { t: 'Who took it?', next: () => ({ text: 'A thing that calls itself the Bone King. Once, they say, it was only a gravedigger. The crown made it something else.', options: [
+          { t: 'How do I get into the Barrow?', next: 'maren_key' }, bye('I will think on it.') ] }) },
+        { t: 'I will bring it back.', next: 'maren_key' },
+        bye('Not today, Elder.'),
+      ] };
+    if (s === 1) return { text: 'Varg and his bandits hold the Ruined Keep, west along the road. Get the Grave Key from him — by steel or by words. His gang is no joke: Pell\'s goblins or Lirel\'s errand might be good practice first.', options: [
+      { t: 'Any advice?', next: () => ({ text: 'Varg is proud. Proud men can sometimes be talked into things. Or out of things. Mostly into fights.', options: [bye('Thanks.')] }) }, bye('On my way.') ] };
+    if (s === 2) return { text: 'You have the key! The Barrow lies far to the north, past the river. The North Bridge is quickest — though I hear something big has started charging a toll.', options: [bye()] };
+    if (s === 3 || s === 4) return { text: 'The crown is still down there, {name}. I can feel it, like a coal in my chest.', options: [bye()] };
+    if (s === 5) return { text: g.fmt('You have it. You really have it. {name}, Emberfall will sing about you until the bards run out of rhymes.'), options: [
+      { t: 'Return the Ash Crown to the chapel', do: g => g.endMain('home'), end: true } ] };
+    return { text: g.fmt(g.flag('ending') === 'home' ? 'The crown sleeps quietly on the altar. You did that, {name}.' : 'The realm is quieter since the Barrow. Thank you, {name}.'), options: [
+      { t: 'Any other work around here?', next: () => ({ text: 'Ask Captain Hale about bounties, Pell about goblins, and Lirel about — well, anything, if you have an hour.', options: [bye()] }) }, bye() ] };
+  },
+  maren_key: g => ({ text: 'The Barrow is sealed, and the only key belonged to the old gravedigger. Varg the Red took it when his bandits raided the graveyard. Find Varg at the Ruined Keep, out west.',
+    options: [{ t: 'Then I will start with Varg.', do: g => g.startQuest('main', 1), end: true }] }),
+
+  hale: g => {
+    if (g.bounty > 0) return { text: `You are wanted, ${g.hero.name}. ${g.bounty} star${g.bounty > 1 ? 's' : ''} of trouble. Pay ${g.fine()} gold, or explain yourself.`, options: [
+      { t: `Pay the fine (${g.fine()} gold)`, if: g => g.gold >= g.fine(), do: g => { g.pay(g.fine()); g.clearBounty(); }, end: true },
+      { t: 'This is all a misunderstanding.', check: { stat: 'charm', dc: 10 + g.bounty * 2 },
+        ok: { text: 'Hale sighs, rubs his eyes, and waves you off. "Fine. Misunderstanding. Do not let me misunderstand you again."', do: g => g.clearBounty() },
+        fail: { text: '"That is what they all say." He reaches for his sword.', do: g => g.guardsAttack() } },
+      bye('I will be going now.') ] };
+    const w = g.step('wyvern');
+    if (w === 1) return { text: 'Skarn is dead? By the… Here. The bounty, and the thanks of every shepherd in the north.', options: [{ t: 'Collect the bounty', do: g => g.completeQuest('wyvern'), end: true }] };
+    return { text: 'The watch keeps the peace in Emberfall. Mostly from drunks. Lately from worse.', options: [
+      { t: 'Any bounties going?', if: g => w === undefined && !g.done('wyvern'), next: () => ({ text: 'One. A wyvern called Skarn has made a nest on Wyvern Peak, far north-east, and it eats sheep. Big reward for its head.', options: [
+        { t: 'I will hunt it.', do: g => g.startQuest('wyvern', 0), end: true }, bye('Too big for me, for now.') ] }) },
+      { t: 'What are the rules here?', next: () => ({ text: 'Attack townsfolk, steal from stalls, take a horse you have not paid for — and you are wanted. Wanted folk get my guards. Lose them, or come and pay your fine.', options: [bye('Understood.')] }) },
+      bye() ] };
+  },
+  brida: g => ({ text: 'Potions, charms and fine questionable goods! Coin first, adventuring second.', options: [
+    { t: 'Healing potion (20 gold)', if: g => g.gold >= 20, do: g => { g.pay(20); g.addPotions(1); }, next: 'brida' },
+    { t: 'Fate charm, +1 Fate (40 gold)', if: g => g.gold >= 40 && g.fateCount < 3, do: g => { g.pay(40); g.addFate(1); }, next: 'brida' },
+    { t: 'Ring of Warding, +1 armor (150 gold)', if: g => g.gold >= 150 && !g.has('wardring'), do: g => { g.pay(150); g.giveItem('wardring'); }, next: 'brida' },
+    bye('Just looking.') ] }),
+  doran: g => {
+    const s = g.step('shards'), tier = g.flag('smith') || 0, cost = [60, 140, 260][tier];
+    const upgrade = tier < 3 ? [{ t: `Sharpen my weapon, +1 damage (${cost} gold)`, if: g => g.gold >= cost, do: g => { g.pay(cost); g.setFlag('smith', tier + 1); g.toast(`Weapon upgraded: +${tier + 1} damage`); }, next: 'doran' }] : [];
+    if (s === 1) return { text: 'Six ember shards! Stand back. This is the fun part.', options: [{ t: 'Hand them over', do: g => g.completeQuest('shards'), end: true }] };
+    return { text: s === 0 ? `Found any shards? ${g.count('shard')} of 6 so far.` : 'Doran. Steel, iron, and the occasional horseshoe.', options: [
+      ...upgrade,
+      { t: 'Anything special you could forge?', if: g => s === undefined && !g.done('shards'), next: () => ({ text: 'When the crown was stolen, its ember split into shards and scattered across the realm. Bring me six and I will forge you a blade that burns.', options: [
+        { t: 'I will find them.', do: g => g.startQuest('shards', 0), end: true }, bye('Maybe later.') ] }) },
+      bye() ] };
+  },
+  tom: g => {
+    if (g.ownsHorse) return { text: 'She is a good horse. Whistle (H) and she will come running.', options: [bye()] };
+    return { text: 'Need a horse? Sixty gold and she is yours. Or you could just take one, like a common horse thief, and see how Captain Hale feels about it.', options: [
+      { t: 'Buy a horse (60 gold)', if: g => g.gold >= 60, do: g => { g.pay(60); g.buyHorse(); }, end: true },
+      { t: 'Could you do me a better price?', check: { stat: 'charm', dc: 13 },
+        ok: { text: '"Oh, go on. Forty, because I like your face."', options: [{ t: 'Buy for 40 gold', if: g => g.gold >= 40, do: g => { g.pay(40); g.buyHorse(); }, end: true }, bye('Still too much.')] },
+        fail: { text: '"Sixty. Horses do not eat compliments."' } },
+      bye('Just admiring them.') ] };
+  },
+  pell: g => {
+    const s = g.step('goblins');
+    if (s === 1 || (s === 0 && g.has('piebasket'))) return { text: 'My pies! And only slightly nibbled. Here — take this, and take a pie for the road.', options: [{ t: 'You are welcome', do: g => g.completeQuest('goblins'), end: true }] };
+    if (s === 0) return { text: 'The goblins are holed up in the old mine, east along the road. Their boss calls himself the Pie King. With MY pies.', options: [bye()] };
+    if (g.done('goblins')) return { text: 'No goblins all week. Best week of my life.', options: [bye()] };
+    return { text: 'Goblins! Every night! They took a whole basket of pies and now there is a tiny goblin wearing a pie tin for a crown.', options: [
+      { t: 'I will get your pies back.', do: g => g.startQuest('goblins', 0), end: true }, bye('Good luck with that.') ] };
+  },
+  lirel: g => {
+    const s = g.step('lute');
+    if (s === 1 || (s === 0 && g.has('lute'))) return { text: 'My lute! It is… why is it damp? No — do not tell me. Here, this ring helped me talk my way out of three marriages.', options: [{ t: 'Give back the lute', do: g => g.completeQuest('lute'), end: true }] };
+    if (s === 0) return { text: 'The Old Watchtower, north-east of the bridge. I left it in a chest at the bottom. A very… friendly-looking chest.', options: [bye()] };
+    return { text: g.done('lute') ? 'Want a song? Everyone wants a song. It is about you!' : 'Ah, a hero! I would sing for you, but I have lost my lute. I left it in a chest at the Old Watchtower and the chest… looked at me.', options: [
+      { t: 'I will fetch it.', if: g => s === undefined && !g.done('lute'), do: g => g.startQuest('lute', 0), end: true },
+      { t: 'Heard any rumours?', next: () => ({ text: 'Trolls hate fire. Wyverns hate being looked at. And the Bone King hates his real name. Which nobody knows. Probably.', options: [bye('Useful.')] }) },
+      bye() ] };
+  },
+  morwen: g => {
+    const s = g.step('glowcaps');
+    if (s === 1) return { text: 'Five glowcaps, still humming. Lovely. Here is something to sharpen your eyes, and two of my best brews.', options: [{ t: 'Hand them over', do: g => g.completeQuest('glowcaps'), end: true }] };
+    return { text: s === 0 ? `Glowcaps, dearie. ${g.count('glowcap')} of 5. They glow at night, which is the whole point.` : 'A visitor! I sell, I cook, and I see. Mostly I need mushrooms.', options: [
+      { t: 'What do you need?', if: g => s === undefined && !g.done('glowcaps'), next: () => ({ text: 'Five glowcaps from the Mirefen. They glow blue at night. Mind the wolves.', options: [
+        { t: 'I will gather them.', do: g => g.startQuest('glowcaps', 0), end: true }, bye() ] }) },
+      { t: 'Buy a potion (15 gold)', if: g => g.gold >= 15, do: g => { g.pay(15); g.addPotions(1); }, next: 'morwen' },
+      { t: 'What do you see?', check: { stat: 'mind', dc: 12 },
+        ok: { text: '"The Bone King\'s true name is Aldric Vane. Say it to his face and he will remember he was a man. Briefly."', do: g => g.setFlag('truename', 1) },
+        fail: { text: '"I see… you, standing there, wasting my afternoon."' } },
+      bye() ] };
+  },
+  troll: g => {
+    if (g.flag('trollpass')) return { text: '"Friend! Pass, pass. Mind the planks."', options: [bye('Thanks, Gorm.')] };
+    return { text: '"TOLL," says the troll, standing up. And up. "Fifty gold. Or a riddle. Or your legs. Gorm is easy."', options: [
+      { t: 'Pay the toll (50 gold)', if: g => g.gold >= 50, do: g => { g.pay(50); g.setFlag('trollpass', 1); g.completeQuest('troll'); }, end: true },
+      { t: 'Trade riddles', check: { stat: 'mind', dc: 13 },
+        ok: { text: '"What has roots nobody sees, is taller than trees, up up it goes and yet never grows?" Gorm thinks for nine minutes. "…MOUNTAIN? No. Gorm gives up. You pass. Gorm likes you."', do: g => { g.setFlag('trollpass', 1); g.completeQuest('troll'); } },
+        fail: { text: 'Gorm\'s riddle is about his own feet, and you cannot work it out. "LEGS, then."', do: g => g.fight('troll') } },
+      { t: 'Make friends', check: { stat: 'charm', dc: 15 },
+        ok: { text: 'You compliment his bridge. Nobody has ever complimented his bridge. Gorm weeps, hugs you, and gives you a lucky river stone.', do: g => { g.setFlag('trollpass', 1); g.addFate(1); g.completeQuest('troll'); } },
+        fail: { text: '"Gorm knows when he is being buttered." He raises his axe.', do: g => g.fight('troll') } },
+      { t: 'Draw steel', do: g => g.fight('troll'), end: true },
+      bye('I will find another way across.') ] };
+  },
+  varg: g => ({ text: '"Another hero. The last one is in that pot." Varg the Red hefts a sword taller than you. "You want the Grave Key? Take it from me."', options: [
+    { t: 'Fight', do: g => g.fight('varg'), end: true },
+    { t: '"Give me the key, and you live."', check: { stat: 'charm', dc: 16 },
+      ok: { text: 'Something in your voice makes him think twice. He tosses you the key. "Take it and go. That Barrow gives me nightmares anyway."', do: g => g.vargYields() },
+      fail: { text: 'He laughs until he coughs. "Get them, lads!"', do: g => g.fight('varg') } },
+    { t: '"Fight me alone. No lads."', check: { stat: 'might', dc: 12 },
+      ok: { text: '"Ha! I like you. Back off, lads." The bandits lower their weapons and watch.', do: g => g.fight('varg', true) },
+      fail: { text: '"Alone? With you? Lads!"', do: g => g.fight('varg') } } ] }),
+  aldous: g => {
+    if (g.flag('aldous')) return { text: '"Go. I will be at your side when the time comes."', options: [bye()] };
+    return { text: '"I guarded the crown in life," the ghost whispers. "The Bone King bound me here, so I would have to watch him wear it."', options: [
+      { t: 'Break his chains', check: { stat: 'mind', dc: 13 },
+        ok: { text: 'The chains ring like bells and fall. "Then I have one charge left in me. I will be there when you face him."', do: g => g.setFlag('aldous', 'ally') },
+        fail: { text: 'The chains flare and burn you. The ghost groans.', do: g => g.hurtHero(8) } },
+      { t: 'Ask how to beat the King', check: { stat: 'charm', dc: 12 },
+        ok: { text: '"His crown is cracked above the left eye. Strike there." (The Bone King will have 3 less armor.)', do: g => g.setFlag('aldous', 'crack') },
+        fail: { text: '"I… cannot remember. It has been so long."' } },
+      { t: 'Kneel for his blessing', do: g => { g.setFlag('aldous', 'bless'); g.healHero(999); g.toast('Fully healed'); }, end: true },
+      bye('Rest well.') ] };
+  },
+  boneking: g => ({ text: '"More thieves," says the Bone King, rising from his throne. "Kneel, or be knelt."', options: [
+    { t: 'Speak his true name: "Aldric Vane."', if: g => g.flag('truename'), do: g => { g.setFlag('kingstun', 1); g.fight('boneking'); }, end: true },
+    { t: 'Fight', do: g => g.fight('boneking'), end: true } ] }),
+  crown: g => ({ text: 'The Ash Crown lies in the dust, still burning. It whispers that you would make a far better ruler than a gravedigger did.', options: [
+    { t: 'Smash it on the throne', do: g => g.endMain('ashes'), end: true },
+    { t: 'Take it home to Elder Maren', do: g => { g.giveKey('ashcrown'); g.setStep('main', 5); g.toast('Bring the crown to Elder Maren'); }, end: true },
+    { t: 'Put it on', check: { stat: 'mind', dc: 15 },
+      ok: { text: 'The whispers break against your will like waves against a cliff. The crown is yours, and you are still you.', do: g => g.endMain('sovereign') },
+      fail: { text: 'The whispers were right. They always are.', do: g => g.endMain('cursed') } } ] }),
+  stall: g => ({ text: 'The stall is piled with bread, trinkets and potions. Its owner is busy haggling with someone else.', options: [
+    { t: 'Steal something', check: { stat: 'agility', dc: g.stealDC() },
+      ok: { text: 'Nobody saw a thing.', do: g => g.stealLoot() },
+      fail: { text: '"THIEF!"', do: g => g.crime(1, 'theft') } },
+    bye('Leave it') ] }),
+  barrowdoor: g => {
+    if (!g.has('gravekey')) return { text: 'A stone door carved with a ring of runes, around a keyhole shaped like an open mouth. It will not move.', options: [
+      { t: 'Read the runes', check: { stat: 'mind', dc: 12 }, ok: { text: '"Only the Grave Key opens the way of the dead." The gravedigger\'s key, then. Varg has it.' }, fail: { text: 'Old letters, and a lot of skulls.' } },
+      { t: 'Force it', check: { stat: 'might', dc: 20 }, ok: { text: 'Somehow, impossibly, the stone grinds open.', do: g => g.openBarrow() }, fail: { text: 'It does not budge. You may have pulled something.' } },
+      bye('Leave') ] };
+    return { text: 'The Grave Key fits the keyhole as if the door has been waiting for it.', options: [{ t: 'Enter the Barrow', do: g => g.openBarrow(), end: true }, bye('Not yet')] };
+  },
+};
+
+// Hints shown on the loading screen and in the pause menu.
+export const TIPS = [
+  'Attacks roll a d20 against the target\'s armor. A natural 20 is a critical hit.',
+  'Trolls regenerate — unless something is on fire. Fireball, or a burning sword.',
+  'A rogue\'s attacks deal extra damage to enemies who are not looking at them.',
+  'Lose the guards: get out of sight for long enough and your bounty clears.',
+  'Shrines are fast-travel points. Touch one, then pick it on the map (M).',
+  'Dodge (Q) makes you briefly untouchable. Big attacks glow red first.',
+  'Wolves hunt at night. So do worse things.',
+];
