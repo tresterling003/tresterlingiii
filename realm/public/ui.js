@@ -1,6 +1,7 @@
 // Everything on screen that is not the 3D world.
 import * as THREE from 'three';
-import { CLASSES, CLASS_ORDER, STATS, STAT_ICON, BACKGROUNDS, TINTS, BONUS_POINTS, ITEMS, KEY_ITEMS, QUESTS, NPCS, XP_LEVELS } from './data.js';
+import { CLASSES, CLASS_ORDER, STATS, STAT_ICON, BACKGROUNDS, TINTS, BONUS_POINTS, ITEMS, KEY_ITEMS, QUESTS, NPCS, XP_LEVELS, WEAPONS, MATERIALS } from './data.js';
+import { icon, ABILITY_ICON } from './icons.js';
 import { HALF, SITES, SHRINES, SHARDS, GLOWCAPS, SETTLEMENTS, NPC_POS } from './world.js';
 
 const $ = id => document.getElementById(id);
@@ -66,7 +67,7 @@ export class UI {
     const C = CLASSES[h.cls];
     if (this.slotCls !== h.cls) {
       this.slotCls = h.cls;
-      C.abilities.forEach((ab, i) => { const s = document.querySelector(`#slots [data-slot="${i + 1}"]`); s.querySelector('.ico').textContent = ab.icon; s.title = `${ab.name}: ${ab.text}`; const tb = $('tAb' + (i + 1)); if (tb) tb.textContent = ab.icon; });
+      C.abilities.forEach((ab, i) => { const s = document.querySelector(`#slots [data-slot="${i + 1}"]`); s.querySelector('.ico').outerHTML = icon(ABILITY_ICON[ab.id] || 'bolt'); s.title = `${ab.name}: ${ab.text}`; const tb = $('tAb' + (i + 1)); if (tb) tb.innerHTML = icon(ABILITY_ICON[ab.id] || 'bolt'); });
     }
     C.abilities.forEach((ab, i) => {
       const s = document.querySelector(`#slots [data-slot="${i + 1}"]`);
@@ -99,7 +100,13 @@ export class UI {
       $('trDist').textContent = at && at.zone === g.zone ? `${Math.round(Math.hypot(at.x - p.pos.x, at.z - p.pos.z))} m` : at && at.zone !== g.zone ? (g.zone !== 'world' ? 'outside' : 'in the Barrow') : '';
     } else tr.hidden = true;
     const ch = $('crosshair');
-    ch.hidden = !(C.style !== 'melee') || g.cineActive || g.paused || g.talking;
+    const K = g.kit();
+    ch.hidden = !(K.style !== 'melee') || g.cineActive || g.paused || g.talking;
+    if (this.slotsDirty || this.wpnShown !== h.weapon + (h.torchOn ? 't' : '')) {
+      this.slotsDirty = false; this.wpnShown = h.weapon + (h.torchOn ? 't' : '');
+      const w = WEAPONS[h.weapon];
+      $('wpnSlot').innerHTML = `${icon(w.icon)}<span>${w.name}</span>${h.torchOn ? icon('torch', 'tq') : ''}`;
+    }
     if (!ch.hidden) { if ((this.aimT = (this.aimT || 0) + 1) % 4 === 0) ch.classList.toggle('on', !!p.aim().target); ch.classList.toggle('zoom', !!p.aimMode); }
     this.minimap();
     this.markers();
@@ -135,6 +142,7 @@ export class UI {
       else if (e.type === 'mob' && e.team === 'town') dot(e.pos.x, e.pos.z, '#8fb3ff', 2.5);
     }
     if (g.zone === 'world') for (const s of SHRINES) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 110) dot(s.x, s.z, g.hero.shrines[s.id] ? '#5fd8ff' : '#2a5a70', 3.5);
+    if (g.zone === 'world') for (const sg of g.scenery.signs || []) if (Math.hypot(sg.x - p.pos.x, sg.z - p.pos.z) < 95) dot(sg.x, sg.z, '#e8b14a', 3);
     c.restore();
     // quest arrow
     const tq = g.trackedQuest(), at = tq && g.questTarget(tq.id);
@@ -309,6 +317,69 @@ export class UI {
     $('sens').oninput = e => { this.g.input.sens = +e.target.value; try { localStorage.setItem('realm.sens', e.target.value); } catch { /* fine */ } };
     try { const s = localStorage.getItem('realm.sens'); if (s) { $('sens').value = s; } } catch { /* fine */ }
     $('mStick').onclick = () => this.setDpad(!this.dpad);
+  }
+  // ------------------------------------------------------------ the weapon wheel: hold Tab / Y / the wheel button; time slows while it is open
+  wheelItems() {
+    const h = this.g.hero, list = h.weapons.map(k => ({ k, name: WEAPONS[k].name, icon: WEAPONS[k].icon, text: WEAPONS[k].text }));
+    if (h.flags.torch) list.push({ k: 'torch', name: h.torchOn ? 'Put out the torch' : 'Light a torch', icon: 'torch', text: 'Light in the dark. Takes the off hand.' });
+    return list.slice(0, 10);
+  }
+  wheelOpen(byTouch) {
+    const g = this.g, items = this.wheelItems(), W = $('wheel');
+    if (g.wheel || g.talking || g.cineActive || g.state !== 'play') return;
+    g.wheel = { items, sel: Math.max(0, items.findIndex(i => i.k === g.hero.weapon)), vx: 0, vy: 0, touch: !!byTouch };
+    const ring = $('wheelRing'); ring.innerHTML = '';
+    items.forEach((it, i) => {
+      const a = (i / items.length) * Math.PI * 2 - Math.PI / 2, b = el('button', 'wslot');
+      b.style.left = `calc(50% + ${Math.cos(a) * 42}% )`; b.style.top = `calc(50% + ${Math.sin(a) * 42}% )`;
+      b.innerHTML = icon(it.icon); b.dataset.i = i;
+      const pick = e => { e.preventDefault(); e.stopPropagation(); g.wheel.sel = i; this.wheelClose(true); };
+      b.addEventListener('touchstart', pick, { passive: false }); b.addEventListener('mousedown', pick);
+      ring.append(b);
+    });
+    W.hidden = false;
+    this.wheelShow();
+    g.sfx.swish();
+  }
+  wheelShow() {
+    const g = this.g, w = g.wheel; if (!w) return;
+    document.querySelectorAll('#wheelRing .wslot').forEach((b, i) => b.classList.toggle('on', i === w.sel));
+    const it = w.items[w.sel], wp = WEAPONS[it.k];
+    $('wheelName').textContent = it.name;
+    $('wheelInfo').textContent = wp ? `${wp.style === 'melee' ? `${wp.dmg[0]}d${wp.dmg[1]} · reach ${wp.reach} m` : `${wp.dmg[0]}d${wp.dmg[1]} · ${wp.style}`} — ${wp.text}` : it.text;
+  }
+  wheelClose(apply) {
+    const g = this.g, w = g.wheel; if (!w) return;
+    g.wheel = null;
+    $('wheel').hidden = true;
+    if (!apply) return;
+    const it = w.items[w.sel];
+    if (it.k === 'torch') g.toggleTorch(); else if (it.k !== g.hero.weapon) g.equip(it.k);
+  }
+  // per tick: open on hold, steer with the mouse or a stick, close on release
+  wheelTick() {
+    const g = this.g, I = g.input, held = I.down('Tab') || I.padWheel;
+    if (!g.wheel) { if (held) this.wheelOpen(); return; }
+    const w = g.wheel;
+    let x = I.mx * 0.04, y = I.my * 0.04;
+    if (I.pad) { const ax = I.pad.axes; const sx = Math.abs(ax[2]) > Math.abs(ax[0]) ? ax[2] : ax[0], sy = Math.abs(ax[2]) > Math.abs(ax[0]) ? ax[3] : ax[1]; if (Math.hypot(sx, sy) > 0.5) { w.vx = sx * 3; w.vy = sy * 3; } }
+    w.vx = Math.max(-3, Math.min(3, w.vx + x)); w.vy = Math.max(-3, Math.min(3, w.vy + y));
+    if (Math.hypot(w.vx, w.vy) > 1) {
+      const a = Math.atan2(w.vy, w.vx) + Math.PI / 2, n = w.items.length;
+      const i = ((Math.round((a / (Math.PI * 2)) * n) % n) + n) % n;
+      if (i !== w.sel) { w.sel = i; this.wheelShow(); g.sfx.tick && g.sfx.tick(); }
+    }
+    if (!held && !w.touch) this.wheelClose(true);
+  }
+  // ------------------------------------------------------------ the combo meter
+  combo(n, broke) {
+    const c = $('combo');
+    if (broke || !n) { if (!c.hidden) { c.classList.add('out'); setTimeout(() => { if (!this.g.combo) c.hidden = true; c.classList.remove('out'); }, 400); } return; }
+    c.hidden = false; c.classList.remove('out');
+    $('comboN').textContent = n;
+    $('comboTag').textContent = n >= 8 ? 'TAKEDOWN READY — heavy attack' : n >= 5 ? 'Freeflow' : 'Hits';
+    c.classList.toggle('hot', n >= 8);
+    c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
   }
   setDpad(on) {
     this.dpad = !!on;
@@ -570,6 +641,10 @@ export class UI {
     btn('tMenu', () => { g.togglePause(); });
     btn('tHorse', () => { inp().pressed.KeyH = true; });
     btn('tLock', () => { inp().pressed.KeyT = true; });
+    btn('tWheel', () => { if (g.wheel) this.wheelClose(false); else this.wheelOpen(true); });
+    const ic = { tAttack: 'sword', tJump: 'jump', tDodge: 'dodge', tBlock: 'bolt', tPotion: 'potion', tUse: 'hand', tHorse: 'horse', tLock: 'target', tWheel: 'wheel', tMenu: 'menu' };
+    for (const [id, nm] of Object.entries(ic)) { const b = $(id); if (b) b.innerHTML = icon(nm); }
+    $('wheel').addEventListener('click', e => { if (e.target.id === 'wheel') this.wheelClose(false); });
     try { this.setDpad(localStorage.getItem('realm.dpad') === '1'); } catch { this.setDpad(false); }
   }
 }

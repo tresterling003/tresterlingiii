@@ -1,7 +1,7 @@
 // Builds the 3D realm from world.js: terrain, water, sky, nature, kingdoms, villages, the Barrow.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { HALF, height, groundColor, fbm, rng, roadDist, riverDist, biome, SITES, BUILDINGS, PROPS, DUNGEON, dTile, SHRINES, SETTLEMENTS, PLANS, ROADS, RIVER, RIVER_W, INSIDE_X } from './world.js';
+import { HALF, height, groundColor, fbm, rng, roadDist, riverDist, biome, SITES, BUILDINGS, PROPS, DUNGEON, dTile, SHRINES, SETTLEMENTS, PLANS, ROADS, RIVER, RIVER_W, INSIDE_X, WOOD } from './world.js';
 import { A, part, baked, kitSize } from './assets.js';
 import { roomKind } from './interiors.js';
 
@@ -121,7 +121,8 @@ export class Scenery {
     for (let gx = -HALF + 40; gx < HALF - 40; gx += 9) for (let gz = -HALF + 40; gz < HALF - 40; gz += 9) {
       const x = gx + (R() - 0.5) * 8, z = gz + (R() - 0.5) * 8;
       const b = biome(x, z), r = R();
-      const p = { forest: 0.62, plains: 0.035, desert: 0.025, snow: 0.3, swamp: 0.1 }[b];
+      const inWood = Math.hypot(x - WOOD.x, z - WOOD.z) < WOOD.r;
+      const p = inWood ? 0.82 : { forest: 0.62, plains: 0.035, desert: 0.025, snow: 0.3, swamp: 0.1 }[b];
       if (r > p || blocked(x, z, 0)) continue;
       const y = this.h(x, z), r2 = R();
       if (b === 'desert') { add(r2 < 0.7 ? 'cactus' : 'deadbush', x, z, 0.9 + R() * 0.8, R() * 6, r2 < 0.7 ? 0.5 : 0); continue; }
@@ -215,14 +216,30 @@ export class Scenery {
     };
     for (const s of SETTLEMENTS) {
       const plan = PLANS[s.id];
-      plan.buildings.forEach(([name, x, z, rot, sc], i) => {
+      plan.buildings.forEach((bld, i) => {
+        const [name, x, z, rot, sc] = bld;
         put(name, x, z, rot, sc);
+        const fx0 = Math.sin(rot), fz0 = Math.cos(rot), sx0 = Math.cos(rot), sz0 = -Math.sin(rot);
+        const ks = kitSize('town', name), front = (ks.z * sc) / 2 + 0.6, half = (ks.x * sc) / 2;
+        // every house dressed a little differently: barrels, crates, carts, flowers, lanterns
+        if (!bld.sign && /home|tower/.test(name)) {
+          const pick = R();
+          for (const side of [-1, 1]) {
+            if (R() < 0.45) continue;
+            const px = x + fx0 * front + sx0 * side * (half * 0.75), pz = z + fz0 * front + sz0 * side * (half * 0.75);
+            const what = ['barrel', 'crate_A_big', 'sack', 'wheelbarrow', 'bucket_water', 'crate_B_small'][Math.floor((pick * 7 + side + 1) * 13) % 6];
+            put(what, px, pz, R() * 6, 6, { shrink: 0.7, low: true });
+          }
+          if (R() < 0.5) this.flowerBox(x + fx0 * (front - 0.3) + sx0 * (half * 0.4) * (R() < 0.5 ? -1 : 1), z + fz0 * (front - 0.3) + sz0 * (half * 0.4), rot);
+          if (R() < 0.25) put('fence_wood_straight', x + fx0 * (front + 2.5) + sx0 * half * 0.6, z + fz0 * (front + 2.5) + sz0 * half * 0.6, rot + Math.PI / 2, 3.2, { solid: false });
+        }
+        if (bld.sign) this.sign(x + fx0 * front + sx0 * (half * 0.55), z + fz0 * front + sz0 * (half * 0.55), rot, bld.sign);
         // a front door you can walk through
-        const kind = roomKind(name);
+        const kind = bld.role ? ({ forge: 'smith' }[bld.role] || bld.role) : roomKind(name);
         if (!kind) return;
         const k = kitSize('town', name), c = Math.cos(rot), sn = Math.sin(rot), ox = k.cx * sc, oz = k.cz * sc;
         const cx = x + ox * c + oz * sn, cz = z - ox * sn + oz * c, hd = (k.z * sc * 0.86) / 2, fx = Math.sin(rot), fz = Math.cos(rot);
-        this.doors.push({ id: `${s.id}:${i}`, kind, name, x: cx + fx * (hd + 0.5), z: cz + fz * (hd + 0.5), ox: cx + fx * (hd + 2.4), oz: cz + fz * (hd + 2.4), rot, town: s.name, sid: s.id, color: s.color });
+        this.doors.push({ id: `${s.id}:${i}`, kind, name, sign: bld.sign, role: bld.role, x: cx + fx * (hd + 0.5), z: cz + fz * (hd + 0.5), ox: cx + fx * (hd + 2.4), oz: cz + fz * (hd + 2.4), rot, town: s.name, sid: s.id, color: s.color });
       });
       for (const [name, x, z, rot, sc] of plan.towers) put(name, x, z, rot, sc);
       // the city wall
@@ -257,10 +274,86 @@ export class Scenery {
       }
     }
     for (const [name, mats] of Object.entries(groups)) this.instance(baked('town', name), mats, true);
+    this.flowersDone();
+    if (PLANS.emberfall.arena) this.arena(PLANS.emberfall.arena, SETTLEMENTS[0]);
+    this.camp(SITES.camp);
     // the wild places
     for (const [name, x, z, rot, s] of BUILDINGS) this.place('town', name, x, z, rot, s);
     for (const [name, x, z, rot, s] of PROPS) this.place('town', name, x, z, rot, s, { shrink: 0.8, low: true, solid: !/flag|sack|bucket/.test(name) });
   }
+  // a hanging shop sign: post, arm, and a painted board, readable from down the street
+  sign(x, z, rot, text) {
+    const y = this.h(x, z), g = new THREE.Group();
+    g.position.set(x, y, z); g.rotation.y = rot;
+    const wood = new THREE.MeshLambertMaterial({ color: 0x4a3222 });
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.6, 0.22), wood); post.position.y = 2.3; g.add(post);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 1.9), wood); arm.position.set(0, 4.4, 0.85); g.add(arm);
+    const c = document.createElement('canvas'); c.width = 512; c.height = 160;
+    const k = c.getContext('2d');
+    k.fillStyle = '#2a1a10'; k.fillRect(0, 0, 512, 160);
+    k.fillStyle = '#6a4428'; k.fillRect(8, 8, 496, 144);
+    k.strokeStyle = '#d8b060'; k.lineWidth = 6; k.strokeRect(18, 18, 476, 124);
+    k.fillStyle = '#f4dc9a'; k.textAlign = 'center'; k.textBaseline = 'middle';
+    let fs = 64; k.font = `700 ${fs}px Cinzel, Georgia, serif`; while (k.measureText(text).width > 440 && fs > 24) { fs -= 4; k.font = `700 ${fs}px Cinzel, Georgia, serif`; }
+    k.fillText(text, 256, 84);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const t2 = t.clone(); t2.wrapS = THREE.RepeatWrapping; t2.repeat.x = -1; t2.offset.x = 1; t2.needsUpdate = true;
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 3.2), [new THREE.MeshLambertMaterial({ map: t2 }), new THREE.MeshLambertMaterial({ map: t }), wood, wood, wood, wood]);
+    board.rotation.y = Math.PI / 2; board.position.set(0, 3.65, 1.55);
+    g.add(board);
+    for (const dx of [-1.2, 1.2]) { const ch = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.36, 0.03), wood); ch.position.set(0, 4.2, 1.55 + dx); g.add(ch); }
+    this.group.add(g);
+    this.phys.circle(x, z, 0.3);
+    (this.signs = this.signs || []).push({ x, z, text });
+  }
+  flowerBox(x, z, rot) {
+    if (!this.flowerParts) { this.flowerParts = { box: [], bloom: [] }; }
+    const y = this.h(x, z);
+    const m = new THREE.Matrix4().compose(V3(x, y + 0.35, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), rot), V3(1, 1, 1));
+    this.flowerParts.box.push(m);
+    this.flowerParts.bloom.push(new THREE.Matrix4().compose(V3(x, y + 0.75, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), rot), V3(1, 1, 1)));
+  }
+  flowersDone() {
+    if (!this.flowerParts) return;
+    const box = new THREE.BoxGeometry(1.6, 0.6, 0.6), bloom = new THREE.IcosahedronGeometry(0.42, 0);
+    bloom.scale(1.8, 0.6, 0.7);
+    this.instance([{ geometry: box, material: new THREE.MeshLambertMaterial({ color: 0x6a4428 }) }], this.flowerParts.box, true);
+    const cols = [0xe85a7a, 0xf2c94c, 0xc86ae8, 0xf28a3c];
+    const ms = this.flowerParts.bloom;
+    cols.forEach((col, i) => { const part = ms.filter((_, k) => k % cols.length === i); if (part.length) this.instance([{ geometry: bloom, material: new THREE.MeshLambertMaterial({ color: col, flatShading: true }) }], part, true); });
+  }
+  // the fighting pit: sand, a timber wall, tiered stands and a gate facing the plaza
+  arena(A, s) {
+    const y = this.h(A.x, A.z), gateA = Math.atan2(s.z - A.z, s.x - A.x);
+    A.gateA = gateA;
+    const sand = new THREE.Mesh(new THREE.CircleGeometry(A.r, 40), new THREE.MeshLambertMaterial({ color: 0xd8c08a }));
+    sand.rotation.x = -Math.PI / 2; sand.position.set(A.x, y + 0.06, A.z); sand.receiveShadow = true; this.group.add(sand);
+    const wood = new THREE.MeshLambertMaterial({ color: 0x6a4630 }), dark = new THREE.MeshLambertMaterial({ color: 0x4a3020 }), cloth = [0xb83a30, 0xe8c050];
+    const n = 36;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      if (Math.abs(Math.atan2(Math.sin(a - gateA), Math.cos(a - gateA))) < 0.16) continue;
+      const len = (2 * Math.PI * A.r) / n + 0.1;
+      for (let tier = 0; tier < 3; tier++) {
+        const rr = A.r + 0.6 + tier * 2.2, h = 1.6 + tier * 1.2;
+        const seg = new THREE.Mesh(new THREE.BoxGeometry(((2 * Math.PI * rr) / n) + 0.1, h, tier ? 2.2 : 0.6), tier ? dark : wood);
+        seg.position.set(A.x + Math.cos(a) * rr, y + h / 2, A.z + Math.sin(a) * rr); seg.rotation.y = -a + Math.PI / 2; seg.castShadow = seg.receiveShadow = true; this.group.add(seg);
+      }
+      const b = this.phys.box(A.x + Math.cos(a) * (A.r + 0.6), A.z + Math.sin(a) * (A.r + 0.6), len / 2, 0.5, -a + Math.PI / 2);
+      if (i % 3 === 0) { const f = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.2), new THREE.MeshLambertMaterial({ color: cloth[i % 2], side: THREE.DoubleSide })); f.position.set(A.x + Math.cos(a) * (A.r + 0.25), y + 1.0, A.z + Math.sin(a) * (A.r + 0.25)); f.rotation.y = -a + Math.PI / 2; this.group.add(f); }
+    }
+    for (const side of [-1, 1]) { const b = gateA + side * 0.2; this.torch(A.x + Math.cos(b) * (A.r + 1.5), y, A.z + Math.sin(b) * (A.r + 1.5), 0xffa050, true); }
+    this.arenaInfo = A;
+  }
+  // the Red Hand bandits' camp in the woods
+  camp(C) {
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2 + 0.3; this.place('town', 'tent', C.x + Math.cos(a) * 11, C.z + Math.sin(a) * 11, -a + Math.PI / 2, 6, { shrink: 0.7 }); }
+    this.campfire(C.x, C.z);
+    for (const [dx, dz, nm] of [[4, -5, 'barrel'], [-5, 4, 'crate_A_big'], [6, 4, 'crate_B_small'], [-3, -6, 'sack'], [2, 7, 'weaponrack']]) this.place('town', nm, C.x + dx, C.z + dz, dx, 6, { shrink: 0.7, low: true });
+    for (let i = 0; i < 22; i++) { const a = (i / 22) * Math.PI * 2; if (Math.abs(a - 0.4) < 0.25) continue; this.place('town', 'fence_wood_straight', C.x + Math.cos(a) * 19, C.z + Math.sin(a) * 19, -a, 3.4, { solid: false }); }
+    this.place('town', 'flag_red', C.x - 2, C.z - 2, 0, 8, { solid: false });
+  }
+
   // a street lamp: a post with a flame; the nearest few cast real light at night
   lamp(x, y, z) {
     if (!this.lampParts) {

@@ -16,8 +16,8 @@ export function roomKind(name) {
   return { home_A: 'home', home_B: 'home', tavern: 'tavern', blacksmith: 'smith', church: 'church', castle: 'castle', barracks: 'barracks', tower_A: 'tower', tower_B: 'tower', archeryrange: 'home' }[m[1]];
 }
 // width (x), depth (z), height
-const SIZE = { home: [14, 12, 4.8], tavern: [24, 18, 6.2], smith: [17, 13, 5.6], church: [16, 30, 10], castle: [28, 34, 11], barracks: [22, 13, 5.6], tower: [11, 11, 9] };
-export const ROOM_NAME = { home: 'a house', tavern: 'the tavern', smith: 'the smithy', church: 'the church', castle: 'the great hall', barracks: 'the barracks', tower: 'the tower' };
+const SIZE = { armory: [16, 13, 5.6], alchemist: [12, 12, 8], grocer: [15, 12, 5], bakery: [14, 12, 5], guild: [20, 20, 8], myhouse: [14, 12, 4.8], home: [14, 12, 4.8], tavern: [24, 18, 6.2], smith: [17, 13, 5.6], church: [16, 30, 10], castle: [28, 34, 11], barracks: [22, 13, 5.6], tower: [11, 11, 9] };
+export const ROOM_NAME = { armory: 'the Armory', alchemist: 'the Alchemist', grocer: 'the General Store', bakery: 'the Bakery', guild: "the Adventurers' Guild", myhouse: 'your house', home: 'a house', tavern: 'the tavern', smith: 'the smithy', church: 'the church', castle: 'the great hall', barracks: 'the barracks', tower: 'the tower' };
 
 // ---------------------------------------------------------------- painted textures
 const texCache = {};
@@ -170,7 +170,7 @@ export class Rooms {
     const root = (this.group = new THREE.Group());
     root.position.set(ROOM_X, 0, ROOM_Z);
     g.scene.add(root);
-    const stone = kind === 'church' || kind === 'castle' || kind === 'tower';
+    const stone = kind === 'church' || kind === 'castle' || kind === 'tower' || kind === 'alchemist' || kind === 'guild';
     const floorT = tex(stone ? 'stone' : 'planks').clone(); floorT.needsUpdate = true; floorT.repeat.set(W / 4, D / 4);
     const wallT = tex(stone || kind === 'smith' ? 'brick' : 'plaster').clone(); wallT.needsUpdate = true; wallT.repeat.set(W / 4, H / 4);
     const M = {
@@ -288,7 +288,68 @@ export class Rooms {
     const guard = (x, z, rot) => { const e = g.spawnMob('watch', ROOM_X + x, ROOM_Z + z, { zone: 'inside', tint: door.tint }); e.rot = e.postRot = rot; e.post = true; e.home.copy(e.pos); this.ents.push(e); return e; };
     const rug = (x, z, w, d, t = 'rug') => { const tt = tex(t).clone(); tt.needsUpdate = true; if (t === 'carpet') tt.repeat.set(1, d / 4); const r = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat({ map: tt })); r.rotation.x = -Math.PI / 2; r.position.set(x, 0.025, z); r.receiveShadow = true; root.add(r); };
 
-    if (kind === 'home') {
+    // a shop counter with its keeper behind it
+    const shop = (talk, title, o = {}) => {
+      box(7, 1.15, 1, 0, 0.58, -D / 2 + 3.2, M.wood, true); box(7.2, 0.1, 1.2, 0, 1.2, -D / 2 + 3.2, M.woodL);
+      return person(0, -D / 2 + 1.9, 0, { talk, title, name: o.name, model: o.model, gear: o.gear || [], tint: o.tint, hat: o.hat });
+    };
+    if (kind === 'armory') {
+      shop('armorer', 'armorer', { name: 'Ulric Ironhand', model: 'knight', gear: ['1H_Sword'], tint: '#c8b8a0', hat: true });
+      for (let i = 0; i < 4; i++) kit('town', 'weaponrack', -W / 2 + 0.7, -D / 2 + 2 + i * 2.6, Math.PI / 2, 6.5);
+      for (let i = 0; i < 4; i++) kit('town', 'weaponrack', W / 2 - 0.7, -D / 2 + 2 + i * 2.6, -Math.PI / 2, 6.5);
+      for (const sx of [-1, 1]) { kit('dungeon', 'sword_shield_broken', sx * 2.5, -D / 2 + 0.3, 0, 1.3, { y: 2, solid: false }); kit('dungeon', 'banner_shield_red', sx * 5.5, -D / 2 + 0.2, 0, 1.2, { y: 1.8, solid: false }); }
+      kit('town', 'target', 3.5, 2, -0.4, 6.5);
+      kit('dungeon', 'box_large', -3.5, 2.5, 0.3, 0.8);
+      light(0, H - 1, -1, 0xffd090, 22, 18); light(0, H - 1, 3, 0xffc080, 14, 14);
+    } else if (kind === 'alchemist') {
+      shop('alchemist', 'alchemist', { name: 'Brida', model: 'warden', tint: '#e6c27a' });
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.8, 1.2, 14), M.iron); pot.position.set(3, 0.6, 1); root.add(pot);
+      const brew = new THREE.Mesh(new THREE.CircleGeometry(1.0, 16), new THREE.MeshBasicMaterial({ color: 0x5aff8a })); brew.rotation.x = -Math.PI / 2; brew.position.set(3, 1.18, 1); root.add(brew);
+      this.anim.push((dt, t) => brew.material.color.setHSL(0.36 + Math.sin(t) * 0.05, 1, 0.5 + Math.sin(t * 3) * 0.08));
+      light(3, 2.2, 1, 0x60ff90, 26, 12); flame(3, -0.1, 1, 1, 0xff7020);
+      this.shapes.push(g.phys.circle(ROOM_X + 3, ROOM_Z + 1, 1.2));
+      for (let k = 0; k < 3; k++) for (const sx of [-1, 1]) kit('dungeon', 'shelf_large', sx * (W / 2 - 0.35), -2 + k * 0.01, sx > 0 ? -Math.PI / 2 : Math.PI / 2, 1.4, { y: 1.2 + k * 1.1, solid: false });
+      for (let k = 0; k < 12; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: [0xff5a7a, 0x5ad8ff, 0x8aff5a, 0xffd05a][k % 4] })); b.position.set((k % 2 ? 1 : -1) * (W / 2 - 0.4), 1.45 + Math.floor(k / 4) * 1.1, -2.6 + (k % 4) * 0.4); root.add(b); }
+      candles(-2.5, 1.27, -D / 2 + 3.2); light(0, H - 2, -2, 0xc8a0ff, 16, 16);
+      kit('dungeon', 'stairs', -W / 2 + 3, D / 2 - 3.5, Math.PI, 1);
+    } else if (kind === 'grocer') {
+      shop('grocer', 'shopkeeper', { name: 'Old Nan', model: 'mage', tint: '#d8c8a0' });
+      for (let i = 0; i < 4; i++) kit('dungeon', 'barrel_small', -W / 2 + 1, -2 + i * 1.3);
+      for (let i = 0; i < 3; i++) kit('town', 'sack', W / 2 - 1.2, -2 + i * 1.6, i, 7, { solid: false });
+      kit('dungeon', 'crates_stacked', W / 2 - 1.5, D / 2 - 2, 0.2, 0.8); kit('dungeon', 'crates_stacked', -W / 2 + 1.5, D / 2 - 2, -0.2, 0.8);
+      kit('dungeon', 'shelf_large', 0, -D / 2 + 0.3, 0, 2.6, { y: 1.7, solid: false }); kit('dungeon', 'shelf_large', 0, -D / 2 + 0.3, 0, 2.6, { y: 2.7, solid: false });
+      light(0, H - 1, 0, 0xffd090, 20, 16);
+    } else if (kind === 'bakery') {
+      shop('baker', 'baker', { name: 'Hilde', model: 'barbarian', tint: '#f0e0c8' });
+      hearth(W / 2 - 0.6, -1, -Math.PI / 2);
+      table(-3, 1.5, 2.6, 1.4);
+      for (let k = 0; k < 8; k++) { const l = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.36, 3, 6), mat({ color: 0xc8843c })); l.rotation.z = Math.PI / 2; l.position.set(-3.8 + (k % 4) * 0.5, 1.15, 1.2 + Math.floor(k / 4) * 0.5); root.add(l); }
+      for (let i = 0; i < 3; i++) kit('town', 'sack', -W / 2 + 1, -2 + i * 1.5, i, 7, { solid: false });
+      light(0, H - 1, 1, 0xffc080, 16, 14);
+    } else if (kind === 'guild') {
+      person(0, -D / 2 + 3, 0, { talk: 'guild', name: 'Guildmaster Orla', title: 'Adventurers\' Guild', model: 'warden', tint: '#b8c8a0', hat: false });
+      box(0.1, 2.2, 3.6, -W / 2 + 0.06, 2.1, -2, M.woodL);
+      this.g.points.push({ id: 'gboard', room: true, x: ROOM_X - W / 2 + 0.8, z: ROOM_Z - 2, label: 'Read the contracts', zone: 'inside', range: 2.6, act: () => this.g.talkTo({ name: 'Contract board', def: { title: '' } }, 'guild') });
+      table(3, 2, 2.4, 6); for (let k = 0; k < 3; k++) { bench(1.7, 0 + k * 2, 1.2, Math.PI / 2); bench(4.3, 0 + k * 2, 1.2, Math.PI / 2); }
+      candles(3, 1.02, 0); candles(3, 1.02, 4);
+      for (let i = 0; i < 3; i++) if (R() < 0.8) person(R() < 0.5 ? 1.7 : 4.3, i * 2, R() < 0.5 ? Math.PI / 2 : -Math.PI / 2, { sit: true, gear: ['Mug'] });
+      this.ents.filter(e => e.seated && e.type === 'villager').forEach(e => { e.rot = e.pos.x - ROOM_X < 3 ? Math.PI / 2 : -Math.PI / 2; });
+      for (const sx of [-1, 1]) kit('dungeon', 'banner_patternA_red', sx * 4, -D / 2 + 0.2, 0, 1.4, { y: 2.6, solid: false });
+      hearth(W / 2 - 0.6, -4, -Math.PI / 2);
+      kit('dungeon', 'chest_gold', -W / 2 + 1.5, D / 2 - 2, Math.PI / 2, 1, { solid: true });
+      light(0, H - 2, -3, 0xffd090, 26, 22); light(0, H - 2, 4, 0xffc080, 18, 20);
+    } else if (kind === 'myhouse') {
+      hearth(0, -D / 2 + 0.6, 0);
+      kit('dungeon', 'bed_floor', -W / 2 + 1.4, -D / 2 + 2, 0, 1.3);
+      this.g.points.push({ id: 'mybed', room: true, x: ROOM_X - W / 2 + 1.4, z: ROOM_Z - D / 2 + 3.4, label: 'Use your bed (sleep / save)', zone: 'inside', range: 2.4, act: () => this.g.talkTo({ name: 'Your bed', def: { title: '' } }, 'myhouse') });
+      table(3, 0.5); stool(1.6, 0.5); stool(4.4, 0.5); candles(3, 1.02, 0.5);
+      kit('town', 'weaponrack', W / 2 - 0.7, -2.5, -Math.PI / 2, 6.5);
+      kit('town', 'weaponrack', W / 2 - 0.7, -0.2, -Math.PI / 2, 6.5);
+      kit('dungeon', 'trunk_large_A', -W / 2 + 1.1, 1.5, Math.PI / 2, 1);
+      kit('dungeon', 'banner_thin_green', 3, -D / 2 + 0.2, 0, 1.2, { y: 1.6, solid: false });
+      rug(-1.5, 0.5, 4, 3);
+      light(0, H - 0.8, 1.5, 0xffc080, 14, 14);
+    } else if (kind === 'home') {
       hearth(0, -D / 2 + 0.6, 0);
       kit('dungeon', 'bed_floor', -W / 2 + 1.3, -D / 2 + 2, 0, 1.25);
       if (R() < 0.6) kit('dungeon', 'bed_floor', -W / 2 + 3.4, -D / 2 + 2, 0, 1.25);
@@ -345,7 +406,7 @@ export class Rooms {
       kit('dungeon', 'barrel_small', W / 2 - 1, D / 2 - 1.5);
       kit('dungeon', 'sword_shield_broken', -2, -D / 2 + 0.3, 0, 1.2, { y: 1.8, solid: false });
       loot(W / 2 - 1.2, 1.5, -Math.PI / 2, { chest: true });
-      person(1.5, -2.4, 0, { talk: 'smithy', name: ['Gunnar', 'Ida', 'Torvald', 'Brann'][Math.floor(R() * 4)], title: 'smith', model: 'barbarian', gear: ['1H_Axe'], tint: '#b8a090' });
+      person(1.5, -2.4, 0, { talk: door.role === 'forge' ? 'forge' : 'smithy', name: ['Gunnar', 'Ida', 'Torvald', 'Brann'][Math.floor(R() * 4)], title: 'smith', model: 'barbarian', gear: ['1H_Axe'], tint: '#b8a090' });
       light(-2, H - 1, 2, 0xffc080, 10, 14);
     } else if (kind === 'church') {
       rug(0, 0, 3, D - 6, 'carpet');

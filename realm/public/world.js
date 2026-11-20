@@ -57,7 +57,12 @@ export const SITES = {
   ruinsE: { x: 700, z: -40, r: 18, h: 9, name: 'Sunken Ruins' },
   ruinsW: { x: -620, z: 40, r: 16, h: 7, name: 'Old Fort' },
   ruinsS: { x: -120, z: 820, r: 16, h: 6, name: 'Broken Chapel' },
+  camp: { x: -345, z: 205, r: 22, name: 'Red Hand Camp' },
 };
+// the forest right outside Emberfall's west gate
+export const WOOD = { x: -290, z: 262, r: 118, name: 'The Whispering Wood' };
+export const BERTRAM = [-232, 318];
+export const ORE = [[-250, 210], [-330, 300], [-380, 250], [-210, 270], [-300, 170], [-360, 330], [-240, 350], [-400, 200]];
 export const RIVER = [[1130, -480], [880, -380], [620, -250], [400, -150], [170, -85], [0, -62], [-170, -30], [-252, 2], [-360, 30], [-500, 110], [-640, 210], [-780, 280]];
 export const RIVER_W = 9;
 
@@ -118,6 +123,7 @@ export function biome(x, z) {
   const n = (fbm(x / 300 + 5, z / 300 + 9, 2) - 0.5) * 160;
   if (x > 470 + n && z > -380 + n * 0.5) return 'desert';
   if (z < -460 + n) return 'snow';
+  if (Math.hypot(x - WOOD.x, z - WOOD.z) < WOOD.r + 25 * fbm(x / 40, z / 40, 2)) return 'forest';
   return fbm(x / 160 + 3, z / 160 - 5, 3) > 0.53 ? 'forest' : 'plains';
 }
 // 0..1: how much of the desert / snow look a spot has (smooth edges)
@@ -313,6 +319,36 @@ export function planSettlement(s) {
 }
 export const PLANS = Object.fromEntries(SETTLEMENTS.map(s => [s.id, planSettlement(s)]));
 
+// ---- Emberfall gets its own character: named shops, your house, the guild, and a fighting pit
+{
+  const s = KINGDOMS[0], P = PLANS.emberfall;
+  P.arena = { x: s.x - 92, z: s.z - 74, r: 19 };
+  P.buildings = P.buildings.filter(b => Math.hypot(b[1] - P.arena.x, b[2] - P.arena.z) > P.arena.r + 12);
+  P.lamps = P.lamps.filter(([x, z]) => Math.hypot(x - P.arena.x, z - P.arena.z) > P.arena.r + 4);
+  // role: [where to look for a building, the model it becomes, sign text]
+  const ROLES = {
+    armory: [s.x + 70, s.z - 30, 'building_barracks_blue', 'Armory'],
+    alchemist: [s.x - 66, s.z + 52, 'building_tower_A_green', 'Alchemist'],
+    grocer: [s.x + 66, s.z + 100, 'building_home_B_yellow', 'General Store'],
+    bakery: [s.x - 64, s.z - 30, 'building_home_A_yellow', 'Bakery'],
+    guild: [s.x + 40, s.z + 70, 'building_church_green', "Adventurers' Guild"],
+    myhouse: [s.x - 30, s.z + 80, 'building_home_A_blue', 'Your House'],
+  };
+  const taken = new Set();
+  for (const [role, [x, z, model, sign]] of Object.entries(ROLES)) {
+    let best = null, bd = Infinity;
+    for (const b of P.buildings) { if (b.role || !/home|tower/.test(b[0]) || taken.has(b)) continue; const d = Math.hypot(b[1] - x, b[2] - z); if (d < bd) { bd = d; best = b; } }
+    if (!best) continue;
+    taken.add(best);
+    best[0] = model; best.role = role; best.sign = sign;
+    if (role === 'guild') best[4] = 7.5;
+    P.landmarks[role] = { x: best[1], z: best[2], rot: best[3] };
+  }
+  P.landmarks.smith.sign = 'Blacksmith'; P.landmarks.tavern.sign = 'The Ember Flagon';
+  for (const b of P.buildings) { if (/blacksmith/.test(b[0]) && Math.hypot(b[1] - P.landmarks.smith.x, b[2] - P.landmarks.smith.z) < 1) { b.sign = 'Blacksmith'; b.role = 'forge'; } if (/tavern/.test(b[0]) && Math.hypot(b[1] - P.landmarks.tavern.x, b[2] - P.landmarks.tavern.z) < 1) b.sign = 'The Ember Flagon'; if (/castle/.test(b[0])) b.sign = 'Castle Emberfall'; if (/church/.test(b[0]) && !b.role) b.sign = 'Chapel of the Ember'; if (/barracks/.test(b[0]) && !b.role) b.sign = 'Barracks'; }
+  P.nightknife = [s.x - 112, s.z + 96];
+}
+
 // Where the named people of the story stand.
 const E = PLANS.emberfall.landmarks, EK = KINGDOMS[0];
 const before = (l, d = 10) => [l.x + Math.sin(l.rot) * d, l.z + Math.cos(l.rot) * d];
@@ -359,6 +395,8 @@ export const SPAWNS = [
   ['raider', 3, 640, 420, 12], ['raider', 3, 900, 120, 12], ['archer', 2, 820, 520, 8, { tint: '#d8b070' }],
   ['bones', 3, S2.ruinsE.x, S2.ruinsE.z, 10], ['stalker', 2, S2.ruinsE.x + 10, S2.ruinsE.z, 6], ['chanter', 1, S2.ruinsE.x - 6, S2.ruinsE.z + 6, 0],
   ['bandit', 3, S2.ruinsW.x, S2.ruinsW.z + 10, 10], ['bones', 3, S2.ruinsS.x, S2.ruinsS.z, 8, { night: true }],
+  // the Whispering Wood, right outside Emberfall
+  ['wolf', 3, -262, 236, 12], ['wolf', 3, -330, 322, 12], ['wolf', 2, -215, 205, 8], ['wolf', 3, -380, 250, 12, { night: true }],
   // forests: wolves at night
   ['wolf', 3, -120, 260, 14, { night: true }], ['wolf', 3, 180, 200, 14, { night: true }], ['wolf', 3, -460, 140, 14, { night: true }], ['wolf', 3, 160, 760, 14, { night: true }],
   ['wolf', 3, -200, -120, 14], ['wolf', 2, -500, 560, 10], ['wolf', 3, 120, -500, 12, { night: true }],

@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#140e0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Emberfall">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <title>Emberfall: Open Realm</title>
 <meta name="description" content="An open-world 3D fantasy adventure with real-time combat, d20 rolls, quests, horses and a bounty system. Play solo or with friends.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
+<link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }</script>
 </head>
@@ -132,12 +139,14 @@
   <div id="topright">
     <div id="wanted" hidden></div>
     <canvas id="minimap" width="170" height="170"></canvas>
-    <div class="money"><span>🪙 <b id="gold">0</b></span><span>✨ <b id="fate">0</b></span></div>
+    <div class="money"><span><i class="coin"></i><b id="gold">0</b></span><span><i class="fatei">✦</i><b id="fate">0</b></span></div>
   </div>
   <div id="boss" hidden><div id="bossName"></div><div class="bar"><i id="bossFill"></i></div></div>
   <div id="toasts"></div>
   <div id="banner"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
   <div id="crosshair" hidden></div>
+  <div id="combo" hidden><b id="comboN">0</b><span id="comboTag">Hits</span></div>
+  <div id="wpnSlot"></div>
   <div id="prompt"></div>
   <div id="bars">
     <div class="lvl" id="lvl">1</div>
@@ -150,7 +159,7 @@
   <div id="slots">
     <div class="slot" data-slot="1"><span class="ico"></span><span class="key">1</span><i class="cd"></i><span class="cdt"></span></div>
     <div class="slot" data-slot="2"><span class="ico"></span><span class="key">2</span><i class="cd"></i><span class="cdt"></span></div>
-    <div class="slot potion"><span class="ico">🧪</span><span class="key">R</span><span class="cnt" id="hudPotions">0</span></div>
+    <div class="slot potion"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3h4M10.5 3v5L6 15a5 5 0 004 7h4a5 5 0 004-7l-4.5-7V3"/><path d="M7.5 14h9"/></svg><span class="key">R</span><span class="cnt" id="hudPotions">0</span></div>
   </div>
   <div id="touchUI">
     <div id="stick"><div id="knob"></div></div>
@@ -165,10 +174,14 @@
       <button id="tUse" class="tb use">✋</button>
       <button id="tHorse" class="tb">🐴</button>
       <button id="tLock" class="tb">🎯</button>
+      <button id="tWheel" class="tb">◎</button>
     </div>
     <button id="tMenu" class="tb menu">☰</button>
   </div>
 </div>
+
+<!-- weapon wheel -->
+<div id="wheel" hidden><div id="wheelRing"></div><div id="wheelMid"><b id="wheelName"></b><span id="wheelInfo"></span></div></div>
 
 <!-- dialogue -->
 <section id="dialog" hidden>
@@ -205,14 +218,13 @@
     <div class="pane" data-pane="hero"><div id="sheet"></div></div>
     <div class="pane" data-pane="controls">
       <div class="keys">
-        <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Q</kbd> / <kbd>Ctrl</kbd> dodge roll</div>
-        <div><kbd>Click</kbd> light attack · <kbd>Hold &amp; release</kbd> heavy attack (breaks guards) · <kbd>Right mouse</kbd> block (aim, for bow and magic)</div>
-        <div><b>Parry:</b> raise your block just as a blow lands (watch for the orange flash and <b>!</b>). Then hit back for a <b>counter</b> — always a critical.</div>
-        <div><b>Perfect dodge:</b> roll at the last instant — time slows and your next blow is a counter. Every swing, block and roll costs <b>stamina</b>.</div>
-        <div><kbd>T</kbd> / <kbd>Middle mouse</kbd> lock on · <kbd>1</kbd>/<kbd>2</kbd> abilities · <kbd>R</kbd> potion · <kbd>E</kbd> interact / ride / enter</div>
-        <div>Walk into any front door to go inside. <kbd>H</kbd> whistle · <kbd>M</kbd> map · <kbd>J</kbd> quests · <kbd>C</kbd> hero · <kbd>V</kbd> sound · <kbd>Esc</kbd> pause</div>
-        <div class="small"><b>🎮 Controller:</b> left stick / D-pad move · right stick look · RT attack (hold = heavy) · LT block &amp; parry (aim) · A jump · B dodge · X interact · Y potion · LB/RB abilities · L3 sprint · R3 lock on · Start pause · Back map. In menus: D-pad to pick, A to choose, B to go back.</div>
-      </div>
+        <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Q</kbd> dodge roll · <kbd>E</kbd> interact / ride / enter</div>
+        <div><kbd>Click</kbd> attack — you leap to whoever you point at · <kbd>Hold &amp; release</kbd> heavy attack (breaks guards, knocks down)</div>
+        <div><b>Counter:</b> when a <b style="color:#8fd0ff">blue spark ϟ</b> flashes over an enemy, press <kbd>Right mouse</kbd> — you counter every attacker at once. Hit downed enemies for a <b>ground takedown</b>.</div>
+        <div><b>Combo:</b> keep landing hits without getting hit. At <b>8</b> your next heavy attack is an instant <b>takedown</b>. Hold <kbd>Right mouse</kbd> to block; raise it just as a blow lands to <b>parry</b>.</div>
+        <div><kbd>Tab</kbd> (hold) weapon wheel — time slows · <kbd>G</kbd> torch · <kbd>T</kbd> lock on · <kbd>1</kbd>/<kbd>2</kbd> abilities · <kbd>R</kbd> potion · <kbd>H</kbd> whistle for your horse</div>
+        <div><kbd>M</kbd> map · <kbd>J</kbd> quests · <kbd>C</kbd> hero · <kbd>V</kbd> sound · <kbd>Esc</kbd> pause. Walk into any front door to go inside.</div>
+        <div class="small"><b>Controller:</b> left stick / D-pad move · right stick look · RT attack (hold = heavy) · LT block &amp; counter (aim) · A jump · B dodge · X interact · Y potion (hold = weapon wheel) · LB/RB abilities · L3 sprint · R3 lock on · Start pause · Back map.</div>
       <div class="row small">Touch movement: <button id="mStick" class="btn">🕹️ Joystick</button></div>
       <label class="small">Look sensitivity <input id="sens" type="range" min="0.3" max="2.5" step="0.1" value="1"></label>
       <div class="row"><button id="mSave" class="btn">💾 Save</button><button id="mQuit" class="btn">Save &amp; quit to title</button></div>

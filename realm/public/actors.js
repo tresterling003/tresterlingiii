@@ -63,6 +63,32 @@ export class Actor {
     this.current = a;
     this.currentName = name;
   }
+  // put these weapons in the hands (names from A.gearLib), hide everything else
+  setGear(names = [], torch = false) {
+    if (!this.model) return;
+    const want = new Set(names.filter(Boolean));
+    (this.extraGear || []).forEach(o => o.parent && o.parent.remove(o));
+    this.extraGear = [];
+    const slots = {};
+    this.model.traverse(o => {
+      if (/^handslot/.test(o.name)) slots[/l$/i.test(o.name.replace(/[^a-z]/gi, '')) ? 'l' : 'r'] = o;
+    });
+    const have = new Set();
+    for (const side of ['l', 'r']) {
+      const slot = slots[side]; if (!slot) continue;
+      for (const c of slot.children) { c.visible = want.has(c.name) && !(torch && side === 'l'); if (c.visible) have.add(c.name); }
+    }
+    for (const n of want) {
+      if (have.has(n) || !A.gearLib[n]) continue;
+      const g = A.gearLib[n], slot = slots[g.side]; if (!slot || (torch && g.side === 'l')) continue;
+      const o = g.node.clone(); o.visible = true; o.traverse(c => { c.visible = true; });
+      slot.add(o); this.extraGear.push(o);
+    }
+    if (torch && slots.l) {
+      const t = part('dungeon', 'torch_lit', 0.9); t.rotation.set(0, 0, 0); t.position.set(0, -0.2, 0);
+      slots.l.add(t); this.extraGear.push(t); this.torchObj = t;
+    } else this.torchObj = null;
+  }
   once(name, speed = 1, back = 'Idle') { this.play(name, { once: true, speed, fade: 0.1, then: () => this.play(this.idle || back) }); }
   has(name) { return !!(this.actions[name] || this.actions[FALLBACK[name]]); }
 

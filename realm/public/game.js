@@ -1,7 +1,7 @@
 // EMBERFALL: OPEN REALM — the game itself. Ties the world, the people, the rules and the screen together.
 import * as THREE from 'three';
-import { CLASSES, MONSTERS, NPCS, QUESTS, DIALOGUE, ITEMS, KEY_ITEMS, XP_LEVELS, TINTS, STATS, TIPS } from './data.js';
-import { SITES, SHRINES, SHARDS, GLOWCAPS, CHESTS, SPAWNS, DUNGEON_START, DUNGEON_SPAWNS, dTile, SETTLEMENTS, PLANS, NPC_POS, START, INSIDE_X } from './world.js';
+import { CLASSES, MONSTERS, NPCS, QUESTS, DIALOGUE, ITEMS, KEY_ITEMS, XP_LEVELS, TINTS, STATS, TIPS, WEAPONS, START_WEAPON, MATERIALS, HORSES } from './data.js';
+import { SITES, SHRINES, SHARDS, GLOWCAPS, CHESTS, SPAWNS, DUNGEON_START, DUNGEON_SPAWNS, dTile, SETTLEMENTS, PLANS, NPC_POS, START, INSIDE_X, WOOD, BERTRAM, ORE } from './world.js';
 import { loadAssets, part } from './assets.js';
 import { Physics } from './physics.js';
 import { Scenery } from './scenery.js';
@@ -17,7 +17,7 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SAVE = 'realm.save.v2';
-const DAY_SECS = 840; // one day and night, in real seconds
+const DAY_SECS = 420; // one day and night, in real seconds (7 minutes)
 // distance from point c to the segment a→b (so fast projectiles cannot skip through a target)
 const segPoint = (a, b, c) => { const ab = b.clone().sub(a), l = ab.lengthSq(); const t = l ? Math.max(0, Math.min(1, c.clone().sub(a).dot(ab) / l)) : 0; return a.clone().addScaledVector(ab, t).distanceTo(c); };
 const ease = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -58,6 +58,12 @@ class Game {
     addEventListener('resize', () => this.resize());
     this.resize();
     window.__realm = this;
+    // installed on a phone: keep the whole game offline; take updates when they arrive
+    if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname) && location.protocol === 'https:') {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+      let fresh = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (fresh && this.state !== 'play') location.reload(); fresh = true; });
+    }
   }
   resize() {
     const w = innerWidth, h = innerHeight;
@@ -140,11 +146,14 @@ class Game {
       gold: 30 + (st.bg === 'merchant' ? 60 : 0), potions: 2 + (st.bg === 'herbalist' ? 3 : 0), fate: st.bg === 'scholar' ? 2 : 1,
       items: [], keys: {}, counters: {}, flags: {}, quests: {}, done: {}, tracked: null, shrines: { emberfall: true }, got: {}, bosses: {},
       pos: [...START], zone: 'world', ownsHorse: false, time: 0.3, yaw: Math.PI, found: {},
+      weapons: ['fists', START_WEAPON[st.cls]], weapon: START_WEAPON[st.cls], mats: { iron: 0, hide: 0, ember: 0 }, horses: [], horse: null,
     };
+    this._kit = null;
     this.hero.hp = this.maxHp();
   }
   loadGame(save) {
     this.hero = save.hero;
+    this._kit = null;
     this.time = save.hero.time || 0.3;
     this.startPlay(false);
   }
@@ -159,14 +168,20 @@ class Game {
     if (h.flags.barrowOpen && this.scenery.barrowGate) this.scenery.barrowGate.position.y += 4.2;
     if (h.flags.vargPeace) this.entities.filter(e => e.camp === 'keep').forEach(e => { e.neutral = true; e.talk = null; });
 
+    // saves from before weapons, materials and horse breeds
+    if (!h.weapons) { h.weapons = ['fists', START_WEAPON[h.cls]]; h.weapon = START_WEAPON[h.cls]; }
+    h.mats = h.mats || { iron: 0, hide: 0, ember: 0 };
+    if (!h.horses) { h.horses = h.ownsHorse ? ['bay'] : []; h.horse = h.horses[0] || null; }
     const actor = new Actor(this.scene, { model: h.cls, gear: CLASSES[h.cls].gear, hat: CLASSES[h.cls].hat, tint: TINTS[h.tint] || null });
     this.player = new Player(this, actor);
+    this.equip(h.weapon, true);
     this.player.yaw = h.yaw || Math.PI;
     if (h.zone === 'barrow') { this.zone = 'barrow'; this.spawnDungeon(); }
     this.player.pos.set(h.pos[0], 0, h.pos[1]);
     this.player.pos.y = this.phys.ground(h.pos[0], h.pos[1]);
     this.player.camPos.copy(this.player.pos).add(V3(0, 4, 8));
-    if (h.ownsHorse) this.claimHorse(h.horsePos);
+    if (h.ownsHorse && !h.horse) this.claimHorse(h.horsePos);
+    this.heroSpawns();
     this.state = 'play';
     $('hud').hidden = false;
     if (!isTouch) this.input.lock();
@@ -215,11 +230,12 @@ class Game {
     const TINT = { red: '#ff9a8a', blue: '#8fb3ff', green: '#9ae0a0', yellow: '#ffe08a' };
     for (const dr of this.scenery.doors) {
       dr.tint = TINT[dr.color]; dr.lord = LORDS[dr.sid] || 'the Reeve';
-      dr.title = `${dr.town} — ${{ home: 'a house', tavern: 'the tavern', smith: 'the smithy', church: 'the church', castle: 'the great hall', barracks: 'the barracks', tower: 'the tower' }[dr.kind]}`;
-      this.points.push({ id: 'door_' + dr.id, door: dr, x: dr.x, z: dr.z, label: `Go into ${ROOM_NAME[dr.kind]}`, zone: 'world', range: 2.6, act: () => this.rooms.enter(dr) });
+      dr.title = dr.sign ? `${dr.town} — ${dr.sign}` : `${dr.town} — ${ROOM_NAME[dr.kind]}`;
+      this.points.push({ id: 'door_' + dr.id, door: dr, x: dr.x, z: dr.z, label: dr.sign ? `Go into the ${dr.sign.replace(/^The /, '')}` : `Go into ${ROOM_NAME[dr.kind]}`, zone: 'world', range: 2.6, act: () => this.rooms.enter(dr) });
     }
     this.doorGrid = new Map();
     for (const dr of this.scenery.doors) for (const ox of [-1, 0, 1]) for (const oz of [-1, 0, 1]) { const k = (Math.floor(dr.x / 20) + ox) + ',' + (Math.floor(dr.z / 20) + oz); if (!this.doorGrid.has(k)) this.doorGrid.set(k, []); this.doorGrid.get(k).push(dr); }
+    this.missionSpawns();
     for (const s of SHRINES) this.points.push({ id: 'shrine_' + s.id, x: s.x, z: s.z, label: 'Touch the shrine', zone: 'world', range: 3.2, shrine: s, act: () => this.touchShrine(s) });
   }
   addEntity(o) {
@@ -299,9 +315,10 @@ class Game {
       const a = Math.atan2(gz - s.z, gx - s.x);
       for (const side of [-1, 1]) { const b = a + side * 0.03, x = s.x + Math.cos(b) * (s.r - 7), z = s.z + Math.sin(b) * (s.r - 7); const e = this.spawnMob('watch', x, z, { tint }); e.rot = e.postRot = Math.atan2(gx - s.x, gz - s.z); e.post = true; c.ents.push(e); }
     }
-    if (plan.stable) for (let i = 0; i < 3; i++) {
-      const st = plan.stable;
-      const e = this.addEntity({ type: 'horse', name: 'Horse', def: { name: 'Horse' }, model: 'horse', tint: ['#8a5a3a', '#4a3a30', '#c8b8a8'][i], x: st.x - 4 + i * 4, z: st.z + (i % 2) * 3, zone: 'world' });
+    if (plan.stable) for (let i = 0; i < 4; i++) {
+      const st = plan.stable, breed = ['pony', 'bay', 'black', 'white'][i];
+      const e = this.addEntity({ type: 'horse', name: HORSES[breed].name, def: { name: HORSES[breed].name }, model: 'horse', tint: HORSES[breed].tint, x: st.x - 5 + i * 3.4, z: st.z + (i % 2) * 3, zone: 'world' });
+      e.breed = breed;
       e.pen = { x: st.x, z: st.z, w: st.w - 4, d: st.d - 4 }; e.timer = R() * 5; e.radius = 1.0; e.crowd = c;
       c.ents.push(e);
     }
@@ -353,7 +370,7 @@ class Game {
     this.slowT = Math.max(0, this.slowT - rdt);
     this.shakeT = Math.max(0, this.shakeT - rdt);
     if (this.hitstop > 0) { this.hitstop -= rdt; rdt *= 0.08; }
-    const dt = rdt * (this.slowT > 0 ? 0.3 : 1);
+    const dt = rdt * (this.slowT > 0 ? 0.3 : 1) * (this.wheel ? 0.12 : 1);
     this.adapt(rdt);
     if (this.state !== 'play') this.cull(this.state === 'creator' && this.preview ? this.preview.root.position : this.plaza());
     this.input.poll(Math.min(rdt, 0.1), this.ui.nav);
@@ -426,13 +443,17 @@ class Game {
     this.time = (this.time + dt / DAY_SECS) % 1;
     if (this.time < t0) h.dayCount = (h.dayCount || 0) + 1;
     h.time = this.time;
-    const frozen = this.cineActive || this.talking || this.state !== 'play';
+    const frozen = this.cineActive || this.talking || this.state !== 'play' || !!this.wheel;
     if (!frozen && this.input.hit('Escape', 'KeyP')) return this.togglePause();
-    if (!frozen && this.input.hit('KeyM', 'Tab')) { this.togglePause('map'); return; }
+    if (!frozen && this.input.hit('KeyM')) { this.togglePause('map'); return; }
+    if (!frozen && this.input.hit('KeyG')) this.toggleTorch();
+    if (this.comboT > 0 && (this.comboT -= dt) <= 0) this.breakCombo();
+    if (this.finalT > 0) this.finalT -= dt;
+    if (this.camPunch > 0) this.camPunch -= dt;
     if (!frozen && this.input.hit('KeyJ')) { this.togglePause('quests'); return; }
-    if (!frozen && this.input.hit('KeyC')) { this.togglePause('hero'); return; }
+    if (!frozen && this.input.hit('KeyC', 'KeyI')) { this.togglePause('hero'); return; }
     if (this.cineActive && this.input.hit('Escape', 'Space', 'Enter')) this.skipCine = true;
-    this.aiming = CLASSES[h.cls].style !== 'melee';
+    this.aiming = this.kit().style !== 'melee';
     p.update(dt, this.input, frozen);
     // the world around you
     const night = this.scenery.dayK < 0.35;
@@ -473,24 +494,28 @@ class Game {
     this.updatePrompt();
     this.walkIn();
     this.rooms.update(dt);
+    this.updateTorch(dt);
+    this.sfx.music(dt, this.inCombat || !!this.arenaRun);
+    this.ui.wheelTick && this.ui.wheelTick(dt);
     if (this.net) this.net.tick(dt);
     if ((this.saveT = (this.saveT || 0) + dt) > 20) { this.saveT = 0; this.save(); }
     if (this.input.hit('KeyV')) this.sfx.setMuted(!this.sfx.muted);
   }
   day() { return this.time + (this.hero.dayCount || 0); }
   // a night's sleep at the inn: wake at dawn, fully rested
-  async restNight() {
+  restNight() { return this.sleepUntil(0.27); }
+  async sleepUntil(t) {
     const h = this.hero;
     this.ui.fade(true);
     await sleep(700);
-    if (this.time > 0.27) h.dayCount = (h.dayCount || 0) + 1;
-    this.time = 0.27; h.time = this.time;
+    if (this.time > t) h.dayCount = (h.dayCount || 0) + 1;
+    this.time = t; h.time = this.time;
     this.healPlayer(999, true);
     this.player.stamina = 100;
     this.save();
     await sleep(500);
     this.ui.fade(false);
-    this.ui.toast('You sleep soundly and wake at dawn, fully rested.', 'good');
+    this.ui.toast(t < 0.5 ? 'You sleep soundly and wake at dawn, fully rested.' : 'You doze until the sun goes down.', 'good');
   }
   // the drill sergeant teaches swordplay: a practice bout with a blunted blade
   spar() {
@@ -542,8 +567,10 @@ class Game {
   prof() { return 2 + Math.floor((this.hero.level - 1) / 2); }
   maxHp() { const h = this.hero, C = CLASSES[h.cls]; let v = C.hp + (h.level - 1) * C.hpLv + (h.bg === 'soldier' ? 6 : 0); for (const it of h.items) v += ITEMS[it].mods.hp || 0; return v; }
   armor() { let v = CLASSES[this.hero.cls].armor; for (const it of this.hero.items) v += ITEMS[it].mods.armor || 0; return v; }
-  attackBonus() { let v = this.stat(CLASSES[this.hero.cls].atk) + this.prof(); for (const it of this.hero.items) v += ITEMS[it].mods.hit || 0; return v; }
+  attackBonus() { let v = this.stat(this.kit().atk) + this.prof(); for (const it of this.hero.items) v += ITEMS[it].mods.hit || 0; return v; }
   dmgBonus() { let v = (this.hero.flags.smith || 0) + Math.floor(this.hero.level / 2); for (const it of this.hero.items) v += ITEMS[it].mods.dmg || 0; return v; }
+  // the class, with the weapon in hand laid over it
+  kit() { if (this._kit && this._kitFor === this.hero.weapon) return this._kit; const h = this.hero, w = WEAPONS[h.weapon] || WEAPONS[START_WEAPON[h.cls]]; this._kitFor = h.weapon; return (this._kit = { ...CLASSES[h.cls], ...w }); }
   hasFire() { return this.hero.items.some(it => ITEMS[it].mods.fire); }
 
   // ================================================================== who fights whom
@@ -587,7 +614,7 @@ class Game {
   // You hit something. o: { kind, dmg, name, sure, crit, fire }
   playerHits(e, o = {}) {
     if (e.dead) return;
-    const h = this.hero, C = CLASSES[h.cls], p = this.player;
+    const h = this.hero, C = this.kit(), p = this.player;
     // hitting the wrong people
     if (e.type === 'npc') { e.actor.once('Hit_A'); this.fx.text(e.pos.clone().add(V3(0, 2.8, 0)), 'Hey!', 'say'); this.crime(1, 'assault', e.pos); return; }
     if (e.type === 'horse' || e.type === 'unicorn') return;
@@ -596,9 +623,12 @@ class Game {
     if (e.neutral) return;
     // ---- swordplay: counters, guards, guard breaks
     const melee = o.kind === 'weapon' && (C.style === 'melee' || p.mount);
-    const open = e.type === 'mob' && (e.stunT > 0 || e.frozenT > 0);
+    const open = e.type === 'mob' && (e.stunT > 0 || e.frozenT > 0 || e.downT > 0);
+    const grounded = e.type === 'mob' && e.downT > 0;
     const now = p.clock;
-    if (melee && e.type === 'mob' && (open || p.counterT > 0)) { o.crit = true; o.sure = true; o.name = 'COUNTER'; p.counterT = 0; }
+    const takedown = melee && o.heavy && (this.combo || 0) >= 8 && e.type === 'mob' && !e.def.boss;
+    if (takedown) { o.crit = true; o.sure = true; o.name = 'TAKEDOWN'; o.dmg = e.hp + 50; this.combo -= 5; this.slowT = 0.8; this.finalT = 1.1; this.ui.flash('rgba(255,220,150,.4)', 300); }
+    else if (melee && e.type === 'mob' && (open || p.counterT > 0)) { o.crit = true; o.sure = true; if (!o.name) o.name = grounded ? 'GROUND TAKEDOWN' : 'COUNTER'; p.counterT = 0; }
     else if (melee && e.type === 'mob' && e.def.guard && e.state !== 'windup' && e.state !== 'rising') {
       e.streak = now - (e.streakAt || -9) < 1.4 ? (e.streak || 0) + 1 : 0;
       e.streakAt = now;
@@ -642,11 +672,14 @@ class Game {
     // rogues: sneak attack anyone not watching them
     const unaware = e.type === 'mob' && (e.state === 'idle' || e.state === 'wander' || Math.abs(Math.atan2(Math.sin(e.rot - Math.atan2(p.pos.x - e.pos.x, p.pos.z - e.pos.z)), Math.cos(e.rot - Math.atan2(p.pos.x - e.pos.x, p.pos.z - e.pos.z)))) > 1.9);
     let sneak = 0;
-    if (h.cls === 'rogue' && (unaware || o.name === 'Backstab')) { sneak = roll(2, 6); dmg += sneak; }
+    if ((h.cls === 'rogue' || C.sneak) && (unaware || o.name === 'Backstab')) { sneak = roll(2, 6); dmg += sneak; }
     if (p.rageT > 0) dmg = Math.round(dmg * 1.5);
     if (o.heavy) dmg *= 1.7; else if (o.finisher) dmg *= 1.3;
+    if (grounded && !o.counter) dmg *= 1.5;
+    if ((this.combo || 0) >= 10) dmg *= 1.3; else if ((this.combo || 0) >= 5) dmg *= 1.15;
+    if (e.type === 'mob' && (melee || o.kind === 'weapon')) this.addCombo();
     // big blows knock ordinary foes off balance
-    if (e.type === 'mob' && !e.def.boss && !e.dead && (o.heavy || (o.finisher && Math.random() < 0.5)) && e.stunT <= 0 && o.name !== 'COUNTER') this.stun(e, o.heavy ? 0.9 : 0.5, true);
+    if (e.type === 'mob' && !e.def.boss && !e.dead && e.hp > dmg && (o.heavy || o.finisher) && e.stunT <= 0 && !e.downT && o.name !== 'COUNTER') { if (o.heavy) setTimeout(() => this.knockDown(e, 1.5), 0); else this.stun(e, 0.5, true); }
     if (o.fire || this.hasFire() || C.style === 'magic' && o.kind === 'weapon' && false) e.burnT = 5;
     if (o.fire) e.burnT = 5;
     if (p.rageT > 0) this.healPlayer(Math.ceil(dmg * 0.25), true);
@@ -694,8 +727,11 @@ class Game {
     if (e.type === 'villager') { this.crime(2, 'murder', e.pos); this.respawnLater(e, 180); return; }
     if (e.type !== 'mob') return;
     const def = e.def;
+    if (e.arena) { this.arenaKill(e); return; }
     if (e.team === 'town') { this.crime(2, 'killing a guard', e.pos); this.respawnLater(e, 240); return; }
     if (def.xp) this.gainXP(def.xp, e.pos);
+    if (def.drop && Math.random() < (def.drop === 'hide' ? 0.7 : 0.5)) this.addMat(def.drop, 1, e.pos);
+    this.onKill(e, by);
     const gold = def.gold[0] + Math.floor(Math.random() * (def.gold[1] - def.gold[0] + 1));
     if (gold) { h.gold += gold; this.fx.text(e.pos.clone().add(V3(0, 1.5, 0)), `+${gold} gold`, 'gold'); this.sfx.coin(); }
     if (Math.random() < (def.boss ? 1 : 0.12)) { h.potions += def.boss ? 2 : 1; this.ui.toast(`Found ${def.boss ? 2 : 1} potion${def.boss ? 's' : ''}`); }
@@ -722,7 +758,7 @@ class Game {
   // Something hits you (or the ghost knight).
   mobHits(e, tgt, o = {}) {
     if (tgt.ally) { const a = tgt.ally; a.actor.flash(0xff4040, 100); return; }
-    const p = this.player, def = e.def, h = this.hero, C = CLASSES[h.cls];
+    const p = this.player, def = e.def, h = this.hero, C = this.kit();
     if (this.net && this.net.host && tgt.peer) return this.net.hurtGuest(tgt.peer, e);
     const head = p.pos.clone().add(V3(0, 2.6, 0));
     const toE = Math.atan2(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
@@ -804,11 +840,13 @@ class Game {
     if (p.state === 'dead') return;
     if (p.rageT > 0) dmg = Math.ceil(dmg * 0.75);
     if (src && src.spar) { if (h.hp - dmg < this.maxHp() * 0.2) { this.endSpar(src, false); return; } }
+    if (dmg > 0) this.breakCombo();
     h.hp -= dmg;
     p.hurtT = 0.3;
     this.ui.flash('rgba(200,0,0,.55)', 380);
     this.sfx.hurt();
     this.shake(0.18);
+    if (h.hp <= 0 && this.arenaRun) { this.arenaLose(); return; }
     if (h.hp <= 0) { h.hp = 0; if (src && src.team === 'town') this.busted(); else this.fallen(); }
   }
   healPlayer(n, quiet) {
@@ -1016,7 +1054,9 @@ class Game {
     const p = this.player;
     if (!horse.owned) {
       this.crime(1, 'horse theft', horse.pos);
+      const old = this.horseEntity(); if (old && old !== horse) this.removeEntity(old);
       this.claimHorse(null, horse);
+      if (horse.breed) { const h = this.hero; if (!h.horses.includes(horse.breed)) h.horses.push(horse.breed); h.horse = horse.breed; }
       this.ui.toast('This horse is yours now. Whistle (H) to call her.', this.bounty ? 'bad' : '');
     }
     horse.ridden = true;
@@ -1258,6 +1298,7 @@ class Game {
     if (!h.tracked || QUESTS[id].main || !h.quests[h.tracked]) h.tracked = id;
     this.ui.banner('New quest', QUESTS[id].title, 'quest');
     this.sfx.chime();
+    this.questStarted(id);
     this.checkCounters();
     this.save();
   }
@@ -1279,6 +1320,8 @@ class Game {
     if (r.gold) { h.gold += r.gold; bits.push(`+${r.gold} gold`); }
     if (r.potions) { h.potions += r.potions; bits.push(`+${r.potions} potions`); }
     if (r.item) { this.giveItem(r.item, true); bits.push(`${ITEMS[r.item].icon} ${ITEMS[r.item].name}`); }
+    if (r.mat) for (const [k, v] of Object.entries(r.mat)) { h.mats[k] = (h.mats[k] || 0) + v; bits.push(`+${v} ${MATERIALS[k].name.toLowerCase()}`); }
+    if (id === 'bertram') { const b = this.byId('bertram'); if (b) this.removeEntity(b); }
     if (id === 'goblins') { delete h.keys.piebasket; h.potions += 1; }
     if (id === 'lute') delete h.keys.lute;
     if (id === 'shards') h.counters.shard = 0;
@@ -1302,6 +1345,13 @@ class Game {
     if (at === 'peak') return ent('wyvern') || { x: SITES.peak.x, z: SITES.peak.z, zone: 'world' };
     if (at === 'bridge') return ent('troll') || { x: 0, z: -82, zone: 'world' };
     if (at === 'barrowdoor') return { ...this.scenery.barrowDoor, zone: 'world' };
+    const L = PLANS.emberfall.landmarks;
+    if (at === 'guild') return { x: L.guild.x + Math.sin(L.guild.rot) * 8, z: L.guild.z + Math.cos(L.guild.rot) * 8, zone: 'world' };
+    if (at === 'arena') return { x: PLANS.emberfall.arena.x, z: PLANS.emberfall.arena.z, zone: 'world' };
+    if (at === 'wood') { const w = this.entities.find(e => e.key === 'wolf' && !e.dead && Math.hypot(e.pos.x - WOOD.x, e.pos.z - WOOD.z) < WOOD.r + 40); return w ? { x: w.pos.x, z: w.pos.z, zone: 'world' } : { x: WOOD.x, z: WOOD.z, zone: 'world' }; }
+    if (at === 'bertram') return ent('bertram') || { x: BERTRAM[0], z: BERTRAM[1], zone: 'world' };
+    if (at === 'camp') return { x: SITES.camp.x, z: SITES.camp.z, zone: 'world' };
+    if (at === 'nightknife') return ent('nightknife') || { x: PLANS.emberfall.nightknife[0], z: PLANS.emberfall.nightknife[1], zone: 'world' };
     if (at === 'throne') { if (this.zone !== 'barrow') return { ...this.scenery.barrowDoor, zone: 'world' }; const c = this.points.find(p => p.id === 'crown'); return c ? { x: c.x, z: c.z, y: 1, zone: 'barrow' } : { x: this.scenery.throne.x, z: this.scenery.throne.z, y: 2, zone: 'barrow' }; }
     if (at === 'shard' || at === 'swamp') {
       const p = this.player.pos;
@@ -1323,6 +1373,9 @@ class Game {
     const h = this.hero;
     if (h.quests.shards === 0 && (h.counters.shard || 0) >= 6) this.setStep('shards', 1);
     if (h.quests.glowcaps === 0 && (h.counters.glowcap || 0) >= 5) this.setStep('glowcaps', 1);
+    if (h.quests.wolves === 0 && (h.counters.wolf || 0) >= 6) this.setStep('wolves', 1);
+    if (h.quests.bertram === 1 && (h.counters.bertwolf || 0) >= 3) this.setStep('bertram', 2);
+    if (h.quests.camp === 0 && (h.counters.camp || 0) >= 5) this.setStep('camp', 1);
   }
   gainXP(n, at) {
     const h = this.hero;
@@ -1448,6 +1501,15 @@ class Game {
       rob: () => { const n = 8 + Math.floor(Math.random() * 25); h.gold += n; g.ui.toast(`+${n} gold`); g.sfx.coin(); g.crime(1, 'robbery', g.player.pos); },
       rest: () => g.restNight(), pray: () => g.rooms.pray(), level: () => h.level,
       spar: () => g.spar(),
+      hasWeapon: k => (h.weapons || []).includes(k), giveWeapon: k => g.giveWeapon(k),
+      mat: k => (h.mats || {})[k] || 0, addMat: (k, n) => g.addMat(k, n), earn: n => { h.gold += n; g.sfx.coin(); g.ui.toast(`+${n} gold`); },
+      canCraft: c => Object.entries(c).every(([k, v]) => (k === 'gold' ? h.gold : (h.mats[k] || 0)) >= v),
+      spend: c => { for (const [k, v] of Object.entries(c)) { if (k === 'gold') h.gold -= v; else h.mats[k] -= v; } g.sfx.clang(); },
+      matsText: () => Object.keys(MATERIALS).map(k => `${h.mats[k] || 0} ${MATERIALS[k].name.toLowerCase()}`).join(', '),
+      sleepUntil: t => g.sleepUntil(t), saveGame: () => g.save(), startArena: () => g.startArena(),
+      horseText: () => (h.horses.length ? `You own: ${h.horses.map(k => HORSES[k].name).join(', ')}.` : ''),
+      ownsBreed: k => h.horses.includes(k), ownedBreeds: () => h.horses.slice(), buyBreed: k => g.buyBreed(k), pickHorse: k => g.pickHorse(k),
+      sellBreed: k => g.sellBreed(k), bertramWolves: () => g.bertramWolves(),
     };
   }
   async pickpocket(e) {
@@ -1526,6 +1588,285 @@ class Game {
     this.ui.openMenu(tab || 'map');
   }
   resume() { this.paused = false; this.ui.closeMenu(); if (!isTouch) this.input.lock(); }
+
+
+  // ================================================================== freeflow: counters, knockdowns, the combo meter
+  // Block (or aim) while an attacker shows the counter spark: you meet every one of them at once.
+  tryCounter() {
+    const p = this.player;
+    const list = this.entities.filter(e => e.type === 'mob' && e.zone === this.zone && e.near && !e.dead && e.state === 'windup' && e.cued && e.def.kind === 'melee' && this.isHostile(e) && e.pos.distanceTo(p.pos) < 8.5)
+      .sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos)).slice(0, 3);
+    if (!list.length) return false;
+    const main = list[0], dx = main.pos.x - p.pos.x, dz = main.pos.z - p.pos.z, dd = Math.hypot(dx, dz);
+    const near = 1.7 + (main.def.boss ? 0.9 * (main.def.scale || 1) : 0);
+    if (dd > near + 0.4) { p.pos.x = main.pos.x - (dx / dd) * near; p.pos.z = main.pos.z - (dz / dd) * near; this.phys.resolve(p.pos, p.radius); p.pos.y = this.phys.ground(p.pos.x, p.pos.z); this.fx.burst(p.pos.clone().add(V3(0, 1, 0)), 0x9fd8ff, 14, 3, 0.5); }
+    p.rot = Math.atan2(dx, dz); p.faceTo = p.rot;
+    p.state = 'counter'; p.counterAnim = 0.5; p.iframes = 0.55; p.vel.set(0, p.vel.y, 0);
+    if (p.charging) { p.charging = false; p.actor.clearTint(); }
+    const C = this.kit();
+    p.actor.play(C.style === 'melee' ? (C.heavy || '1H_Melee_Attack_Chop') : 'Unarmed_Melee_Attack_Kick', { once: true, fade: 0.04, speed: 1.9, then: () => {} });
+    for (const e of list) { e.state = 'recover'; e.timer = 0.6; e.cued = false; }
+    p.pendingCounter = { list, t: 0.13 };
+    this.slowT = Math.max(this.slowT, 0.32); this.camPunch = 0.25;
+    this.sfx.swish();
+    this.fx.text(p.pos.clone().add(V3(0, 2.8, 0)), list.length > 1 ? `${list.length}× COUNTER` : 'COUNTER', 'parry');
+    return true;
+  }
+  counterHit(list) {
+    for (const e of list) {
+      if (e.dead) continue;
+      this.playerHits(e, { kind: 'weapon', crit: true, sure: true, name: 'COUNTER', counter: true });
+      if (!e.dead) this.knockDown(e, e.def.boss ? 0 : 1.9);
+    }
+    this.hitstop = 0.12; this.shake(0.35); this.sfx.crit();
+    this.ui.flash('rgba(160,220,255,.3)', 180);
+  }
+  knockDown(e, secs) {
+    if (e.dead) return;
+    if (!secs || e.def.boss || e.flying) { this.stun(e, 1.0, true); return; }
+    const p = this.player, dir = e.pos.clone().sub(p.pos).setY(0).normalize();
+    e.pos.addScaledVector(dir, 1.6); this.phys.resolve(e.pos, e.radius); e.pos.y = this.phys.ground(e.pos.x, e.pos.z);
+    e.downT = secs; e.state = 'down';
+    if (e.actor.actions && e.actor.actions.Lie_Down) e.actor.play('Lie_Down', { once: true, fade: 0.05, speed: 1.6, then: () => {} });
+    else e.actor.once('Hit_B', 0.6);
+  }
+  addCombo(n = 1) {
+    this.combo = (this.combo || 0) + n;
+    this.comboT = 2.4;
+    this.ui.combo(this.combo);
+  }
+  breakCombo() { if (this.combo > 2) this.ui.combo(0, true); this.combo = 0; this.comboT = 0; }
+
+  // ================================================================== weapons, torch, materials
+  equip(id, quiet) {
+    const h = this.hero, p = this.player, w = WEAPONS[id];
+    if (!w || !h.weapons.includes(id)) return;
+    h.weapon = id; this._kit = null;
+    p.actor.setGear([w.r, w.l], !!h.torchOn);
+    p.combo = 0; p.queued = null;
+    if (!quiet) { this.ui.toast(w.name); this.sfx.clang(); p.actor.once(w.style === 'melee' ? 'Interact' : 'Use_Item', 1.6); }
+    this.ui.slotsDirty = true;
+  }
+  toggleTorch(on) {
+    const h = this.hero;
+    if (!h.flags.torch) { this.ui.toast('You have no torch. The Armory and the General Store sell them.'); return; }
+    h.torchOn = on ?? !h.torchOn;
+    const w = WEAPONS[h.weapon];
+    this.player.actor.setGear([w.r, w.l], h.torchOn);
+    this.sfx.fire && this.sfx.fire();
+  }
+  updateTorch(dt) {
+    if (!this.torchLight) {
+      this.torchLight = new THREE.PointLight(0xffa050, 0, 22, 1.6);
+      this.scene.add(this.torchLight);
+      this.torchFlame = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 6), new THREE.MeshBasicMaterial({ color: 0xffb050 }));
+      this.scene.add(this.torchFlame);
+    }
+    const on = !!(this.hero && this.hero.torchOn && this.player && this.player.actor.torchObj);
+    this.torchFlame.visible = on;
+    if (!on) { this.torchLight.intensity = 0; return; }
+    const t = this.player.actor.torchObj, wp = new THREE.Vector3();
+    t.getWorldPosition(wp); wp.y += 0.55;
+    this.torchFlame.position.copy(wp);
+    this.torchFlame.scale.y = 0.85 + Math.sin(performance.now() / 70) * 0.2;
+    this.torchLight.position.copy(wp).add(V3(0, 0.4, 0));
+    this.torchLight.intensity = (this.zone === 'world' ? 6 + (1 - this.scenery.dayK) * 26 : 22) * (0.92 + Math.random() * 0.12);
+  }
+  giveWeapon(k) {
+    const h = this.hero;
+    if (!h.weapons.includes(k)) h.weapons.push(k);
+    this.ui.banner('New weapon', WEAPONS[k].name, 'gold');
+    this.sfx.sting('good');
+    this.equip(k, true);
+    this.save();
+  }
+  addMat(k, n = 1, at) {
+    const h = this.hero;
+    h.mats[k] = (h.mats[k] || 0) + n;
+    if (at) this.fx.text(at.clone().add(V3(0, 1.9, 0)), `+${n} ${MATERIALS[k].name.toLowerCase()}`, 'gold');
+    else this.ui.toast(`+${n} ${MATERIALS[k].name}`);
+  }
+  takeOre(pt) {
+    const h = this.hero, today = Math.floor(this.day());
+    (h.flags.ore = h.flags.ore || {})[pt.id] = today;
+    pt.mesh.visible = false; pt.opened = true;
+    this.player.actor.once('PickUp', 1.4);
+    this.sfx.clang();
+    this.fx.burst(V3(pt.x, this.phys.ground(pt.x, pt.z) + 0.8, pt.z), 0xffa040, 18, 3, 1);
+    this.addMat('iron', 1 + (Math.random() < 0.4 ? 1 : 0), V3(pt.x, this.phys.ground(pt.x, pt.z), pt.z));
+  }
+
+  // ================================================================== horses: breeds you can buy, sell or steal
+  horseEntity() { return this.entities.find(e => e.type === 'horse' && e.owned); }
+  spawnOwnedHorse(breed, x, z) {
+    const old = this.horseEntity();
+    if (old) { if (this.player.mount === old) this.dismount(); this.removeEntity(old); }
+    const st = PLANS.emberfall.stable;
+    const e = this.addEntity({ type: 'horse', name: HORSES[breed].name, def: { name: HORSES[breed].name }, model: 'horse', tint: HORSES[breed].tint, x: x ?? st.x + st.w / 2 + 6, z: z ?? st.z, zone: 'world' });
+    e.radius = 1; e.timer = 3; e.owned = true; e.breed = breed;
+    this.hero.ownsHorse = true;
+    return e;
+  }
+  buyBreed(k) {
+    const h = this.hero;
+    if (!h.horses.includes(k)) h.horses.push(k);
+    h.horse = k;
+    this.spawnOwnedHorse(k);
+    this.ui.banner('New horse', `${HORSES[k].name} — ride with E, whistle with H`, 'good');
+    this.save();
+  }
+  pickHorse(k) { this.hero.horse = k; this.spawnOwnedHorse(k); this.ui.toast(`The ${HORSES[k].name} is saddled and waiting outside the stable.`); }
+  sellBreed(k) {
+    const h = this.hero;
+    h.horses = h.horses.filter(x => x !== k);
+    h.gold += Math.floor(HORSES[k].price / 2); this.sfx.coin();
+    if (h.horse === k) { h.horse = h.horses[0] || null; if (h.horse) this.spawnOwnedHorse(h.horse); else { const e = this.horseEntity(); if (e) this.removeEntity(e); h.ownsHorse = false; } }
+    this.ui.toast(`Sold the ${HORSES[k].name}.`);
+  }
+
+  // ================================================================== missions
+  onKill(e, by) {
+    const h = this.hero, k = e.key;
+    if ((k === 'wolf' || k === 'icewolf') && h.quests.wolves === 0 && Math.hypot(e.pos.x - WOOD.x, e.pos.z - WOOD.z) < WOOD.r + 60) h.counters.wolf = (h.counters.wolf || 0) + 1;
+    if (e.bertWolf && h.quests.bertram === 1) h.counters.bertwolf = (h.counters.bertwolf || 0) + 1;
+    if (e.camp2 && h.quests.camp === 0) h.counters.camp = (h.counters.camp || 0) + 1;
+    if (k === 'nightknife' && h.quests.nightknife === 0) this.setStep('nightknife', 1);
+    if (e.camp2 || k === 'nightknife' || e.bertWolf) { const q = e.camp2 ? 'camp' : e.bertWolf ? 'bertram' : null; if (q && h.quests[q] !== undefined) { const st = QUESTS[q].steps[h.quests[q]]; if (st && st.count) this.ui.toast(`${QUESTS[q].title}: ${h.counters[st.count] || 0}/${st.need}`); } }
+    if (k === 'wolf' && h.quests.wolves === 0) this.ui.toast(`Wolves hunted: ${h.counters.wolf || 0}/6`);
+    this.checkCounters();
+    // the last enemy standing goes down in slow motion
+    if (by === 'player' && !this.entities.some(o => o !== e && o.type === 'mob' && !o.dead && o.near && this.isHostile(o) && o.state === 'chase' && o.pos.distanceTo(this.player.pos) < 30)) this.finalBlow(e);
+  }
+  finalBlow(e) {
+    if (this.arenaRun && this.arenaRun.left > 0) return;
+    this.slowT = Math.max(this.slowT, 0.9); this.finalT = 1.1;
+    this.shake(0.3);
+    this.ui.flash('rgba(255,240,200,.35)', 260);
+  }
+  missionSpawns() {
+    const C = SITES.camp;
+    // the Red Hand camp
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; const e = this.spawnMob('redhand', C.x + Math.cos(a) * 7, C.z + Math.sin(a) * 7); e.camp2 = true; }
+    const chief = this.spawnMob('redchief', C.x + 1, C.z - 3, { id: 'redchief' }); chief.camp2 = true;
+    // iron ore in the wood
+    this.ores = ORE.map(([x, z], i) => {
+      const y = this.phys.ground(x, z), mesh = part('nature', 'rock_single_' + 'ABCDE'[i % 5], 2.2);
+      mesh.position.set(x, y - 0.2, z);
+      mesh.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(0x8a7a6a); o.material.emissive = new THREE.Color(0xff6a10); o.material.emissiveIntensity = 0.25; } });
+      this.scene.add(mesh);
+      const pt = { id: 'ore' + i, x, z, zone: 'world', range: 2.8, label: 'Mine the iron ore', mesh };
+      pt.act = () => this.takeOre(pt);
+      this.points.push(pt);
+      return pt;
+    });
+    // a board outside the Guild, the pit master at the arena gate, and the stablemaster
+    const G = PLANS.emberfall.landmarks.guild, A = PLANS.emberfall.arena;
+    if (G) this.points.push({ id: 'guildboard', x: G.x + Math.sin(G.rot) * 7 + Math.cos(G.rot) * 3, z: G.z + Math.cos(G.rot) * 7 - Math.sin(G.rot) * 3, zone: 'world', range: 2.6, label: 'Read the Guild contracts', act: () => this.talkTo({ name: 'Contract board', def: { title: "Adventurers' Guild" } }, 'guild') });
+    if (A) {
+      const ga = this.scenery.arenaInfo ? this.scenery.arenaInfo.gateA : 0;
+      const x = A.x + Math.cos(ga) * (A.r + 4) + Math.cos(ga + Math.PI / 2) * 3, z = A.z + Math.sin(ga) * (A.r + 4) + Math.sin(ga + Math.PI / 2) * 3;
+      const pm = this.addEntity({ type: 'npc', npcId: 'pitmaster', name: 'Brakka', def: { name: 'Brakka', title: 'Pit Master' }, model: 'barbarian', gear: ['2H_Axe'], hat: true, tint: '#c8a070', x, z, rot: ga, zone: 'world' });
+      pm.talk = 'pitmaster'; pm.face = ga + Math.PI;
+    }
+    const tom = this.entities.find(e => e.npcId === 'tom'); if (tom) tom.talk = 'stable';
+  }
+  // the parts that depend on the save
+  heroSpawns() {
+    const h = this.hero;
+    for (const pt of this.ores || []) { const day = (h.flags.ore || {})[pt.id]; const gone = day !== undefined && Math.floor(this.day()) - day < 1; pt.opened = gone; pt.mesh.visible = !gone; }
+    if (h.quests.bertram !== undefined && h.quests.bertram < 3) this.spawnBertram();
+    if (h.quests.nightknife === 0) this.questStarted('nightknife');
+    if (h.horse && !this.horseEntity()) this.spawnOwnedHorse(h.horse, h.horsePos && h.horsePos[0], h.horsePos && h.horsePos[1]);
+  }
+  spawnBertram() {
+    if (this.byId('bertram')) return;
+    const b = this.addEntity({ type: 'npc', id: 'bertram', npcId: 'bertram', name: 'Bertram', def: { name: 'Bertram', title: 'woodcutter' }, model: 'barbarian', gear: ['1H_Axe'], hat: false, tint: '#a8865e', x: BERTRAM[0], z: BERTRAM[1], zone: 'world' });
+    b.talk = 'bertram'; b.face = 0;
+  }
+  bertramWolves() {
+    const b = this.byId('bertram'); if (!b) return;
+    this.setStep('bertram', 1);
+    this.hero.counters.bertwolf = 0;
+    for (let i = 0; i < 3; i++) { const a = (i / 3) * Math.PI * 2; const w = this.spawnMob('wolf', b.pos.x + Math.cos(a) * 14, b.pos.z + Math.sin(a) * 14, { aggro: true }); w.bertWolf = true; w.state = 'chase'; }
+    this.sfx.roar && this.sfx.roar();
+  }
+  questStarted(id) {
+    const h = this.hero;
+    const k = { wolves: 'wolf', camp: 'camp', bertram: 'bertwolf' }[id];
+    if (k) h.counters[k] = 0;
+    if (id === 'bertram') this.spawnBertram();
+    if (id === 'nightknife' && !this.byId('nightknife')) { const [x, z] = PLANS.emberfall.nightknife; const e = this.spawnMob('nightknife', x, z, { id: 'nightknife', night: true }); e.bossId = 'nightknife'; }
+  }
+
+  // ================================================================== the fighting pit
+  startArena() {
+    const A = PLANS.emberfall.arena, h = this.hero;
+    if (this.arenaRun) return;
+    if (h.quests.pit === undefined && !h.done.pit) this.startQuest('pit', 0);
+    const tier = h.flags.pitTier || 0;
+    this.arenaRun = { wave: 0, tier, ents: [], crowd: [], left: 0 };
+    this.teleport(A.x + Math.cos(this.scenery.arenaInfo.gateA) * (A.r - 4), A.z + Math.sin(this.scenery.arenaInfo.gateA) * (A.r - 4), 'world');
+    this.player.yaw = this.scenery.arenaInfo.gateA - Math.PI / 2 + Math.PI / 2; // face the middle
+    this.player.yaw = Math.atan2(-(A.x - this.player.pos.x), -(A.z - this.player.pos.z)) + Math.PI;
+    // a crowd on the stands
+    const looks = [['rogue', '#d8b8a0'], ['mage', '#b8c8e8'], ['barbarian', '#e8d0a0'], ['warden', '#a8c8a0']];
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2 + 0.17, rr = A.r + 3 + (i % 2) * 2.2, [m, tint] = looks[i % 4];
+      const e = this.addEntity({ type: 'villager', name: 'Spectator', def: { name: 'Spectator' }, model: m, tint, x: A.x + Math.cos(a) * rr, z: A.z + Math.sin(a) * rr, zone: 'world', idle: 'Cheer' });
+      e.stay = true; e.seated = true; e.panic = 0; e.spots = [[e.pos.x, e.pos.z]]; e.hp = e.max = 999; e.rot = Math.atan2(A.x - e.pos.x, A.z - e.pos.z); e.pos.y += 1.6 + (i % 2) * 1.2; e.spectator = true;
+      this.arenaRun.crowd.push(e);
+    }
+    this.nextWave();
+  }
+  nextWave() {
+    const R = this.arenaRun, A = PLANS.emberfall.arena;
+    R.wave++;
+    const t = R.tier, waves = [['pitfighter', 'pitfighter', 'pitfighter'], ['pitfighter', 'pitfighter', 'pitfighter', 'pitfighter'], ['pitfighter', 'pitfighter', 'pitbrute']];
+    const list = waves[R.wave - 1].concat(t >= 1 ? ['pitfighter'] : [], t >= 2 ? ['pitbrute'] : []);
+    this.ui.banner(`ROUND ${R.wave}`, R.wave === 3 ? 'Final round!' : 'Fight!', 'boss');
+    this.sfx.sting('evil');
+    R.left = list.length;
+    list.forEach((k, i) => {
+      const a = (i / list.length) * Math.PI * 2 + 0.5;
+      const e = this.spawnMob(k, A.x + Math.cos(a) * 9, A.z + Math.sin(a) * 9, { aggro: true });
+      e.arena = true; e.state = 'chase'; e.alerted = true; e.hp = e.max = Math.round(e.max * (1 + t * 0.35));
+      R.ents.push(e);
+    });
+  }
+  arenaKill(e) {
+    const R = this.arenaRun;
+    setTimeout(() => this.entities.includes(e) && this.removeEntity(e), 4000);
+    if (!R) return;
+    R.left--;
+    R.crowd.forEach(c => c.actor.once('Cheer', 1.2, 'Cheer'));
+    this.sfx.crowd ? this.sfx.crowd() : this.sfx.chime();
+    if (R.left > 0) return;
+    this.finalT = 1.1; this.slowT = 0.9;
+    if (R.wave < 3) { setTimeout(() => this.arenaRun && this.nextWave(), 2600); return; }
+    // won the bout
+    const h = this.hero, gold = 60 + R.tier * 50;
+    setTimeout(() => {
+      h.gold += gold; this.sfx.coin();
+      this.ui.banner('CHAMPION OF THE PIT', `+${gold} gold · +${80 + R.tier * 40} XP`, 'gold');
+      this.gainXP(80 + R.tier * 40);
+      h.flags.pitTier = Math.min(4, R.tier + 1);
+      if (h.quests.pit === 0) this.completeQuest('pit');
+      this.endArena();
+    }, 1500);
+  }
+  arenaLose() {
+    const h = this.hero, A = PLANS.emberfall.arena, ga = this.scenery.arenaInfo.gateA;
+    h.hp = Math.ceil(this.maxHp() * 0.35);
+    this.ui.banner('DEFEATED', 'The crowd boos. Brakka drags you out.', 'bad');
+    this.endArena();
+    this.teleport(A.x + Math.cos(ga) * (A.r + 6), A.z + Math.sin(ga) * (A.r + 6), 'world');
+  }
+  endArena() {
+    const R = this.arenaRun; if (!R) return;
+    this.arenaRun = null;
+    for (const e of [...R.crowd, ...R.ents]) if (this.entities.includes(e)) this.removeEntity(e);
+  }
+
   save() {
     if (!this.hero || !this.player || (this.net && this.net.guest)) return;
     const h = this.hero, p = this.player;

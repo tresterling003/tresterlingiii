@@ -1,0 +1,16 @@
+{
+  "name": "Emberfall: Open Realm",
+  "short_name": "Emberfall",
+  "description": "An open-world fantasy action RPG: swordplay, quests, horses and a whole kingdom to explore.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#080504",
+  "theme_color": "#140e0a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

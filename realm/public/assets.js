@@ -44,6 +44,15 @@ export async function loadAssets(onProgress) {
   const convert = root => root.traverse(o => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(lambert) : lambert(o.material); o.castShadow = o.receiveShadow = true; } });
   for (const kit of Object.values(A.kits)) for (const n of Object.values(kit)) convert(n);
   for (const [name, m] of Object.entries(A.models)) convert(m);
+  // every weapon from every character, so any hero can hold any of them
+  A.gearLib = {};
+  for (const m of ['knight', 'barbarian', 'mage', 'rogue', 'warden']) {
+    const src = A.models[m]; if (!src) continue;
+    src.traverse(o => {
+      if (!o.parent || !/^handslot/.test(o.parent.name) || !o.name || A.gearLib[o.name]) return;
+      A.gearLib[o.name] = { node: o, side: /l$/i.test(o.parent.name.replace(/[^a-z]/gi, '')) ? 'l' : 'r' };
+    });
+  }
 }
 
 // A fresh copy of one kit model, scaled.

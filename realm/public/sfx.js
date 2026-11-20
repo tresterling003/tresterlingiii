@@ -21,6 +21,46 @@ export class Sfx {
       this.wind();
     } catch { this.ctx = null; }
   }
+  // ---- music: a slow modal theme that picks up drums when you fight. Call music(dt, combat) every frame.
+  music(dt, combat) {
+    if (!this.ctx || this.muted) return;
+    if (!this.mus) {
+      this.mus = this.ctx.createGain(); this.mus.gain.value = 0.0; this.mus.connect(this.out);
+      const rv = this.ctx.createDelay(1); rv.delayTime.value = 0.37; const fb = this.ctx.createGain(); fb.gain.value = 0.42;
+      rv.connect(fb).connect(rv); rv.connect(this.mus); this.musRv = rv;
+      this.musT = this.t + 0.5; this.bar = 0; this.combatK = 0;
+    }
+    this.combatK += ((combat ? 1 : 0) - this.combatK) * Math.min(1, dt * 0.8);
+    this.mus.gain.value += (0.32 - this.mus.gain.value) * Math.min(1, dt * 0.3);
+    // schedule a bar ahead
+    while (this.musT < this.t + 0.6) {
+      const D = 0.5, prog = [[50, 57, 62, 65], [46, 53, 58, 62], [48, 55, 60, 64], [45, 52, 57, 61]]; // Dm  Bb  C  A
+      const ch = prog[this.bar % 4], fight = this.combatK > 0.5;
+      for (const n of ch.slice(0, 3)) this.note(n - 12, this.musT, D * 4, 0.035, 'triangle', true);
+      const mel = [ch[3] + 12, ch[2] + 12, ch[3] + 12, ch[1] + 12];
+      if (this.bar % 2 === 0 || fight) for (let i = 0; i < 4; i++) if (Math.random() < (fight ? 0.55 : 0.4)) this.note(mel[(i + this.bar) % 4] + (Math.random() < 0.25 ? 2 : 0), this.musT + i * D, D * 1.6, 0.025, 'sine', true);
+      if (fight) for (let i = 0; i < 8; i++) this.drum(this.musT + i * D / 2, i % 4 === 0 ? 1 : i % 2 ? 0.35 : 0.6);
+      this.musT += D * 4; this.bar++;
+    }
+  }
+  note(midi, at, dur, vol, type = "sine", rv) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + Math.min(0.4, dur * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g).connect(this.mus); if (rv) g.connect(this.musRv);
+    o.start(at); o.stop(at + dur + 0.05);
+  }
+  drum(at, k) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(110 * (0.7 + k * 0.3), at); o.frequency.exponentialRampToValueAtTime(42, at + 0.25);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.22 * k, at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.35);
+    o.connect(g).connect(this.mus); o.start(at); o.stop(at + 0.4);
+  }
+  crowd() {
+    if (!this.ctx) return;
+    const n = this.noise(1.4), f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.6;
+    const g = this.env(0.25, this.t, 0.15, 1.2); n.connect(f).connect(g).connect(this.out); n.start(); n.stop(this.t + 1.5);
+  }
   setMuted(m) { this.muted = m; if (this.out) this.out.gain.value = m ? 0 : 0.8; }
   get t() { return this.ctx.currentTime; }
   noise(dur) {

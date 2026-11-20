@@ -42,6 +42,7 @@ export function updateMob(g, e, dt) {
     if (e.frozenT <= 0) { a.clearTint(); if (a.mixer) a.mixer.timeScale = 1; }
     return;
   }
+  if (e.downT > 0) { e.downT -= dt; if (e.downT <= 0) { e.state = 'chase'; a.play('Idle', { force: true }); } return; }
   if (e.stunT > 0) { e.stunT -= dt; if (e.stunT <= 0 && e.stunFx) { e.stunFx = null; } return; }
   if (def.regen && e.hp < e.max && e.burnT <= 0 && e.state !== 'idle') { e.hp = Math.min(e.max, e.hp + def.regen * dt); if (Math.random() < dt) g.fx.text(e.pos.clone().add(V3(0, a.height * e.scale, 0)), 'regenerating', 'heal small'); }
   if (def.special === 'flyer') return updateWyvern(g, e, dt);
@@ -98,9 +99,10 @@ export function updateMob(g, e, dt) {
     case 'windup': {
       e.timer -= dt;
       // the cue lands a fixed beat before the blow, so parrying is about timing, not guessing
-      if (!e.cued && def.kind === 'melee' && e.timer <= 0.36) {
+      if (!e.cued && def.kind === 'melee' && e.timer <= 0.46) {
         e.cued = true;
-        if (e.tgt && e.tgt.player && e.pos.distanceTo(e.tgt.pos) < 14) { a.flash(0xffb040, 200); g.fx.text(e.pos.clone().add(V3(0, (a.height || 2.2) * (def.scale || 1) + 0.4, 0)), '!', 'warn'); }
+        // the counter spark: block (or aim) now to counter
+        if (e.tgt && e.tgt.player && e.pos.distanceTo(e.tgt.pos) < 14) { a.flash(0x80c8ff, 220); g.fx.text(e.pos.clone().add(V3(0, (a.height || 2.2) * (def.scale || 1) + 0.5, 0)), 'ϟ', 'counter'); }
       }
       if (e.tgt) faceTo(e, e.tgt.pos, dt, e.def.boss ? 2.5 : 6);
       if (e.timer <= 0) { strike(g, e); e.state = 'recover'; e.timer = 0.45; }
