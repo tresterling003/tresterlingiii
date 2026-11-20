@@ -41,7 +41,7 @@ kbd { font: 700 .78rem system-ui; background: #2a2620; border: 1px solid #5a503e
 .credit { position: absolute; bottom: 8px; left: 10px; right: 10px; text-align: center; font-size: .68rem; color: #a8a090; text-shadow: 0 1px 4px #000; margin: 0; }
 
 /* creator */
-#creator { position: fixed; z-index: 10; right: 14px; top: 14px; bottom: 14px; width: min(700px, 64vw); overflow-y: auto; }
+#creator { position: fixed; z-index: 10; right: 14px; top: 14px; bottom: 14px; width: min(620px, 52vw); overflow-y: auto; }
 #creator .crgrid { grid-template-columns: 1fr; }
 @media (min-width: 1250px) { #creator .crgrid { grid-template-columns: 1fr 1fr; } }
 .crgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -151,7 +151,15 @@ body.talking #touchUI { display: none; }
 #banner.good #bannerTitle, #banner.zone #bannerTitle { color: #c8f0ff; }
 #banner.quest #bannerTitle { color: var(--gold); font-size: clamp(1.2rem, 3.4vw, 1.8rem); }
 #banner.boss #bannerTitle { color: #ffd0c8; }
-#crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .6); pointer-events: none; }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: none; transition: transform .12s; }
+#crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 2px #000, 0 0 1px #000; }
+#crosshair::before { left: 12px; top: 0; width: 2px; height: 26px; clip-path: polygon(0 0, 100% 0, 100% 38%, 0 38%, 0 62%, 100% 62%, 100% 100%, 0 100%); }
+#crosshair::after { top: 12px; left: 0; height: 2px; width: 26px; clip-path: polygon(0 0, 38% 0, 38% 100%, 0 100%, 0 0, 62% 0, 100% 0, 100% 100%, 62% 100%); }
+#crosshair.on::before, #crosshair.on::after { background: #ff5050; }
+#crosshair.zoom { transform: scale(.75); }
+#crosshair.hit { animation: hitmark .25s; } #crosshair.crit { animation: hitcrit .35s; }
+@keyframes hitmark { 0% { transform: scale(1.5) rotate(45deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes hitcrit { 0% { transform: scale(2.2) rotate(45deg); filter: drop-shadow(0 0 6px gold); } 100% { transform: scale(1); } }
 #prompt { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); background: rgba(10, 8, 6, .8); border: 1px solid var(--line); border-radius: 99px; padding: 8px 18px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
 #prompt.on { opacity: 1; }
 #bars { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 10px; align-items: center; }
@@ -247,7 +255,7 @@ body.touch #prompt { bottom: 190px; }
 
 @media (max-width: 760px) {
   .crgrid { grid-template-columns: 1fr; gap: 6px; }
-  #creator { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 62vh; }
+  #creator { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 56vh; }
   #minimap { width: 120px; height: 120px; }
   #tracker { font-size: .9em; }
   #dialog { bottom: 8px; }

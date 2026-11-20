@@ -67,11 +67,12 @@ async function kit(outName, list, hint) {
   await target.transform(unpartition(), prune(), dedup(), join(), quantize({ quantizePosition: 14, quantizeNormal: 10 }));
   await io.write(`${out}/${outName}.glb`, target);
 }
-await kit('town', ['building_tavern_red', 'building_blacksmith_blue', 'building_church_yellow', 'building_home_A_red', 'building_home_A_blue', 'building_home_B_yellow', 'building_home_B_green',
-  'building_market_red', 'building_market_blue', 'building_well_blue', 'building_windmill_red', 'building_tower_A_blue', 'building_tower_B_red', 'building_watermill_yellow',
-  'building_barracks_blue', 'building_destroyed', 'building_mine_yellow', 'building_bridge_A', 'building_lumbermill_green', 'building_stage_A', 'building_castle_red',
-  'tent', 'barrel', 'crate_A_big', 'crate_B_small', 'sack', 'fence_wood_straight', 'fence_wood_straight_gate', 'fence_stone_straight', 'wall_straight', 'wall_straight_gate',
-  'wall_corner_A_outside', 'flag_red', 'flag_blue', 'weaponrack', 'wheelbarrow', 'bucket_water', 'target', 'resource_lumber'], 'Medieval');
+await kit('town', [
+  ...['home_A', 'home_B', 'tavern', 'blacksmith', 'church', 'market', 'tower_A', 'tower_B', 'castle', 'barracks', 'well', 'windmill', 'archeryrange', 'tower_catapult', 'lumbermill']
+    .flatMap(t => ['blue', 'green', 'red', 'yellow'].map(c => `building_${t}_${c}`)),
+  'building_watermill_yellow', 'building_destroyed', 'building_mine_yellow', 'building_bridge_A', 'building_stage_A', 'building_stage_B', 'building_stage_C',
+  'tent', 'barrel', 'crate_A_big', 'crate_B_small', 'crate_long_A', 'pallet', 'sack', 'fence_wood_straight', 'fence_wood_straight_gate', 'fence_stone_straight', 'wall_straight', 'wall_straight_gate',
+  'wall_corner_A_outside', 'wall_corner_A_inside', 'flag_red', 'flag_blue', 'weaponrack', 'wheelbarrow', 'bucket_water', 'target', 'resource_lumber'], 'Medieval');
 await kit('nature', ['tree_single_A', 'tree_single_B', 'trees_A_small', 'trees_A_medium', 'trees_A_large', 'trees_B_small', 'trees_B_medium', 'trees_B_large',
   'rock_single_A', 'rock_single_B', 'rock_single_C', 'rock_single_D', 'rock_single_E', 'hill_single_A', 'mountain_A', 'mountain_B', 'mountain_C', 'waterlily_A', 'waterplant_A',
   'cloud_big', 'cloud_small'], 'Medieval');

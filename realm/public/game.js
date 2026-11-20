@@ -1,7 +1,7 @@
 // EMBERFALL: OPEN REALM — the game itself. Ties the world, the people, the rules and the screen together.
 import * as THREE from 'three';
 import { CLASSES, MONSTERS, NPCS, QUESTS, DIALOGUE, ITEMS, KEY_ITEMS, XP_LEVELS, TINTS, STATS, TIPS } from './data.js';
-import { SITES, SHRINES, SHARDS, GLOWCAPS, CHESTS, SPAWNS, PATROLS, VILLAGER_SPOTS, DUNGEON_START, DUNGEON_SPAWNS, dTile, PALISADE } from './world.js';
+import { SITES, SHRINES, SHARDS, GLOWCAPS, CHESTS, SPAWNS, DUNGEON_START, DUNGEON_SPAWNS, dTile, SETTLEMENTS, PLANS, NPC_POS, START, INSIDE_X } from './world.js';
 import { loadAssets, part } from './assets.js';
 import { Physics } from './physics.js';
 import { Scenery } from './scenery.js';
@@ -15,8 +15,10 @@ import { Net } from './net.js';
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const SAVE = 'realm.save.v1';
+const SAVE = 'realm.save.v2';
 const DAY_SECS = 840; // one day and night, in real seconds
+// distance from point c to the segment a→b (so fast projectiles cannot skip through a target)
+const segPoint = (a, b, c) => { const ab = b.clone().sub(a), l = ab.lengthSq(); const t = l ? Math.max(0, Math.min(1, c.clone().sub(a).dot(ab) / l)) : 0; return a.clone().addScaledVector(ab, t).distanceTo(c); };
 const ease = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 class Game {
@@ -30,7 +32,7 @@ class Game {
     this.renderer.toneMappingExposure = 1.05;
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x9fc8e8, 0.006);
-    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 460);
+    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 540);
     this.phys = new Physics();
     this.scenery = new Scenery(this.scene, this.phys);
     this.fx = new FX(this.scene, $('floats'), this.camera);
@@ -58,7 +60,7 @@ class Game {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    this.camera.fov = w / h < 0.8 ? 72 : 60;
+    this.baseFov = this.camera.fov = w / h < 0.8 ? 72 : 60;
     this.camera.updateProjectionMatrix();
   }
 
@@ -134,7 +136,7 @@ class Game {
       v: 1, name: st.name, cls: st.cls, bg: st.bg, tint: st.tint, base, level: 1, xp: 0, hp: 0,
       gold: 30 + (st.bg === 'merchant' ? 60 : 0), potions: 2 + (st.bg === 'herbalist' ? 3 : 0), fate: st.bg === 'scholar' ? 2 : 1,
       items: [], keys: {}, counters: {}, flags: {}, quests: {}, done: {}, tracked: null, shrines: { emberfall: true }, got: {}, bosses: {},
-      pos: [2, 70], zone: 'world', ownsHorse: false, time: 0.3, yaw: Math.PI,
+      pos: [...START], zone: 'world', ownsHorse: false, time: 0.3, yaw: Math.PI, found: {},
     };
     this.hero.hp = this.maxHp();
   }
@@ -153,7 +155,7 @@ class Game {
     this.points.forEach(p => { if (p.chest && h.got[p.id]) p.open(true); });
     if (h.flags.barrowOpen && this.scenery.barrowGate) this.scenery.barrowGate.position.y += 4.2;
     if (h.flags.vargPeace) this.entities.filter(e => e.camp === 'keep').forEach(e => { e.neutral = true; e.talk = null; });
-    if (h.flags.trollpass) { const t = this.byId('troll'); if (t) { t.talk = 'troll'; t.pos.set(4.5, 0, -56); t.home.copy(t.pos); } }
+
     const actor = new Actor(this.scene, { model: h.cls, gear: CLASSES[h.cls].gear, hat: CLASSES[h.cls].hat, tint: TINTS[h.tint] || null });
     this.player = new Player(this, actor);
     this.player.yaw = h.yaw || Math.PI;
@@ -175,31 +177,18 @@ class Game {
   populate() {
     // named people
     for (const [id, n] of Object.entries(NPCS)) {
-      let pos = n.pos;
-      if (n.zone === 'barrow') pos = dTile(18, 9);
-      const e = this.addEntity({ type: 'npc', npcId: id, name: n.name, def: { name: n.name, title: n.title }, model: n.model, gear: n.gear, hat: n.hat, tint: n.tint, ghost: n.ghost, x: pos[0], z: pos[1], rot: n.face || 0, idle: n.idle, zone: n.zone || 'world' });
-      e.face = n.face || 0;
+      const pos = n.zone === 'barrow' ? dTile(18, 9) : NPC_POS[id];
+      const home = id === 'pell' || id === 'morwen' ? { x: pos[0] - 8, z: pos[1] - 8 } : SETTLEMENTS[0];
+      const face = Math.atan2(home.x - pos[0], home.z - pos[1]);
+      const e = this.addEntity({ type: 'npc', npcId: id, name: n.name, def: { name: n.name, title: n.title }, model: n.model, gear: n.gear, hat: n.hat, tint: n.tint, ghost: n.ghost, x: pos[0], z: pos[1], rot: face, idle: n.idle, zone: n.zone || 'world' });
+      e.face = face;
       e.talk = id;
       e.seated = n.idle === 'Sit_Chair_Idle';
       if (id === 'aldous') { e.pos.x += 1.5; }
       this.phys.circle(e.pos.x, e.pos.z, 0.55);
     }
-    // villagers
-    const looks = [['rogue', '#d8b8a0'], ['mage', '#b8c8e8'], ['barbarian', '#e8d0a0'], ['warden', '#a8c8a0'], ['rogue', '#e8a8b8'], ['mage', '#e8e0c8'], ['barbarian', '#c8a890'], ['warden', '#d8c8e8'], ['rogue', '#a8b8d0'], ['mage', '#d8a888']];
-    const names = ['Agnes', 'Bram', 'Cedric', 'Dalia', 'Edda', 'Finn', 'Greta', 'Hugo', 'Isolde', 'Jasper'];
-    looks.forEach(([m, tint], i) => {
-      const s = VILLAGER_SPOTS[i % VILLAGER_SPOTS.length];
-      const e = this.addEntity({ type: 'villager', name: names[i], def: { name: names[i] }, model: m, gear: i % 4 === 2 ? ['Mug'] : [], hat: i % 3 === 0, tint, x: s[0], z: s[1], zone: 'world' });
-      e.hp = e.max = 12; e.armor = 10; e.spots = VILLAGER_SPOTS; e.panic = 0; e.timer = Math.random() * 4;
-    });
-    // the watch
-    PATROLS.forEach((path, i) => { const e = this.spawnMob('watch', path[0][0], path[0][1], { patrol: path }); e.home.set(path[0][0], 0, path[0][1]); });
-    for (const x of [-4, 4]) { const e = this.spawnMob('watch', x, 14, {}); e.rot = Math.PI; e.post = true; }
-    // horses in the paddock, and a unicorn in the glade
-    for (let i = 0; i < 3; i++) {
-      const e = this.addEntity({ type: 'horse', name: 'Horse', def: { name: 'Horse' }, model: 'horse', tint: ['#8a5a3a', '#4a3a30', '#c8b8a8'][i], x: -26 + i * 4, z: 31 + (i % 2) * 3, zone: 'world' });
-      e.pen = { x: -24, z: 32, w: 12, d: 8 }; e.timer = Math.random() * 5; e.radius = 1.0;
-    }
+    // townsfolk, guards and stable horses appear as you come near each town
+    this.crowds = SETTLEMENTS.map(st => ({ s: st, plan: PLANS[st.id], ents: [] }));
     const u = this.addEntity({ type: 'unicorn', name: 'Unicorn', def: { name: 'Unicorn' }, model: 'unicorn', x: SITES.glade.x + 2, z: SITES.glade.z, zone: 'world' });
     u.radius = 1;
     // monsters
@@ -214,7 +203,7 @@ class Game {
     // chests
     for (const c of CHESTS) this.addChest(c);
     // fixed spots
-    for (const sx of [-12, 12]) this.points.push({ id: 'stall' + sx, x: sx * 0.92, z: 69, label: 'Steal from the stall', zone: 'world', act: () => this.talkTo({ name: 'Market stall', def: { title: '' } }, 'stall') });
+    for (const st of SETTLEMENTS) PLANS[st.id].stalls.forEach(([x, z], i) => this.points.push({ id: `stall_${st.id}_${i}`, x, z: z + 3, label: 'Steal from the stall', zone: 'world', act: () => this.talkTo({ name: 'Market stall', def: { title: '' } }, 'stall') }));
     this.points.push({ id: 'barrowdoor', get x() { return this.g.scenery.barrowDoor.x; }, get z() { return this.g.scenery.barrowDoor.z; }, g: this, label: 'Examine the Barrow door', zone: 'world', range: 4, act: () => this.talkTo({ name: 'The Barrow Door', def: { title: '' } }, 'barrowdoor') });
     const [ex, ez] = DUNGEON_START;
     this.points.push({ id: 'exit', x: ex, z: ez + 1.5, label: 'Leave the Barrow', zone: 'barrow', range: 3, act: () => this.leaveBarrow() });
@@ -224,7 +213,7 @@ class Game {
     const actor = new Actor(this.scene, { model: o.model, gear: o.gear, hat: o.hat, tint: o.tint, scale: o.scale, ghost: o.ghost, crown: o.crown });
     const e = {
       id: o.id || 'e' + (++this.idSeq), type: o.type, name: o.name, def: o.def, actor, npcId: o.npcId,
-      pos: V3(o.x, 0, o.z), home: V3(o.x, 0, o.z), rot: o.rot || 0, zone: o.zone || (o.x > 600 ? 'barrow' : 'world'),
+      pos: V3(o.x, 0, o.z), home: V3(o.x, 0, o.z), rot: o.rot || 0, zone: o.zone || (o.x > INSIDE_X ? 'barrow' : 'world'),
       hp: 10, max: 10, armor: 10, state: 'idle', timer: 0, cd: 0, spCd: 2, burnT: 0, stunT: 0, frozenT: 0, radius: 0.55 * (o.scale || 1),
       idleAnim: o.idle, scale: o.scale || 1, slot: Math.random() * Math.PI * 2,
     };
@@ -237,7 +226,7 @@ class Game {
   }
   spawnMob(key, x, z, extra = {}) {
     const def = MONSTERS[key];
-    const e = this.addEntity({ type: 'mob', id: extra.id, name: def.name, def, model: def.model, gear: def.gear, hat: false, tint: def.tint, scale: def.scale, crown: def.crown, x, z, zone: extra.zone });
+    const e = this.addEntity({ type: 'mob', id: extra.id, name: def.name, def, model: def.model, gear: def.gear, hat: false, tint: extra.tint || def.tint, scale: def.scale, crown: def.crown, x, z, zone: extra.zone });
     e.key = key;
     e.hp = e.max = def.hp; e.armor = def.armor; e.team = def.team || 'monster';
     e.talk = extra.talk || null;
@@ -257,6 +246,59 @@ class Game {
   risingNow(e) { e.state = 'rising'; e.riseT = 0; e.dormant = false; this.sfx.boom(); this.fx.burst(e.pos.clone().add(V3(0, 0.3, 0)), 0x7dffb0, 20, 3, 2); }
   removeEntity(e) { e.actor.dispose(); if (e.plate) e.plate.remove(); this.entities = this.entities.filter(x => x !== e); }
   byId(id) { return this.entities.find(e => e.id === id || e.bossId === id); }
+
+  // ---- crowds: the people of a town exist while you are near it
+  updateCrowds(dt) {
+    if ((this.crowdT = (this.crowdT || 0) - dt) > 0) return;
+    this.crowdT = 1;
+    const p = this.player.pos;
+    for (const c of this.crowds) {
+      const d = Math.hypot(p.x - c.s.x, p.z - c.s.z);
+      if (!c.spawned && d < c.s.r + 230 && this.zone === 'world') this.spawnCrowd(c);
+      else if (c.spawned && (d > c.s.r + 330 || this.zone !== 'world') && !c.ents.some(e => e.type === 'mob' && (e.state === 'chase' || e.state === 'windup'))) this.despawnCrowd(c);
+      // arriving somewhere new
+      const h = this.hero;
+      if (d < c.s.r * 0.8 && this.zone === 'world' && !(h.found || (h.found = {}))[c.s.id]) {
+        h.found[c.s.id] = 1;
+        this.ui.banner(c.s.name, c.s.sub, 'zone');
+        this.sfx.bell();
+        this.gainXP(c.s.kingdom ? 60 : 30);
+      }
+      if (d < c.s.r * 0.8 && this.here !== c.s.id && this.zone === 'world') { this.here = c.s.id; if (h.found[c.s.id] && this.lastHere !== c.s.id) this.ui.toast(c.s.name); this.lastHere = c.s.id; }
+      if (this.here === c.s.id && d > c.s.r + 20) this.here = null;
+    }
+  }
+  spawnCrowd(c) {
+    c.spawned = true;
+    const { s, plan } = c, R = Math.random;
+    const looks = [['rogue', '#d8b8a0'], ['mage', '#b8c8e8'], ['barbarian', '#e8d0a0'], ['warden', '#a8c8a0'], ['rogue', '#e8a8b8'], ['mage', '#e8e0c8'], ['barbarian', '#c8a890'], ['warden', '#d8c8e8'], ['rogue', '#a8b8d0'], ['mage', '#d8a888']];
+    const names = ['Agnes', 'Bram', 'Cedric', 'Dalia', 'Edda', 'Finn', 'Greta', 'Hugo', 'Isolde', 'Jasper', 'Kira', 'Lothar', 'Mira', 'Nils', 'Orla', 'Piet', 'Quinn', 'Rosa'];
+    const n = s.kingdom ? 16 : 6;
+    for (let i = 0; i < n; i++) {
+      const [m, tint] = looks[Math.floor(R() * looks.length)], sp = plan.spots[i % plan.spots.length], name = names[Math.floor(R() * names.length)];
+      const e = this.addEntity({ type: 'villager', name, def: { name }, model: m, gear: R() < 0.2 ? ['Mug'] : [], hat: R() < 0.35, tint, x: sp[0] + (R() - 0.5) * 4, z: sp[1] + (R() - 0.5) * 4, zone: 'world' });
+      e.hp = e.max = 12; e.armor = 10; e.spots = plan.spots; e.panic = 0; e.timer = R() * 4;
+      c.ents.push(e);
+    }
+    const tint = { red: '#ff9a8a', blue: '#8fb3ff', green: '#9ae0a0', yellow: '#ffe08a' }[s.color];
+    for (const path of plan.patrols) { const e = this.spawnMob('watch', path[0][0], path[0][1], { patrol: path, tint }); c.ents.push(e); }
+    for (const [gx, gz] of plan.gates || []) {
+      const a = Math.atan2(gz - s.z, gx - s.x);
+      for (const side of [-1, 1]) { const b = a + side * 0.03, x = s.x + Math.cos(b) * (s.r - 7), z = s.z + Math.sin(b) * (s.r - 7); const e = this.spawnMob('watch', x, z, { tint }); e.rot = Math.atan2(gx - s.x, gz - s.z); e.post = true; c.ents.push(e); }
+    }
+    if (plan.stable) for (let i = 0; i < 3; i++) {
+      const st = plan.stable;
+      const e = this.addEntity({ type: 'horse', name: 'Horse', def: { name: 'Horse' }, model: 'horse', tint: ['#8a5a3a', '#4a3a30', '#c8b8a8'][i], x: st.x - 4 + i * 4, z: st.z + (i % 2) * 3, zone: 'world' });
+      e.pen = { x: st.x, z: st.z, w: st.w - 4, d: st.d - 4 }; e.timer = R() * 5; e.radius = 1.0; e.crowd = c;
+      c.ents.push(e);
+    }
+    if (this.bounty > 0) c.ents.forEach(e => { if (e.team === 'town' && e.pos.distanceTo(this.player.pos) < 80) { e.state = 'chase'; } });
+  }
+  despawnCrowd(c) {
+    c.spawned = false;
+    for (const e of c.ents) if (!(e.type === 'horse' && e.owned)) this.removeEntity(e);
+    c.ents = c.ents.filter(e => e.type === 'horse' && e.owned);
+  }
 
   addPickup(id, kind, x, z) {
     const y = this.phys.ground(x, z);
@@ -287,7 +329,7 @@ class Game {
     mesh.rotation.y = Math.atan2(-c.x, -c.z);
     this.scene.add(mesh);
     this.phys.circle(c.x, c.z, 0.7);
-    const p = { id: 'chest_' + c.id, chest: c, x: c.x, z: c.z, zone: c.x > 600 ? 'barrow' : 'world', range: 2.6, mesh,
+    const p = { id: 'chest_' + c.id, chest: c, x: c.x, z: c.z, zone: c.x > INSIDE_X ? 'barrow' : 'world', range: 2.6, mesh,
       label: c.owned ? 'Open someone else\'s chest' : 'Open the chest', act: () => this.openChest(p),
       open: quiet => { p.opened = true; mesh.rotation.x = -0.12; if (!quiet) this.fx.burst(mesh.position.clone().add(V3(0, 1, 0)), 0xffd34d, 30, 3, 3); } };
     this.points.push(p);
@@ -300,17 +342,19 @@ class Game {
     if (this.hitstop > 0) { this.hitstop -= rdt; rdt *= 0.08; }
     const dt = rdt * (this.slowT > 0 ? 0.3 : 1);
     this.adapt(rdt);
-    if (this.state !== 'play') this.cull(this.state === 'creator' && this.preview ? this.preview.root.position : V3(0, 0, 62));
-    if (this.state === 'play' && !this.paused) for (let i = 0; i < (this.speedup || 1); i++) if (this.state === 'play' && !this.paused) this.tick(dt);
+    if (this.state !== 'play') this.cull(this.state === 'creator' && this.preview ? this.preview.root.position : this.plaza());
+    if (this.state === 'play' && !this.paused) { for (let i = 0; i < (this.speedup || 1); i++) if (this.state === 'play' && !this.paused) this.tick(dt); }
     else if (this.state === 'title' || this.state === 'creator' || this.state === 'loading') this.idleCamera(rdt);
-    this.scenery.update(rdt, this.player ? this.player.pos : V3(0, 0, 60));
-    this.scenery.setTime(this.time, this.player ? this.player.pos : V3(0, 0, 60), this.zone === 'barrow');
+    const focus = this.player ? this.player.pos : this.state === 'creator' && this.preview ? this.preview.root.position : this.plaza();
+    this.scenery.update(rdt, focus);
+    this.scenery.setTime(this.time, focus, this.zone === 'barrow');
     this.fx.update(dt, (pos, p) => this.projectileHit(pos, p));
     if (this.state === 'play' || this.state === 'creator') this.entities.forEach(e => { if (e.preview || (this.state === 'creator' && e.near)) e.actor.update(dt); });
     if (this.state === 'play') this.ui.hud();
     this.input.endFrame();
     this.renderer.render(this.scene, this.camera);
   }
+  plaza() { const k = SETTLEMENTS[0]; return this._plaza || (this._plaza = V3(k.x, this.phys.ground(k.x, k.z + 30), k.z + 30)); }
   // outside of play, only draw the people near what the camera looks at
   cull(focus) {
     for (const e of this.entities) e.actor.root.visible = e.zone === 'world' && e.pos.distanceTo(focus) < 75 && !(e.night && e.state === 'idle');
@@ -319,31 +363,48 @@ class Game {
     this.showcase += dt * 0.05;
     const a = this.showcase;
     if (this.state === 'creator' && this.preview) {
-      // the hero stands on the left of the screen; the creator panel is on the right
-      const p = this.preview.root.position, sw = Math.sin(a * 2) * 0.35, wide = innerWidth > 760;
-      const cx = p.x + Math.sin(sw) * 5.2, cz = p.z + Math.cos(sw) * 5.2;
-      this.camera.position.set(cx, p.y + (wide ? 1.9 : 2.6), cz);
-      const rx = Math.cos(sw), rz = -Math.sin(sw), off = wide ? 2.1 : 0;
-      this.camera.lookAt(p.x + rx * off, p.y + (wide ? 1.3 : 0.2), p.z + rz * off);
+      // a turntable: the hero slowly turns, the camera stays put
+      const p = this.preview.root.position;
+      this.preview.root.rotation.y += dt * 0.45;
+      const d = this.previewDist || 5.2;
+      this.camera.position.set(p.x, p.y + 1.55, p.z + d);
+      this.camera.lookAt(p.x, p.y + 1.15, p.z);
+      this.framePreview();
       this.preview.update(dt);
       return;
     }
-    this.camera.position.set(Math.sin(a) * 60, 30, 62 + Math.cos(a) * 60);
-    this.camera.lookAt(0, 4, 62);
+    const c = this.plaza();
+    if (!this.titleCrowd) { this.titleCrowd = true; this.spawnCrowd(this.crowds[0]); }
+    this.camera.position.set(c.x + Math.sin(a) * 110, c.y + 48, c.z + Math.cos(a) * 110);
+    this.camera.lookAt(c.x, c.y + 8, c.z - 20);
     this.time = 0.72;
-    this.entities.forEach(e => { if (e.zone === 'world' && e.pos.distanceTo(V3(0, 0, 62)) < 60) { if (e.type === 'villager') updateVillager(this, e, dt); e.actor.root.position.copy(e.pos); e.actor.root.rotation.y = e.rot; e.actor.update(dt); } });
+    this.entities.forEach(e => { if (e.zone === 'world' && e.pos.distanceTo(c) < 70) { if (e.type === 'villager') updateVillager(this, e, dt); e.actor.root.position.copy(e.pos); e.actor.root.rotation.y = e.rot; e.actor.update(dt); } });
   }
   // the hero in the character creator
   previewHero(st) {
     this.clearPreview();
     const C = CLASSES[st.cls];
     this.preview = new Actor(this.scene, { model: st.cls, gear: C.gear, hat: C.hat, tint: TINTS[st.tint] || null });
-    this.preview.root.position.set(-3, this.phys.ground(-3, 74), 74);
+    const pz = this.plaza();
+    this.preview.root.position.set(pz.x + 3, this.phys.ground(pz.x + 3, pz.z + 8), pz.z + 8);
     this.preview.root.rotation.y = 0.25;
     this.preview.play(C.style === 'melee' ? (st.cls === 'barbarian' ? '2H_Melee_Idle' : 'Idle') : 'Idle');
     setTimeout(() => this.preview && this.preview.once(C.attacks[0], 1), 250);
   }
-  clearPreview() { if (this.preview) { this.preview.dispose(); this.preview = null; } }
+  // shift the picture so the hero stands in the part of the screen the creator panel leaves free
+  framePreview() {
+    const W = innerWidth, H = innerHeight, r = $('creator').getBoundingClientRect();
+    if (!r.width) return;
+    const side = r.left > W * 0.3; // panel on the right; otherwise it sits along the bottom
+    const cx = side ? r.left / 2 : W / 2, cy = side ? H / 2 : Math.max(60, r.top / 2);
+    const frac = side ? r.left / W : r.top / H;
+    this.previewDist = 2.6 + 3.2 * Math.min(1, frac / 0.5) * (side ? 1 : 0.8);
+    const key = `${W}x${H}:${cx | 0}:${cy | 0}`;
+    if (this.viewKey === key) return;
+    this.viewKey = key;
+    this.camera.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H);
+  }
+  clearPreview() { if (this.preview) { this.preview.dispose(); this.preview = null; } this.camera.clearViewOffset(); this.viewKey = null; }
 
   tick(dt) {
     const p = this.player, h = this.hero;
@@ -385,6 +446,9 @@ class Game {
       if (e.def.boss && e.def.special === 'flyer' && e.awake && !e.dead && e.pos.distanceTo(p.pos) < 50) this.bossActive = e;
     }
     this.inCombat = combat;
+    this.updateCrowds(dt);
+    // once you have paid (or out-riddled) Gorm, he steps off the bridge
+    if (this.hero.flags.trollpass && !this.trollMoved) { const t = this.byId('troll'); if (t && !t.dead && t.neutral) { this.trollMoved = true; t.pos.set(12, 0, -96); t.pos.y = this.phys.ground(12, -96); t.home.copy(t.pos); } }
     this.separate();
     this.updateBounty(dt);
     this.updateTraps(dt);
@@ -504,6 +568,7 @@ class Game {
     this.fx.text(head, (o.name ? o.name + ' ' : '') + label, crit ? 'crit big' : 'dmg');
     if (crit) { this.slowT = 0.35; this.shake(0.4); this.ui.flash('#fff3c0', 220); this.sfx.crit(); } else this.hitstop = 0.05;
     this.sfx.hit();
+    this.ui.hitMarker(crit);
     this.fx.burst(head.clone().add(V3(0, -0.5, 0)), o.fire || e.burnT > 4.9 ? 0xff7a20 : e.def.undead ? 0xd8d8c8 : 0xff3030, crit ? 22 : 10, 4, 2);
     this.damage(e, dmg, 'player', o);
   }
@@ -645,7 +710,7 @@ class Game {
     if (p.byPlayer) {
       for (const e of this.targetsForPlayer()) {
         const c = e.pos.clone().add(V3(0, (e.actor.height || 2) * (e.def.scale || 1) * 0.5, 0));
-        if (c.distanceTo(pos) < 1.2 * (e.def.scale || 1) + (e.flying ? 1.5 : 0)) {
+        if (segPoint(p.prev || pos, pos, c) < 1.2 * (e.def.scale || 1) + (e.flying ? 1.5 : 0)) {
           if (p.aoe) this.explode(pos, p.aoe);
           else this.playerHits(e, { kind: 'weapon', fire: p.kind === 'fire' });
           return e;
@@ -655,7 +720,7 @@ class Game {
       return null;
     }
     const pl = this.player;
-    if (pl.state !== 'dead' && pos.distanceTo(pl.pos.clone().add(V3(0, 1.2, 0))) < 1.2) {
+    if (pl.state !== 'dead' && segPoint(p.prev || pos, pos, pl.pos.clone().add(V3(0, 1.2, 0))) < 1.2) {
       const e = p.by;
       if (e && e.def) this.mobHits(e, { pos: pl.pos, player: true });
       return true;
@@ -721,7 +786,7 @@ class Game {
     await sleep(2600);
     h.gold -= fine;
     this.clearBounty();
-    this.teleport(24, 38, 'world');
+    { const b = PLANS.emberfall.landmarks.barracks; this.teleport(b.x - 6, b.z + 16, 'world'); }
     h.hp = this.maxHp();
     p.state = 'move';
     p.actor.play('Idle', { force: true });
@@ -828,9 +893,10 @@ class Game {
   }
   claimHorse(pos, horse) {
     horse = horse || this.entities.find(e => e.type === 'horse' && !e.owned);
-    if (!horse) return;
+    if (!horse) { const st = PLANS.emberfall.stable; horse = this.addEntity({ type: 'horse', name: 'Horse', def: { name: 'Horse' }, model: 'horse', tint: '#8a5a3a', x: st.x, z: st.z, zone: 'world' }); horse.radius = 1; horse.timer = 3; }
     horse.owned = true;
     horse.pen = null;
+    if (horse.crowd) { horse.crowd.ents = horse.crowd.ents.filter(x => x !== horse); horse.crowd = null; }
     horse.name = 'Your horse';
     this.hero.ownsHorse = true;
     if (pos) { horse.pos.set(pos[0], 0, pos[1]); horse.pos.y = this.phys.ground(pos[0], pos[1]); }
@@ -838,7 +904,7 @@ class Game {
   }
   buyHorse() {
     const horse = this.claimHorse(null);
-    if (horse) { horse.pos.set(-12, 0, 26); horse.pos.y = this.phys.ground(-12, 26); }
+    if (horse) { const st = PLANS.emberfall.stable; horse.pos.set(st.x + st.w / 2 + 6, 0, st.z); horse.pos.y = this.phys.ground(horse.pos.x, horse.pos.z); if (horse.crowd) horse.crowd.ents = horse.crowd.ents.filter(x => x !== horse); horse.crowd = null; }
     this.ui.toast('She is yours. Ride with E, call her with H.', 'good');
   }
 
@@ -947,10 +1013,12 @@ class Game {
   }
   async intro() {
     const p = this.player.pos, B = SITES.barrow;
+    const k = SETTLEMENTS[0], K2 = SETTLEMENTS[1], K3 = SETTLEMENTS[2];
     await this.cine([
-      { from: V3(-120, 95, 230), to: V3(-30, 55, 150), look: V3(0, 5, 62), dur: 5.5, caption: 'This is the realm of Emberfall.' },
-      { from: V3(B.x + 50, 34, B.z + 60), to: V3(B.x + 18, 16, B.z + 34), look: V3(B.x, 5, B.z), dur: 5, caption: 'Far to the north, the old Barrow has woken. The Ash Crown has been stolen — and the dead have begun to walk.', cls: 'bad' },
-      { from: V3(p.x + 14, p.y + 9, p.z + 16), to: V3(p.x + 3, p.y + 3, p.z + 6), look: p.clone().add(V3(0, 1.8, 0)), dur: 4.2, title: 'EMBERFALL', sub: `${this.hero.name} the ${CLASSES[this.hero.cls].name} has arrived` },
+      { from: V3(k.x - 340, 160, k.z + 360), to: V3(k.x - 140, 95, k.z + 190), look: V3(k.x, 10, k.z), dur: 6, caption: 'This is the realm of Emberfall: four kingdoms, three villages, and a great deal of wilderness in between.' },
+      { from: V3(K2.x - 160, 70, K2.z + 120), to: V3(K2.x - 60, 50, K2.z + 150), look: V3(K2.x, 10, K2.z), dur: 4.5, caption: 'Solmara, in the eastern sands. Frosthold, high in the snowy north. Tidewatch, by the western lake.' },
+      { from: V3(B.x + 80, 50, B.z + 90), to: V3(B.x + 26, 22, B.z + 46), look: V3(B.x, 8, B.z), dur: 5, caption: 'And far to the north, the old Barrow has woken. The Ash Crown has been stolen — and the dead have begun to walk.', cls: 'bad' },
+      { from: V3(p.x + 18, p.y + 12, p.z + 20), to: V3(p.x + 3, p.y + 3, p.z + 6), look: p.clone().add(V3(0, 1.8, 0)), dur: 4.2, title: 'EMBERFALL', sub: `${this.hero.name} the ${CLASSES[this.hero.cls].name} has arrived` },
     ]);
   }
   fight(id, alone) {
@@ -1085,9 +1153,9 @@ class Game {
     if (NPCS[at]) return ent(at);
     if (at === 'keep') return ent('varg') || { x: SITES.keep.x, z: SITES.keep.z, zone: 'world' };
     if (at === 'warren') return h.keys.piebasket ? ent('pell') : ent('grub') || { x: SITES.warren.x, z: SITES.warren.z, zone: 'world' };
-    if (at === 'tower') return h.keys.lute ? ent('lirel') : { x: 103, z: -104, zone: 'world' };
+    if (at === 'tower') return h.keys.lute ? ent('lirel') : { x: SITES.tower.x + 7, z: SITES.tower.z + 2, zone: 'world' };
     if (at === 'peak') return ent('wyvern') || { x: SITES.peak.x, z: SITES.peak.z, zone: 'world' };
-    if (at === 'bridge') return ent('troll') || { x: 0, z: -48, zone: 'world' };
+    if (at === 'bridge') return ent('troll') || { x: 0, z: -82, zone: 'world' };
     if (at === 'barrowdoor') return { ...this.scenery.barrowDoor, zone: 'world' };
     if (at === 'throne') { if (this.zone !== 'barrow') return { ...this.scenery.barrowDoor, zone: 'world' }; const c = this.points.find(p => p.id === 'crown'); return c ? { x: c.x, z: c.z, y: 1, zone: 'barrow' } : { x: this.scenery.throne.x, z: this.scenery.throne.z, y: 2, zone: 'barrow' }; }
     if (at === 'shard' || at === 'swamp') {

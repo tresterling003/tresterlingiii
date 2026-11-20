@@ -80,7 +80,7 @@ export class Physics {
 
   // Height of the ground (or a bridge) under a point. Inside the Barrow the floor is flat.
   ground(x, z) {
-    if (x > 600) return 0;
+    if (x > 2000) return 0;
     let h = this.heights ? this.heights(x, z) : height(x, z);
     for (const p of this.platforms) {
       const dx = x - p.x, dz = z - p.z, lx = dx * p.c - dz * p.s, lz = dx * p.s + dz * p.c;

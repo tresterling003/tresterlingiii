@@ -1,10 +1,12 @@
-// Builds the 3D realm from world.js: terrain, water, sky, forests, buildings, the Barrow.
+// Builds the 3D realm from world.js: terrain, water, sky, nature, kingdoms, villages, the Barrow.
 import * as THREE from 'three';
-import { HALF, height, groundColor, fbm, rng, roadDist, riverDist, SITES, BUILDINGS, PROPS, FENCES, PALISADE, DUNGEON, dTile, SHRINES } from './world.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { HALF, height, groundColor, fbm, rng, roadDist, riverDist, biome, SITES, BUILDINGS, PROPS, DUNGEON, dTile, SHRINES, SETTLEMENTS, PLANS, ROADS, RIVER, RIVER_W, INSIDE_X } from './world.js';
 import { A, part, baked, kitSize } from './assets.js';
 
-const RES = 2; // terrain sample spacing
+const RES = 4; // terrain sample spacing
 const N = (HALF * 2) / RES + 1;
+const CHUNK = 55; // terrain cells per chunk side
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 export class Scenery {
@@ -16,22 +18,23 @@ export class Scenery {
     this.anim = []; // things that move every frame: fn(dt, t)
     this.torches = []; // light sources: { pos, color, base, zone }
     this.spikes = [];
+    this.far = []; // instanced chunks hidden when far away: { obj, x, z }
     // Only a few real lights exist; each frame they move to the light sources nearest you.
     this.lightPool = [0, 1, 2, 3].map(() => { const l = new THREE.PointLight(0xffa050, 0, 20, 1.5); scene.add(l); return l; });
     this.time = 0.3;
   }
 
-  build(onStep) {
+  build() {
     this.heightGrid();
     this.phys.heights = (x, z) => this.h(x, z);
     this.sky();
     this.terrain();
     this.water();
     this.nature();
-    this.town();
+    this.settlements();
+    this.bridges();
     this.landmarks();
     this.dungeon();
-    if (onStep) onStep();
   }
 
   // ---------------------------------------------------------------- terrain
@@ -44,57 +47,259 @@ export class Scenery {
     const i = Math.max(0, Math.min(N - 2, Math.floor(fx))), j = Math.max(0, Math.min(N - 2, Math.floor(fz)));
     const u = Math.min(1, Math.max(0, fx - i)), v = Math.min(1, Math.max(0, fz - j));
     const H = this.H;
-    // match the mesh's triangles (PlaneGeometry splits each square along the same diagonal)
     const a = H[j * N + i], b = H[j * N + i + 1], c = H[(j + 1) * N + i], d = H[(j + 1) * N + i + 1];
     if (u + v <= 1) return a + (b - a) * u + (c - a) * v;
     return d + (c - d) * (1 - u) + (b - d) * (1 - v);
   }
   terrain() {
-    const geo = new THREE.PlaneGeometry(HALF * 2, HALF * 2, N - 1, N - 1);
-    geo.rotateX(-Math.PI / 2);
-    const pos = geo.attributes.position, col = new Float32Array(pos.count * 3);
-    for (let k = 0; k < pos.count; k++) {
-      const x = pos.getX(k), z = pos.getZ(k);
-      const i = Math.round((x + HALF) / RES), j = Math.round((z + HALF) / RES);
-      const y = this.H[j * N + i];
-      pos.setY(k, y);
+    // colour every sample once; the map reuses these colours
+    this.C = new Float32Array(N * N * 3);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = j * N + i, x = -HALF + i * RES, z = -HALF + j * RES, y = this.H[k];
       const sx = this.H[j * N + Math.min(N - 1, i + 1)] - this.H[j * N + Math.max(0, i - 1)];
       const sz = this.H[Math.min(N - 1, j + 1) * N + i] - this.H[Math.max(0, j - 1) * N + i];
-      const c = groundColor(x, z, y, Math.hypot(sx, sz) / (2 * RES));
-      col.set(c, k * 3);
+      this.C.set(groundColor(x, z, y, Math.hypot(sx, sz) / (2 * RES)), k * 3);
     }
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
-    m.receiveShadow = true;
-    this.group.add(m);
-    this.terrainMesh = m;
-    // beyond the ring of mountains: far peaks to fill the horizon
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    for (let cj = 0; cj < N - 1; cj += CHUNK) for (let ci = 0; ci < N - 1; ci += CHUNK) {
+      const w = Math.min(CHUNK, N - 1 - ci), d = Math.min(CHUNK, N - 1 - cj);
+      const geo = new THREE.PlaneGeometry(w * RES, d * RES, w, d);
+      geo.rotateX(-Math.PI / 2);
+      const cx = -HALF + (ci + w / 2) * RES, cz = -HALF + (cj + d / 2) * RES;
+      const pos = geo.attributes.position, col = new Float32Array(pos.count * 3);
+      for (let k = 0; k < pos.count; k++) {
+        const i = Math.round((cx + pos.getX(k) + HALF) / RES), j = Math.round((cz + pos.getZ(k) + HALF) / RES), q = j * N + i;
+        pos.setY(k, this.H[q]);
+        col[k * 3] = this.C[q * 3]; col[k * 3 + 1] = this.C[q * 3 + 1]; col[k * 3 + 2] = this.C[q * 3 + 2];
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(cx, 0, cz);
+      m.receiveShadow = true;
+      this.group.add(m);
+    }
+    // far peaks beyond the edge fill the horizon
     const R = rng(77);
-    for (let i = 0; i < 26; i++) {
-      const a = (i / 26) * Math.PI * 2 + R() * 0.2, d = 300 + R() * 40;
-      const mtn = part('nature', ['mountain_A', 'mountain_B', 'mountain_C'][i % 3], 70 + R() * 40);
-      mtn.position.set(Math.cos(a) * d, -6, Math.sin(a) * d);
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2 + R() * 0.1, d = 1180 + R() * 60;
+      const mtn = part('nature', ['mountain_A', 'mountain_B', 'mountain_C'][i % 3], 110 + R() * 60);
+      mtn.position.set(Math.cos(a) * d, 20, Math.sin(a) * d);
       mtn.rotation.y = R() * 6;
       mtn.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = false; o.material = new THREE.MeshBasicMaterial({ map: o.material.map, color: 0x9aa4b4 }); } });
       this.group.add(mtn);
     }
-    const far = new THREE.Mesh(new THREE.RingGeometry(HALF * 0.98, 460, 48), new THREE.MeshLambertMaterial({ color: 0x4f5a4c }));
-    far.rotation.x = -Math.PI / 2;
-    far.position.y = 30;
-    this.group.add(far);
   }
   water() {
-    const mat = new THREE.MeshPhongMaterial({ color: 0x2f7390, transparent: true, opacity: 0.8, shininess: 80, specular: 0x88aacc });
+    const mat = new THREE.MeshPhongMaterial({ color: 0x2f7390, transparent: true, opacity: 0.82, shininess: 80, specular: 0x88aacc });
     const w = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2, 1, 1), mat);
     w.rotation.x = -Math.PI / 2;
     w.position.y = -0.05;
     this.group.add(w);
     this.waterMat = mat;
-    this.anim.push((dt, t) => { w.position.y = -0.05 + Math.sin(t * 0.8) * 0.04; });
+    this.anim.push((dt, t) => { w.position.y = -0.05 + Math.sin(t * 0.8) * 0.05; });
   }
 
-  // ---------------------------------------------------------------- sky and light
+  // ---------------------------------------------------------------- nature
+  nature() {
+    const R = rng(1234);
+    const groups = {}; // name → list of matrices
+    const add = (name, x, z, s, rot, col, sy = 1) => {
+      (groups[name] = groups[name] || []).push(new THREE.Matrix4().compose(V3(x, this.h(x, z) - 0.15, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), rot), V3(s, s * sy, s)));
+      if (col) this.phys.circle(x, z, col);
+    };
+    const blocked = (x, z, pad) => {
+      if (Math.max(Math.abs(x), Math.abs(z)) > HALF - 40) return true;
+      if (roadDist(x, z) < 8 + pad || riverDist(x, z) < RIVER_W * 1.8) return true;
+      for (const s of SETTLEMENTS) if (Math.hypot(x - s.x, z - s.z) < s.r + 14 + pad) return true;
+      for (const k in SITES) { const s = SITES[k]; if (s.r && k !== 'swamp' && Math.hypot(x - s.x, z - s.z) < s.r + 6 + pad) return true; }
+      const y = this.h(x, z);
+      return y < 0.8 || Math.abs(this.h(x + 3, z) - y) > 3 || Math.abs(this.h(x, z + 3) - y) > 3;
+    };
+    for (let gx = -HALF + 40; gx < HALF - 40; gx += 9) for (let gz = -HALF + 40; gz < HALF - 40; gz += 9) {
+      const x = gx + (R() - 0.5) * 8, z = gz + (R() - 0.5) * 8;
+      const b = biome(x, z), r = R();
+      const p = { forest: 0.62, plains: 0.035, desert: 0.025, snow: 0.3, swamp: 0.1 }[b];
+      if (r > p || blocked(x, z, 0)) continue;
+      const y = this.h(x, z), r2 = R();
+      if (b === 'desert') { add(r2 < 0.7 ? 'cactus' : 'deadbush', x, z, 0.9 + R() * 0.8, R() * 6, r2 < 0.7 ? 0.5 : 0); continue; }
+      if (b === 'swamp') { add('deadtree', x, z, 0.8 + R() * 0.6, R() * 6, 0.4); continue; }
+      if (b === 'snow' || y > 40) { if (y < 80) add(r2 < 0.5 ? 'snowpine' : 'tree_single_A', x, z, 6 + R() * 3, R() * 6, 0.6); continue; }
+      if (b === 'forest' && r2 < 0.16) add(R() < 0.5 ? 'trees_A_large' : 'trees_B_large', x, z, 5 + R() * 1.5, R() * 6, 3.6);
+      else if (b === 'forest' && r2 < 0.28) add(R() < 0.5 ? 'trees_A_medium' : 'trees_B_medium', x, z, 4.8 + R() * 1.2, R() * 6, 2.8);
+      else add(r2 < 0.6 ? 'tree_single_A' : 'tree_single_B', x, z, 5.6 + R() * 3, R() * 6, 0.55);
+    }
+    for (let i = 0; i < 2600; i++) {
+      const x = (R() - 0.5) * (HALF * 2 - 100), z = (R() - 0.5) * (HALF * 2 - 100);
+      if (blocked(x, z, -5)) continue;
+      const s = 5 + R() * R() * 18, sn = biome(x, z) === 'snow';
+      add((sn ? 'snowrock_' : 'rock_single_') + 'ABCDE'[Math.floor(R() * 5)], x, z, s, R() * 6, s > 10 ? s * 0.16 : 0);
+    }
+    // procedural plants the kit does not have
+    const green = new THREE.MeshLambertMaterial({ color: 0x5c8a3c, flatShading: true }), deadwood = new THREE.MeshLambertMaterial({ color: 0x5a4a3a, flatShading: true });
+    const cyl = (r1, r2, h, x, y, z, rz = 0) => { const g = new THREE.CylinderGeometry(r1, r2, h, 7); g.rotateZ(rz); g.translate(x, y, z); return g; };
+    const shapes = {
+      cactus: [{ geometry: mergeGeometries([cyl(0.45, 0.5, 4.2, 0, 2.1, 0), cyl(0.3, 0.3, 1.6, 0.9, 2.2, 0, Math.PI / 2), cyl(0.28, 0.3, 1.6, 1.6, 3.0, 0), cyl(0.3, 0.3, 1.2, -0.8, 1.6, 0, Math.PI / 2), cyl(0.26, 0.28, 1.3, -1.3, 2.3, 0)]), material: green }],
+      deadbush: [{ geometry: mergeGeometries([cyl(0.08, 0.12, 1.4, 0, 0.7, 0, 0.4), cyl(0.06, 0.1, 1.2, 0.2, 0.6, 0, -0.5), cyl(0.06, 0.09, 1.1, -0.1, 0.6, 0.2, 0.3)]), material: deadwood }],
+      deadtree: [{ geometry: mergeGeometries([cyl(0.25, 0.45, 6, 0, 3, 0), cyl(0.1, 0.18, 2.6, 0.8, 4.6, 0, -0.9), cyl(0.08, 0.15, 2.2, -0.7, 3.8, 0, 0.8)]), material: deadwood }],
+    };
+    const frost = m => { const c = m.clone(); c.color = new THREE.Color(0xe8f0f8); return c; };
+    for (const [name, mats] of Object.entries(groups)) {
+      let meshes = shapes[name];
+      if (!meshes && name === 'snowpine') meshes = baked('nature', 'tree_single_A').map(b => ({ geometry: b.geometry, material: frost(b.material) }));
+      if (!meshes && name.startsWith('snowrock_')) meshes = baked('nature', name.replace('snowrock_', 'rock_single_')).map(b => ({ geometry: b.geometry, material: frost(b.material) }));
+      this.instance(meshes || baked('nature', name), mats, true);
+    }
+    // grass follows you around instead of covering the whole realm
+    const tuft = new THREE.ConeGeometry(0.2, 0.8, 3);
+    tuft.translate(0, 0.4, 0);
+    this.grass = new THREE.InstancedMesh(tuft, new THREE.MeshLambertMaterial({ color: 0xffffff }), 7000);
+    this.grass.frustumCulled = false;
+    this.grass.receiveShadow = true;
+    this.group.add(this.grass);
+    this.grassAt = V3(1e9, 0, 0);
+  }
+  updateGrass(f) {
+    if (Math.hypot(f.x - this.grassAt.x, f.z - this.grassAt.z) < 40) return;
+    this.grassAt.copy(f);
+    const R = rng(Math.floor(f.x / 40) * 7919 + Math.floor(f.z / 40) * 104729 + 1), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+    let n = 0;
+    for (let tries = 0; tries < 20000 && n < this.grass.count; tries++) {
+      const x = f.x + (R() - 0.5) * 180, z = f.z + (R() - 0.5) * 180, y = this.h(x, z), b = biome(x, z);
+      if (y < 0.6 || b === 'desert' || b === 'snow' || roadDist(x, z) < 5 || SETTLEMENTS.some(s => s.kingdom && Math.hypot(x - s.x, z - s.z) < s.r)) continue;
+      const s = 0.7 + R() * 0.9;
+      m4.compose(V3(x, y, z), q.setFromAxisAngle(V3(0, 1, 0), R() * 3), V3(s, s * (0.8 + R()), s));
+      this.grass.setMatrixAt(n, m4);
+      this.grass.setColorAt(n, c.setHSL(b === 'swamp' ? 0.2 : 0.24 + R() * 0.07, 0.45, 0.26 + R() * 0.12));
+      n++;
+    }
+    this.grass.count = n;
+    this.grass.instanceMatrix.needsUpdate = true;
+    if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true;
+  }
+  // Instanced in chunks, so forests behind you or far away are skipped.
+  instance(meshes, mats, far) {
+    const chunks = new Map(), v = new THREE.Vector3();
+    for (const m of mats) { v.setFromMatrixPosition(m); const k = Math.floor((v.x + HALF) / 160) * 64 + Math.floor((v.z + HALF) / 160); if (!chunks.has(k)) chunks.set(k, []); chunks.get(k).push(m); }
+    for (const list of chunks.values()) {
+      v.set(0, 0, 0); list.forEach(m => { const p = new THREE.Vector3().setFromMatrixPosition(m); v.add(p); }); v.multiplyScalar(1 / list.length);
+      for (const { geometry, material } of meshes) {
+        const im = new THREE.InstancedMesh(geometry, material, list.length);
+        list.forEach((m, i) => im.setMatrixAt(i, m));
+        im.castShadow = im.receiveShadow = true;
+        im.computeBoundingSphere();
+        this.group.add(im);
+        if (far) this.far.push({ obj: im, x: v.x, z: v.z });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- kingdoms and villages
+  settlements() {
+    const R = rng(99);
+    const groups = {};
+    const put = (name, x, z, rot, sc, opts = {}) => {
+      const y = opts.y ?? this.groundUnder('town', name, x, z, rot, sc);
+      (groups[name] = groups[name] || []).push(new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), rot), V3(sc, sc, opts.sz ? sc * opts.sz : sc)));
+      if (opts.solid === false) return;
+      const s = kitSize('town', name), k = opts.shrink ?? 0.86, c = Math.cos(rot), sn = Math.sin(rot), ox = s.cx * sc, oz = s.cz * sc;
+      const b = this.phys.box(x + ox * c + oz * sn, z - ox * sn + oz * c, (s.x * sc * k) / 2, (s.z * sc * k * (opts.sz || 1)) / 2, rot);
+      if (opts.low) b.low = true;
+    };
+    const fenceRun = (x1, z1, x2, z2, sc = 3.2) => {
+      const len = Math.hypot(x2 - x1, z2 - z1), seg = 1.15 * sc, n = Math.max(1, Math.round(len / seg)), rot = Math.atan2(x2 - x1, z2 - z1);
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; put('fence_wood_straight', x1 + (x2 - x1) * t, z1 + (z2 - z1) * t, rot, sc, { y: this.h(x1 + (x2 - x1) * t, z1 + (z2 - z1) * t) - 0.05, sz: (len / n) / 1.15 / sc, solid: false }); }
+      this.phys.box((x1 + x2) / 2, (z1 + z2) / 2, 0.35, len / 2, rot).low = true;
+    };
+    for (const s of SETTLEMENTS) {
+      const plan = PLANS[s.id];
+      for (const [name, x, z, rot, sc] of plan.buildings) put(name, x, z, rot, sc);
+      for (const [name, x, z, rot, sc] of plan.towers) put(name, x, z, rot, sc);
+      // the city wall
+      for (const w of plan.walls) {
+        if (w.gate) continue;
+        put('wall_straight', w.x, w.z, w.rot, 6.3, { y: this.h(w.x, w.z) - 0.3, shrink: 1 });
+      }
+      if (plan.gates) for (const [gx, gz] of plan.gates) {
+        const a = Math.atan2(gz - s.z, gx - s.x);
+        for (const side of [-1, 1]) { const b = a + side * 0.058; put(`building_tower_A_${s.color}`, s.x + Math.cos(b) * s.r, s.z + Math.sin(b) * s.r, -b, 6.4); }
+        const ty = this.h(gx, gz);
+        for (const side of [-1, 1]) { const b = a + side * 0.04; this.torch(s.x + Math.cos(b) * (s.r - 4), ty, s.z + Math.sin(b) * (s.r - 4), 0xffa050, true); }
+      }
+      // lamps on the streets
+      for (const [x, z] of plan.lamps) { const y = this.h(x, z); this.lamp(x, y, z); }
+      // market stalls
+      for (const [x, z] of plan.stalls) put('tent', x, z, 0, 5.2, { shrink: 0.7, low: true });
+      // the stable paddock
+      if (plan.stable) { const st = plan.stable; fenceRun(st.x - st.w / 2, st.z - st.d / 2, st.x + st.w / 2, st.z - st.d / 2); fenceRun(st.x - st.w / 2, st.z - st.d / 2, st.x - st.w / 2, st.z + st.d / 2); fenceRun(st.x - st.w / 2, st.z + st.d / 2, st.x + st.w / 2, st.z + st.d / 2); fenceRun(st.x + st.w / 2, st.z - st.d / 2, st.x + st.w / 2, st.z + st.d / 2 - 6); }
+      // village fields
+      for (const [fx, fz, fw, fd] of plan.fields || []) {
+        const field = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd, 1, 1), new THREE.MeshLambertMaterial({ color: R() < 0.5 ? 0xc8b04a : 0x6a8a3a }));
+        field.rotation.x = -Math.PI / 2;
+        field.position.set(fx, this.h(fx, fz) + 0.08, fz);
+        this.group.add(field);
+        fenceRun(fx - fw / 2, fz - fd / 2, fx + fw / 2, fz - fd / 2); fenceRun(fx - fw / 2, fz + fd / 2, fx + fw / 2, fz + fd / 2);
+      }
+      // a few barrels and crates about town
+      for (let i = 0; i < (s.kingdom ? 14 : 4); i++) {
+        const a = R() * Math.PI * 2, d = s.kingdom ? 36 + R() * 20 : 8 + R() * 10;
+        put(['barrel', 'crate_A_big', 'sack', 'wheelbarrow'][i % 4], s.x + Math.cos(a) * d, s.z + Math.sin(a) * d, R() * 6, 6, { shrink: 0.7, low: true });
+      }
+    }
+    for (const [name, mats] of Object.entries(groups)) this.instance(baked('town', name), mats, true);
+    // the wild places
+    for (const [name, x, z, rot, s] of BUILDINGS) this.place('town', name, x, z, rot, s);
+    for (const [name, x, z, rot, s] of PROPS) this.place('town', name, x, z, rot, s, { shrink: 0.8, low: true, solid: !/flag|sack|bucket/.test(name) });
+  }
+  // a street lamp: a post with a flame; the nearest few cast real light at night
+  lamp(x, y, z) {
+    if (!this.lampParts) {
+      this.lampParts = { post: [], flame: [] };
+      this.lampMats = { post: new THREE.MeshLambertMaterial({ color: 0x3a2c22 }), flame: new THREE.MeshBasicMaterial({ color: 0xffc070 }) };
+    }
+    this.lampParts.post.push(new THREE.Matrix4().makeTranslation(x, y + 1.6, z));
+    this.lampParts.flame.push(new THREE.Matrix4().makeTranslation(x, y + 3.4, z));
+    this.torches.push({ pos: V3(x, y + 3.4, z), color: new THREE.Color(0xffb060), base: 18, dist: 20, zone: 'world' });
+  }
+  finishLamps() {
+    if (!this.lampParts) return;
+    const post = new THREE.CylinderGeometry(0.12, 0.16, 3.2, 6), flame = new THREE.SphereGeometry(0.32, 8, 6);
+    this.instance([{ geometry: post, material: this.lampMats.post }], this.lampParts.post, true);
+    this.instance([{ geometry: flame, material: this.lampMats.flame }], this.lampParts.flame, true);
+    this.lampMats.flame.userData.lamp = true;
+  }
+
+  // ---------------------------------------------------------------- bridges where roads cross the river
+  bridges() {
+    this.finishLamps();
+    const wood = new THREE.MeshLambertMaterial({ color: 0x7a5434 }), dark = new THREE.MeshLambertMaterial({ color: 0x4e3522 });
+    this.bridgeSpots = [];
+    const cross = (a, b, c, d) => {
+      const den = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+      if (Math.abs(den) < 1e-9) return null;
+      const t = ((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) / den, u = ((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / den;
+      return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] : null;
+    };
+    for (const road of ROADS) for (let i = 1; i < road.length; i++) for (let j = 1; j < RIVER.length; j++) {
+      const p = cross(road[i - 1], road[i], RIVER[j - 1], RIVER[j]);
+      if (!p || Math.hypot(p[0] - SITES.ford.x, p[1] - SITES.ford.z) < 30 || this.bridgeSpots.some(b => Math.hypot(b.x - p[0], b.z - p[1]) < 30)) continue;
+      const rot = Math.atan2(road[i][0] - road[i - 1][0], road[i][1] - road[i - 1][1]);
+      const len = 44, dx = Math.sin(rot), dz = Math.cos(rot);
+      const deck = Math.max(this.h(p[0] - dx * 24, p[1] - dz * 24), this.h(p[0] + dx * 24, p[1] + dz * 24), 1.8) + 0.4;
+      const parts = [], dparts = [];
+      for (let k = 0; k < 32; k++) { const g = new THREE.BoxGeometry(6.4, 0.32, len / 32 - 0.08); g.translate(0, deck - 0.16, -len / 2 + (k + 0.5) * (len / 32)); (k % 3 ? parts : dparts).push(g); }
+      for (const sx of [-3.3, 3.3]) {
+        const rail = new THREE.BoxGeometry(0.24, 0.24, len); rail.translate(sx, deck + 1.05, 0); dparts.push(rail);
+        for (let k = 0; k <= 8; k++) { const post = new THREE.BoxGeometry(0.32, 3.4, 0.32); post.translate(sx, deck - 0.6, -len / 2 + (k * len) / 8); dparts.push(post); }
+        const b = this.phys.box(p[0] + Math.cos(rot) * sx, p[1] - Math.sin(rot) * sx, 0.25, len / 2, rot); b.low = true;
+      }
+      const g1 = new THREE.Mesh(mergeGeometries(parts), wood), g2 = new THREE.Mesh(mergeGeometries(dparts), dark);
+      for (const g of [g1, g2]) { g.position.set(p[0], 0, p[1]); g.rotation.y = rot; g.castShadow = g.receiveShadow = true; this.group.add(g); }
+      this.phys.platform({ x: p[0], z: p[1], hw: 3.1, hd: len / 2, rot, y: deck });
+      this.bridgeSpots.push({ x: p[0], z: p[1], rot, deck });
+    }
+  }
+
   sky() {
     this.hemi = new THREE.HemisphereLight(0xcfe3ff, 0x4a5a3a, 1.0);
     this.sun = new THREE.DirectionalLight(0xfff2dc, 2.2);
@@ -113,10 +318,10 @@ export class Scenery {
           float s = max(dot(vP, sunDir), 0.0); c += sunCol * (pow(s, 600.0) * 2.0 + pow(s, 12.0) * 0.35);
           gl_FragColor = vec4(c, 1.0); }`,
     });
-    this.skyDome = new THREE.Mesh(new THREE.SphereGeometry(440, 32, 16), skyMat);
+    this.skyDome = new THREE.Mesh(new THREE.SphereGeometry(520, 32, 16), skyMat);
     this.scene.add(this.skyDome);
     const R = rng(5), sp = new Float32Array(900 * 3);
-    for (let i = 0; i < 900; i++) { const a = R() * Math.PI * 2, e = 0.08 + R() * 1.4; sp.set([Math.cos(a) * Math.cos(e) * 420, Math.sin(e) * 420, Math.sin(a) * Math.cos(e) * 420], i * 3); }
+    for (let i = 0; i < 900; i++) { const a = R() * Math.PI * 2, e = 0.08 + R() * 1.4; sp.set([Math.cos(a) * Math.cos(e) * 500, Math.sin(e) * 500, Math.sin(a) * Math.cos(e) * 500], i * 3); }
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
     this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, fog: false, transparent: true, depthWrite: false }));
@@ -124,9 +329,9 @@ export class Scenery {
     this.moon = new THREE.Mesh(new THREE.SphereGeometry(12, 20, 14), new THREE.MeshBasicMaterial({ color: 0xf2f0ff, fog: false }));
     this.scene.add(this.moon);
     this.clouds = [];
-    for (let i = 0; i < 22; i++) {
-      const c = part('nature', i % 2 ? 'cloud_big' : 'cloud_small', 12 + R() * 10);
-      c.position.set((R() - 0.5) * 700, 80 + R() * 40, (R() - 0.5) * 700);
+    for (let i = 0; i < 60; i++) {
+      const c = part('nature', i % 2 ? 'cloud_big' : 'cloud_small', 14 + R() * 12);
+      c.position.set((R() - 0.5) * (HALF * 2 + 400), 110 + R() * 50, (R() - 0.5) * (HALF * 2 + 400));
       c.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.material = new THREE.MeshBasicMaterial({ map: o.material.map, color: 0xf4f6ff, fog: false, transparent: true, opacity: 0.9 }); } });
       this.cloudMats = this.cloudMats || []; c.traverse(o => { if (o.isMesh) this.cloudMats.push(o.material); });
       this.scene.add(c);
@@ -158,12 +363,12 @@ export class Scenery {
     this.hemi.groundColor.copy(inside ? new THREE.Color(0x40302a) : c(0x1a2018, 0x4a5a3a, day));
     const fogC = inside ? new THREE.Color(0x05060a) : bottom.clone().lerp(top, 0.15);
     this.scene.fog.color.copy(fogC);
-    this.scene.fog.density = inside ? 0.028 : 0.0055 + (1 - day) * 0.004 + (this.swampFog || 0);
+    this.scene.fog.density = inside ? 0.028 : 0.0042 + (1 - day) * 0.0035 + (this.swampFog || 0);
     this.skyDome.visible = this.stars.visible = this.moon.visible = !inside;
     this.clouds.forEach(cl => { cl.visible = !inside; });
-    (this.cloudMats || []).forEach(m => m.color.copy(c(0x2a3048, 0xf4f6ff, day)).lerp(new THREE.Color(0xffc0a0), dusk * 0.5));
+    (this.cloudMats || []).forEach(m => m.color.copy(c(0x7a8098, 0xf4f6ff, day)).lerp(new THREE.Color(0xffc8b0), dusk * 0.5));
     this.stars.material.opacity = 1 - day;
-    this.moon.position.copy(f).addScaledVector(V3(-sunDir.x, -sunDir.y, -sunDir.z), 400);
+    this.moon.position.copy(f).addScaledVector(V3(-sunDir.x, -sunDir.y, -sunDir.z), 480);
     this.moon.visible = !inside && sunDir.y < 0.1;
     this.skyDome.position.copy(f);
     this.stars.position.copy(f);
@@ -174,81 +379,7 @@ export class Scenery {
   }
 
   // ---------------------------------------------------------------- nature
-  nature() {
-    const R = rng(1234);
-    const groups = {}; // kit part → list of matrices
-    const add = (name, x, z, s, rot, col) => {
-      (groups[name] = groups[name] || []).push(new THREE.Matrix4().compose(V3(x, this.h(x, z) - 0.1, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), rot), V3(s, s, s)));
-      if (col) this.phys.circle(x, z, col);
-    };
-    const blocked = (x, z, pad) => {
-      if (Math.max(Math.abs(x), Math.abs(z)) > HALF - 18) return true;
-      if (roadDist(x, z) < 6 + pad || riverDist(x, z) < 10) return true;
-      for (const k in SITES) { const s = SITES[k]; if (s.r && Math.hypot(x - s.x, z - s.z) < s.r + 6 + pad) return true; }
-      if (Math.hypot(x - SITES.bridge.x, z - SITES.bridge.z) < 22) return true;
-      const y = this.h(x, z);
-      return y < 0.8 || Math.abs(this.h(x + 2, z) - y) > 1.6 || Math.abs(this.h(x, z + 2) - y) > 1.6;
-    };
-    for (let gx = -HALF + 20; gx < HALF - 20; gx += 7) for (let gz = -HALF + 20; gz < HALF - 20; gz += 7) {
-      const x = gx + (R() - 0.5) * 6, z = gz + (R() - 0.5) * 6;
-      const dens = fbm(x / 70 + 3, z / 70 - 5, 3);
-      const forest = dens > 0.53, p = forest ? 0.8 : 0.05;
-      if (R() > p || blocked(x, z, 0)) continue;
-      const y = this.h(x, z), north = z < -120 || y > 14;
-      const r = R();
-      if (forest && r < 0.18 && !north) add(R() < 0.5 ? 'trees_A_large' : 'trees_B_large', x, z, 4.6 + R() * 1.4, R() * 6, 3.4);
-      else if (forest && r < 0.3 && !north) add(R() < 0.5 ? 'trees_A_medium' : 'trees_B_medium', x, z, 4.4 + R() * 1.2, R() * 6, 2.6);
-      else add(north || r < 0.62 ? 'tree_single_A' : 'tree_single_B', x, z, 5.4 + R() * 2.8, R() * 6, 0.55);
-    }
-    for (let i = 0; i < 520; i++) {
-      const x = (R() - 0.5) * (HALF * 2 - 40), z = (R() - 0.5) * (HALF * 2 - 40);
-      if (blocked(x, z, -3)) continue;
-      const s = 5 + R() * R() * 16;
-      add('rock_single_' + 'ABCDE'[Math.floor(R() * 5)], x, z, s, R() * 6, s > 9 ? s * 0.16 : 0);
-    }
-    for (const [name, mats] of Object.entries(groups)) this.instance('nature', name, mats);
-    // grass tufts: one draw call
-    const tuft = new THREE.ConeGeometry(0.18, 0.7, 3);
-    tuft.translate(0, 0.35, 0);
-    const gm = new THREE.InstancedMesh(tuft, new THREE.MeshLambertMaterial({ color: 0xffffff }), 9000);
-    const m4 = new THREE.Matrix4(), cc = new THREE.Color();
-    let n = 0;
-    while (n < 9000) {
-      const x = (R() - 0.5) * 420, z = (R() - 0.5) * 420, y = this.h(x, z);
-      if (y < 0.6 || y > 18 || roadDist(x, z) < 3.5) continue;
-      const s = 0.7 + R() * 0.9;
-      m4.compose(V3(x, y, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), R() * 3), V3(s, s * (0.8 + R()), s));
-      gm.setMatrixAt(n, m4);
-      gm.setColorAt(n, cc.setHSL(0.24 + R() * 0.07, 0.45, 0.28 + R() * 0.12));
-      n++;
-    }
-    gm.receiveShadow = true;
-    this.group.add(gm);
-    // flowers around the glade and the village
-    const fl = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 5, 4), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x222222 }), 900);
-    for (let i = 0; i < 900; i++) {
-      const s = i < 400 ? SITES.glade : SITES.village, a = R() * Math.PI * 2, d = (s === SITES.glade ? 18 : 60) * Math.sqrt(R());
-      const x = s.x + Math.cos(a) * d, z = s.z + Math.sin(a) * d;
-      m4.compose(V3(x, this.h(x, z) + 0.15, z), new THREE.Quaternion(), V3(1, 1, 1));
-      fl.setMatrixAt(i, m4);
-      fl.setColorAt(i, cc.set([0xffffff, 0xffe27a, 0xff9ad0, 0xa8c8ff][i % 4]));
-    }
-    this.group.add(fl);
-  }
-  // Instanced in chunks, so whole forests behind the camera are skipped.
-  instance(kit, name, mats) {
-    const chunks = new Map(), v = new THREE.Vector3();
-    for (const m of mats) { v.setFromMatrixPosition(m); const k = Math.floor((v.x + HALF) / 90) * 16 + Math.floor((v.z + HALF) / 90); if (!chunks.has(k)) chunks.set(k, []); chunks.get(k).push(m); }
-    for (const list of chunks.values()) for (const { geometry, material } of baked(kit, name)) {
-      const im = new THREE.InstancedMesh(geometry, material, list.length);
-      list.forEach((m, i) => im.setMatrixAt(i, m));
-      im.castShadow = im.receiveShadow = true;
-      im.computeBoundingSphere();
-      this.group.add(im);
-    }
-  }
 
-  // ---------------------------------------------------------------- buildings
   place(kit, name, x, z, rot, scale, opts = {}) {
     const o = part(kit, name, scale);
     const y = opts.y ?? this.groundUnder(kit, name, x, z, rot, scale);
@@ -271,52 +402,6 @@ export class Scenery {
     for (const [a, b] of [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz], [0, 0]]) m = Math.min(m, this.h(x + a * Math.cos(rot) + b * Math.sin(rot), z - a * Math.sin(rot) + b * Math.cos(rot)));
     return m - 0.15;
   }
-  town() {
-    this.winMat = new THREE.MeshStandardMaterial({ color: 0x2a2418, emissive: 0xffc35a, emissiveIntensity: 0 });
-    for (const [name, x, z, rot, s] of BUILDINGS) this.place('town', name, x, z, rot, s);
-    for (const [name, x, z, rot, s] of PROPS) this.place('town', name, x, z, rot, s, { shrink: 0.8, low: true, solid: !/flag|sack|bucket/.test(name) });
-    const fence = (x1, z1, x2, z2, kit = 'fence_wood_straight', sc = 3.2) => {
-      const len = Math.hypot(x2 - x1, z2 - z1), seg = 1.15 * sc, n = Math.max(1, Math.round(len / seg)), rot = Math.atan2(x2 - x1, z2 - z1);
-      for (let i = 0; i < n; i++) {
-        const t = (i + 0.5) / n, x = x1 + (x2 - x1) * t, z = z1 + (z2 - z1) * t;
-        const o = part('town', kit, sc);
-        o.scale.z = (len / n) / 1.15;
-        o.position.set(x, this.h(x, z) - 0.05, z);
-        o.rotation.y = rot;
-        this.group.add(o);
-      }
-      const b = this.phys.box((x1 + x2) / 2, (z1 + z2) / 2, 0.35, len / 2, rot);
-      b.low = true;
-    };
-    for (const [a, b, c, d] of FENCES) fence(a, b, c, d);
-    // the village wall: stone-and-timber segments with four open gates and torches at each
-    const P = PALISADE, segs = 64;
-    for (let i = 0; i < segs; i++) {
-      const a0 = (i / segs) * Math.PI * 2, a1 = ((i + 1) / segs) * Math.PI * 2, am = (a0 + a1) / 2;
-      if (P.gates.some(g => Math.abs(Math.atan2(Math.sin(am - g), Math.cos(am - g))) < 0.1)) continue;
-      fence(P.x + Math.cos(a0) * P.r, P.z + Math.sin(a0) * P.r, P.x + Math.cos(a1) * P.r, P.z + Math.sin(a1) * P.r, 'fence_wood_straight', 4.2);
-    }
-    for (const g of P.gates) for (const side of [-0.13, 0.13]) {
-      const x = P.x + Math.cos(g + side) * P.r, z = P.z + Math.sin(g + side) * P.r;
-      this.torch(x, this.h(x, z), z, 0xffa050, true);
-    }
-    // lamps around the square
-    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + 0.3, x = Math.cos(a) * 14, z = 62 + Math.sin(a) * 14; this.torch(x, this.h(x, z), z, 0xffb060, i % 2 === 0); }
-    // glowing windows: little emissive panes on the village houses
-    const pane = new THREE.PlaneGeometry(1.1, 1.1);
-    for (const [name, x, z, rot, s] of BUILDINGS) {
-      if (!/home|tavern|church|blacksmith/.test(name)) continue;
-      const sz = kitSize('town', name);
-      for (const side of [-1, 1]) {
-        const lx = side * sz.x * s * 0.2, lz = (sz.z * s) / 2 * 0.9 + 0.06;
-        const w = new THREE.Mesh(pane, this.winMat);
-        w.position.set(x + lx * Math.cos(rot) + lz * Math.sin(rot), this.groundUnder('town', name, x, z, rot, s) + sz.y * s * 0.28, z - lx * Math.sin(rot) + lz * Math.cos(rot));
-        w.rotation.y = rot;
-        this.group.add(w);
-      }
-    }
-  }
-  // a post with a fire on top; `light` adds a real light (used sparingly)
   torch(x, y, z, color = 0xffa050, light = false, mounted = false) {
     const t = part('dungeon', mounted ? 'torch_mounted' : 'torch_lit', mounted ? 1 : 1.6);
     t.position.set(x, y + (mounted ? 0 : 0.6), z);
@@ -331,55 +416,53 @@ export class Scenery {
   }
 
   // ---------------------------------------------------------------- landmarks
+
+  // ---------------------------------------------------------------- landmarks
   landmarks() {
-    // North Bridge: planks and rails over the river, walkable
-    const B = SITES.bridge, len = 26, deck = Math.max(this.h(B.x, B.z - 15), this.h(B.x, B.z + 15)) + 0.4;
-    const wood = new THREE.MeshStandardMaterial({ color: 0x7a5434, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: 0x4e3522, roughness: 0.9 });
-    for (let i = 0; i < 20; i++) { const p = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.3, 1.15), i % 3 ? wood : dark); p.position.set(B.x, deck - 0.15, B.z - len / 2 + (i + 0.5) * (len / 20)); p.rotation.z = (Math.sin(i * 7) * 0.03); p.castShadow = p.receiveShadow = true; this.group.add(p); }
-    for (const sx of [-2.9, 2.9]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, len), dark);
-      rail.position.set(B.x + sx, deck + 1.0, B.z);
-      this.group.add(rail);
-      for (let i = 0; i <= 6; i++) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.6, 0.3), dark); post.position.set(B.x + sx, deck - 0.2, B.z - len / 2 + (i * len) / 6); post.castShadow = true; this.group.add(post); }
-      this.phys.box(B.x + sx, B.z, 0.25, len / 2, 0).low = true;
-    }
-    this.phys.platform({ x: B.x, z: B.z, hw: 2.8, hd: len / 2, y: deck });
-    this.bridgeDeck = deck;
     // the Moonlit Glade: a ring of standing stones
     const G = SITES.glade;
-    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2, x = G.x + Math.cos(a) * 11, z = G.z + Math.sin(a) * 11; this.place('dungeon', 'column', x, z, a, 1.6 + (i % 2) * 0.5); }
+    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2, x = G.x + Math.cos(a) * 12, z = G.z + Math.sin(a) * 12; this.place('dungeon', 'column', x, z, a, 1.7 + (i % 2) * 0.5); }
     // Wyvern Peak: a nest of rocks and bones on the summit
     const Pk = SITES.peak;
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2, x = Pk.x + Math.cos(a) * 15, z = Pk.z + Math.sin(a) * 15; if (i % 4 === 1) continue; this.place('nature', 'rock_single_' + 'ABCDE'[i % 5], x, z, a, 10 + (i % 3) * 3, { shrink: 0.7 }); }
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2, x = Pk.x + Math.cos(a) * 18, z = Pk.z + Math.sin(a) * 18; if (i % 4 === 1) continue; this.place('nature', 'rock_single_' + 'ABCDE'[i % 5], x, z, a, 11 + (i % 3) * 3, { shrink: 0.7 }); }
     // the Barrow: a grassy mound with a stone door
     const Bw = SITES.barrow, by = this.h(Bw.x, Bw.z);
-    const mound = new THREE.Mesh(new THREE.SphereGeometry(19, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3d5a32, flatShading: true }));
+    const mound = new THREE.Mesh(new THREE.SphereGeometry(24, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8f9a92, flatShading: true }));
     mound.scale.y = 0.62;
-    mound.position.set(Bw.x, by - 0.5, Bw.z - 12);
+    mound.position.set(Bw.x, by - 0.5, Bw.z - 16);
     mound.receiveShadow = true;
     this.group.add(mound);
-    this.phys.circle(Bw.x, Bw.z - 12, 18.5);
-    this.place('dungeon', 'wall_doorway', Bw.x, Bw.z + 4, 0, 1.2, { y: by - 0.1 });
-    this.barrowGate = this.place('dungeon', 'wall_gated', Bw.x, Bw.z + 4.3, 0, 1.2, { y: by - 0.1, solid: false });
-    for (const sx of [-6.5, 6.5]) { this.place('dungeon', 'pillar_decorated', Bw.x + sx, Bw.z + 4, 0, 1.15, { y: by - 0.1 }); this.torch(Bw.x + sx * 0.72, by, Bw.z + 6.5, 0x7dffb0, true); }
-    for (const sx of [-12, 12]) this.place('dungeon', 'wall_broken', Bw.x + sx, Bw.z + 2.8, sx > 0 ? -0.35 : 0.35, 1.1, { y: by - 0.2 });
-    this.barrowDoor = { x: Bw.x, z: Bw.z + 6.4 };
+    this.phys.circle(Bw.x, Bw.z - 16, 23.5);
+    this.place('dungeon', 'wall_doorway', Bw.x, Bw.z + 4.5, 0, 1.3, { y: by - 0.1 });
+    this.barrowGate = this.place('dungeon', 'wall_gated', Bw.x, Bw.z + 4.8, 0, 1.3, { y: by - 0.1, solid: false });
+    for (const sx of [-7, 7]) { this.place('dungeon', 'pillar_decorated', Bw.x + sx, Bw.z + 4.5, 0, 1.2, { y: by - 0.1 }); this.torch(Bw.x + sx * 0.72, by, Bw.z + 7, 0x7dffb0, true); }
+    for (const sx of [-13, 13]) this.place('dungeon', 'wall_broken', Bw.x + sx, Bw.z + 3.2, sx > 0 ? -0.35 : 0.35, 1.15, { y: by - 0.2 });
+    this.barrowDoor = { x: Bw.x, z: Bw.z + 7 };
     // shrines
     this.shrineMeshes = {};
     for (const s of SHRINES) {
       const y = this.h(s.x, s.z);
-      this.place('dungeon', 'column', s.x, s.z, 0, 1.3);
-      const rune = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.09, 8, 24), new THREE.MeshBasicMaterial({ color: 0x5fd8ff, transparent: true, opacity: 0.35 }));
-      rune.position.set(s.x, y + 2.6, s.z);
+      this.place('dungeon', 'column', s.x, s.z, 0, 1.4);
+      const rune = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.1, 8, 24), new THREE.MeshBasicMaterial({ color: 0x5fd8ff, transparent: true, opacity: 0.35 }));
+      rune.position.set(s.x, y + 2.8, s.z);
       this.group.add(rune);
-      this.anim.push((dt, t) => { rune.rotation.y = t * 0.8; rune.position.y = y + 2.5 + Math.sin(t * 1.6 + s.x) * 0.15; });
+      this.anim.push((dt, t) => { rune.rotation.y = t * 0.8; rune.position.y = y + 2.7 + Math.sin(t * 1.6 + s.x) * 0.15; });
       this.shrineMeshes[s.id] = rune;
     }
-    // the swamp is foggier
-    this.anim.push(() => {});
-    // campfires: the keep, the warren, the village square
-    for (const [x, z] of [[-140, 120], [152, 56], [-4, 60.5]]) this.campfire(x, z);
+    // campfires: the keep, the warren, the villages
+    for (const [x, z] of [[SITES.keep.x, SITES.keep.z], [SITES.warren.x - 4, SITES.warren.z + 2], ...SETTLEMENTS.filter(s => !s.kingdom).map(s => [s.x + 8, s.z + 4])]) this.campfire(x, z);
+    // docks on the western lake by Tidewatch
+    const Ld = SITES.lake, tw = SETTLEMENTS.find(s => s.id === 'tidewatch');
+    const dx = Ld.x - tw.x, dz = Ld.z - tw.z, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;
+    let sx = tw.x + ux * tw.r, sz = tw.z + uz * tw.r;
+    for (let i = 0; i < 40 && this.h(sx, sz) > -0.5; i++) { sx += ux * 3; sz += uz * 3; }
+    const dock = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 34), new THREE.MeshLambertMaterial({ color: 0x7a5434 }));
+    dock.position.set(sx + ux * 14, 0.9, sz + uz * 14);
+    dock.rotation.y = Math.atan2(ux, uz);
+    this.group.add(dock);
+    this.phys.platform({ x: dock.position.x, z: dock.position.z, hw: 3, hd: 17, rot: dock.rotation.y, y: 1.1 });
   }
+
   campfire(x, z) {
     const y = this.h(x, z);
     const stone = new THREE.MeshStandardMaterial({ color: 0x7d828c, flatShading: true });
@@ -460,7 +543,7 @@ export class Scenery {
     const t = performance.now() / 1000;
     if (focus) {
       const zone = this.inside ? 'barrow' : 'world';
-      const near = this.torches.filter(s => s.zone === zone && s.pos.distanceTo(focus) < 60).sort((a, b) => a.pos.distanceTo(focus) - b.pos.distanceTo(focus));
+      const near = this.torches.filter(s => s.zone === zone && Math.abs(s.pos.x - focus.x) < 60 && Math.abs(s.pos.z - focus.z) < 60).sort((a, b) => a.pos.distanceTo(focus) - b.pos.distanceTo(focus));
       this.lightPool.forEach((l, i) => {
         const s = near[i];
         if (!s) { l.intensity = 0; return; }
@@ -469,41 +552,54 @@ export class Scenery {
         l.distance = s.dist;
         l.intensity = s.base * (this.lightK ?? 1) * (0.9 + Math.sin(t * 11 + i) * 0.08);
       });
+      if (!this.inside) this.updateGrass(focus);
+      // hide far-away forests and towns (the fog hides them anyway)
+      if ((this.cullT = (this.cullT || 0) - dt) <= 0) {
+        this.cullT = 0.5;
+        for (const f of this.far) f.obj.visible = !this.inside && Math.hypot(f.x - focus.x, f.z - focus.z) < 470;
+      }
+      const d = Math.hypot(focus.x - SITES.swamp.x, focus.z - SITES.swamp.z);
+      this.swampFog = THREE.MathUtils.smoothstep(SITES.swamp.r + 40, SITES.swamp.r - 20, d) * 0.012;
     }
     this.anim.forEach(f => f(dt, t));
-    for (const c of this.clouds) { c.position.x += dt * 1.6; if (c.position.x > 380) c.position.x = -380; }
+    for (const c of this.clouds) { c.position.x += dt * 2; if (c.position.x > HALF + 300) c.position.x = -HALF - 300; }
     for (const s of this.spikes) {
-      // up for a moment every 2.4 seconds, with a little warning wobble first
       const p = ((t / 2.4 + s.phase) % 1);
       s.up = p > 0.62 && p < 0.86;
       s.mesh.position.y = s.up ? -0.1 : p > 0.52 && p <= 0.62 ? -1.9 + Math.sin(t * 60) * 0.05 : -2.2;
     }
-    // swamp fog thickens as you wade in
-    if (focus) {
-      const d = Math.hypot(focus.x - SITES.swamp.x, focus.z - SITES.swamp.z);
-      this.swampFog = THREE.MathUtils.smoothstep(SITES.swamp.r + 20, SITES.swamp.r - 10, d) * 0.014;
-    }
+    if (this.lampMats) this.lampMats.flame.color.setScalar(1).lerp(new THREE.Color(0x553a20), this.dayK ?? 0);
   }
 
-  // The map: a picture of the realm for the minimap and the big map.
-  mapCanvas(size = 520) {
+  // The map: a picture of the realm for the minimap and the big map, painted from the terrain colours.
+  mapCanvas(size = 1100) {
+    const src = document.createElement('canvas');
+    src.width = src.height = N;
+    const sg = src.getContext('2d'), img = sg.createImageData(N, N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = j * N + i, y = this.H[k];
+      let c = y < 0 ? [0.22, 0.45, 0.6] : [this.C[k * 3], this.C[k * 3 + 1], this.C[k * 3 + 2]];
+      const shade = 0.85 + Math.max(-0.25, Math.min(0.25, ((this.H[Math.max(0, j - 1) * N + Math.min(N - 1, i + 1)] ?? y) - y) * 0.05));
+      const p = k * 4;
+      img.data[p] = c[0] * 255 * shade; img.data[p + 1] = c[1] * 255 * shade; img.data[p + 2] = c[2] * 255 * shade; img.data[p + 3] = 255;
+    }
+    sg.putImageData(img, 0, 0);
     const cv = document.createElement('canvas');
     cv.width = cv.height = size;
-    const g = cv.getContext('2d'), img = g.createImageData(size, size);
-    for (let py = 0; py < size; py++) for (let px = 0; px < size; px++) {
-      const x = -HALF + (px / size) * HALF * 2, z = -HALF + (py / size) * HALF * 2, y = this.h(x, z);
-      let c = y < 0 ? [0.22, 0.45, 0.6] : groundColor(x, z, y, 0);
-      const shade = 0.85 + Math.max(-0.25, Math.min(0.25, (this.h(x + 2, z - 2) - y) * 0.08));
-      const k = (py * size + px) * 4;
-      img.data[k] = c[0] * 255 * shade; img.data[k + 1] = c[1] * 255 * shade; img.data[k + 2] = c[2] * 255 * shade; img.data[k + 3] = 255;
+    const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.drawImage(src, 0, 0, size, size);
+    const sc = size / (HALF * 2), P = (x, z) => [(x + HALF) * sc, (z + HALF) * sc];
+    const line = (pts, color, w) => { g.strokeStyle = color; g.lineWidth = w; g.lineJoin = g.lineCap = 'round'; g.beginPath(); pts.forEach(([x, z], i) => { const [px, py] = P(x, z); i ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke(); };
+    line(RIVER, 'rgba(52,110,150,.95)', RIVER_W * sc * 1.6);
+    for (const r of ROADS) line(r, 'rgba(120,92,60,.9)', 2.2);
+    for (const s of SETTLEMENTS) {
+      const plan = PLANS[s.id];
+      g.fillStyle = 'rgba(70,52,40,.9)';
+      for (const [name, x, z, rot, k] of plan.buildings) { const w = Math.max(2, (/castle|church|tavern|barracks/.test(name) ? 16 : 8) * sc); const [px, py] = P(x, z); g.fillRect(px - w / 2, py - w / 2, w, w); }
+      if (s.kingdom) { g.strokeStyle = 'rgba(60,50,45,.95)'; g.lineWidth = 2.5; g.beginPath(); const [cx, cy] = P(s.x, s.z); g.arc(cx, cy, s.r * sc, 0, Math.PI * 2); g.stroke(); }
     }
-    g.putImageData(img, 0, 0);
-    g.fillStyle = 'rgba(60,40,30,.85)';
-    const sc = size / (HALF * 2);
-    for (const [name, x, z, rot, s] of BUILDINGS) { const w = /castle|tavern|barracks|church|windmill/.test(name) ? 5 : 3.4; g.fillRect((x + HALF) * sc - w / 2, (z + HALF) * sc - w / 2, w, w); }
-    g.strokeStyle = 'rgba(70,50,30,.9)';
-    g.lineWidth = 1.5;
-    g.beginPath(); g.arc((PALISADE.x + HALF) * sc, (PALISADE.z + HALF) * sc, PALISADE.r * sc, 0, Math.PI * 2); g.stroke();
+    for (const b of this.bridgeSpots || []) { const [px, py] = P(b.x, b.z); g.fillStyle = '#7a5434'; g.fillRect(px - 3, py - 3, 6, 6); }
     return cv;
   }
 }

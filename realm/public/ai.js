@@ -73,7 +73,7 @@ export function updateMob(g, e, dt) {
     case 'chase': {
       if (!tgt || (fromHome > (def.boss ? 70 : 48) && !e.patrol && e.team !== 'town')) { e.state = 'return'; break; }
       if (e.team === 'town' && !tgt) { e.state = 'idle'; break; }
-      if (def.boss && doSpecial(g, e, tgt, dist, dt)) break;
+      if ((def.boss || def.special) && doSpecial(g, e, tgt, dist, dt)) break;
       const ranged = def.kind !== 'melee';
       const reach = def.reach + (tgt.radius || 0.5) + (def.scale || 1) * 0.4;
       if (ranged) {

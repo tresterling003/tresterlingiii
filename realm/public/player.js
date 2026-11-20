@@ -63,7 +63,7 @@ export class Player {
     this.pos = V3(0, 0, 0);
     this.vel = V3(0, 0, 0);
     this.rot = Math.PI;
-    this.yaw = Math.PI; this.pitch = 0.32; this.dist = 6.8;
+    this.yaw = Math.PI; this.pitch = 0.2; this.dist = 6.8;
     this.onGround = true;
     this.state = 'move';
     this.atkT = 0; this.combo = 0; this.dodgeT = 0; this.iframes = 0;
@@ -117,14 +117,19 @@ export class Player {
       if (!deep && (input.hit('Mouse0', 'KeyF') || input.touch.attackHit || (input.mouseL && this.state === 'move' && this.atkT <= 0) || (input.touch.attack && this.atkT <= 0))) this.attack(wish);
       input.touch.attackHit = false;
     }
-    this.blocking = !frozen && !this.mount && !deep && (input.mouseR || input.touch.block) && this.state === 'move';
+    // ranged heroes aim with the right button (zoom over the shoulder); everyone else blocks
+    const ranged = this.cls.style !== 'melee';
+    this.aimMode = ranged && !frozen && !deep && (input.mouseR || input.touch.block);
+    this.blocking = !ranged && !frozen && !this.mount && !deep && (input.mouseR || input.touch.block) && this.state === 'move';
+    if (this.aimMode && !this.mount) this.rot += angleTo(this.rot, this.yaw + Math.PI) * Math.min(1, dt * 14);
 
     // movement
     const sprinting = !frozen && moving && (input.down('ShiftLeft', 'ShiftRight') || input.touch.sprint) && this.stamina > 2 && !this.blocking;
     if (sprinting) { this.stamina -= dt * (this.mount ? 10 : 18); this.staminaWait = 0.9; }
     else if ((this.staminaWait -= dt) <= 0) this.stamina = Math.min(100, this.stamina + dt * 24);
 
-    let speed = this.mount ? (sprinting ? 21 : 12) : sprinting ? 10.5 : 6.4;
+    let speed = this.mount ? (sprinting ? 26 : 14) : sprinting ? 10.5 : 6.4;
+    if (this.aimMode && !this.mount) speed = 3.4;
     if (deep) speed = 3.6;
     if (this.blocking) speed = 2.4;
     if (this.state === 'attack') speed *= this.mount ? 0.8 : 0.25;
@@ -153,7 +158,7 @@ export class Player {
     this.vel.y -= 24 * dt;
     this.pos.addScaledVector(this.vel, dt);
     // keep inside the world and out of walls
-    if (g.zone === 'world') { this.pos.x = THREE.MathUtils.clamp(this.pos.x, -250, 250); this.pos.z = THREE.MathUtils.clamp(this.pos.z, -250, 250); }
+    if (g.zone === 'world') { this.pos.x = THREE.MathUtils.clamp(this.pos.x, -1040, 1040); this.pos.z = THREE.MathUtils.clamp(this.pos.z, -1040, 1040); }
     g.phys.resolve(this.pos, this.radius);
     let ground = g.phys.ground(this.pos.x, this.pos.z);
     if (deep || (ground < -1.0 && g.zone === 'world' && !this.mount)) ground = Math.max(ground, -1.15);
@@ -211,9 +216,9 @@ export class Player {
   updateCamera(dt) {
     const g = this.g;
     const head = this.pos.clone().add(V3(0, this.mount ? 3.4 : 1.9, 0));
-    const dist = (this.mount ? 9 : g.bossActive ? 8.5 : this.dist) * (g.zone === 'barrow' ? 0.85 : 1);
+    const dist = this.aimMode ? 3.6 : (this.mount ? 9 : g.bossActive ? 8.5 : this.dist) * (g.zone === 'barrow' ? 0.85 : 1);
     const dir = V3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
-    const side = V3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(g.aiming ? 0.9 : 0.35);
+    const side = V3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(this.aimMode ? 1.15 : g.aiming ? 0.7 : 0.35);
     let d2 = dist;
     // pull in when something is in the way
     for (let k = 1; k <= 8; k++) {
@@ -224,15 +229,40 @@ export class Player {
     const want = head.clone().addScaledVector(dir, d2).add(side);
     if (g.zone === 'world') want.y = Math.max(want.y, g.phys.ground(want.x, want.z) + 0.6);
     this.camPos.lerp(want, Math.min(1, dt * 14));
-    this.camLook.lerp(head.clone().add(side), Math.min(1, dt * 18));
+    // look past the hero, not at them: the crosshair then sits level with the horizon instead of over their head
+    const ahead = (this.aimMode ? 30 : 14) * Math.max(0, 1 - Math.max(0, this.pitch) / 0.85);
+    const lookAt = head.clone().add(side).add(V3(0, 0.5, 0)).addScaledVector(V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)), ahead);
+    this.camLook.lerp(lookAt, Math.min(1, dt * 18));
+    const fov = (this.aimMode ? 0.72 : 1) * (g.baseFov || 60);
+    if (Math.abs(g.camera.fov - fov) > 0.1) { g.camera.fov += (fov - g.camera.fov) * Math.min(1, dt * 10); g.camera.updateProjectionMatrix(); }
     if (!g.cineActive) { g.camera.position.copy(this.camPos); g.camera.lookAt(this.camLook); }
     if (g.shakeT > 0) { g.camera.position.x += (Math.random() - 0.5) * g.shakeP; g.camera.position.y += (Math.random() - 0.5) * g.shakeP; }
   }
 
   // ------------------------------------------------------------ fighting
   aimDir() {
-    // where the camera looks, flattened a little
-    return V3(-Math.sin(this.yaw) * Math.cos(this.pitch - 0.25), -Math.sin(this.pitch - 0.25), -Math.cos(this.yaw) * Math.cos(this.pitch - 0.25)).normalize();
+    const to = this.aim().point;
+    return to.clone().sub(this.pos.clone().add(V3(0, 1.6, 0))).normalize();
+  }
+  // What the crosshair is on: a ray from the camera through the middle of the screen.
+  aim() {
+    const g = this.g, o = g.camera.position.clone(), dir = new THREE.Vector3();
+    g.camera.getWorldDirection(dir);
+    let best = null, bt = 140;
+    for (const e of g.targetsForPlayer()) {
+      const c = e.pos.clone().add(V3(0, (e.actor.height || 2.2) * (e.def.scale || 1) * 0.5, 0));
+      const t = c.clone().sub(o).dot(dir);
+      if (t < 2 || t > bt) continue;
+      const miss = o.clone().addScaledVector(dir, t).distanceTo(c);
+      const r = (0.9 + (e.def.scale || 1) * 0.6 + (e.flying ? 2 : 0)) + t * 0.035; // a little aim assist that grows with distance
+      if (miss < r) { best = e; bt = t; }
+    }
+    if (best) return { point: best.pos.clone().add(V3(0, (best.actor.height || 2.2) * (best.def.scale || 1) * 0.55, 0)), target: best };
+    for (let t = 3; t < 140; t += 1.5) {
+      const p = o.clone().addScaledVector(dir, t);
+      if (p.y < g.phys.ground(p.x, p.z) + 0.05) return { point: p, target: null };
+    }
+    return { point: o.addScaledVector(dir, 140), target: null };
   }
   // the enemy you most likely mean: close to where you are facing/aiming
   pickTarget(range, cone, dir) {
@@ -254,7 +284,8 @@ export class Player {
     const C = this.cls, g = this.g;
     const ranged = C.style !== 'melee';
     const aim = this.aimDir();
-    const t = ranged ? this.pickTarget(C.reach, 0.32, aim) : this.pickTarget(C.reach + 2.5, 1.4, wish.lengthSq() > 0.01 ? wish : aim);
+    const meleeDir = wish.lengthSq() > 0.01 ? wish : V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const t = ranged ? (this.aimed = this.aim()).target : this.pickTarget(C.reach + 2.5, 1.4, meleeDir);
     this.target = t;
     this.faceTo = t ? Math.atan2(t.pos.x - this.pos.x, t.pos.z - this.pos.z) : ranged || this.mount ? Math.atan2(aim.x, aim.z) : this.rot;
     this.state = 'attack';
@@ -284,10 +315,12 @@ export class Player {
       if (!hits.length && !bystanders.length) g.sfx.swish();
     } else {
       const from = this.pos.clone().add(V3(0, this.mount ? 3.2 : 1.6, 0)).addScaledVector(V3(Math.sin(this.rot), 0, Math.cos(this.rot)), 0.8);
-      const t = this.target && !this.target.dead ? this.target : null;
-      const to = t ? t.pos.clone().add(V3(0, (t.actor.height || 2) * 0.55, 0)) : from.clone().addScaledVector(this.aimDir(), 40);
-      g.shoot({ from, to, kind: C.style === 'magic' ? 'magic' : 'bolt', speed: C.style === 'magic' ? 32 : 55, homing: t ? () => (t.dead ? null : t.pos.clone().add(V3(0, (t.actor.height || 2) * 0.55, 0))) : null, by: 'player' });
+      // fire at whatever is under the crosshair now
+      const a = this.aim(), t = a.target && !a.target.dead ? a.target : null;
+      const to = a.point;
+      g.shoot({ from, to, kind: C.style === 'magic' ? 'magic' : 'bolt', speed: C.style === 'magic' ? 48 : 85, life: 2, homing: t ? () => (t.dead ? null : t.pos.clone().add(V3(0, (t.actor.height || 2) * (t.def.scale || 1) * 0.55, 0))) : null, by: 'player' });
       g.sfx[C.style === 'magic' ? 'zap' : 'twang']();
+      g.kick = 0.05;
     }
   }
   dodge(dir) {
@@ -354,10 +387,10 @@ export class Player {
       g.flash('#ff3020', 250); g.sfx.roar(); g.ui.toast('RAGE!');
     } else if (ab.id === 'fireball') {
       cast('Spellcast_Shoot', 0.5);
-      const aim = this.aimDir(), t = this.pickTarget(34, 0.35, aim);
-      if (t) this.rot = Math.atan2(t.pos.x - this.pos.x, t.pos.z - this.pos.z);
+      const a = this.aim(), t = a.target;
       const from = this.pos.clone().add(V3(0, 1.8, 0));
-      const to = t ? t.pos.clone().add(V3(0, 1, 0)) : from.clone().addScaledVector(aim, 34);
+      const to = a.point;
+      this.rot = Math.atan2(to.x - this.pos.x, to.z - this.pos.z);
       setTimeout(() => g.shoot({ from, to, kind: 'fire', speed: 26, by: 'player', life: 1.8, aoe: { r: 4.5, dmg: () => roll(2, 6, mod('mind')), name: 'Fireball', fire: true } }), 200);
       g.sfx.fire();
     } else if (ab.id === 'nova') {
@@ -387,8 +420,8 @@ export class Player {
       g.sfx.boom(); g.ui.toast('Invisible!');
       cast('Throw', 0.5);
     } else if (ab.id === 'volley') {
-      const aim = this.aimDir(), t = this.pickTarget(36, 0.4, aim);
-      const spot = t ? t.pos.clone() : this.pos.clone().addScaledVector(V3(aim.x, 0, aim.z).normalize(), 16);
+      const a = this.aim(), t = a.target;
+      const spot = t ? t.pos.clone() : a.point.distanceTo(this.pos) < 45 ? a.point.clone() : this.pos.clone().addScaledVector(a.point.clone().sub(this.pos).setY(0).normalize(), 20);
       spot.y = g.phys.ground(spot.x, spot.z);
       this.rot = Math.atan2(spot.x - this.pos.x, spot.z - this.pos.z);
       cast('2H_Ranged_Shoot', 0.5);

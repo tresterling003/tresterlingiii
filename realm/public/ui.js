@@ -1,7 +1,7 @@
 // Everything on screen that is not the 3D world.
 import * as THREE from 'three';
 import { CLASSES, CLASS_ORDER, STATS, STAT_ICON, BACKGROUNDS, TINTS, BONUS_POINTS, ITEMS, KEY_ITEMS, QUESTS, NPCS, XP_LEVELS } from './data.js';
-import { HALF, SITES, SHRINES, SHARDS, GLOWCAPS } from './world.js';
+import { HALF, SITES, SHRINES, SHARDS, GLOWCAPS, SETTLEMENTS, NPC_POS } from './world.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -44,6 +44,7 @@ export class UI {
     requestAnimationFrame(() => { f.style.transition = `opacity ${ms}ms ease-out`; f.style.opacity = 0; });
   }
   flashAbility(i) { const s = document.querySelector(`#slots [data-slot="${i + 1}"]`); if (s) { s.classList.remove('pulse'); void s.offsetWidth; s.classList.add('pulse'); } }
+  hitMarker(crit) { const c = $('crosshair'); c.classList.remove('hit', 'crit'); void c.offsetWidth; c.classList.add(crit ? 'crit' : 'hit'); }
   prompt(text) { const p = $('prompt'); if (p.textContent !== text) p.textContent = text || ''; p.classList.toggle('on', !!text); }
   show(id, on) { $(id).hidden = !on; }
 
@@ -97,7 +98,9 @@ export class UI {
       const at = g.questTarget(tq.id);
       $('trDist').textContent = at && at.zone === g.zone ? `${Math.round(Math.hypot(at.x - p.pos.x, at.z - p.pos.z))} m` : at && at.zone !== g.zone ? (g.zone === 'barrow' ? 'outside' : 'in the Barrow') : '';
     } else tr.hidden = true;
-    $('crosshair').hidden = !(C.style !== 'melee') || g.cineActive || g.paused;
+    const ch = $('crosshair');
+    ch.hidden = !(C.style !== 'melee') || g.cineActive || g.paused || g.talking;
+    if (!ch.hidden) { if ((this.aimT = (this.aimT || 0) + 1) % 4 === 0) ch.classList.toggle('on', !!p.aim().target); ch.classList.toggle('zoom', !!p.aimMode); }
     this.minimap();
     this.markers();
   }
@@ -108,29 +111,30 @@ export class UI {
     c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); c.clip();
     if (g.zone === 'barrow') { c.fillStyle = '#16141a'; c.fillRect(0, 0, S, S); }
     else if (this.mapImg) {
-      const z = 1.6; // map pixels per screen pixel
+      const ppm = 1.0; // screen pixels per metre on the minimap
+      const imgPpm = this.mapImg.width / (HALF * 2);
       c.translate(S / 2, S / 2);
       c.rotate(p.yaw - Math.PI);
-      c.scale(1 / z * (520 / this.mapImg.width) * 2.2, 1 / z * (520 / this.mapImg.width) * 2.2);
+      c.scale(ppm / imgPpm, ppm / imgPpm);
       const px = ((p.pos.x + HALF) / (HALF * 2)) * this.mapImg.width, pz = ((p.pos.z + HALF) / (HALF * 2)) * this.mapImg.width;
       c.drawImage(this.mapImg, -px, -pz);
       c.setTransform(1, 0, 0, 1, 0, 0);
     }
     // things on the minimap
-    const scale = 2.2 / 1.6 * (520 / 520) * (S / 170) / 1.0; // pixels per metre
+    const scale = 1.0; // pixels per metre
     const toScreen = (x, z) => {
       const dx = x - p.pos.x, dz = z - p.pos.z, a = p.yaw - Math.PI, cs = Math.cos(a), sn = Math.sin(a);
       return [S / 2 + (dx * cs - dz * sn) * scale * (g.zone === 'barrow' ? 2.2 : 1), S / 2 + (dx * sn + dz * cs) * scale * (g.zone === 'barrow' ? 2.2 : 1)];
     };
     const dot = (x, z, col, r = 3) => { const [sx, sy] = toScreen(x, z); c.fillStyle = col; c.beginPath(); c.arc(sx, sy, r, 0, Math.PI * 2); c.fill(); };
     for (const e of g.entities) {
-      if (e.dead || e.zone !== g.zone || e.hidden || e.pos.distanceTo(p.pos) > 70) continue;
+      if (e.dead || e.zone !== g.zone || e.hidden || e.pos.distanceTo(p.pos) > 90) continue;
       if (e.type === 'mob' && g.isHostile(e)) dot(e.pos.x, e.pos.z, e.def.boss ? '#ff3050' : '#ff7070', e.def.boss ? 4.5 : 2.5);
       else if (e.type === 'npc') dot(e.pos.x, e.pos.z, g.npcHasQuest(e) ? '#ffd34d' : '#e8e8e8', g.npcHasQuest(e) ? 4 : 2.5);
       else if (e.type === 'horse' && e.owned) dot(e.pos.x, e.pos.z, '#c89060', 3.5);
       else if (e.type === 'mob' && e.team === 'town') dot(e.pos.x, e.pos.z, '#8fb3ff', 2.5);
     }
-    if (g.zone === 'world') for (const s of SHRINES) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 90) dot(s.x, s.z, g.hero.shrines[s.id] ? '#5fd8ff' : '#2a5a70', 3.5);
+    if (g.zone === 'world') for (const s of SHRINES) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 110) dot(s.x, s.z, g.hero.shrines[s.id] ? '#5fd8ff' : '#2a5a70', 3.5);
     c.restore();
     // quest arrow
     const tq = g.trackedQuest(), at = tq && g.questTarget(tq.id);
@@ -319,8 +323,11 @@ export class UI {
     const toPx = (x, z) => [((x + HALF) / (HALF * 2)) * S, ((z + HALF) / (HALF * 2)) * S];
     if (this.mapImg) c.drawImage(this.mapImg, 0, 0, S, S);
     c.font = 'bold 13px system-ui'; c.textAlign = 'center';
+    c.font = 'bold 15px Georgia, serif';
+    for (const s of SETTLEMENTS) { const [x, y] = toPx(s.x, s.z); c.fillStyle = 'rgba(0,0,0,.6)'; c.fillText(s.name, x + 1, y - (s.kingdom ? 22 : 12)); c.fillStyle = s.kingdom ? '#ffe6a8' : '#fff6dc'; c.fillText(s.name, x, y - (s.kingdom ? 23 : 13)); }
+    c.font = 'bold 12px system-ui';
     for (const s of Object.values(SITES)) {
-      if (!s.name) continue;
+      if (!s.name || s === SITES.lake) continue;
       const [x, y] = toPx(s.x, s.z);
       c.fillStyle = 'rgba(0,0,0,.55)'; c.fillText(s.name, x + 1, y - 9);
       c.fillStyle = '#fff6dc'; c.fillText(s.name, x, y - 10);
@@ -331,7 +338,7 @@ export class UI {
     for (const s of SHRINES) { const on = hq.shrines[s.id]; mark(s.x, s.z, on ? '#5fd8ff' : '#2d5566', 7, '✦'); if (on) this.shrineHits.push({ s, p: toPx(s.x, s.z) }); }
     if (hq.quests.shards !== undefined) SHARDS.forEach(([x, z], i) => { if (!hq.got['shard' + i]) mark(x, z, '#ff9a40', 5); });
     if (hq.quests.glowcaps !== undefined) GLOWCAPS.forEach(([x, z], i) => { if (!hq.got['glow' + i]) mark(x, z, '#7fd8ff', 4); });
-    for (const [id, npc] of Object.entries(NPCS)) if (npc.pos && g.npcHasQuest({ npcId: id })) mark(npc.pos[0], npc.pos[1], '#ffd34d', 6, '!');
+    for (const [id, pos] of Object.entries(NPC_POS)) if (g.npcHasQuest({ npcId: id })) mark(pos[0], pos[1], '#ffd34d', 6, '!');
     const tq = g.trackedQuest(), at = tq && g.questTarget(tq.id);
     if (at && at.zone === 'world') { const [x, y] = toPx(at.x, at.z); c.fillStyle = '#ffd34d'; c.strokeStyle = '#000'; c.beginPath(); c.moveTo(x, y - 10); c.lineTo(x + 8, y); c.lineTo(x, y + 10); c.lineTo(x - 8, y); c.closePath(); c.fill(); c.stroke(); }
     const pp = g.zone === 'world' ? g.player.pos : { x: SITES.barrow.x, z: SITES.barrow.z };
@@ -386,6 +393,7 @@ export class UI {
     const st = { name: '', cls: 'knight', bonus: {}, bg: 'soldier', tint: 0 };
     try { st.name = localStorage.getItem('realm.name') || ''; } catch { /* fine */ }
     $('creator').hidden = false;
+    g.framePreview && g.framePreview();
     const draw = () => {
       const C = CLASSES[st.cls], spent = Object.values(st.bonus).reduce((a, b) => a + b, 0), left = BONUS_POINTS - spent;
       const cl = $('crClasses');
@@ -421,6 +429,7 @@ export class UI {
       if (!st.name) { $('crName').focus(); $('crErr').textContent = 'Give your hero a name.'; return; }
       try { localStorage.setItem('realm.name', st.name); } catch { /* fine */ }
       $('creator').hidden = true;
+      g.camera.clearViewOffset();
       onDone(st);
     };
     draw();

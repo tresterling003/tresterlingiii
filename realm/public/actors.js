@@ -20,7 +20,7 @@ export class Actor {
     this.kind = spec.model;
     this.mats = [];
     if (spec.model === 'horse' || spec.model === 'unicorn') this.buildHorse(spec);
-    else if (spec.model === 'wolf') this.buildWolf();
+    else if (spec.model === 'wolf') this.buildWolf(spec);
     else if (spec.model === 'wyvern') this.buildWyvern();
     else if (spec.model === 'mimic') this.buildMimic();
     else {
@@ -112,14 +112,14 @@ export class Actor {
     this.height = 2.8;
     this.horse = true;
   }
-  buildWolf() {
+  buildWolf(spec = {}) {
     const src = A.models.wolf;
     this.model = SkeletonUtils.clone(src);
     this.model.traverse(o => {
       if (!o.isMesh) return;
       o.castShadow = true;
       o.material = o.material.clone();
-      o.material.color.set(0x8a8f9a);
+      o.material.color.set(spec.tint || 0x8a8f9a);
       this.mats.push(o.material);
     });
     this.model.scale.setScalar(0.03);
@@ -310,6 +310,7 @@ export class FX {
         const p = it.proj;
         if (p.homing) { const h = p.homing(); if (h) { const want = h.clone().sub(it.obj.position).normalize(); it.dir.lerp(want, Math.min(1, dt * 6)).normalize(); } }
         const step = it.dir.clone().multiplyScalar(it.speed * dt);
+        p.prev = it.obj.position.clone();
         it.obj.position.add(step);
         it.obj.lookAt(it.obj.position.clone().add(it.dir));
         if (p.trail && Math.random() < 0.7) this.burst(it.obj.position, p.trail, 2, 1, 0.5);

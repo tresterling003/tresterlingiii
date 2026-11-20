@@ -37,7 +37,7 @@ export async function loadAssets(onProgress) {
   // Matte shading: KayKit's flat colour atlases look the same with the much cheaper Lambert model.
   const lambert = m => {
     const l = new THREE.MeshLambertMaterial({ map: m.map, color: m.color, emissive: m.emissive, emissiveMap: m.emissiveMap, emissiveIntensity: m.emissiveIntensity ?? 1,
-      transparent: m.transparent, opacity: m.opacity, side: m.side, vertexColors: m.vertexColors, alphaTest: m.alphaTest, morphTargets: m.morphTargets });
+      transparent: m.transparent, opacity: m.opacity, side: m.side, vertexColors: m.vertexColors, alphaTest: m.alphaTest });
     l.name = m.name;
     return l;
   };
