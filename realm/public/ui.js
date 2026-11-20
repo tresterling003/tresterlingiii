@@ -96,7 +96,7 @@ export class UI {
       const count = step.count ? ` (${h.counters[step.count] || 0}/${step.need})` : '';
       $('trStep').textContent = step.text + count;
       const at = g.questTarget(tq.id);
-      $('trDist').textContent = at && at.zone === g.zone ? `${Math.round(Math.hypot(at.x - p.pos.x, at.z - p.pos.z))} m` : at && at.zone !== g.zone ? (g.zone === 'barrow' ? 'outside' : 'in the Barrow') : '';
+      $('trDist').textContent = at && at.zone === g.zone ? `${Math.round(Math.hypot(at.x - p.pos.x, at.z - p.pos.z))} m` : at && at.zone !== g.zone ? (g.zone !== 'world' ? 'outside' : 'in the Barrow') : '';
     } else tr.hidden = true;
     const ch = $('crosshair');
     ch.hidden = !(C.style !== 'melee') || g.cineActive || g.paused || g.talking;
@@ -109,7 +109,7 @@ export class UI {
     c.save();
     c.clearRect(0, 0, S, S);
     c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); c.clip();
-    if (g.zone === 'barrow') { c.fillStyle = '#16141a'; c.fillRect(0, 0, S, S); }
+    if (g.zone !== 'world') { c.fillStyle = g.zone === 'inside' ? '#2a2018' : '#16141a'; c.fillRect(0, 0, S, S); }
     else if (this.mapImg) {
       const ppm = 1.0; // screen pixels per metre on the minimap
       const imgPpm = this.mapImg.width / (HALF * 2);
@@ -308,6 +308,83 @@ export class UI {
     $('mQuit').onclick = () => { this.g.save(); location.reload(); };
     $('sens').oninput = e => { this.g.input.sens = +e.target.value; try { localStorage.setItem('realm.sens', e.target.value); } catch { /* fine */ } };
     try { const s = localStorage.getItem('realm.sens'); if (s) { $('sens').value = s; } } catch { /* fine */ }
+    $('mStick').onclick = () => this.setDpad(!this.dpad);
+  }
+  setDpad(on) {
+    this.dpad = !!on;
+    document.body.classList.toggle('dpad', this.dpad);
+    const b = $('mStick'); if (b) b.textContent = this.dpad ? '✚ D-pad' : '🕹️ Joystick';
+    try { localStorage.setItem('realm.dpad', this.dpad ? '1' : '0'); } catch { /* fine */ }
+  }
+  staminaFlash() { const f = $('stFill'); f.classList.remove('low'); void f.offsetWidth; f.classList.add('low'); }
+
+  // ------------------------------------------------------------ game controller: moving a highlight through menus
+  get nav() {
+    return this._nav || (this._nav = {
+      active: () => !!this.navRoot(),
+      move: d => this.navMove(d), ok: () => this.navOk(), back: () => this.navBack(), start: () => this.navBack(true), tab: k => this.navTab(k),
+    });
+  }
+  navRoot() {
+    const vis = id => { const el = $(id); return el && !el.hidden && el.getClientRects().length ? el : null; };
+    const rules = $('rules');
+    if (rules && rules.open) return rules;
+    return vis('dice') || vis('levelup') || vis('dialog') || vis('menu') || vis('creator') || vis('title') || null;
+  }
+  navItems(root) {
+    return [...root.querySelectorAll('button, .opt, input, select, [data-cls], [data-plus], [data-minus], [data-bg], [data-tint]')]
+      .filter(el => !el.disabled && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden' && !el.closest('[hidden]'));
+  }
+  navMove(dir) {
+    const root = this.navRoot(); if (!root) return;
+    const items = this.navItems(root); if (!items.length) return;
+    let cur = items.includes(this.padEl) ? this.padEl : null;
+    if (!cur) return this.navFocus(items[0]);
+    const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let best = null, bs = Infinity;
+    for (const el of items) {
+      if (el === cur) continue;
+      const q = el.getBoundingClientRect(), dx = q.left + q.width / 2 - cx, dy = q.top + q.height / 2 - cy;
+      const along = dir === 'right' ? dx : dir === 'left' ? -dx : dir === 'down' ? dy : -dy;
+      const across = dir === 'right' || dir === 'left' ? Math.abs(dy) : Math.abs(dx);
+      if (along < 4) continue;
+      const score = along + across * 2.2;
+      if (score < bs) { bs = score; best = el; }
+    }
+    if (best) this.navFocus(best);
+  }
+  navFocus(el) {
+    if (this.padEl) this.padEl.classList.remove('padfocus');
+    this.padEl = el;
+    el.classList.add('padfocus');
+    el.scrollIntoView && el.scrollIntoView({ block: 'nearest' });
+    this.g.sfx.tick && this.g.sfx.tick();
+  }
+  navOk() {
+    const root = this.navRoot(); if (!root) return;
+    const items = this.navItems(root);
+    if (!items.includes(this.padEl)) return this.navFocus(items[0]);
+    const el = this.padEl;
+    if (el.tagName === 'INPUT' && el.type === 'range') { el.value = Math.min(+el.max, +el.value + +(el.step || 1)); el.dispatchEvent(new Event('input')); return; }
+    if (el.tagName === 'INPUT') { if (!el.value) { el.value = ['Rowan', 'Kestrel', 'Bryn', 'Ash', 'Sable', 'Wren'][Math.floor(Math.random() * 6)]; el.dispatchEvent(new Event('input')); } this.navMove('down'); return; }
+    el.click();
+  }
+  navBack(start) {
+    const g = this.g, root = this.navRoot();
+    if (!root) return;
+    if (root.id === 'menu') return g.resume();
+    if (root.id === 'rules') return root.close();
+    if (root.id === 'dialog') { const opts = this.navItems(root); const bye = opts.reverse().find(o => /farewell|bye|leave|nothing|not today|just|no\b|later/i.test(o.textContent)); if (bye) bye.click(); return; }
+    if (start && root.id === 'creator') {
+      const nm = $('crName');
+      if (nm && !nm.value.trim()) { nm.value = ['Rowan', 'Kestrel', 'Bryn', 'Ash', 'Sable', 'Wren'][Math.floor(Math.random() * 6)]; nm.dispatchEvent(new Event('input')); }
+      const go = $('crGo'); if (go) go.click();
+    }
+  }
+  navTab(k) {
+    const root = this.navRoot(); if (!root || root.id !== 'menu') return;
+    const tabs = [...root.querySelectorAll('[data-tab]')], i = tabs.findIndex(t => t.classList.contains('on'));
+    const n = tabs[(Math.max(0, i) + k + tabs.length) % tabs.length]; if (n) n.click();
   }
   openMenu(tab = 'map') { $('menu').hidden = false; this.menuTab(tab); }
   closeMenu() { $('menu').hidden = true; }
@@ -341,7 +418,7 @@ export class UI {
     for (const [id, pos] of Object.entries(NPC_POS)) if (g.npcHasQuest({ npcId: id })) mark(pos[0], pos[1], '#ffd34d', 6, '!');
     const tq = g.trackedQuest(), at = tq && g.questTarget(tq.id);
     if (at && at.zone === 'world') { const [x, y] = toPx(at.x, at.z); c.fillStyle = '#ffd34d'; c.strokeStyle = '#000'; c.beginPath(); c.moveTo(x, y - 10); c.lineTo(x + 8, y); c.lineTo(x, y + 10); c.lineTo(x - 8, y); c.closePath(); c.fill(); c.stroke(); }
-    const pp = g.zone === 'world' ? g.player.pos : { x: SITES.barrow.x, z: SITES.barrow.z };
+    const pp = g.zone === 'world' ? g.player.pos : g.zone === 'inside' && g.rooms.door ? { x: g.rooms.door.x, z: g.rooms.door.z } : { x: SITES.barrow.x, z: SITES.barrow.z };
     const [px, py] = toPx(pp.x, pp.z);
     c.save(); c.translate(px, py); c.rotate(-(g.player.yaw - Math.PI) + Math.PI);
     c.fillStyle = '#fff'; c.beginPath(); c.moveTo(0, -10); c.lineTo(7, 7); c.lineTo(0, 3); c.lineTo(-7, 7); c.closePath(); c.fill(); c.stroke(); c.restore();
@@ -441,12 +518,25 @@ export class UI {
     const g = this.g, inp = () => g.input;
     const stick = $('stick'), knob = $('knob');
     let sid = null, sx = 0, sy = 0;
-    stick.addEventListener('touchstart', e => { const t = e.changedTouches[0]; sid = t.identifier; sx = t.clientX; sy = t.clientY; e.preventDefault(); }, { passive: false });
+    stick.addEventListener('touchstart', e => {
+      const t = e.changedTouches[0]; sid = t.identifier;
+      // the D-pad is fixed: direction comes from where you press on it; the joystick floats from your first touch
+      if (this.dpad) { const r = stick.getBoundingClientRect(); sx = r.left + r.width / 2; sy = r.top + r.height / 2; move(e); } else { sx = t.clientX; sy = t.clientY; }
+      e.preventDefault();
+    }, { passive: false });
     const move = e => {
       for (const t of e.changedTouches) {
         if (t.identifier === sid) {
           let dx = t.clientX - sx, dy = t.clientY - sy;
           const l = Math.hypot(dx, dy), R = 50;
+          if (this.dpad) {
+            // a digital pad: eight directions, always full speed (push far out to sprint)
+            if (l < 12) { dx = dy = 0; } else { const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4); dx = Math.cos(a) * R; dy = Math.sin(a) * R; }
+            knob.style.transform = `translate(${dx * 0.7}px, ${dy * 0.7}px)`;
+            inp().move = { x: Math.round(dx / R * 100) / 100, y: -Math.round(dy / R * 100) / 100 };
+            inp().touch.sprint = l > R * 1.5;
+            continue;
+          }
           if (l > R) { dx = (dx / l) * R; dy = (dy / l) * R; }
           knob.style.transform = `translate(${dx}px, ${dy}px)`;
           inp().move = { x: dx / R, y: -dy / R };
@@ -479,5 +569,7 @@ export class UI {
     btn('tBlock', () => { inp().touch.block = true; }, () => { inp().touch.block = false; });
     btn('tMenu', () => { g.togglePause(); });
     btn('tHorse', () => { inp().pressed.KeyH = true; });
+    btn('tLock', () => { inp().pressed.KeyT = true; });
+    try { this.setDpad(localStorage.getItem('realm.dpad') === '1'); } catch { this.setDpad(false); }
   }
 }

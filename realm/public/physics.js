@@ -20,7 +20,9 @@ export class Physics {
   }
   circle(x, z, r, tag) { return this.add({ t: 'c', x, z, r, tag }); }
   box(x, z, hw, hd, rot = 0, tag) { return this.add({ t: 'b', x, z, hw, hd, rot, c: Math.cos(rot), s: Math.sin(rot), tag }); }
-  remove(shape) { shape.dead = true; }
+  remove(shape) { shape.dead = true; this.dirty = true; }
+  // forget removed shapes (rooms come and go)
+  purge() { if (!this.dirty) return; this.dirty = false; for (const [k, list] of this.grid) { const l = list.filter(s => !s.dead); if (l.length) this.grid.set(k, l); else this.grid.delete(k); } }
   // a flat walkable surface: { x, z, hw, hd, rot, y }
   platform(p) { p.c = Math.cos(p.rot || 0); p.s = Math.sin(p.rot || 0); this.platforms.push(p); }
 
@@ -65,9 +67,9 @@ export class Physics {
   }
 
   // Is the straight line between two points blocked by a box (walls, buildings)?
-  blocked(ax, az, bx, bz) {
-    const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 1.5);
-    for (let i = 1; i < n; i++) {
+  blocked(ax, az, bx, bz, step = 1.5) {
+    const n = Math.ceil(Math.hypot(bx - ax, bz - az) / step);
+    for (let i = 1; i <= n; i++) {
       const x = ax + ((bx - ax) * i) / n, z = az + ((bz - az) * i) / n;
       for (const s of this.near(x, z)) {
         if (s.dead || s.t !== 'b' || s.low) continue;

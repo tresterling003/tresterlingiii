@@ -11,6 +11,7 @@ import { updateMob, updateVillager, updateNpc, updateHorse, updateAlly } from '.
 import { UI, isTouch } from './ui.js';
 import { Sfx } from './sfx.js';
 import { Net } from './net.js';
+import { Rooms, ROOM_NAME } from './interiors.js';
 
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const $ = id => document.getElementById(id);
@@ -40,6 +41,8 @@ class Game {
     this.input = new Input(canvas);
     try { const s = localStorage.getItem('realm.sens'); if (s) this.input.sens = +s; } catch { /* fine */ }
     this.ui = new UI(this);
+    this.rooms = new Rooms(this);
+    this.input.onPad = () => this.ui.toast('🎮 Controller connected — press Start for the controls list.', 'good');
     this.entities = [];
     this.pickups = [];
     this.points = []; // fixed interaction spots: chests, stalls, doors, shrines
@@ -207,6 +210,16 @@ class Game {
     this.points.push({ id: 'barrowdoor', get x() { return this.g.scenery.barrowDoor.x; }, get z() { return this.g.scenery.barrowDoor.z; }, g: this, label: 'Examine the Barrow door', zone: 'world', range: 4, act: () => this.talkTo({ name: 'The Barrow Door', def: { title: '' } }, 'barrowdoor') });
     const [ex, ez] = DUNGEON_START;
     this.points.push({ id: 'exit', x: ex, z: ez + 1.5, label: 'Leave the Barrow', zone: 'barrow', range: 3, act: () => this.leaveBarrow() });
+    // every house, tavern, smithy, church, castle, barracks and tower can be walked into
+    const LORDS = { emberfall: 'Queen Isolde', solmara: 'Sultana Ravi', frosthold: 'Jarl Haldor', tidewatch: 'Lord Admiral Penn' };
+    const TINT = { red: '#ff9a8a', blue: '#8fb3ff', green: '#9ae0a0', yellow: '#ffe08a' };
+    for (const dr of this.scenery.doors) {
+      dr.tint = TINT[dr.color]; dr.lord = LORDS[dr.sid] || 'the Reeve';
+      dr.title = `${dr.town} — ${{ home: 'a house', tavern: 'the tavern', smith: 'the smithy', church: 'the church', castle: 'the great hall', barracks: 'the barracks', tower: 'the tower' }[dr.kind]}`;
+      this.points.push({ id: 'door_' + dr.id, door: dr, x: dr.x, z: dr.z, label: `Go into ${ROOM_NAME[dr.kind]}`, zone: 'world', range: 2.6, act: () => this.rooms.enter(dr) });
+    }
+    this.doorGrid = new Map();
+    for (const dr of this.scenery.doors) for (const ox of [-1, 0, 1]) for (const oz of [-1, 0, 1]) { const k = (Math.floor(dr.x / 20) + ox) + ',' + (Math.floor(dr.z / 20) + oz); if (!this.doorGrid.has(k)) this.doorGrid.set(k, []); this.doorGrid.get(k).push(dr); }
     for (const s of SHRINES) this.points.push({ id: 'shrine_' + s.id, x: s.x, z: s.z, label: 'Touch the shrine', zone: 'world', range: 3.2, shrine: s, act: () => this.touchShrine(s) });
   }
   addEntity(o) {
@@ -284,7 +297,7 @@ class Game {
     for (const path of plan.patrols) { const e = this.spawnMob('watch', path[0][0], path[0][1], { patrol: path, tint }); c.ents.push(e); }
     for (const [gx, gz] of plan.gates || []) {
       const a = Math.atan2(gz - s.z, gx - s.x);
-      for (const side of [-1, 1]) { const b = a + side * 0.03, x = s.x + Math.cos(b) * (s.r - 7), z = s.z + Math.sin(b) * (s.r - 7); const e = this.spawnMob('watch', x, z, { tint }); e.rot = Math.atan2(gx - s.x, gz - s.z); e.post = true; c.ents.push(e); }
+      for (const side of [-1, 1]) { const b = a + side * 0.03, x = s.x + Math.cos(b) * (s.r - 7), z = s.z + Math.sin(b) * (s.r - 7); const e = this.spawnMob('watch', x, z, { tint }); e.rot = e.postRot = Math.atan2(gx - s.x, gz - s.z); e.post = true; c.ents.push(e); }
     }
     if (plan.stable) for (let i = 0; i < 3; i++) {
       const st = plan.stable;
@@ -343,11 +356,12 @@ class Game {
     const dt = rdt * (this.slowT > 0 ? 0.3 : 1);
     this.adapt(rdt);
     if (this.state !== 'play') this.cull(this.state === 'creator' && this.preview ? this.preview.root.position : this.plaza());
+    this.input.poll(Math.min(rdt, 0.1), this.ui.nav);
     if (this.state === 'play' && !this.paused) { for (let i = 0; i < (this.speedup || 1); i++) if (this.state === 'play' && !this.paused) this.tick(dt); }
     else if (this.state === 'title' || this.state === 'creator' || this.state === 'loading') this.idleCamera(rdt);
     const focus = this.player ? this.player.pos : this.state === 'creator' && this.preview ? this.preview.root.position : this.plaza();
     this.scenery.update(rdt, focus);
-    this.scenery.setTime(this.time, focus, this.zone === 'barrow');
+    this.scenery.setTime(this.time, focus, this.zone);
     this.fx.update(dt, (pos, p) => this.projectileHit(pos, p));
     if (this.state === 'play' || this.state === 'creator') this.entities.forEach(e => { if (e.preview || (this.state === 'creator' && e.near)) e.actor.update(dt); });
     if (this.state === 'play') this.ui.hud();
@@ -408,7 +422,9 @@ class Game {
 
   tick(dt) {
     const p = this.player, h = this.hero;
+    const t0 = this.time;
     this.time = (this.time + dt / DAY_SECS) % 1;
+    if (this.time < t0) h.dayCount = (h.dayCount || 0) + 1;
     h.time = this.time;
     const frozen = this.cineActive || this.talking || this.state !== 'play';
     if (!frozen && this.input.hit('Escape', 'KeyP')) return this.togglePause();
@@ -455,11 +471,47 @@ class Game {
     this.updatePickups(dt);
     this.autoTalk();
     this.updatePrompt();
+    this.walkIn();
+    this.rooms.update(dt);
     if (this.net) this.net.tick(dt);
     if ((this.saveT = (this.saveT || 0) + dt) > 20) { this.saveT = 0; this.save(); }
     if (this.input.hit('KeyV')) this.sfx.setMuted(!this.sfx.muted);
   }
   day() { return this.time + (this.hero.dayCount || 0); }
+  // a night's sleep at the inn: wake at dawn, fully rested
+  async restNight() {
+    const h = this.hero;
+    this.ui.fade(true);
+    await sleep(700);
+    if (this.time > 0.27) h.dayCount = (h.dayCount || 0) + 1;
+    this.time = 0.27; h.time = this.time;
+    this.healPlayer(999, true);
+    this.player.stamina = 100;
+    this.save();
+    await sleep(500);
+    this.ui.fade(false);
+    this.ui.toast('You sleep soundly and wake at dawn, fully rested.', 'good');
+  }
+  // the drill sergeant teaches swordplay: a practice bout with a blunted blade
+  spar() {
+    const p = this.player, R = this.rooms;
+    const e = this.spawnMob('sparring', p.pos.x - 3, p.pos.z - 3, { zone: this.zone });
+    e.state = 'chase'; e.alerted = true; e.spar = true;
+    if (R && R.ents) R.ents.push(e);
+    this.ui.toast('Block (right mouse) just as the blow lands to PARRY, then strike back for a counter!', 'good');
+  }
+  // walking into a front door takes you inside
+  walkIn() {
+    const p = this.player;
+    if (this.zone !== 'world' || p.mount || p.state !== 'move' || this.rooms.busy || this.talking || this.cineActive) return;
+    const list = this.doorGrid.get(Math.floor(p.pos.x / 20) + ',' + Math.floor(p.pos.z / 20));
+    if (!list) return;
+    for (const dr of list) {
+      if (Math.hypot(p.pos.x - dr.x, p.pos.z - dr.z) > 1.9) continue;
+      const into = -(p.vel.x * Math.sin(dr.rot) + p.vel.z * Math.cos(dr.rot));
+      if (into > 1.5) { this.rooms.enter(dr); return; }
+    }
+  }
   rise(e, dt) {
     if (e.dormant) {
       // skeletons sleep under the floor until you come close
@@ -542,6 +594,38 @@ class Game {
     if (e.type === 'villager' && !e.hurtCrime) { e.hurtCrime = true; setTimeout(() => { e.hurtCrime = false; }, 4000); this.crime(1, 'assault', e.pos); }
     if (e.type === 'mob' && e.team === 'town' && !this.isHostile(e)) { e.angry = true; this.crime(2, 'attacking the watch', e.pos); }
     if (e.neutral) return;
+    // ---- swordplay: counters, guards, guard breaks
+    const melee = o.kind === 'weapon' && (C.style === 'melee' || p.mount);
+    const open = e.type === 'mob' && (e.stunT > 0 || e.frozenT > 0);
+    const now = p.clock;
+    if (melee && e.type === 'mob' && (open || p.counterT > 0)) { o.crit = true; o.sure = true; o.name = 'COUNTER'; p.counterT = 0; }
+    else if (melee && e.type === 'mob' && e.def.guard && e.state !== 'windup' && e.state !== 'rising') {
+      e.streak = now - (e.streakAt || -9) < 1.4 ? (e.streak || 0) + 1 : 0;
+      e.streakAt = now;
+      const toP = Math.atan2(p.pos.x - e.pos.x, p.pos.z - e.pos.z), facing = Math.abs(Math.atan2(Math.sin(e.rot - toP), Math.cos(e.rot - toP))) < 1.25;
+      const chance = Math.min(0.85, e.def.guard + e.streak * 0.2); // hammering away just makes them turtle up
+      if (facing && Math.random() < chance) {
+        const at = e.pos.clone().add(V3(0, 1.4 * (e.def.scale || 1), 0)).lerp(p.pos.clone().add(V3(0, 1.4, 0)), 0.35);
+        if (o.heavy) {
+          this.fx.text(at.clone().add(V3(0, 1.4, 0)), 'GUARD BREAK!', 'crit big');
+          this.sfx.clang(); this.sfx.boom && this.sfx.boom(); this.shake(0.3);
+          this.fx.burst(at, 0xffd070, 26, 6, 1.2);
+          this.stun(e, e.def.boss ? 1.2 : 1.6, true);
+          o.sure = true;
+        } else {
+          this.fx.text(at.clone().add(V3(0, 1.2, 0)), 'blocked', 'miss');
+          this.sfx.clang();
+          this.fx.burst(at, 0xffe0a0, 12, 4, 0.6);
+          if (!e.actor.procedural) e.actor.once('Block_Hit', 1.4);
+          this.hitstop = 0.06;
+          p.vel.addScaledVector(p.pos.clone().sub(e.pos).setY(0).normalize(), 4);
+          p.stamina = Math.max(0, p.stamina - 6);
+          e.cd = Math.min(e.cd, 0.25); // and they answer straight back
+          if (e.state === 'idle' || e.state === 'wander') { e.state = 'chase'; this.alert(e); }
+          return;
+        }
+      }
+    }
     const dd = d(20), bonus = this.attackBonus();
     let armor = e.armor - (e.bossId === 'boneking' && h.flags.aldous === 'crack' ? 3 : 0);
     const crit = o.crit || dd === 20;
@@ -560,13 +644,17 @@ class Game {
     let sneak = 0;
     if (h.cls === 'rogue' && (unaware || o.name === 'Backstab')) { sneak = roll(2, 6); dmg += sneak; }
     if (p.rageT > 0) dmg = Math.round(dmg * 1.5);
+    if (o.heavy) dmg *= 1.7; else if (o.finisher) dmg *= 1.3;
+    // big blows knock ordinary foes off balance
+    if (e.type === 'mob' && !e.def.boss && !e.dead && (o.heavy || (o.finisher && Math.random() < 0.5)) && e.stunT <= 0 && o.name !== 'COUNTER') this.stun(e, o.heavy ? 0.9 : 0.5, true);
     if (o.fire || this.hasFire() || C.style === 'magic' && o.kind === 'weapon' && false) e.burnT = 5;
     if (o.fire) e.burnT = 5;
     if (p.rageT > 0) this.healPlayer(Math.ceil(dmg * 0.25), true);
     dmg = Math.max(1, Math.round(dmg));
     const label = (o.sure ? '' : `🎲${dd}${crit ? '' : '+' + bonus} `) + (crit ? `CRITICAL! −${dmg}` : `−${dmg}`) + (sneak ? ' sneak!' : '');
     this.fx.text(head, (o.name ? o.name + ' ' : '') + label, crit ? 'crit big' : 'dmg');
-    if (crit) { this.slowT = 0.35; this.shake(0.4); this.ui.flash('#fff3c0', 220); this.sfx.crit(); } else this.hitstop = 0.05;
+    if (crit) { this.slowT = 0.35; this.shake(0.4); this.ui.flash('#fff3c0', 220); this.sfx.crit(); } else this.hitstop = o.heavy ? 0.11 : 0.05;
+    if (e.spar && e.hp - dmg <= 0) { dmg = Math.max(0, e.hp - 1); this.endSpar(e, true); }
     this.sfx.hit();
     this.ui.hitMarker(crit);
     this.fx.burst(head.clone().add(V3(0, -0.5, 0)), o.fire || e.burnT > 4.9 ? 0xff7a20 : e.def.undead ? 0xd8d8c8 : 0xff3030, crit ? 22 : 10, 4, 2);
@@ -634,18 +722,67 @@ class Game {
   // Something hits you (or the ghost knight).
   mobHits(e, tgt, o = {}) {
     if (tgt.ally) { const a = tgt.ally; a.actor.flash(0xff4040, 100); return; }
-    const p = this.player, def = e.def;
+    const p = this.player, def = e.def, h = this.hero, C = CLASSES[h.cls];
     if (this.net && this.net.host && tgt.peer) return this.net.hurtGuest(tgt.peer, e);
-    if (p.iframes > 0) { this.fx.text(p.pos.clone().add(V3(0, 2.6, 0)), 'Dodged!', 'miss'); return; }
-    const dd = d(20), armor = this.armor() + (p.blocking ? 2 : 0);
-    const crit = dd === 20, hit = crit || (dd !== 1 && dd + def.hit >= armor);
     const head = p.pos.clone().add(V3(0, 2.6, 0));
-    if (!hit) { this.fx.text(head, `🎲${dd} blocked`, 'miss small'); this.sfx.clang(); return; }
+    const toE = Math.atan2(e.pos.x - p.pos.x, e.pos.z - p.pos.z);
+    const facing = Math.abs(Math.atan2(Math.sin(p.rot - toE), Math.cos(p.rot - toE))) < 1.4;
+    // rolled out of the way — right at the last instant, and time slows for your answer
+    if (p.iframes > 0) {
+      if (p.dodgeAge < 0.24 && !o.ranged) {
+        this.fx.text(head, 'PERFECT DODGE', 'parry');
+        this.slowT = 0.5; p.counterT = 1.4; p.stamina = Math.min(100, p.stamina + 15);
+        this.sfx.chime && this.sfx.chime(); this.ui.flash('rgba(140,220,255,.35)', 220);
+      } else this.fx.text(head, 'Dodged!', 'miss');
+      return;
+    }
+    // a guard raised just as the blow lands is a parry: no damage, and they are wide open
+    if (p.blocking && facing && !o.unblockable) {
+      if (p.blockT < 0.24) {
+        const at = p.pos.clone().add(V3(0, 1.5, 0)).lerp(e.pos.clone().add(V3(0, 1.5, 0)), 0.4);
+        this.fx.text(head, 'PARRY!', 'parry');
+        this.fx.burst(at, 0xfff0a0, 30, 7, 1.2);
+        this.sfx.clang(); this.sfx.crit();
+        this.hitstop = 0.12; this.slowT = Math.max(this.slowT, 0.3); this.shake(0.2);
+        p.stamina = Math.min(100, p.stamina + 12);
+        p.actor.once('Block_Hit', 1.6, 'Blocking');
+        if (!o.ranged) this.stun(e, def.boss ? 0.9 : 1.7, true);
+        p.counterT = Math.max(p.counterT, 1.2);
+        return;
+      }
+      const raw = roll(def.dmg[0], def.dmg[1], def.dmg[2]);
+      let dmg = Math.ceil(raw * C.block);
+      p.stamina -= 8 + raw * 1.4; p.staminaWait = 0.8;
+      this.sfx.clang();
+      if (p.stamina <= 0) {
+        p.stamina = 0; dmg = Math.ceil(raw * 0.7);
+        this.fx.text(head, `GUARD BROKEN −${dmg}`, 'hurt');
+        p.stagger(0.9, e.pos);
+      } else { p.actor.once('Block_Hit', 1.4, 'Blocking'); this.fx.text(head, `blocked −${dmg}`, 'hurt small'); p.vel.addScaledVector(p.pos.clone().sub(e.pos).setY(0).normalize(), 3); }
+      this.hurtPlayer(dmg, e);
+      return;
+    }
+    const dd = d(20), armor = this.armor();
+    const crit = dd === 20, hit = crit || (dd !== 1 && dd + def.hit >= armor);
+    if (!hit) { this.fx.text(head, `🎲${dd} glances off your armor`, 'miss small'); this.sfx.clang(); return; }
     let dmg = roll(def.dmg[0], def.dmg[1], def.dmg[2]) * (crit ? 2 : 1);
-    const facing = Math.abs(Math.atan2(Math.sin(p.rot - Math.atan2(e.pos.x - p.pos.x, e.pos.z - p.pos.z)), Math.cos(p.rot - Math.atan2(e.pos.x - p.pos.x, e.pos.z - p.pos.z)))) < 1.4;
-    if (p.blocking && facing) { dmg = Math.ceil(dmg * CLASSES[this.hero.cls].block); p.stamina -= 12; this.sfx.clang(); p.actor.once('Block_Hit', 1.4, 'Blocking'); this.fx.text(head, `blocked −${dmg}`, 'hurt small'); }
-    else { if (dmg > this.maxHp() * 0.14 || crit) p.stagger(0.32, e.pos); this.fx.text(head, (crit ? 'CRIT! ' : '') + `−${dmg}`, 'hurt'); }
+    if (dmg > this.maxHp() * 0.14 || crit || p.state === 'attack' && p.heavy) p.stagger(0.32, e.pos);
+    this.fx.text(head, (crit ? 'CRIT! ' : '') + `−${dmg}`, 'hurt');
     this.hurtPlayer(dmg, e);
+  }
+  // the end of a practice bout
+  endSpar(e, won) {
+    if (e.sparDone) return;
+    e.sparDone = true;
+    const h = this.hero;
+    e.neutral = true; e.state = 'idle';
+    this.fx.text(e.pos.clone().add(V3(0, 2.8, 0)), won ? '"Enough! Well fought."' : '"Yield! Back on your feet."', 'say');
+    if (won) {
+      const today = Math.floor(this.day());
+      if (h.flags.sparDay !== today) { h.flags.sparDay = today; this.gainXP(30, e.pos); }
+      this.ui.toast('You won the bout!', 'good');
+    } else { h.hp = Math.max(h.hp, Math.ceil(this.maxHp() * 0.3)); this.ui.toast('You lost the bout. Watch for the wind-up, then parry.', 'bad'); }
+    setTimeout(() => { if (this.entities.includes(e)) this.removeEntity(e); }, 2500);
   }
   // A big attack on an area. Inside it? Make a saving throw for half.
   areaHit(e, at, r, dmg, name, o = {}) {
@@ -666,6 +803,7 @@ class Game {
     const h = this.hero, p = this.player;
     if (p.state === 'dead') return;
     if (p.rageT > 0) dmg = Math.ceil(dmg * 0.75);
+    if (src && src.spar) { if (h.hp - dmg < this.maxHp() * 0.2) { this.endSpar(src, false); return; } }
     h.hp -= dmg;
     p.hurtT = 0.3;
     this.ui.flash('rgba(200,0,0,.55)', 380);
@@ -691,7 +829,12 @@ class Game {
     if (!p.mount) p.actor.once('Use_Item', 1.6);
     this.sfx.chime();
   }
-  stun(e, s) { if (e.def.boss) s *= 0.5; e.stunT = s; e.state = e.state === 'windup' ? 'chase' : e.state; this.fx.text(e.pos.clone().add(V3(0, 2.8 * (e.def.scale || 1), 0)), '★ stunned', 'miss small'); }
+  stun(e, s, offBalance) {
+    if (e.def.boss) s *= 0.5;
+    e.stunT = s; e.state = e.state === 'windup' ? 'chase' : e.state;
+    this.fx.text(e.pos.clone().add(V3(0, 2.8 * (e.def.scale || 1), 0)), offBalance ? 'OFF BALANCE' : '★ stunned', offBalance ? 'warn' : 'miss small');
+    if (!e.actor.procedural) e.actor.once(Math.random() < 0.5 ? 'Hit_A' : 'Hit_B', 0.8);
+  }
   freeze(e, s) { if (e.def.boss) s *= 0.5; e.frozenT = s; e.actor.setTint(0x9fe8ff, 0.75); }
   shake(p) { this.shakeT = 0.3; this.shakeP = p; }
   flash(c, ms) { this.ui.flash(c, ms); }
@@ -716,13 +859,13 @@ class Game {
           return e;
         }
       }
-      if (pos.y < this.phys.ground(pos.x, pos.z) + 0.2 || (this.zone === 'barrow' && this.phys.blocked(pos.x - 0.3, pos.z - 0.3, pos.x + 0.3, pos.z + 0.3))) { if (p.aoe) this.explode(pos, p.aoe); return true; }
+      if (pos.y < this.phys.ground(pos.x, pos.z) + 0.2 || (this.zone !== 'world' && this.phys.blocked(pos.x - 0.3, pos.z - 0.3, pos.x + 0.3, pos.z + 0.3))) { if (p.aoe) this.explode(pos, p.aoe); return true; }
       return null;
     }
     const pl = this.player;
     if (pl.state !== 'dead' && segPoint(p.prev || pos, pos, pl.pos.clone().add(V3(0, 1.2, 0))) < 1.2) {
       const e = p.by;
-      if (e && e.def) this.mobHits(e, { pos: pl.pos, player: true });
+      if (e && e.def) this.mobHits(e, { pos: pl.pos, player: true }, { ranged: true });
       return true;
     }
     if (pos.y < this.phys.ground(pos.x, pos.z) + 0.1) return true;
@@ -808,6 +951,7 @@ class Game {
     this.entities.filter(e => e.extraGuard || e.summoned).forEach(e => this.removeEntity(e));
     this.clearBounty();
     // wake at the nearest shrine you know
+    if (this.zone === 'inside' && this.rooms.door) p.pos.set(this.rooms.door.ox, 0, this.rooms.door.oz);
     if (this.zone === 'barrow') { const [x, z] = DUNGEON_START; this.teleport(x, z - 2, 'barrow'); }
     else {
       let best = SHRINES[0], bd = Infinity;
@@ -823,6 +967,7 @@ class Game {
 
   // ================================================================== moving about
   teleport(x, z, zone) {
+    if (this.zone === 'inside' && zone !== 'inside') this.rooms.clear();
     this.zone = zone;
     const p = this.player;
     p.pos.set(x, 0, z);
@@ -861,7 +1006,7 @@ class Game {
     const h = this.hero, p = this.player;
     const horse = this.entities.find(e => e.type === 'horse' && e.owned);
     if (!horse) { this.ui.toast('You have no horse. Old Tom at the stables sells them — or you could "borrow" one.'); return; }
-    if (this.zone !== 'world') { this.ui.toast('Your horse will not come into the Barrow.'); return; }
+    if (this.zone !== 'world') { this.ui.toast(this.zone === 'inside' ? 'Your horse will not fit through the door.' : 'Your horse will not come into the Barrow.'); return; }
     this.sfx.whistle();
     this.fx.text(p.pos.clone().add(V3(0, 2.8, 0)), '♪ whistle', 'say');
     if (horse.pos.distanceTo(p.pos) > 70) { const a = p.yaw; horse.pos.set(p.pos.x + Math.sin(a) * 35, 0, p.pos.z + Math.cos(a) * 35); horse.pos.y = this.phys.ground(horse.pos.x, horse.pos.z); }
@@ -1297,7 +1442,12 @@ class Game {
       openBarrow: () => g.openBarrow(), endMain: k => g.endMain(k), hurtHero: n => g.hurtPlayer(n, null), healHero: n => g.healPlayer(n),
       stealDC: () => 12 + (g.entities.some(e => e.team === 'town' && !e.dead && e.pos.distanceTo(g.player.pos) < 15) ? 3 : 0) - (h.bg === 'outlaw' ? 3 : 0),
       stealLoot: () => { if (Math.random() < 0.5) { h.potions++; g.ui.toast('Swiped a potion'); } else { const n = 10 + Math.floor(Math.random() * 16); h.gold += n; g.ui.toast(`Swiped ${n} gold`); g.sfx.coin(); } },
-      crime: (n, k) => g.crime(n, k),
+      crime: (n, k) => g.crime(n, k, g.player.pos),
+      isNight: () => g.scenery.dayK < 0.3, town: () => (g.rooms.door ? g.rooms.door.town : 'here'), lord: () => (g.rooms.door ? g.rooms.door.lord : ''),
+      leaveRoom: () => setTimeout(() => g.rooms.exit(), 50),
+      rob: () => { const n = 8 + Math.floor(Math.random() * 25); h.gold += n; g.ui.toast(`+${n} gold`); g.sfx.coin(); g.crime(1, 'robbery', g.player.pos); },
+      rest: () => g.restNight(), pray: () => g.rooms.pray(), level: () => h.level,
+      spar: () => g.spar(),
     };
   }
   async pickpocket(e) {
@@ -1379,8 +1529,8 @@ class Game {
   save() {
     if (!this.hero || !this.player || (this.net && this.net.guest)) return;
     const h = this.hero, p = this.player;
-    const inB = this.zone === 'barrow';
-    h.pos = inB ? [this.scenery.barrowDoor.x, this.scenery.barrowDoor.z + 4] : [Math.round(p.pos.x * 10) / 10, Math.round(p.pos.z * 10) / 10];
+    const inB = this.zone === 'barrow', inR = this.zone === 'inside' && this.rooms.door;
+    h.pos = inR ? [this.rooms.door.ox, this.rooms.door.oz] : inB ? [this.scenery.barrowDoor.x, this.scenery.barrowDoor.z + 4] : [Math.round(p.pos.x * 10) / 10, Math.round(p.pos.z * 10) / 10];
     h.zone = 'world';
     h.yaw = p.yaw;
     const horse = this.entities.find(e => e.type === 'horse' && e.owned);

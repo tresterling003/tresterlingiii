@@ -97,6 +97,8 @@
       <li>A <b>natural 20</b> is a <b>critical hit</b>: double damage dice, and time slows for a moment.</li>
       <li>A <b>natural 1</b> always misses. It happens to everyone.</li>
       <li>Monsters roll against <b>your</b> armor too. Dodge-rolling makes you untouchable for an instant. Blocking soaks up most of a hit from the front.</li>
+      <li><b>Skill beats mashing.</b> Every swing, block and roll costs <b>stamina</b>. Tap to attack (three quick blows chain into a combo), or <b>hold and release</b> for a heavy blow that smashes through a raised shield.</li>
+      <li>Enemies <b>flash orange and show a "!"</b> just before they swing. Raise your block right then to <b>PARRY</b> — no damage, and they stagger. Hit a staggered foe for a <b>COUNTER</b>: always a critical. Roll at the last instant for a <b>perfect dodge</b> — same reward.</li>
       <li>Big attacks glow as a <b>red circle</b> on the ground first. Get out! If you are still inside, you make a <b>saving throw</b> — a d20 roll that halves the damage if you make it.</li>
     </ul>
   </section>
@@ -162,6 +164,7 @@
       <button id="tPotion" class="tb">🧪</button>
       <button id="tUse" class="tb use">✋</button>
       <button id="tHorse" class="tb">🐴</button>
+      <button id="tLock" class="tb">🎯</button>
     </div>
     <button id="tMenu" class="tb menu">☰</button>
   </div>
@@ -202,10 +205,15 @@
     <div class="pane" data-pane="hero"><div id="sheet"></div></div>
     <div class="pane" data-pane="controls">
       <div class="keys">
-        <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Q</kbd> dodge</div>
-        <div><kbd>Left click</kbd> attack · <kbd>Right click</kbd> block · <kbd>1</kbd>/<kbd>2</kbd> abilities · <kbd>R</kbd> potion</div>
-        <div><kbd>E</kbd> interact / ride · <kbd>H</kbd> whistle · <kbd>M</kbd> map · <kbd>J</kbd> quests · <kbd>C</kbd> hero · <kbd>V</kbd> sound · <kbd>Esc</kbd> pause</div>
+        <div><kbd>WASD</kbd> move · <kbd>Mouse</kbd> look · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>Q</kbd> / <kbd>Ctrl</kbd> dodge roll</div>
+        <div><kbd>Click</kbd> light attack · <kbd>Hold &amp; release</kbd> heavy attack (breaks guards) · <kbd>Right mouse</kbd> block (aim, for bow and magic)</div>
+        <div><b>Parry:</b> raise your block just as a blow lands (watch for the orange flash and <b>!</b>). Then hit back for a <b>counter</b> — always a critical.</div>
+        <div><b>Perfect dodge:</b> roll at the last instant — time slows and your next blow is a counter. Every swing, block and roll costs <b>stamina</b>.</div>
+        <div><kbd>T</kbd> / <kbd>Middle mouse</kbd> lock on · <kbd>1</kbd>/<kbd>2</kbd> abilities · <kbd>R</kbd> potion · <kbd>E</kbd> interact / ride / enter</div>
+        <div>Walk into any front door to go inside. <kbd>H</kbd> whistle · <kbd>M</kbd> map · <kbd>J</kbd> quests · <kbd>C</kbd> hero · <kbd>V</kbd> sound · <kbd>Esc</kbd> pause</div>
+        <div class="small"><b>🎮 Controller:</b> left stick / D-pad move · right stick look · RT attack (hold = heavy) · LT block &amp; parry (aim) · A jump · B dodge · X interact · Y potion · LB/RB abilities · L3 sprint · R3 lock on · Start pause · Back map. In menus: D-pad to pick, A to choose, B to go back.</div>
       </div>
+      <div class="row small">Touch movement: <button id="mStick" class="btn">🕹️ Joystick</button></div>
       <label class="small">Look sensitivity <input id="sens" type="range" min="0.3" max="2.5" step="0.1" value="1"></label>
       <div class="row"><button id="mSave" class="btn">💾 Save</button><button id="mQuit" class="btn">Save &amp; quit to title</button></div>
     </div>

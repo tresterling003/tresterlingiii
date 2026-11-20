@@ -100,11 +100,16 @@ export const MONSTERS = {
   boneking: { name: 'The Bone King', title: 'Wearer of the Ash Crown', model: 'chanter', gear: ['Skeleton_Staff'], scale: 1.85, crown: true, boss: true, hp: 340, armor: 15, hit: 7, dmg: [2, 8, 4], speed: 5.2, reach: 3.6, aggro: 30, xp: 650, gold: [200, 200],
     kind: 'melee', undead: true, attacks: ['2H_Melee_Attack_Chop', '2H_Melee_Attack_Slice'], special: 'king', loot: [] },
   // the town watch: only hostile when you are wanted, or if you attack them
+  sparring: { name: 'Sparring Partner', model: 'knight', tint: '#c8c8c8', gear: ['1H_Sword', 'Round_Shield'], hp: 45, armor: 13, hit: 3, dmg: [1, 4, 0], speed: 5.5, reach: 2.4, aggro: 30, xp: 0, gold: [0, 0], kind: 'melee', team: 'monster', guard: 0.45,
+    attacks: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop', '1H_Melee_Attack_Stab'] },
   watch: { name: 'Town Guard', model: 'knight', tint: '#8fb3ff', gear: ['1H_Sword', 'Badge_Shield'], hp: 40, armor: 16, hit: 5, dmg: [1, 8, 2], speed: 6.9, reach: 2.6, aggro: 40, xp: 0, gold: [0, 4], kind: 'melee', team: 'town',
     attacks: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop'] },
 };
 
 // ---- the people of the realm. pos is [x, z] in the overworld.
+// how often each foe raises its guard against light blows (heavy blows break guards)
+for (const [k, v] of Object.entries({ bandit: 0.22, raider: 0.22, watch: 0.38, guardian: 0.42, varg: 0.28, grub: 0.25, sparring: 0.42, bones: 0.12 })) if (MONSTERS[k]) MONSTERS[k].guard = v;
+
 export const NPCS = {
   maren: { name: 'Elder Maren', model: 'mage', tint: '#c9b8e6', gear: ['Spellbook'], hat: true, pos: [3, 80], face: 0, idle: 'Idle', title: 'Village Elder' },
   hale: { name: 'Captain Hale', model: 'knight', tint: '#8fb3ff', gear: ['1H_Sword', 'Badge_Shield'], hat: true, pos: [20, 36], face: 1.6, title: 'Captain of the Watch' },
@@ -155,6 +160,16 @@ export const QUESTS = {
 // ---- dialogue. A node is { text, options:[{ t, next, do, check:{stat,dc}, ok, fail, cost, if, end }] }
 // ok / fail are nodes too. `do(g)` runs when the option (or outcome) is chosen.
 const bye = (t = 'Farewell.') => ({ t, end: true });
+const RUMOURS = [
+  '"They say the Bone King was a good man once. Nobody remembers his name, which is the sad part."',
+  '"Solmara\'s markets sell spices you cannot find anywhere else. And sand. Lots of sand."',
+  '"Frosthold\'s Jarl wrestles bears for fun. The bears have started to avoid him."',
+  '"Tidewatch ships sail clear across the western lake. Mind the deep water — you will sink in armour."',
+  '"Trolls hate fire. Wyverns hate being looked at. Bandits hate paying taxes, same as everyone."',
+  '"If the watch is after you, duck into a house. Out of sight is out of mind — mostly."',
+  '"Shrines out in the wilds will heal you, and once you have touched one you can travel back to it."',
+  '"Old Tom at the Emberfall stables sells horses. Or so I hear. I walk everywhere."',
+];
 export const DIALOGUE = {
   maren: g => {
     const s = g.step('main');
@@ -300,6 +315,58 @@ export const DIALOGUE = {
       bye('Leave') ] };
     return { text: 'The Grave Key fits the keyhole as if the door has been waiting for it.', options: [{ t: 'Enter the Barrow', do: g => g.openBarrow(), end: true }, bye('Not yet')] };
   },
+
+  // ---------------------------------------------------------------- people indoors
+  resident: g => {
+    const rob = { t: 'Hand over your coin. (Intimidate)', check: { stat: 'might', dc: 13 },
+      ok: { text: 'They go pale and push a purse across the table.', do: g => g.rob() },
+      fail: { text: '"HELP! THIEF! GUARDS!"', do: g => g.crime(1, 'robbery') } };
+    if (g.bounty > 0) return { text: '"You — you are the one the watch is looking for! Get out of my house!"', options: [
+      { t: 'You never saw me. (Intimidate)', check: { stat: 'might', dc: 12 }, ok: { text: 'They nod very quickly and stare at the floor.' }, fail: { text: '"GUARDS! In here!"', do: g => g.crime(1, 'trespassing') } },
+      { t: 'I am leaving.', do: g => g.leaveRoom(), end: true } ] };
+    if (g.isNight()) return { text: '"What — who are you? It is the middle of the night! Get out of my house!"', options: [
+      { t: 'Sorry. Wrong door.', do: g => g.leaveRoom(), end: true },
+      { t: 'I just need somewhere warm to sit. (Persuade)', check: { stat: 'charm', dc: 12 }, ok: { text: '"…Fine. By the fire. Touch nothing."' }, fail: { text: '"OUT!"', do: g => g.leaveRoom() } },
+      rob ] };
+    const hello = ['"Oh! A visitor. Mind the floor, I just swept it."', '"Can I help you? Door was open, I suppose."', `"Welcome to ${g.town()}, traveller. Not many folk knock these days."`, '"If you are selling something, I am not buying."'];
+    return { text: hello[Math.floor(Math.random() * hello.length)], options: [
+      { t: 'Heard any news?', next: () => ({ text: RUMOURS[Math.floor(Math.random() * RUMOURS.length)], options: [bye('Thanks.')] }) },
+      rob, bye('Just passing through.') ] };
+  },
+  barkeep: g => ({ text: `"Welcome to the best tavern in ${g.town()}. Also the only one with a roof that does not leak. What will it be?"`, options: [
+    { t: 'A mug of ale (5 gold) — restores a little health', if: g => g.gold >= 5, do: g => { g.pay(5); g.healHero(10 + g.level() * 2); g.toast('Ahh. That hits the spot.'); }, next: 'barkeep' },
+    { t: 'A healing potion (25 gold)', if: g => g.gold >= 25, do: g => { g.pay(25); g.addPotions(1); }, next: 'barkeep' },
+    { t: 'Rent a room for the night (15 gold) — sleep until dawn', if: g => g.gold >= 15, do: g => { g.pay(15); g.rest(); }, end: true },
+    { t: 'Heard any rumours?', next: () => ({ text: RUMOURS[Math.floor(Math.random() * RUMOURS.length)], options: [bye('Interesting.')] }) },
+    bye('Nothing for now.') ] }),
+  smithy: g => {
+    const tier = g.flag('smith') || 0, cost = [60, 140, 260][tier];
+    return { text: `"Steel for sale, steel sharpened, steel straightened after you bent it on a troll. ${g.town()} folk swear by my work."`, options: [
+      ...(tier < 3 ? [{ t: `Sharpen my weapon, +1 damage (${cost} gold)`, if: g => g.gold >= cost, do: g => { g.pay(cost); g.setFlag('smith', tier + 1); g.toast(`Weapon upgraded: +${tier + 1} damage`); }, next: 'smithy' }] : []),
+      { t: 'Any tips for a fight?', next: () => ({ text: '"Swinging wildly gets you killed. Watch for the wind-up — when they flash, block right then and you will knock them off balance. Then you go in. Hard."', options: [bye('Got it.')] }) },
+      bye() ] };
+  },
+  priest: g => ({ text: '"Peace be with you, child. The light keeps no doors locked."', options: [
+    { t: 'Bless me (once a day) — fully heals you', do: g => g.pray(), end: true },
+    { t: 'Donate 30 gold (+1 Fate)', if: g => g.gold >= 30 && g.fateCount < 3, do: g => { g.pay(30); g.addFate(1); }, next: 'priest' },
+    { t: `Confess my crimes and pay the fine (${g.fine()} gold)`, if: g => g.bounty > 0 && g.gold >= g.fine(), do: g => { g.pay(g.fine()); g.clearBounty(); g.toast('Your slate is wiped clean.'); }, end: true },
+    bye('Thank you.') ] }),
+  lord: g => {
+    if (g.bounty > 0) return { text: `${g.lord()} rises from the throne. "You stand in my hall with the watch at your heels? Kneel and pay, or my guards will make you kneel."`, options: [
+      { t: `Kneel and pay (${g.fine()} gold)`, if: g => g.gold >= g.fine(), do: g => { g.pay(g.fine()); g.clearBounty(); }, end: true },
+      { t: 'Your Majesty, there has been a misunderstanding. (Persuade)', check: { stat: 'charm', dc: 15 }, ok: { text: '"…Bold. I like bold. Go — and do not test me twice."', do: g => g.clearBounty() }, fail: { text: '"Seize them."', do: g => g.guardsAttack() } },
+      { t: 'Make me.', do: g => g.guardsAttack(), end: true } ] };
+    return { text: `"I am ${g.lord()}, and ${g.town()} is mine to keep safe. Speak, adventurer — quickly. A kingdom does not run itself."`, options: [
+      { t: 'Is there any work for me?', next: () => ({ text: '"Always. Monsters on the roads, raiders in the sands, something foul in the old Barrow. Speak with Elder Maren in Emberfall, or Captain Hale of the watch. Bring me good news and you will find me generous."', options: [bye('I will.')] }) },
+      { t: 'Tell me about this kingdom.', next: () => ({ text: RUMOURS[Math.floor(Math.random() * RUMOURS.length)], options: [bye('Thank you, Your Majesty.')] }) },
+      bye('By your leave.') ] };
+  },
+  sergeant: g => ({ text: '"Hah! Another one who thinks fighting is mashing the swing button. Listen up, because I only say it once."', options: [
+    { t: 'Teach me to fight.', next: () => ({ text: 'STAMINA is your life. Every swing, block and roll costs it. Run dry and you are a sack of meat.\n\nLIGHT attack: click. HEAVY attack: hold and release — slow, but it smashes through a guard.\n\nBLOCK: hold right mouse. Soaks most of a hit from the front.\n\nPARRY: start blocking just as their blow lands — when they flash and the "!" appears. A parry knocks them off balance.\n\nCOUNTER: hit an off-balance foe and it is a guaranteed critical.\n\nDODGE: Q (or Ctrl). Roll right as they swing for a perfect dodge — time slows and your next hit is a counter.', options: [
+      { t: 'Spar with me.', do: g => g.spar(), end: true }, bye('Understood, Sergeant.') ] }) },
+    { t: 'Spar with me.', do: g => g.spar(), end: true },
+    bye('Not today.') ] }),
+  board: g => ({ text: 'Notices are nailed over one another:\n• WANTED: Varg the Red, bandit lord of the Ruined Keep.\n• BOUNTY: the wyvern Skarn, Wyvern Peak. Apply to Captain Hale.\n• Lost: one goat. Answers to "Goat".\n• Raiders on the Solmara road. Travel in groups.\n• Frost trolls seen near Frosthold. Bring fire.', options: [bye('Leave the board')] }),
 };
 
 // Hints shown on the loading screen and in the pause menu.

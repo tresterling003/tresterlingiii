@@ -59,6 +59,8 @@ export function updateMob(g, e, dt) {
   switch (e.state) {
     case 'idle': case 'wander': {
       if (tgt && (dist < def.aggro || e.provoked)) { e.state = 'chase'; e.provoked = false; g.alert(e); break; }
+      // sentries hold their post
+      if (e.post) { if (Math.hypot(e.pos.x - e.home.x, e.pos.z - e.home.z) > 0.8) { moveToward(g, e, e.home, def.speed * 0.4, dt); anim(e, walkAnim(e)); } else { e.rot += angleTo(e.rot, e.postRot ?? e.rot) * Math.min(1, dt * 3); anim(e, 'Idle'); } break; }
       // amble about near home
       e.timer -= dt;
       if (e.timer <= 0) {
@@ -95,6 +97,11 @@ export function updateMob(g, e, dt) {
     }
     case 'windup': {
       e.timer -= dt;
+      // the cue lands a fixed beat before the blow, so parrying is about timing, not guessing
+      if (!e.cued && def.kind === 'melee' && e.timer <= 0.36) {
+        e.cued = true;
+        if (e.tgt && e.tgt.player && e.pos.distanceTo(e.tgt.pos) < 14) { a.flash(0xffb040, 200); g.fx.text(e.pos.clone().add(V3(0, (a.height || 2.2) * (def.scale || 1) + 0.4, 0)), '!', 'warn'); }
+      }
       if (e.tgt) faceTo(e, e.tgt.pos, dt, e.def.boss ? 2.5 : 6);
       if (e.timer <= 0) { strike(g, e); e.state = 'recover'; e.timer = 0.45; }
       break;
@@ -119,13 +126,15 @@ function windup(g, e, tgt) {
   const def = e.def;
   e.state = 'windup';
   e.tgt = tgt;
-  e.timer = def.kind === 'melee' ? (def.boss ? 0.62 : 0.48) : 0.55;
+  // a readable wind-up: a flash and a "!" — that is your cue to parry or roll. Some swings are held a beat longer.
+  e.timer = def.kind === 'melee' ? (def.boss ? 0.62 : 0.5 + Math.random() * 0.22 + (Math.random() < 0.14 ? 0.35 : 0)) : 0.55;
   e.cd = (def.boss ? 1.2 : 1.5) + Math.random() * (def.boss ? 0.8 : 1.4);
   const atk = (def.attacks || ['Unarmed_Melee_Attack_Punch_A'])[Math.floor(Math.random() * (def.attacks || [1]).length)];
   if (e.actor.procedural) e.actor.play('attack');
-  else e.actor.play(def.model === 'wolf' ? 'Running_A' : atk, { once: true, fade: 0.08, speed: def.kind === 'melee' ? 1.25 : 1.1, then: () => {} });
+  else e.actor.play(def.model === 'wolf' ? 'Running_A' : atk, { once: true, fade: 0.08, speed: def.kind === 'melee' ? Math.max(0.6, Math.min(1.6, (1.25 * 0.6) / e.timer)) : 1.1, then: () => {} });
   if (def.model === 'wolf') { const lunge = tgt.pos.clone().sub(e.pos).setY(0).normalize(); e.lunge = lunge; }
   if (def.boss) e.actor.flash(0xff4040, 160);
+  e.cued = false;
 }
 function strike(g, e) {
   const def = e.def, tgt = e.tgt;
@@ -269,6 +278,7 @@ export function updateVillager(g, e, dt) {
     if (Math.random() < dt * 0.4) g.fx.text(e.pos.clone().add(V3(0, 2.8, 0)), ['Help!', 'Guards!', 'Aaah!'][Math.floor(Math.random() * 3)], 'say');
     return;
   }
+  if (e.stay) { anim(e, e.idleAnim || 'Idle'); if (!e.seated && g.player && g.player.pos.distanceTo(e.pos) < 5) faceTo(e, g.player.pos, dt, 2); return; }
   e.timer -= dt;
   if (e.timer <= 0) { e.timer = 4 + Math.random() * 8; const s = e.spots[Math.floor(Math.random() * e.spots.length)]; e.wanderTo = V3(s[0] + (Math.random() - 0.5) * 3, 0, s[1] + (Math.random() - 0.5) * 3); }
   if (e.wanderTo && Math.hypot(e.wanderTo.x - e.pos.x, e.wanderTo.z - e.pos.z) > 0.7) { moveToward(g, e, e.wanderTo, 2.2, dt); anim(e, 'Walking_A'); }

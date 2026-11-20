@@ -17,6 +17,8 @@ export class Input {
     this.touch = { attack: false, block: false, sprint: false };
     this.locked = false;
     this.sens = 1;
+    this.padKeys = {};
+    this.padHeld = {};
     addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT') return;
       const k = e.code;
@@ -29,6 +31,7 @@ export class Input {
     canvas.addEventListener('mousedown', e => {
       if (e.button === 0) { this.mouseL = true; this.pressed.Mouse0 = true; }
       if (e.button === 2) this.mouseR = true;
+      if (e.button === 1) { this.pressed.KeyT = true; e.preventDefault(); }
       this.dragging = !this.locked;
       this.dragFrom = [e.clientX, e.clientY];
     });
@@ -43,13 +46,65 @@ export class Input {
   }
   lock() { try { const p = this.canvas.requestPointerLock && this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* not allowed here */ } }
   unlock() { try { document.exitPointerLock && document.exitPointerLock(); } catch { /* fine */ } }
-  down(...codes) { return codes.some(c => this.keys[c]); }
+  down(...codes) { return codes.some(c => this.keys[c] || this.padKeys[c]); }
+  // held attack / block, from any device
+  get attackHeld() { return !!(this.mouseL || this.touch.attack || this.padAttack); }
+  get blockHeld() { return !!(this.mouseR || this.touch.block || this.padBlock); }
+  // ------------------------------------------------------------ game controllers (standard mapping)
+  //  left stick / D-pad: move · right stick: look · RT: attack (hold = heavy) · LT: block & parry / aim
+  //  A: jump · B: dodge · X: interact · Y: potion · LB/RB: abilities · L3: sprint · R3: lock on · Start: pause · Back: map
+  poll(dt, nav) {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let gp = null;
+    for (const p of pads || []) if (p && p.connected && p.buttons && p.buttons.length > 9) { gp = p; break; }
+    if (!gp) { if (this.pad) { this.pad = null; this.padKeys = {}; this.padMove = null; this.padAttack = this.padBlock = false; } return; }
+    if (!this.pad) this.onPad && this.onPad(gp.id);
+    this.pad = gp;
+    const b = i => !!gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.45);
+    const dz = v => (Math.abs(v) < 0.2 ? 0 : (v - Math.sign(v) * 0.2) / 0.8);
+    const now = {};
+    for (let i = 0; i < gp.buttons.length; i++) now[i] = b(i);
+    const edge = i => now[i] && !this.padHeld[i];
+    let lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0);
+    const dpx = (now[15] ? 1 : 0) - (now[14] ? 1 : 0), dpy = (now[13] ? 1 : 0) - (now[12] ? 1 : 0);
+    if (dpx || dpy) { lx = dpx; ly = dpy; }
+    // menus, dialogue and the title screen: the pad drives a highlight instead
+    if (nav && nav.active()) {
+      const dir = Math.abs(lx) > 0.5 || Math.abs(ly) > 0.5 ? (Math.abs(lx) > Math.abs(ly) ? (lx > 0 ? 'right' : 'left') : ly > 0 ? 'down' : 'up') : null;
+      if (dir && (dir !== this.navDir || (this.navT -= dt) <= 0)) { nav.move(dir); this.navT = dir !== this.navDir ? 0.38 : 0.13; }
+      this.navDir = dir;
+      if (edge(0)) nav.ok();
+      if (edge(1)) nav.back();
+      if (edge(9)) nav.start();
+      if (edge(4) || edge(5)) nav.tab(edge(5) ? 1 : -1);
+      this.padKeys = {}; this.padMove = null; this.padAttack = this.padBlock = false;
+      this.padHeld = now;
+      return;
+    }
+    this.navDir = null;
+    const map = { 0: 'Space', 1: 'KeyQ', 2: 'KeyE', 3: 'KeyR', 4: 'Digit1', 5: 'Digit2', 8: 'KeyM', 9: 'Escape', 11: 'KeyT' };
+    const keys = {};
+    for (const [i, code] of Object.entries(map)) if (now[i]) { keys[code] = true; if (edge(+i)) this.pressed[code] = true; }
+    if (edge(10)) this.padSprint = !this.padSprint;
+    if (!lx && !ly) this.padSprint = false;
+    if (this.padSprint) keys.ShiftLeft = true;
+    this.padKeys = keys;
+    this.padMove = lx || ly ? { x: lx, y: -ly } : null;
+    this.padAttack = now[7];
+    if (edge(7)) this.pressed.PadAttack = true;
+    this.padBlock = now[6];
+    const rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
+    this.mx += rx * Math.abs(rx) * 900 * dt * this.sens;
+    this.my += ry * Math.abs(ry) * 650 * dt * this.sens;
+    this.padHeld = now;
+  }
   hit(...codes) { const h = codes.some(c => this.pressed[c]); return h; }
   endFrame() { this.pressed = {}; this.mx = 0; this.my = 0; }
   axis() {
     let x = (this.down('KeyD', 'ArrowRight') ? 1 : 0) - (this.down('KeyA', 'ArrowLeft') ? 1 : 0);
     let y = (this.down('KeyW', 'ArrowUp') ? 1 : 0) - (this.down('KeyS', 'ArrowDown') ? 1 : 0);
     if (this.move.x || this.move.y) { x = this.move.x; y = this.move.y; }
+    else if (this.padMove && !x && !y) { x = this.padMove.x; y = this.padMove.y; }
     const l = Math.hypot(x, y);
     return l > 1 ? { x: x / l, y: y / l, l: 1 } : { x, y, l };
   }
@@ -74,6 +129,8 @@ export class Player {
     this.camPos = V3(0, 10, 10);
     this.camLook = V3(0, 2, 0);
     this.lastAnim = '';
+    // swordplay
+    this.chargeT = 0; this.charging = false; this.blockT = 9; this.lastBlockAt = -9; this.counterT = 0; this.comboAt = -9; this.queued = null; this.dodgeAge = 9; this.lock = null; this.clock = 0;
   }
   get cls() { return CLASSES[this.g.hero.cls]; }
   get radius() { return this.mount ? 1.0 : 0.55; }
@@ -87,6 +144,8 @@ export class Player {
     this.rageT = Math.max(0, this.rageT - dt);
     this.potionT = Math.max(0, this.potionT - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
+    this.counterT = Math.max(0, this.counterT - dt);
+    this.dodgeAge += dt; this.clock += dt;
     if (this.healT > 0) { this.healT -= dt; g.healPlayer(this.healRate * dt, true); }
     this.actor.setOpacity(this.invisT > 0 ? 0.3 : 1);
 
@@ -105,38 +164,78 @@ export class Player {
     const deep = this.pos.y < -0.9 && !this.mount && g.zone === 'world' && g.phys.ground(this.pos.x, this.pos.z) < -1.0;
 
     // actions
+    const ranged = this.cls.style !== 'melee';
+    if (this.lock && (this.lock.dead || this.lock.zone !== g.zone || this.lock.pos.distanceTo(this.pos) > 32 || !g.isHostile(this.lock))) this.lock = null;
     if (!frozen && this.state !== 'stagger') {
       if (input.hit('KeyE')) g.interact();
       if (input.hit('KeyH')) g.whistle();
       if (input.hit('KeyR')) g.drinkPotion();
+      if (input.hit('KeyT')) this.toggleLock();
       if (!this.mount && !deep) {
-        if (input.hit('KeyQ', 'ControlLeft') && this.state !== 'dodge') this.dodge(moving ? wish : fwd.clone().negate());
+        // dodge — also cancels the tail of a swing
+        if (input.hit('KeyQ', 'ControlLeft', 'AltLeft') && (this.state === 'move' || (this.state === 'attack' && this.struck))) this.dodge(moving ? wish : this.lock ? fwd.clone().negate() : fwd.clone().negate());
         if (input.hit('Digit1')) this.ability(0, wish);
         if (input.hit('Digit2')) this.ability(1, wish);
       }
-      if (!deep && (input.hit('Mouse0', 'KeyF') || input.touch.attackHit || (input.mouseL && this.state === 'move' && this.atkT <= 0) || (input.touch.attack && this.atkT <= 0))) this.attack(wish);
+      const tap = input.hit('Mouse0', 'KeyF', 'PadAttack') || input.touch.attackHit;
+      const held = input.attackHeld;
+      if (!deep) {
+        if (ranged || this.mount) {
+          if (tap || (held && this.state === 'move' && this.atkT <= 0)) this.attack(wish);
+          this.charging = false;
+        } else {
+          // melee: tap for a quick light attack, hold and release for a slow heavy one that breaks guards
+          if (tap) { this.charging = true; this.chargeT = 0; this.chargeFull = false; }
+          if (this.charging) {
+            if (held && !input.hit('KeyF')) {
+              this.chargeT += dt;
+              if (this.chargeT > 0.28) this.actor.setTint(0xffc060, Math.min(0.55, (this.chargeT - 0.28) * 0.9));
+              if (this.chargeT > 0.85 && !this.chargeFull) { this.chargeFull = true; g.sfx.chime && g.sfx.chime(); }
+              if (this.chargeT >= 1.15) { this.charging = false; this.attack(wish, 'heavy'); }
+            } else { this.charging = false; this.attack(wish, this.chargeT >= 0.28 ? 'heavy' : 'light'); }
+            if (!this.charging) this.actor.clearTint();
+          }
+        }
+      }
       input.touch.attackHit = false;
+    } else if (this.charging) { this.charging = false; this.actor.clearTint(); }
+    // ranged heroes aim with the right button (zoom over the shoulder); everyone else blocks — and parries
+    this.aimMode = ranged && !frozen && !deep && input.blockHeld;
+    const wantBlock = !ranged && !frozen && !this.mount && !deep && input.blockHeld && (this.state === 'move' || (this.state === 'attack' && this.struck));
+    if (wantBlock && !this.blocking) {
+      if (this.state === 'attack') { this.state = 'move'; this.queued = null; }
+      // the parry window opens when you raise your guard — but not if you keep flicking it
+      this.blockT = this.clock - this.lastBlockAt < 0.45 ? 0.3 : 0;
+      this.lastBlockAt = this.clock;
+      if (this.charging) { this.charging = false; this.actor.clearTint(); }
     }
-    // ranged heroes aim with the right button (zoom over the shoulder); everyone else blocks
-    const ranged = this.cls.style !== 'melee';
-    this.aimMode = ranged && !frozen && !deep && (input.mouseR || input.touch.block);
-    this.blocking = !ranged && !frozen && !this.mount && !deep && (input.mouseR || input.touch.block) && this.state === 'move';
+    this.blocking = wantBlock;
+    if (this.blocking) this.blockT += dt;
     if (this.aimMode && !this.mount) this.rot += angleTo(this.rot, this.yaw + Math.PI) * Math.min(1, dt * 14);
+    // locked on: the camera keeps the target in view and you face it
+    if (this.lock && !frozen) {
+      const dx = this.lock.pos.x - this.pos.x, dz = this.lock.pos.z - this.pos.z;
+      this.yaw += angleTo(this.yaw, Math.atan2(-dx, -dz)) * Math.min(1, dt * 6);
+      this.pitch += (0.28 - this.pitch) * Math.min(1, dt * 3);
+    }
 
     // movement
-    const sprinting = !frozen && moving && (input.down('ShiftLeft', 'ShiftRight') || input.touch.sprint) && this.stamina > 2 && !this.blocking;
+    const sprinting = !frozen && moving && (input.down('ShiftLeft', 'ShiftRight') || input.touch.sprint) && this.stamina > 2 && !this.blocking && !this.charging;
     if (sprinting) { this.stamina -= dt * (this.mount ? 10 : 18); this.staminaWait = 0.9; }
-    else if ((this.staminaWait -= dt) <= 0) this.stamina = Math.min(100, this.stamina + dt * 24);
+    else if ((this.staminaWait -= dt) <= 0) this.stamina = Math.min(100, this.stamina + dt * (this.blocking ? 9 : this.state === 'attack' ? 12 : 26));
 
     let speed = this.mount ? (sprinting ? 26 : 14) : sprinting ? 10.5 : 6.4;
     if (this.aimMode && !this.mount) speed = 3.4;
     if (deep) speed = 3.6;
-    if (this.blocking) speed = 2.4;
+    if (this.blocking) speed = 2.6;
+    if (this.charging && this.chargeT > 0.2) speed = 2.2;
+    if (this.lock && !sprinting && !this.mount) speed *= 0.85;
     if (this.state === 'attack') speed *= this.mount ? 0.8 : 0.25;
     if (g.slowT > 0) speed *= 0.6;
     if (this.state === 'dodge') {
       this.dodgeT -= dt;
-      this.vel.x = this.dodgeDir.x * 13; this.vel.z = this.dodgeDir.z * 13;
+      const k = Math.max(0.35, this.dodgeT / 0.42);
+      this.vel.x = this.dodgeDir.x * 14 * k; this.vel.z = this.dodgeDir.z * 14 * k;
       if (this.dodgeT <= 0) this.state = 'move';
     } else if (this.state === 'stagger') {
       this.vel.x *= 0.85; this.vel.z *= 0.85;
@@ -149,8 +248,9 @@ export class Player {
     }
     // turning: face where you go, or where you aim when attacking
     if (this.state === 'attack' && this.faceTo !== undefined) this.rot += angleTo(this.rot, this.faceTo) * Math.min(1, dt * 18);
+    else if (this.lock && !sprinting && !this.mount && this.state !== 'dodge') this.rot += angleTo(this.rot, Math.atan2(this.lock.pos.x - this.pos.x, this.lock.pos.z - this.pos.z)) * Math.min(1, dt * 12);
     else if (moving && this.state !== 'dodge') this.rot += angleTo(this.rot, Math.atan2(wish.x, wish.z)) * Math.min(1, dt * (this.mount ? 5 : 12));
-    if (this.blocking) this.rot += angleTo(this.rot, this.yaw + Math.PI) * Math.min(1, dt * 10);
+    if (this.blocking && !this.lock) this.rot += angleTo(this.rot, this.yaw + Math.PI) * Math.min(1, dt * 10);
 
     // jump and gravity
     if (!frozen && (input.hit('Space') || input.touch.jumpHit) && this.onGround && !deep && this.state === 'move') { this.vel.y = this.mount ? 9 : 8.4; this.onGround = false; this.jumped = true; g.sfx.swish(); }
@@ -175,7 +275,7 @@ export class Player {
     if (this.state === 'attack') {
       this.atkT -= dt;
       if (!this.struck && this.atkT <= this.hitAt) { this.struck = true; this.strike(); }
-      if (this.atkT <= 0) this.state = 'move';
+      if (this.atkT <= 0) { this.state = 'move'; this.comboAt = this.clock; if (this.queued) { const q = this.queued; this.queued = null; this.attack(wish, q); } }
     } else this.atkT -= dt;
 
     // ride: the horse goes where you go
@@ -196,6 +296,7 @@ export class Player {
     this.animate(dt, moving, sprinting, deep);
     this.actor.update(dt);
     this.updateCamera(dt);
+    this.updateLockMark(dt);
   }
 
   animate(dt, moving, sprinting, deep) {
@@ -205,6 +306,7 @@ export class Player {
     if (this.mount) want = 'Sit_Chair_Idle';
     else if (!this.onGround && this.jumped) want = 'Jump_Idle';
     else if (this.blocking) want = 'Blocking';
+    else if (this.charging && this.chargeT > 0.2) want = 'Block';
     else if (deep) want = moving ? 'Running_A' : 'Idle';
     else if (moving) want = sprinting ? 'Running_A' : Math.hypot(this.vel.x, this.vel.z) > 4.5 ? 'Running_B' : 'Walking_A';
     else want = this.g.inCombat ? (this.cls.style === 'melee' && this.g.hero.cls === 'barbarian' ? '2H_Melee_Idle' : 'Idle') : 'Idle';
@@ -216,18 +318,23 @@ export class Player {
   updateCamera(dt) {
     const g = this.g;
     const head = this.pos.clone().add(V3(0, this.mount ? 3.4 : 1.9, 0));
-    const dist = this.aimMode ? 3.6 : (this.mount ? 9 : g.bossActive ? 8.5 : this.dist) * (g.zone === 'barrow' ? 0.85 : 1);
+    const dist = this.aimMode ? 3.6 : (this.mount ? 9 : g.bossActive ? 8.5 : this.dist) * (g.zone === 'barrow' ? 0.85 : g.zone === 'inside' ? 0.62 : 1);
     const dir = V3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
     const side = V3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(this.aimMode ? 1.15 : g.aiming ? 0.7 : 0.35);
     let d2 = dist;
     // pull in when something is in the way
     for (let k = 1; k <= 8; k++) {
       const p = head.clone().addScaledVector(dir, (dist * k) / 8);
-      if (g.zone === 'barrow' ? g.phys.blocked(head.x, head.z, p.x, p.z) : p.y < g.phys.ground(p.x, p.z) + 0.4) { d2 = (dist * (k - 1)) / 8; break; }
+      if (g.zone !== 'world' ? g.phys.blocked(head.x, head.z, p.x, p.z, 0.2) : p.y < g.phys.ground(p.x, p.z) + 0.4) { d2 = (dist * (k - 1)) / 8; break; }
     }
     d2 = Math.max(1.6, d2);
     const want = head.clone().addScaledVector(dir, d2).add(side);
     if (g.zone === 'world') want.y = Math.max(want.y, g.phys.ground(want.x, want.z) + 0.6);
+    if (g.zone === 'inside' && g.rooms.ceil) {
+      const R = g.rooms, cx = 5000, hw = R.W / 2 - 0.35, hd = R.D / 2 - 0.35;
+      want.y = Math.min(want.y, R.ceil - 0.5);
+      want.x = THREE.MathUtils.clamp(want.x, cx - hw, cx + hw); want.z = THREE.MathUtils.clamp(want.z, -hd, hd);
+    }
     this.camPos.lerp(want, Math.min(1, dt * 14));
     // look past the hero, not at them: the crosshair then sits level with the horizon instead of over their head
     const ahead = (this.aimMode ? 30 : 14) * Math.max(0, 1 - Math.max(0, this.pitch) / 0.85);
@@ -279,40 +386,58 @@ export class Player {
     }
     return best;
   }
-  attack(wish) {
-    if (this.state !== 'move' || this.atkT > 0) return;
+  attack(wish, kind = 'light') {
     const C = this.cls, g = this.g;
     const ranged = C.style !== 'melee';
+    const melee = !ranged || (this.mount && C.style !== 'magic' && C.style !== 'ranged');
+    // mid-swing: only the end of a swing can chain into the next one; mashing early does nothing
+    if (this.state === 'attack') { if (melee && !ranged && this.struck && this.atkT < this.rate * 0.5) this.queued = kind; return; }
+    if (this.state !== 'move' || this.atkT > 0) return;
+    const heavy = kind === 'heavy' && !ranged && !this.mount;
+    const cost = ranged ? 4 : heavy ? 20 : 9;
+    if (this.stamina < 3 && !ranged) { g.fx.text(this.pos.clone().add(V3(0, 2.4, 0)), 'out of breath', 'miss small'); g.ui.staminaFlash && g.ui.staminaFlash(); return; }
+    this.stamina = Math.max(0, this.stamina - cost); this.staminaWait = 0.7;
     const aim = this.aimDir();
     const meleeDir = wish.lengthSq() > 0.01 ? wish : V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const t = ranged ? (this.aimed = this.aim()).target : this.pickTarget(C.reach + 2.5, 1.4, meleeDir);
+    const t = ranged ? (this.aimed = this.aim()).target : this.lock || this.pickTarget(C.reach + 2.5, 1.4, meleeDir);
     this.target = t;
     this.faceTo = t ? Math.atan2(t.pos.x - this.pos.x, t.pos.z - this.pos.z) : ranged || this.mount ? Math.atan2(aim.x, aim.z) : this.rot;
     this.state = 'attack';
-    const rate = C.rate * (this.rageT > 0 ? 0.8 : 1);
+    // a chain: three quick blows, the third one hits hardest
+    this.combo = this.clock - this.comboAt < 0.55 && this.lastKind === 'light' && !heavy ? (this.combo + 1) % 3 : 0;
+    this.lastKind = kind;
+    this.finisher = !ranged && !heavy && this.combo === 2;
+    let rate = C.rate * (this.rageT > 0 ? 0.8 : 1) * (heavy ? 1.6 : this.finisher ? 1.15 : 1) * (this.stamina < 10 && !ranged ? 1.3 : 1);
+    this.rate = rate;
     this.atkT = rate;
-    this.hitAt = rate * (ranged ? 0.55 : 0.5);
+    this.hitAt = rate * (ranged ? 0.55 : heavy ? 0.42 : 0.5);
     this.struck = false;
-    const name = C.attacks[this.combo++ % C.attacks.length];
-    this.actor.play(this.mount ? '1H_Melee_Attack_Slice_Horizontal' : name, { once: true, fade: 0.06, speed: 1.15 / (rate / 0.7) * 0.9, then: () => {} });
+    this.heavy = heavy;
+    const HEAVY = { knight: '2H_Melee_Attack_Chop', barbarian: '2H_Melee_Attack_Spin', rogue: '1H_Melee_Attack_Stab' };
+    const name = heavy ? HEAVY[g.hero.cls] || '2H_Melee_Attack_Chop' : C.attacks[this.combo % C.attacks.length];
+    this.actor.play(this.mount ? '1H_Melee_Attack_Slice_Horizontal' : name, { once: true, fade: 0.06, speed: (1.15 / (rate / 0.7)) * 0.9 * (heavy ? 1.25 : 1), then: () => {} });
+    // step into a heavy blow
+    if (heavy) { const f = V3(Math.sin(this.faceTo), 0, Math.cos(this.faceTo)); this.vel.x += f.x * 6; this.vel.z += f.z * 6; }
     g.sfx.swish();
   }
   strike() {
     const g = this.g, C = this.cls;
     if (C.style === 'melee' || this.mount && C.style !== 'magic' && C.style !== 'ranged') {
-      const reach = C.reach + (this.mount ? 1.2 : 0);
+      const reach = C.reach + (this.mount ? 1.2 : 0) + (this.heavy ? 0.5 : 0);
       const hits = g.targetsForPlayer().filter(e => {
         const to = e.pos.clone().sub(this.pos); to.y = 0;
         const dd = to.length() - (e.def.boss ? 0.9 * (e.def.scale || 1) : 0);
         if (dd > reach) return false;
         const ang = Math.abs(angleTo(this.rot, Math.atan2(to.x, to.z)));
-        return ang < 1.15 || dd < 1.2;
+        return ang < (this.heavy ? 1.4 : 1.15) || dd < 1.2;
       });
       // also catch innocent bystanders, because that is how crime works
       const bystanders = g.peopleNear(this.pos, reach).filter(p => Math.abs(angleTo(this.rot, Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z))) < 1.0);
-      hits.slice(0, 3).forEach(e => g.playerHits(e, { kind: 'weapon' }));
+      const o = { kind: 'weapon', heavy: this.heavy, finisher: this.finisher };
+      hits.slice(0, this.heavy ? 4 : 3).forEach(e => g.playerHits(e, { ...o }));
       bystanders.forEach(p => g.playerHits(p, { kind: 'weapon' }));
       if (!hits.length && !bystanders.length) g.sfx.swish();
+      if (this.heavy && hits.length) g.shake(0.25);
     } else {
       const from = this.pos.clone().add(V3(0, this.mount ? 3.2 : 1.6, 0)).addScaledVector(V3(Math.sin(this.rot), 0, Math.cos(this.rot)), 0.8);
       // fire at whatever is under the crosshair now
@@ -324,18 +449,49 @@ export class Player {
     }
   }
   dodge(dir) {
-    if (this.stamina < 20 || !this.onGround) return;
-    this.stamina -= 22; this.staminaWait = 0.8;
+    if (this.stamina < 16 || !this.onGround) { if (this.stamina < 16) this.g.fx.text(this.pos.clone().add(V3(0, 2.4, 0)), 'out of breath', 'miss small'); return; }
+    this.stamina -= 20; this.staminaWait = 0.8;
     this.state = 'dodge';
+    this.queued = null;
     this.dodgeT = 0.42;
-    this.iframes = 0.38;
+    this.iframes = 0.36;
+    this.dodgeAge = 0;
     this.dodgeDir = dir.clone().setY(0).normalize();
-    this.rot = Math.atan2(this.dodgeDir.x, this.dodgeDir.z);
-    this.actor.play('Dodge_Forward', { once: true, fade: 0.05, speed: 1.5, then: () => {} });
+    // locked on, you roll around the enemy and keep facing it
+    let anim = 'Dodge_Forward';
+    if (this.lock) {
+      const side = angleTo(this.rot, Math.atan2(this.dodgeDir.x, this.dodgeDir.z));
+      anim = Math.abs(side) < 0.8 ? 'Dodge_Forward' : Math.abs(side) > 2.3 ? 'Dodge_Backward' : side > 0 ? 'Dodge_Left' : 'Dodge_Right';
+    } else this.rot = Math.atan2(this.dodgeDir.x, this.dodgeDir.z);
+    this.actor.play(anim, { once: true, fade: 0.05, speed: 1.5, then: () => {} });
     this.g.sfx.swish();
+  }
+  // lock on to the enemy nearest the middle of the screen (T, middle mouse, R3)
+  toggleLock() {
+    if (this.lock) { this.lock = null; return; }
+    const g = this.g, f = V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    this.lock = this.pickTarget(26, 1.1, f) || this.pickTarget(14, Math.PI, f);
+    if (!this.lock) g.ui.toast('No enemy to lock on to');
+  }
+  updateLockMark() {
+    const g = this.g;
+    if (!this.lockMark) {
+      this.lockMark = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 32), new THREE.MeshBasicMaterial({ color: 0xff5040, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+      this.lockMark.rotation.x = -Math.PI / 2;
+      g.scene.add(this.lockMark);
+    }
+    const t = this.lock;
+    this.lockMark.visible = !!t;
+    if (!t) return;
+    const s = (t.def.scale || 1) * (t.def.boss ? 1.3 : 1);
+    this.lockMark.scale.setScalar(s * (1 + Math.sin(this.clock * 6) * 0.06));
+    this.lockMark.position.set(t.pos.x, (t.flying ? g.phys.ground(t.pos.x, t.pos.z) : t.pos.y) + 0.08, t.pos.z);
+    this.lockMark.material.color.set(t.stunT > 0 ? 0xffd040 : 0xff5040);
   }
   stagger(secs = 0.35, from) {
     if (this.state === 'dodge' || this.mount) return;
+    if (this.charging) { this.charging = false; this.actor.clearTint(); }
+    this.queued = null; this.blocking = false;
     this.state = 'stagger';
     this.staggerT = secs;
     if (from) { const k = this.pos.clone().sub(from).setY(0).normalize().multiplyScalar(5); this.vel.x = k.x; this.vel.z = k.z; }

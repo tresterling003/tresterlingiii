@@ -96,6 +96,26 @@ dialog ul { padding-left: 1.2em; } dialog li { margin: .4em 0; }
 .float.gold { color: var(--gold); font-size: .95rem; }
 .float.xp { color: #c8a8ff; font-size: .9rem; }
 .float.alert { color: #ffd34d; font-size: 1.9rem; }
+.float.parry { color: #8ff0ff; font-size: 1.7rem; letter-spacing: .04em; text-shadow: 0 0 12px rgba(120, 230, 255, .9), 0 2px 0 #000; }
+.float.warn { color: #ffb040; font-size: 2.1rem; text-shadow: 0 0 10px rgba(255, 150, 40, .9), 0 2px 0 #000; }
+#dlgText { white-space: pre-line; }
+.padfocus { outline: 3px solid #ffd34d !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(255, 211, 77, .6) !important; }
+#stFill.low { animation: stlow .5s 3; }
+@keyframes stlow { 50% { background: #ff5040; } }
+#padHint { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); background: rgba(20,16,12,.8); color: #fff; padding: 6px 14px; border-radius: 10px; font: 600 .9rem system-ui; z-index: 30; pointer-events: none; }
+/* on-screen D-pad (touch, optional) */
+body.dpad #stick { border-radius: 14px; background:
+  linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.16)) center / 38% 100% no-repeat,
+  linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.16)) center / 100% 38% no-repeat; border: none; }
+body.dpad #knob { border-radius: 8px; width: 44px; height: 44px; left: 43px; top: 43px; background: rgba(255, 184, 77, .45); }
+body.dpad #stick::before, body.dpad #stick::after { content: '▲'; position: absolute; left: 50%; top: 4px; transform: translateX(-50%); color: rgba(255,255,255,.7); font-size: 14px; }
+body.dpad #stick::after { content: '▼'; top: auto; bottom: 4px; }
+#tLock { right: 222px; bottom: 40px; font-size: 1rem; }
+@media (max-height: 460px) {
+  body.touch #hud #tbtns { transform: scale(.82); transform-origin: bottom right; }
+  body.touch #hud #slots { top: 112px; left: 10px; right: auto; flex-direction: row; transform: scale(.7); transform-origin: top left; }
+  body.touch #hud #minimap { width: 120px; height: 120px; }
+}
 .float.say { color: #fff; font-size: .95rem; font-style: italic; }
 .float.ally { color: #b8d8ff; font-size: .95rem; }
 #qmark { position: fixed; left: 0; top: 0; z-index: 2; font: 800 .82rem system-ui; color: var(--gold); text-shadow: 0 1px 4px #000; pointer-events: none; }

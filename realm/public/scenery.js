@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { HALF, height, groundColor, fbm, rng, roadDist, riverDist, biome, SITES, BUILDINGS, PROPS, DUNGEON, dTile, SHRINES, SETTLEMENTS, PLANS, ROADS, RIVER, RIVER_W, INSIDE_X } from './world.js';
 import { A, part, baked, kitSize } from './assets.js';
+import { roomKind } from './interiors.js';
 
 const RES = 4; // terrain sample spacing
 const N = (HALF * 2) / RES + 1;
@@ -17,6 +18,7 @@ export class Scenery {
     scene.add(this.group);
     this.anim = []; // things that move every frame: fn(dt, t)
     this.torches = []; // light sources: { pos, color, base, zone }
+    this.doors = []; // front doors of buildings you can walk into
     this.spikes = [];
     this.far = []; // instanced chunks hidden when far away: { obj, x, z }
     // Only a few real lights exist; each frame they move to the light sources nearest you.
@@ -123,11 +125,11 @@ export class Scenery {
       if (r > p || blocked(x, z, 0)) continue;
       const y = this.h(x, z), r2 = R();
       if (b === 'desert') { add(r2 < 0.7 ? 'cactus' : 'deadbush', x, z, 0.9 + R() * 0.8, R() * 6, r2 < 0.7 ? 0.5 : 0); continue; }
-      if (b === 'swamp') { add('deadtree', x, z, 0.8 + R() * 0.6, R() * 6, 0.4); continue; }
-      if (b === 'snow' || y > 40) { if (y < 80) add(r2 < 0.5 ? 'snowpine' : 'tree_single_A', x, z, 6 + R() * 3, R() * 6, 0.6); continue; }
-      if (b === 'forest' && r2 < 0.16) add(R() < 0.5 ? 'trees_A_large' : 'trees_B_large', x, z, 5 + R() * 1.5, R() * 6, 3.6);
-      else if (b === 'forest' && r2 < 0.28) add(R() < 0.5 ? 'trees_A_medium' : 'trees_B_medium', x, z, 4.8 + R() * 1.2, R() * 6, 2.8);
-      else add(r2 < 0.6 ? 'tree_single_A' : 'tree_single_B', x, z, 5.6 + R() * 3, R() * 6, 0.55);
+      if (b === 'swamp') { add('deadtree', x, z, 1.4 + R() * 0.8, R() * 6, 0.6, 1.3); continue; }
+      if (b === 'snow' || y > 40) { if (y < 80) add(r2 < 0.5 ? 'snowpine' : 'tree_single_A', x, z, 9 + R() * 5, R() * 6, 0.9, 1.35); continue; }
+      if (b === 'forest' && r2 < 0.16) add(R() < 0.5 ? 'trees_A_large' : 'trees_B_large', x, z, 8 + R() * 2.5, R() * 6, 5.4, 1.3);
+      else if (b === 'forest' && r2 < 0.28) add(R() < 0.5 ? 'trees_A_medium' : 'trees_B_medium', x, z, 7.5 + R() * 2, R() * 6, 4.2, 1.3);
+      else add(r2 < 0.6 ? 'tree_single_A' : 'tree_single_B', x, z, 9 + R() * 5, R() * 6, 0.85, 1.25 + R() * 0.35);
     }
     for (let i = 0; i < 2600; i++) {
       const x = (R() - 0.5) * (HALF * 2 - 100), z = (R() - 0.5) * (HALF * 2 - 100);
@@ -213,7 +215,15 @@ export class Scenery {
     };
     for (const s of SETTLEMENTS) {
       const plan = PLANS[s.id];
-      for (const [name, x, z, rot, sc] of plan.buildings) put(name, x, z, rot, sc);
+      plan.buildings.forEach(([name, x, z, rot, sc], i) => {
+        put(name, x, z, rot, sc);
+        // a front door you can walk through
+        const kind = roomKind(name);
+        if (!kind) return;
+        const k = kitSize('town', name), c = Math.cos(rot), sn = Math.sin(rot), ox = k.cx * sc, oz = k.cz * sc;
+        const cx = x + ox * c + oz * sn, cz = z - ox * sn + oz * c, hd = (k.z * sc * 0.86) / 2, fx = Math.sin(rot), fz = Math.cos(rot);
+        this.doors.push({ id: `${s.id}:${i}`, kind, name, x: cx + fx * (hd + 0.5), z: cz + fz * (hd + 0.5), ox: cx + fx * (hd + 2.4), oz: cz + fz * (hd + 2.4), rot, town: s.name, sid: s.id, color: s.color });
+      });
       for (const [name, x, z, rot, sc] of plan.towers) put(name, x, z, rot, sc);
       // the city wall
       for (const w of plan.walls) {
@@ -339,7 +349,11 @@ export class Scenery {
     }
   }
   // t: 0 midnight · 0.25 dawn · 0.5 noon · 0.75 dusk.  inside: the Barrow.
-  setTime(t, focus, inside) {
+  setTime(t, focus, zone = 'world') {
+    if (zone === true) zone = 'barrow';
+    if (zone === false) zone = 'world';
+    const inside = zone !== 'world', room = zone === 'inside';
+    this.zoneName = zone;
     this.time = t;
     const ang = (t - 0.25) * Math.PI * 2;
     const sunDir = V3(Math.cos(ang) * 0.6, Math.sin(ang), Math.cos(ang) * 0.35 - 0.3).normalize();
@@ -358,12 +372,12 @@ export class Scenery {
     this.sun.target.position.copy(f);
     this.sun.intensity = inside ? 0 : 0.35 + day * 2.0;
     this.sun.color.copy(c(0x8ea6ff, 0xfff1d8, day)).lerp(new THREE.Color(0xffa060), dusk * 0.6);
-    this.hemi.intensity = inside ? 1.15 : 0.45 + day * 0.75;
-    this.hemi.color.copy(inside ? new THREE.Color(0x9a90b0) : c(0x4a5c9a, 0xcfe3ff, day));
-    this.hemi.groundColor.copy(inside ? new THREE.Color(0x40302a) : c(0x1a2018, 0x4a5a3a, day));
-    const fogC = inside ? new THREE.Color(0x05060a) : bottom.clone().lerp(top, 0.15);
+    this.hemi.intensity = room ? 0.95 : inside ? 1.15 : 0.45 + day * 0.75;
+    this.hemi.color.copy(room ? new THREE.Color(0xffe2c0) : inside ? new THREE.Color(0x9a90b0) : c(0x4a5c9a, 0xcfe3ff, day));
+    this.hemi.groundColor.copy(room ? new THREE.Color(0x6a4a34) : inside ? new THREE.Color(0x40302a) : c(0x1a2018, 0x4a5a3a, day));
+    const fogC = room ? new THREE.Color(0x1a120c) : inside ? new THREE.Color(0x05060a) : bottom.clone().lerp(top, 0.15);
     this.scene.fog.color.copy(fogC);
-    this.scene.fog.density = inside ? 0.028 : 0.0042 + (1 - day) * 0.0035 + (this.swampFog || 0);
+    this.scene.fog.density = room ? 0.006 : inside ? 0.028 : 0.0042 + (1 - day) * 0.0035 + (this.swampFog || 0);
     this.skyDome.visible = this.stars.visible = this.moon.visible = !inside;
     this.clouds.forEach(cl => { cl.visible = !inside; });
     (this.cloudMats || []).forEach(m => m.color.copy(c(0x7a8098, 0xf4f6ff, day)).lerp(new THREE.Color(0xffc8b0), dusk * 0.5));
@@ -542,7 +556,7 @@ export class Scenery {
   update(dt, focus) {
     const t = performance.now() / 1000;
     if (focus) {
-      const zone = this.inside ? 'barrow' : 'world';
+      const zone = this.zoneName || 'world';
       const near = this.torches.filter(s => s.zone === zone && Math.abs(s.pos.x - focus.x) < 60 && Math.abs(s.pos.z - focus.z) < 60).sort((a, b) => a.pos.distanceTo(focus) - b.pos.distanceTo(focus));
       this.lightPool.forEach((l, i) => {
         const s = near[i];
