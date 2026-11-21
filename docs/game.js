@@ -58,6 +58,10 @@ class Game {
     addEventListener('resize', () => this.resize());
     this.resize();
     window.__realm = this;
+    addEventListener('keydown', e => {
+      if (!this.paused || e.repeat) return;
+      if (e.code === 'Escape' || e.code === 'KeyM' || e.code === 'KeyP') { e.preventDefault(); this.resume(); }
+    });
     // installed on a phone: keep the whole game offline; take updates when they arrive
     if ('serviceWorker' in navigator && !/^(localhost|127\.)/.test(location.hostname) && location.protocol === 'https:') {
       navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -448,6 +452,7 @@ class Game {
     if (!frozen && this.input.hit('KeyM')) { this.togglePause('map'); return; }
     if (!frozen && this.input.hit('KeyG')) this.toggleTorch();
     if (this.comboT > 0 && (this.comboT -= dt) <= 0) this.breakCombo();
+    if (this.waypoint && this.zone === 'world' && Math.hypot(this.waypoint.x - p.pos.x, this.waypoint.z - p.pos.z) < 9) { this.ui.toast(`Arrived: ${this.waypoint.name}`, 'good'); this.waypoint = null; }
     if (this.finalT > 0) this.finalT -= dt;
     if (this.camPunch > 0) this.camPunch -= dt;
     if (!frozen && this.input.hit('KeyJ')) { this.togglePause('quests'); return; }
@@ -634,7 +639,7 @@ class Game {
       e.streak = now - (e.streakAt || -9) < 1.4 ? (e.streak || 0) + 1 : 0;
       e.streakAt = now;
       const toP = Math.atan2(p.pos.x - e.pos.x, p.pos.z - e.pos.z), facing = Math.abs(Math.atan2(Math.sin(e.rot - toP), Math.cos(e.rot - toP))) < 1.25;
-      const chance = Math.min(0.85, e.def.guard + e.streak * 0.2); // hammering away just makes them turtle up
+      const chance = Math.min(0.5, e.def.guard + Math.max(0, e.streak - 4) * 0.06); // shields come up now and then — a heavy blow smashes through
       if (facing && Math.random() < chance) {
         const at = e.pos.clone().add(V3(0, 1.4 * (e.def.scale || 1), 0)).lerp(p.pos.clone().add(V3(0, 1.4, 0)), 0.35);
         if (o.heavy) {
@@ -658,6 +663,7 @@ class Game {
       }
     }
     const dd = d(20), bonus = this.attackBonus();
+    if (melee && e.type === 'mob') o.sure = true; // in a brawl your blows land; the die still decides crits
     let armor = e.armor - (e.bossId === 'boneking' && h.flags.aldous === 'crack' ? 3 : 0);
     const crit = o.crit || dd === 20;
     const hit = o.sure || crit || (dd !== 1 && dd + bonus >= armor);
@@ -679,13 +685,14 @@ class Game {
     if (grounded && !o.counter) dmg *= 1.5;
     if ((this.combo || 0) >= 10) dmg *= 1.3; else if ((this.combo || 0) >= 5) dmg *= 1.15;
     if (e.type === 'mob' && (melee || o.kind === 'weapon')) this.addCombo();
+    if (melee && e.type === 'mob' && !e.def.boss && e.state === 'windup' && Math.random() < 0.6) { e.state = 'recover'; e.timer = 0.5; e.cued = false; }
     // big blows knock ordinary foes off balance
     if (e.type === 'mob' && !e.def.boss && !e.dead && e.hp > dmg && (o.heavy || o.finisher) && e.stunT <= 0 && !e.downT && o.name !== 'COUNTER') { if (o.heavy) setTimeout(() => this.knockDown(e, 1.5), 0); else this.stun(e, 0.5, true); }
     if (o.fire || this.hasFire() || C.style === 'magic' && o.kind === 'weapon' && false) e.burnT = 5;
     if (o.fire) e.burnT = 5;
     if (p.rageT > 0) this.healPlayer(Math.ceil(dmg * 0.25), true);
     dmg = Math.max(1, Math.round(dmg));
-    const label = (o.sure ? '' : `🎲${dd}${crit ? '' : '+' + bonus} `) + (crit ? `CRITICAL! −${dmg}` : `−${dmg}`) + (sneak ? ' sneak!' : '');
+    const label = (o.sure && !melee ? '' : `🎲${dd} `) + (crit ? `CRITICAL! −${dmg}` : `−${dmg}`) + (sneak ? ' sneak!' : '');
     this.fx.text(head, (o.name ? o.name + ' ' : '') + label, crit ? 'crit big' : 'dmg');
     if (crit) { this.slowT = 0.35; this.shake(0.4); this.ui.flash('#fff3c0', 220); this.sfx.crit(); } else this.hitstop = o.heavy ? 0.11 : 0.05;
     if (e.spar && e.hp - dmg <= 0) { dmg = Math.max(0, e.hp - 1); this.endSpar(e, true); }
@@ -1589,6 +1596,11 @@ class Game {
     this.ui.openMenu(tab || 'map');
   }
   resume() { this.paused = false; this.ui.closeMenu(); if (!isTouch) this.input.lock(); }
+  setWaypoint(x, z, name) {
+    if (x === null || x === undefined) { this.waypoint = null; return; }
+    this.waypoint = { x, z, name: name || 'Waypoint' };
+    this.sfx.tick ? this.sfx.tick() : this.sfx.chime();
+  }
 
 
   // ================================================================== freeflow: counters, knockdowns, the combo meter

@@ -420,7 +420,13 @@ export class Player {
     this.stamina = Math.max(0, this.stamina - cost); this.staminaWait = 0.7;
     const aim = this.aimDir();
     const meleeDir = wish.lengthSq() > 0.01 ? wish : V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const t = ranged ? (this.aimed = this.aim()).target : this.lock || this.pickTarget(C.reach + 2.5, 1.4, meleeDir) || (this.mount ? null : this.pickTarget(9.5, wish.lengthSq() > 0.01 ? 0.7 : 0.9, meleeDir));
+    const faceDir = V3(Math.sin(this.rot), 0, Math.cos(this.rot));
+    // who to hit: the one you push toward, else the one you face, else the one the camera looks at, else whoever is closest
+    const t = ranged ? (this.aimed = this.aim()).target : this.lock
+      || (wish.lengthSq() > 0.01 && this.pickTarget(9.5, 0.8, wish))
+      || this.pickTarget(C.reach + 3, 1.3, faceDir)
+      || this.pickTarget(9.5, 0.9, meleeDir)
+      || this.pickTarget(this.mount ? C.reach + 2 : 6.5, Math.PI, faceDir);
     this.target = t;
     this.faceTo = t ? Math.atan2(t.pos.x - this.pos.x, t.pos.z - this.pos.z) : ranged || this.mount ? Math.atan2(aim.x, aim.z) : this.rot;
     this.state = 'attack';
@@ -450,7 +456,7 @@ export class Player {
   strike() {
     const g = this.g, C = this.cls;
     if (C.style === 'melee' || this.mount && C.style !== 'magic' && C.style !== 'ranged') {
-      const reach = C.reach + (this.mount ? 1.2 : 0) + (this.heavy ? 0.5 : 0);
+      const reach = C.reach + 0.5 + (this.mount ? 1.2 : 0) + (this.heavy ? 0.5 : 0);
       const hits = g.targetsForPlayer().filter(e => {
         const to = e.pos.clone().sub(this.pos); to.y = 0;
         const dd = to.length() - (e.def.boss ? 0.9 * (e.def.scale || 1) : 0);
@@ -460,6 +466,9 @@ export class Player {
       });
       // also catch innocent bystanders, because that is how crime works
       const bystanders = g.peopleNear(this.pos, reach).filter(p => Math.abs(angleTo(this.rot, Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z))) < 1.0);
+      // the one you lunged at is always caught by the swing
+      const T0 = this.target;
+      if (T0 && !T0.dead && !hits.includes(T0) && g.isHostile(T0) && Math.hypot(T0.pos.x - this.pos.x, T0.pos.z - this.pos.z) - (T0.def.boss ? 0.9 * (T0.def.scale || 1) : 0) < reach + 1.4) hits.unshift(T0);
       const o = { kind: 'weapon', heavy: this.heavy, finisher: this.finisher };
       hits.slice(0, this.heavy ? 4 : 3).forEach(e => g.playerHits(e, { ...o }));
       bystanders.forEach(p => g.playerHits(p, { kind: 'weapon' }));

@@ -180,6 +180,15 @@
   </div>
 </div>
 
+<!-- the map: drag to look around, pinch or scroll to zoom, tap to set a waypoint -->
+<div id="mapView" hidden>
+  <canvas id="mapCv"></canvas>
+  <div id="mapTop"><b>Map</b><span id="mapTip">Drag to look around · pinch or scroll to zoom · tap to set a waypoint</span></div>
+  <div id="mapBtns"><button id="mZin" class="btn">+</button><button id="mZout" class="btn">−</button><button id="mMe" class="btn">◎ Me</button><button id="mClear" class="btn">Clear ⚑</button><button id="mMenu" class="btn">Menu</button><button id="mClose" class="btn primary">✕ Close</button></div>
+  <div id="mapList"></div>
+</div>
+<div id="waypoint" hidden></div>
+
 <!-- weapon wheel -->
 <div id="wheel" hidden><div id="wheelRing"></div><div id="wheelMid"><b id="wheelName"></b><span id="wheelInfo"></span></div></div>
 

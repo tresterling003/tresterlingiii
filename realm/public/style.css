@@ -360,3 +360,21 @@ body.touch #combo b { font-size: 2.6rem; }
 #loading { background: radial-gradient(ellipse at center, #2a1c12, #050302 70%); }
 .loadbar { border-radius: 0; border: 1px solid rgba(214, 178, 106, .5); }
 .loadbar i { background: linear-gradient(90deg, #8a5a18, #e8b14a); }
+
+/* ---- the map */
+#mapView { position: fixed; inset: 0; z-index: 24; background: #0c0906; touch-action: none; }
+#mapCv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#mapTop { position: absolute; left: 12px; top: 10px; font-family: var(--serif); color: #f2dca0; text-shadow: 0 2px 4px #000; pointer-events: none; }
+#mapTop b { font-size: 1.4rem; letter-spacing: .12em; margin-right: 12px; }
+#mapTop span { font-family: var(--book); font-size: .85rem; color: #cbb890; }
+#mapBtns { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+#mapBtns .btn { padding: 8px 12px; min-width: 44px; }
+#mapList { position: absolute; right: 10px; top: 10px; bottom: 10px; width: 210px; overflow-y: auto; background: rgba(18, 13, 10, .88); border: 1px solid var(--line); padding: 8px; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+#mapList h4 { font-family: var(--serif); color: var(--gold); font-size: .78rem; letter-spacing: .1em; margin: 8px 2px 4px; }
+#mapList button { display: block; width: 100%; text-align: left; font: 600 .86rem var(--book); color: #f2e2c0; background: rgba(60, 44, 30, .6); border: 1px solid rgba(214, 178, 106, .25); margin: 3px 0; padding: 7px 8px; border-radius: 2px; cursor: pointer; }
+#mapList button i { font-style: normal; display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 7px; vertical-align: -1px; border: 1px solid #000; }
+#mapList button:hover, #mapList button.on { background: rgba(140, 100, 40, .7); }
+@media (max-width: 700px), (max-height: 460px) { #mapList { width: 160px; } #mapTop span { display: none; } }
+#waypoint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); font-family: var(--serif); font-size: .85rem; color: #ffe6a0; background: rgba(14, 10, 7, .8); border: 1px solid rgba(214, 178, 106, .5); padding: 4px 12px; pointer-events: none; }
+body.touch #hud #waypoint { top: 58px; }
+#minimap { cursor: pointer; pointer-events: auto; }

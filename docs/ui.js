@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { CLASSES, CLASS_ORDER, STATS, STAT_ICON, BACKGROUNDS, TINTS, BONUS_POINTS, ITEMS, KEY_ITEMS, QUESTS, NPCS, XP_LEVELS, WEAPONS, MATERIALS } from './data.js';
 import { icon, ABILITY_ICON } from './icons.js';
-import { HALF, SITES, SHRINES, SHARDS, GLOWCAPS, SETTLEMENTS, NPC_POS } from './world.js';
+import { HALF, SITES, SHRINES, SHARDS, GLOWCAPS, SETTLEMENTS, NPC_POS, PLANS, WOOD } from './world.js';
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -108,6 +108,8 @@ export class UI {
       $('wpnSlot').innerHTML = `${icon(w.icon)}<span>${w.name}</span>${h.torchOn ? icon('torch', 'tq') : ''}`;
     }
     if (!ch.hidden) { if ((this.aimT = (this.aimT || 0) + 1) % 4 === 0) ch.classList.toggle('on', !!p.aim().target); ch.classList.toggle('zoom', !!p.aimMode); }
+    const wpEl = $('waypoint');
+    if (g.waypoint) { wpEl.hidden = false; const d = g.zone === 'world' ? Math.round(Math.hypot(g.waypoint.x - p.pos.x, g.waypoint.z - p.pos.z)) : null; wpEl.textContent = `⚑ ${g.waypoint.name}${d !== null ? ` — ${d} m` : ''}`; } else wpEl.hidden = true;
     this.minimap();
     this.markers();
   }
@@ -142,6 +144,11 @@ export class UI {
       else if (e.type === 'mob' && e.team === 'town') dot(e.pos.x, e.pos.z, '#8fb3ff', 2.5);
     }
     if (g.zone === 'world') for (const s of SHRINES) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 110) dot(s.x, s.z, g.hero.shrines[s.id] ? '#5fd8ff' : '#2a5a70', 3.5);
+    if (g.waypoint && g.zone === 'world') {
+      const [wx, wy] = toScreen(g.waypoint.x, g.waypoint.z), dx = wx - S / 2, dy = wy - S / 2, dd = Math.hypot(dx, dy), m = S / 2 - 10;
+      const [fx, fy] = dd > m ? [S / 2 + dx / dd * m, S / 2 + dy / dd * m] : [wx, wy];
+      c.fillStyle = '#ff5a3c'; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(fx, fy - 12); c.lineTo(fx + 9, fy - 8); c.lineTo(fx, fy - 4); c.fill(); c.beginPath(); c.moveTo(fx, fy); c.lineTo(fx, fy - 12); c.stroke();
+    }
     if (g.zone === 'world') for (const sg of g.scenery.signs || []) if (Math.hypot(sg.x - p.pos.x, sg.z - p.pos.z) < 95) dot(sg.x, sg.z, '#e8b14a', 3);
     c.restore();
     // quest arrow
@@ -400,7 +407,7 @@ export class UI {
     const vis = id => { const el = $(id); return el && !el.hidden && el.getClientRects().length ? el : null; };
     const rules = $('rules');
     if (rules && rules.open) return rules;
-    return vis('dice') || vis('levelup') || vis('dialog') || vis('menu') || vis('creator') || vis('title') || null;
+    return vis('dice') || vis('levelup') || vis('dialog') || vis('mapView') || vis('menu') || vis('creator') || vis('title') || null;
   }
   navItems(root) {
     return [...root.querySelectorAll('button, .opt, input, select, [data-cls], [data-plus], [data-minus], [data-bg], [data-tint]')]
@@ -443,7 +450,7 @@ export class UI {
   navBack(start) {
     const g = this.g, root = this.navRoot();
     if (!root) return;
-    if (root.id === 'menu') return g.resume();
+    if (root.id === 'menu' || root.id === 'mapView') return g.resume();
     if (root.id === 'rules') return root.close();
     if (root.id === 'dialog') { const opts = this.navItems(root); const bye = opts.reverse().find(o => /farewell|bye|leave|nothing|not today|just|no\b|later/i.test(o.textContent)); if (bye) bye.click(); return; }
     if (start && root.id === 'creator') {
@@ -457,48 +464,135 @@ export class UI {
     const tabs = [...root.querySelectorAll('[data-tab]')], i = tabs.findIndex(t => t.classList.contains('on'));
     const n = tabs[(Math.max(0, i) + k + tabs.length) % tabs.length]; if (n) n.click();
   }
-  openMenu(tab = 'map') { $('menu').hidden = false; this.menuTab(tab); }
-  closeMenu() { $('menu').hidden = true; }
+  openMenu(tab = 'map') { if (tab === 'map') { $('menu').hidden = true; this.openMap(); return; } $('mapView').hidden = true; $('menu').hidden = false; this.menuTab(tab); }
+  closeMenu() { $('menu').hidden = true; $('mapView').hidden = true; }
   menuTab(tab) {
+    if (tab === 'map') { $('menu').hidden = true; this.openMap(); return; }
     document.querySelectorAll('#menu [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     document.querySelectorAll('#menu .pane').forEach(p => { p.hidden = p.dataset.pane !== tab; });
     if (tab === 'map') this.drawMap();
     if (tab === 'quests') this.drawJournal();
     if (tab === 'hero') this.drawSheet();
   }
-  drawMap() {
-    const g = this.g, cv = $('bigmap'), c = cv.getContext('2d'), S = cv.width;
-    const toPx = (x, z) => [((x + HALF) / (HALF * 2)) * S, ((z + HALF) / (HALF * 2)) * S];
-    if (this.mapImg) c.drawImage(this.mapImg, 0, 0, S, S);
-    c.font = 'bold 13px system-ui'; c.textAlign = 'center';
-    c.font = 'bold 15px Georgia, serif';
-    for (const s of SETTLEMENTS) { const [x, y] = toPx(s.x, s.z); c.fillStyle = 'rgba(0,0,0,.6)'; c.fillText(s.name, x + 1, y - (s.kingdom ? 22 : 12)); c.fillStyle = s.kingdom ? '#ffe6a8' : '#fff6dc'; c.fillText(s.name, x, y - (s.kingdom ? 23 : 13)); }
-    c.font = 'bold 12px system-ui';
-    for (const s of Object.values(SITES)) {
-      if (!s.name || s === SITES.lake) continue;
-      const [x, y] = toPx(s.x, s.z);
-      c.fillStyle = 'rgba(0,0,0,.55)'; c.fillText(s.name, x + 1, y - 9);
-      c.fillStyle = '#fff6dc'; c.fillText(s.name, x, y - 10);
+  drawMap() { this.openMap(); }
+  // ------------------------------------------------------------ the full-screen map
+  places() {
+    const g = this.g, P = PLANS.emberfall, L = P.landmarks, list = [];
+    const add = (group, name, x, z, col) => list.push({ group, name, x, z, col });
+    const front = l => [l.x + Math.sin(l.rot || 0) * 8, l.z + Math.cos(l.rot || 0) * 8];
+    for (const sg of g.scenery.signs || []) add('Emberfall', sg.text, sg.x, sg.z, '#e8b14a');
+    add('Emberfall', 'Stable (horses)', P.stable.x, P.stable.z, '#c89060');
+    add('Emberfall', 'Fighting Pit', P.arena.x, P.arena.z, '#e05a40');
+    add('Emberfall', 'Market & well', L.market.x, L.market.z + 8, '#e8b14a');
+    add('Emberfall', 'West gate (to the Whispering Wood)', SETTLEMENTS[0].x - SETTLEMENTS[0].r, SETTLEMENTS[0].z, '#9ad070');
+    add('Wilds', 'The Whispering Wood', WOOD.x, WOOD.z, '#6ab04a');
+    for (const s of Object.values(SITES)) if (s.name && s !== SITES.lake && s !== SITES.ford) add('Wilds', s.name, s.x, s.z, '#d8c8a0');
+    for (const s of SETTLEMENTS) if (s.id !== 'emberfall') add('Towns', s.name, s.x, s.z, '#ffe6a8');
+    for (const sh of SHRINES) if (g.hero.shrines[sh.id]) add('Shrines (tap on map to travel)', `Shrine of ${sh.name}`, sh.x, sh.z, '#5fd8ff');
+    return list;
+  }
+  openMap() {
+    const g = this.g, V = $('mapView'), cv = $('mapCv');
+    V.hidden = false;
+    const pp = g.zone === 'world' ? g.player.pos : g.zone === 'inside' && g.rooms.door ? { x: g.rooms.door.x, z: g.rooms.door.z } : SITES.barrow;
+    if (!this.mapCam) this.mapCam = { x: pp.x, z: pp.z, k: 2.2 };
+    else { this.mapCam.x = pp.x; this.mapCam.z = pp.z; }
+    // the places list
+    const box = $('mapList'); box.replaceChildren();
+    let group = null;
+    for (const pl of this.places()) {
+      if (pl.group !== group) { group = pl.group; box.append(el('h4', null, group)); }
+      const b = document.createElement('button'); b.innerHTML = `<i style="background:${pl.col}"></i>`; b.append(pl.name);
+      b.onclick = () => { this.mapCam.x = pl.x; this.mapCam.z = pl.z; this.mapCam.k = Math.max(this.mapCam.k, pl.group === 'Emberfall' ? 2.5 : 0.9); g.setWaypoint(pl.x, pl.z, pl.name); this.renderMap(); };
+      box.append(b);
     }
-    const hq = g.hero;
-    const mark = (x, z, col, r, txt) => { const [px, py] = toPx(x, z); c.fillStyle = col; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2); c.fill(); c.stroke(); if (txt) { c.fillStyle = '#000'; c.font = 'bold 10px system-ui'; c.fillText(txt, px, py + 3.5); } };
-    this.shrineHits = [];
-    for (const s of SHRINES) { const on = hq.shrines[s.id]; mark(s.x, s.z, on ? '#5fd8ff' : '#2d5566', 7, '✦'); if (on) this.shrineHits.push({ s, p: toPx(s.x, s.z) }); }
-    if (hq.quests.shards !== undefined) SHARDS.forEach(([x, z], i) => { if (!hq.got['shard' + i]) mark(x, z, '#ff9a40', 5); });
-    if (hq.quests.glowcaps !== undefined) GLOWCAPS.forEach(([x, z], i) => { if (!hq.got['glow' + i]) mark(x, z, '#7fd8ff', 4); });
-    for (const [id, pos] of Object.entries(NPC_POS)) if (g.npcHasQuest({ npcId: id })) mark(pos[0], pos[1], '#ffd34d', 6, '!');
-    const tq = g.trackedQuest(), at = tq && g.questTarget(tq.id);
-    if (at && at.zone === 'world') { const [x, y] = toPx(at.x, at.z); c.fillStyle = '#ffd34d'; c.strokeStyle = '#000'; c.beginPath(); c.moveTo(x, y - 10); c.lineTo(x + 8, y); c.lineTo(x, y + 10); c.lineTo(x - 8, y); c.closePath(); c.fill(); c.stroke(); }
-    const pp = g.zone === 'world' ? g.player.pos : g.zone === 'inside' && g.rooms.door ? { x: g.rooms.door.x, z: g.rooms.door.z } : { x: SITES.barrow.x, z: SITES.barrow.z };
-    const [px, py] = toPx(pp.x, pp.z);
-    c.save(); c.translate(px, py); c.rotate(-(g.player.yaw - Math.PI) + Math.PI);
-    c.fillStyle = '#fff'; c.beginPath(); c.moveTo(0, -10); c.lineTo(7, 7); c.lineTo(0, 3); c.lineTo(-7, 7); c.closePath(); c.fill(); c.stroke(); c.restore();
-    $('mapHint').textContent = this.shrineHits.length > 1 ? 'Tap a glowing shrine ✦ to fast travel there.' : 'Touch the stone shrines ✦ you find to unlock fast travel.';
-    cv.onclick = e => {
-      const r = cv.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * S, y = ((e.clientY - r.top) / r.height) * S;
-      const hit = this.shrineHits.find(h => Math.hypot(h.p[0] - x, h.p[1] - y) < 16);
-      if (hit) g.fastTravel(hit.s);
+    if (!this.mapBound) this.bindMap();
+    this.renderMap();
+  }
+  bindMap() {
+    this.mapBound = true;
+    const g = this.g, cv = $('mapCv'), ptrs = new Map();
+    let moved = 0, pinch0 = 0, k0 = 1;
+    const zoom = (f, sx, sy) => {
+      const C = this.mapCam, r = cv.getBoundingClientRect(), w = this.toWorld(sx ?? r.width / 2, sy ?? r.height / 2);
+      C.k = Math.max(0.25, Math.min(9, C.k * f));
+      const w2 = this.toWorld(sx ?? r.width / 2, sy ?? r.height / 2); C.x += w.x - w2.x; C.z += w.z - w2.z;
+      this.renderMap();
     };
+    cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); k0 = this.mapCam.k; } });
+    cv.addEventListener('pointermove', e => {
+      if (!ptrs.has(e.pointerId)) return;
+      const last = ptrs.get(e.pointerId), dx = e.clientX - last[0], dy = e.clientY - last[1];
+      ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0) { this.mapCam.k = Math.max(0.25, Math.min(9, k0 * d / pinch0)); moved += 99; this.renderMap(); } return; }
+      moved += Math.abs(dx) + Math.abs(dy);
+      this.mapCam.x -= dx / this.mapCam.k; this.mapCam.z -= dy / this.mapCam.k;
+      this.renderMap();
+    });
+    const up = e => {
+      const was = ptrs.has(e.pointerId); ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = 0;
+      if (!was || moved > 8 || e.type === 'pointercancel') return;
+      const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+      const hit = (this.mapShrines || []).find(h => Math.hypot(h.p[0] - sx, h.p[1] - sy) < 18);
+      if (hit) { this.closeMap(); g.fastTravel(hit.s); return; }
+      const w = this.toWorld(sx, sy), wp = g.waypoint;
+      if (wp && Math.hypot((wp.x - w.x) * this.mapCam.k, (wp.z - w.z) * this.mapCam.k) < 20) g.setWaypoint(null);
+      else g.setWaypoint(w.x, w.z, 'Waypoint');
+      this.renderMap();
+    };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', e => { e.preventDefault(); const r = cv.getBoundingClientRect(); zoom(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+    $('mZin').onclick = () => zoom(1.5); $('mZout').onclick = () => zoom(1 / 1.5);
+    $('mMe').onclick = () => { const p = g.player.pos; this.mapCam.x = p.x; this.mapCam.z = p.z; this.renderMap(); };
+    $('mClear').onclick = () => { g.setWaypoint(null); this.renderMap(); };
+    $('mClose').onclick = () => this.closeMap();
+    $('mMenu').onclick = () => { $('mapView').hidden = true; $('menu').hidden = false; this.menuTab('quests'); };
+    $('minimap').addEventListener('click', e => { e.stopPropagation(); if (g.state === 'play' && !g.talking) g.togglePause('map'); });
+    $('minimap').addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); if (g.state === 'play' && !g.talking) g.togglePause('map'); }, { passive: false });
+    addEventListener('resize', () => { if (!$('mapView').hidden) this.renderMap(); });
+  }
+  closeMap() { $('mapView').hidden = true; this.g.resume(); }
+  toWorld(sx, sy) { const C = this.mapCam, cv = $('mapCv'); return { x: C.x + (sx - cv.clientWidth / 2) / C.k, z: C.z + (sy - cv.clientHeight / 2) / C.k }; }
+  renderMap() {
+    const g = this.g, cv = $('mapCv'), dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+    if (!W) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const c = cv.getContext('2d'), C = this.mapCam;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = '#0c0906'; c.fillRect(0, 0, W, H);
+    const S = (x, z) => [W / 2 + (x - C.x) * C.k, H / 2 + (z - C.z) * C.k];
+    if (this.mapImg) { const [x0, y0] = S(-HALF, -HALF); c.imageSmoothingEnabled = true; c.drawImage(this.mapImg, x0, y0, HALF * 2 * C.k, HALF * 2 * C.k); }
+    // close up, the streets and houses of Emberfall
+    if (C.k > 1.2) {
+      const P = PLANS.emberfall, s0 = SETTLEMENTS[0];
+      c.fillStyle = 'rgba(150,140,128,.9)'; const [ex, ey] = S(s0.x, s0.z); c.beginPath(); c.arc(ex, ey, (s0.r - 8) * C.k, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(96,70,50,.95)';
+      for (const h of P.rows || []) { const [x, y] = S(h.x, h.z); c.save(); c.translate(x, y); c.rotate(-h.rot); c.fillRect(-h.w * C.k / 2, -h.d * C.k / 2, h.w * C.k, h.d * C.k); c.restore(); }
+      c.fillStyle = 'rgba(70,52,44,.95)';
+      for (const [name, x, z] of P.buildings) { const w = (/castle/.test(name) ? 26 : /church|tavern|barracks/.test(name) ? 13 : /blacksmith/.test(name) ? 11 : 6) * C.k; const [px, py] = S(x, z); c.fillRect(px - w / 2, py - w / 2, w, w); }
+      const [ax, ay] = S(P.arena.x, P.arena.z); c.fillStyle = '#d8c08a'; c.beginPath(); c.arc(ax, ay, P.arena.r * C.k, 0, 7); c.fill();
+      const st = P.stable, [sx, sy] = S(st.x - st.w / 2, st.z - st.d / 2); c.strokeStyle = '#7a5434'; c.lineWidth = 2; c.strokeRect(sx, sy, st.w * C.k, st.d * C.k);
+    }
+    const label = (txt, x, y, col = '#fff6dc', size = 13) => { c.font = `700 ${size}px Cinzel, Georgia, serif`; c.textAlign = 'center'; c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(txt, x, y); c.fillStyle = col; c.fillText(txt, x, y); };
+    const dot = (x, y, col, r = 6) => { c.fillStyle = col; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.stroke(); };
+    const hq = g.hero;
+    // places
+    for (const s of SETTLEMENTS) { const [x, y] = S(s.x, s.z); if (!(s.id === 'emberfall' && C.k > 1.2)) label(s.name, x, y - 6, s.kingdom ? '#ffe6a8' : '#fff6dc', s.kingdom ? 16 : 13); }
+    if (C.k > 0.5) for (const s of Object.values(SITES)) { if (!s.name || s === SITES.lake || s === SITES.ford) continue; const [x, y] = S(s.x, s.z); dot(x, y, '#d8c8a0', 4); label(s.name, x, y - 9, '#f2e8d0', 12); }
+    { const [x, y] = S(WOOD.x, WOOD.z); label('The Whispering Wood', x, y, '#c8f0a8', 13); }
+    if (C.k > 1.2) for (const pl of this.places()) if (pl.group === 'Emberfall') { const [x, y] = S(pl.x, pl.z); dot(x, y, pl.col, 6); label(pl.name.replace(' (horses)', ''), x, y - 10, '#ffe6b0', 12); }
+    this.mapShrines = [];
+    for (const sh of SHRINES) { const on = hq.shrines[sh.id], [x, y] = S(sh.x, sh.z); dot(x, y, on ? '#5fd8ff' : '#2d5566', 8); c.fillStyle = '#000'; c.font = '700 10px system-ui'; c.textAlign = 'center'; c.fillText('✦', x, y + 3.5); if (on) this.mapShrines.push({ s: sh, p: [x, y] }); }
+    for (const [id, pos] of Object.entries(NPC_POS)) if (g.npcHasQuest({ npcId: id })) { const [x, y] = S(pos[0], pos[1]); dot(x, y, '#ffd34d', 8); c.fillStyle = '#000'; c.font = '900 11px system-ui'; c.fillText('!', x, y + 4); }
+    const tq = g.trackedQuest(), at = tq && g.questTarget(tq.id);
+    if (at && at.zone === 'world') { const [x, y] = S(at.x, at.z); c.fillStyle = '#ffd34d'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y - 12); c.lineTo(x + 10, y); c.lineTo(x, y + 12); c.lineTo(x - 10, y); c.closePath(); c.fill(); c.stroke(); label('Quest', x, y - 16, '#ffd34d', 11); }
+    if (g.waypoint) { const [x, y] = S(g.waypoint.x, g.waypoint.z); c.strokeStyle = '#000'; c.lineWidth = 3; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 26); c.stroke(); c.fillStyle = '#ff5a3c'; c.beginPath(); c.moveTo(x, y - 26); c.lineTo(x + 16, y - 20); c.lineTo(x, y - 14); c.fill(); label(g.waypoint.name, x, y + 16, '#ffb0a0', 12); }
+    // you
+    const pp = g.zone === 'world' ? g.player.pos : g.zone === 'inside' && g.rooms.door ? { x: g.rooms.door.x, z: g.rooms.door.z } : SITES.barrow;
+    const [px, py] = S(pp.x, pp.z);
+    c.save(); c.translate(px, py); c.rotate(-(g.player.yaw - Math.PI) + Math.PI);
+    c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, -13); c.lineTo(9, 9); c.lineTo(0, 4); c.lineTo(-9, 9); c.closePath(); c.fill(); c.stroke(); c.restore();
+    label('You', px, py + 24, '#ffffff', 12);
   }
   drawJournal() {
     const g = this.g, box = $('journal');

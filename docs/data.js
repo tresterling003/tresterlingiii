@@ -108,7 +108,7 @@ export const MONSTERS = {
 
 // ---- the people of the realm. pos is [x, z] in the overworld.
 // how often each foe raises its guard against light blows (heavy blows break guards)
-for (const [k, v] of Object.entries({ bandit: 0.22, raider: 0.22, watch: 0.38, guardian: 0.42, varg: 0.28, grub: 0.25, sparring: 0.42, bones: 0.12 })) if (MONSTERS[k]) MONSTERS[k].guard = v;
+for (const [k, v] of Object.entries({ watch: 0.3, guardian: 0.35, varg: 0.2, grub: 0.2, sparring: 0.35 })) if (MONSTERS[k]) MONSTERS[k].guard = v;
 
 export const NPCS = {
   maren: { name: 'Elder Maren', model: 'mage', tint: '#c9b8e6', gear: ['Spellbook'], hat: true, pos: [3, 80], face: 0, idle: 'Idle', title: 'Village Elder' },
@@ -429,10 +429,10 @@ Object.assign(QUESTS, {
 });
 
 Object.assign(MONSTERS, {
-  redhand: { name: 'Red Hand Cutthroat', model: 'rogue', tint: '#b8423a', gear: ['Knife', 'Knife_Offhand'], hp: 30, armor: 13, hit: 5, dmg: [1, 8, 2], speed: 6.4, reach: 2.4, aggro: 22, xp: 50, gold: [5, 15], kind: 'melee', guard: 0.2, attacks: ['Dualwield_Melee_Attack_Slice', 'Dualwield_Melee_Attack_Stab'], drop: 'iron' },
+  redhand: { name: 'Red Hand Cutthroat', model: 'rogue', tint: '#b8423a', gear: ['Knife', 'Knife_Offhand'], hp: 30, armor: 13, hit: 5, dmg: [1, 8, 2], speed: 6.4, reach: 2.4, aggro: 22, xp: 50, gold: [5, 15], kind: 'melee', attacks: ['Dualwield_Melee_Attack_Slice', 'Dualwield_Melee_Attack_Stab'], drop: 'iron' },
   redchief: { name: 'Mag the Red Hand', title: 'Bandit Captain', model: 'barbarian', tint: '#b8423a', gear: ['2H_Axe'], scale: 1.15, boss: true, hp: 160, armor: 14, hit: 6, dmg: [2, 6, 3], speed: 6.2, reach: 3.0, aggro: 24, xp: 200, gold: [60, 60], kind: 'melee', guard: 0.3, special: 'slam', attacks: ['2H_Melee_Attack_Chop', '2H_Melee_Attack_Slice'] },
   nightknife: { name: 'The Night Knife', title: 'Assassin of the Alleys', model: 'rogue', tint: '#3a3448', gear: ['Knife', 'Knife_Offhand'], boss: true, hp: 130, armor: 15, hit: 7, dmg: [1, 8, 4], speed: 7.6, reach: 2.4, aggro: 20, xp: 260, gold: [40, 40], kind: 'melee', guard: 0.35, attacks: ['Dualwield_Melee_Attack_Slice', 'Dualwield_Melee_Attack_Stab', 'Dualwield_Melee_Attack_Chop'] },
-  pitfighter: { name: 'Pit Fighter', model: 'barbarian', tint: '#c89a6a', gear: ['1H_Axe', 'Barbarian_Round_Shield'], hp: 26, armor: 12, hit: 4, dmg: [1, 6, 2], speed: 6.0, reach: 2.5, aggro: 60, xp: 30, gold: [0, 0], kind: 'melee', guard: 0.25, attacks: ['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal'] },
+  pitfighter: { name: 'Pit Fighter', model: 'barbarian', tint: '#c89a6a', gear: ['1H_Axe', 'Barbarian_Round_Shield'], hp: 26, armor: 12, hit: 4, dmg: [1, 6, 2], speed: 6.0, reach: 2.5, aggro: 60, xp: 30, gold: [0, 0], kind: 'melee', guard: 0.15, attacks: ['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal'] },
   pitbrute: { name: 'Pit Brute', model: 'knight', tint: '#a87a5a', gear: ['2H_Sword'], scale: 1.2, hp: 60, armor: 13, hit: 5, dmg: [2, 6, 2], speed: 5.4, reach: 3.0, aggro: 60, xp: 60, gold: [0, 0], kind: 'melee', guard: 0.35, attacks: ['2H_Melee_Attack_Chop', '2H_Melee_Attack_Slice'] },
 });
 MONSTERS.bandit.drop = MONSTERS.raider.drop = MONSTERS.watch.drop = 'iron';
