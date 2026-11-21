@@ -30,7 +30,7 @@ class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.2;
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x9fc8e8, 0.006);
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 540);
@@ -440,7 +440,7 @@ class Game {
   tick(dt) {
     const p = this.player, h = this.hero;
     const t0 = this.time;
-    this.time = (this.time + dt / DAY_SECS) % 1;
+    this.time = (this.time + (dt / DAY_SECS) * (this.scenery.dayK < 0.3 ? 3 : 1)) % 1; // nights pass three times faster
     if (this.time < t0) h.dayCount = (h.dayCount || 0) + 1;
     h.time = this.time;
     const frozen = this.cineActive || this.talking || this.state !== 'play' || !!this.wheel;

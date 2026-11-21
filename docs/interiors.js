@@ -163,15 +163,20 @@ export class Rooms {
   // ------------------------------------------------------------ building a room
   build(door) {
     this.clear();
-    const g = this.g, kind = door.kind, [W, D, H] = SIZE[kind];
+    const g = this.g, kind = door.kind;
     const R = rng(Math.abs(Math.round(door.x * 31 + door.z * 17)) + 7);
+    // no two homes alike: who lives here decides the size, the walls and the furniture
+    const HOMES = ['cottage', 'merchant', 'workshop', 'scholar', 'family', 'poor', 'kitchen'];
+    const style = kind === 'home' ? HOMES[Math.floor(R() * HOMES.length)] : null;
+    let [W, D, H] = SIZE[kind];
+    if (style === 'merchant') { W = 18; D = 15; H = 5.6; } else if (style === 'poor') { W = 10; D = 9; H = 4; } else if (style) { W = 12 + Math.floor(R() * 5); D = 10 + Math.floor(R() * 4); H = 4.4 + R() * 0.8; }
     this.door = door; this.W = W; this.D = D; this.ceil = H; this.anim = [];
-    this.spawn = { x: 0, z: D / 2 - 3.4 };
+    this.spawn = { x: 0, z: D / 2 - 4.4 };
     const root = (this.group = new THREE.Group());
     root.position.set(ROOM_X, 0, ROOM_Z);
     g.scene.add(root);
     const stone = kind === 'church' || kind === 'castle' || kind === 'tower' || kind === 'alchemist' || kind === 'guild';
-    const floorT = tex(stone ? 'stone' : 'planks').clone(); floorT.needsUpdate = true; floorT.repeat.set(W / 4, D / 4);
+    const floorT = tex(stone || style === 'kitchen' ? 'stone' : 'planks').clone(); floorT.needsUpdate = true; floorT.repeat.set(W / 4, D / 4);
     const wallT = tex(stone || kind === 'smith' ? 'brick' : 'plaster').clone(); wallT.needsUpdate = true; wallT.repeat.set(W / 4, H / 4);
     const M = {
       floor: mat({ map: floorT }), wall: mat({ map: wallT }), wallD: null, timber: mat({ color: 0x5a3a24 }), wood: mat({ color: 0x8a5a34 }), woodL: mat({ color: 0xa87444 }),
@@ -180,6 +185,33 @@ export class Rooms {
     };
     const wallT2 = wallT.clone(); wallT2.needsUpdate = true; wallT2.repeat.set(D / 4, H / 4);
     M.wallD = mat({ map: wallT2 });
+    if (style) {
+      const tints = { merchant: [0xf4e0c0, 0xd8e8f4, 0xf0d8e0], poor: [0xb8a890, 0xa89880], scholar: [0xd8e0c8, 0xe8dcc0], workshop: [0xe0d0b0, 0xd0c4a8], family: [0xfff0d8, 0xf8e0c8, 0xe0f0e0], cottage: [0xfff0d0, 0xf0e8f8, 0xe8f4e8, 0xf8e8c8], kitchen: [0xf0e0c0, 0xe8e0d0] }[style];
+      const t = tints[Math.floor(R() * tints.length)]; M.wall.color.set(t); M.wallD.color.set(t);
+      if (style === 'poor') M.floor.color.set(0x9a8060);
+      if (style === 'merchant') M.floor.color.set(0xd8b090);
+    }
+    // books, paintings and the like
+    const bookcase = (x, z, rot, w = 2.4, h = 3) => {
+      const bc = new THREE.Group(); bc.position.set(x, 0, z); bc.rotation.y = rot; root.add(bc);
+      const add = (bw, bh, bd, px, py, pz, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), m); b.position.set(px, py, pz); bc.add(b); };
+      add(w, h, 0.5, 0, h / 2, 0, M.timber);
+      const cols = [0x8a2a2a, 0x2a4a8a, 0x2a6a3a, 0x8a6a2a, 0x5a2a6a, 0x3a3a3a];
+      for (let sh = 0; sh < 4; sh++) { const y = 0.3 + sh * (h - 0.4) / 4; add(w - 0.1, 0.06, 0.45, 0, y, 0.04, M.wood); let bx = -w / 2 + 0.12; while (bx < w / 2 - 0.2) { const bw = 0.08 + R() * 0.1, bh = 0.4 + R() * 0.25; add(bw, bh, 0.32, bx + bw / 2, y + bh / 2 + 0.03, 0.06, mat({ color: cols[Math.floor(R() * cols.length)] })); bx += bw + 0.01 + (R() < 0.1 ? 0.2 : 0); } }
+      const sh2 = g.phys.box(ROOM_X + x, ROOM_Z + z, Math.abs(Math.cos(rot)) > 0.5 ? w / 2 : 0.3, Math.abs(Math.cos(rot)) > 0.5 ? 0.3 : w / 2, 0); sh2.low = true; this.shapes.push(sh2);
+    };
+    const painting = (x, y, z, rot, w = 1.4, h = 1.0) => {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 48; const k = c.getContext('2d');
+      const sky = k.createLinearGradient(0, 0, 0, 48); sky.addColorStop(0, `hsl(${190 + R() * 40},50%,${55 + R() * 20}%)`); sky.addColorStop(1, `hsl(${30 + R() * 30},60%,70%)`); k.fillStyle = sky; k.fillRect(0, 0, 64, 48);
+      k.fillStyle = `hsl(${90 + R() * 50},35%,${30 + R() * 15}%)`; k.beginPath(); k.moveTo(0, 48); k.lineTo(0, 30 + R() * 8); k.quadraticCurveTo(32, 18 + R() * 10, 64, 28 + R() * 8); k.lineTo(64, 48); k.fill();
+      if (R() < 0.5) { k.fillStyle = '#f4e8c0'; k.beginPath(); k.arc(10 + R() * 44, 10 + R() * 8, 4, 0, 7); k.fill(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h + 0.2, 0.08), mat({ color: 0xb08a3a })); fr.position.set(x, y, z); fr.rotation.y = rot; root.add(fr);
+      const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t })); pic.position.set(x + Math.sin(rot) * 0.05, y, z + Math.cos(rot) * 0.05); pic.rotation.y = rot; root.add(pic);
+    };
+    const plant = (x, z, s2 = 1) => { box(0.5 * s2, 0.55 * s2, 0.5 * s2, x, 0.27 * s2, z, mat({ color: 0xa85a3a })); const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 * s2, 0), mat({ color: 0x4a8a3a, flatShading: true })); b.position.set(x, 0.9 * s2, z); root.add(b); };
+    const counter = (x, z, w, rot = 0) => { const c = box(Math.abs(Math.cos(rot)) > 0.5 ? w : 0.9, 1.0, Math.abs(Math.cos(rot)) > 0.5 ? 0.9 : w, x, 0.5, z, M.wood, true, true); box(Math.abs(Math.cos(rot)) > 0.5 ? w + 0.1 : 1.0, 0.08, Math.abs(Math.cos(rot)) > 0.5 ? 1.0 : w + 0.1, x, 1.04, z, M.woodL); return c; };
+    const pot = (x, y, z, r = 0.3) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.8, r * 1.4, 10), M.iron); m.position.set(x, y + r * 0.7, z); root.add(m); };
     this.winMat = new THREE.MeshBasicMaterial({ color: 0xcfe8ff });
     const box = (w, h, d, x, y, z, m, solid = false, low = false) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -350,21 +382,98 @@ export class Rooms {
       rug(-1.5, 0.5, 4, 3);
       light(0, H - 0.8, 1.5, 0xffc080, 14, 14);
     } else if (kind === 'home') {
-      hearth(0, -D / 2 + 0.6, 0);
-      kit('dungeon', 'bed_floor', -W / 2 + 1.3, -D / 2 + 2, 0, 1.25);
-      if (R() < 0.6) kit('dungeon', 'bed_floor', -W / 2 + 3.4, -D / 2 + 2, 0, 1.25);
-      table(3, 0.5); stool(1.6, 0.5); stool(4.4, 0.5); stool(3, -0.6);
-      candles(3, 1.02, 0.5);
-      kit('dungeon', 'shelf_large', W / 2 - 0.35, -2.5, -Math.PI / 2, 1.4, { y: 1.6, solid: false });
-      kit('dungeon', 'shelf_large', W / 2 - 0.35, -2.5, -Math.PI / 2, 1.4, { y: 2.6, solid: false });
-      kit('dungeon', 'barrel_small', W / 2 - 1, D / 2 - 1.4); kit('dungeon', 'barrel_small', W / 2 - 2.1, D / 2 - 1.2);
-      kit('town', 'sack', -W / 2 + 1, D / 2 - 1.4, 0.4, 6, { solid: false });
-      rug(-1.5, 0.5, 4, 3);
-      loot(-W / 2 + 1.1, 1.5, Math.PI / 2, {});
-      light(0, H - 0.8, 1.5, 0xffc080, 12, 14);
       const night = g.scenery.dayK < 0.35;
-      person(R() < 0.5 ? 1.6 : 4.4, 0.5, R() < 0.5 ? Math.PI / 2 : -Math.PI / 2, { talk: 'resident', title: 'lives here', sit: !night && R() < 0.5, sitY: 0 });
-      if (R() < 0.5) person(-2, -1, R() * 6, { resident: true });
+      const owner = (x, z, rot, o = {}) => person(x, z, rot, { talk: 'resident', title: { cottage: 'lives here', merchant: 'merchant', workshop: ['weaver', 'carpenter', 'potter', 'cobbler'][Math.floor(R() * 4)], scholar: 'scholar', family: 'lives here', poor: 'lives here', kitchen: 'cook' }[style], ...o });
+      if (style === 'cottage') {
+        hearth(0, -D / 2 + 0.6, 0);
+        kit('dungeon', 'bed_floor', -W / 2 + 1.3, -D / 2 + 2, 0, 1.25);
+        table(2.6, 0.5); stool(1.2, 0.5); stool(4, 0.5); candles(2.6, 1.02, 0.5);
+        kit('dungeon', 'shelf_large', W / 2 - 0.35, -2.5, -Math.PI / 2, 1.4, { y: 1.6, solid: false });
+        painting(-W / 2 + 0.3, 2.4, 1, Math.PI / 2);
+        plant(W / 2 - 0.8, D / 2 - 1.2); rug(-1.5, 0.5, 4, 3);
+        loot(-W / 2 + 1.1, 1.8, Math.PI / 2, {});
+        owner(1.2, 0.5, Math.PI / 2, { sit: !night && R() < 0.6 });
+      } else if (style === 'merchant') {
+        // a rich house: carpets, paintings, a long dining table, a staircase
+        rug(0, 0, 6, 8, 'carpet');
+        table(0, -1, 2.2, 6.4); for (let k = 0; k < 3; k++) { stool(-1.5, -3 + k * 2); stool(1.5, -3 + k * 2); }
+        candles(0, 1.02, -3); candles(0, 1.02, 1);
+        hearth(W / 2 - 0.6, -2, -Math.PI / 2);
+        for (let k = 0; k < 3; k++) painting(-W / 2 + 0.3, 2.6, -4 + k * 3.5, Math.PI / 2, 1.6, 1.1);
+        painting(0, 3, -D / 2 + 0.3, 0, 2.4, 1.6);
+        bookcase(-W / 2 + 2, -D / 2 + 0.4, 0, 2.6, 3.4);
+        kit('dungeon', 'stairs', W / 2 - 3, D / 2 - 3, Math.PI, 1);
+        plant(-W / 2 + 0.8, D / 2 - 1, 1.2); plant(W / 2 - 0.8, -D / 2 + 0.8, 1.2);
+        kit('dungeon', 'banner_patternA_red', 4, -D / 2 + 0.2, 0, 1.2, { y: 2, solid: false });
+        loot(W / 2 - 1.5, D / 2 - 6, -Math.PI / 2, { chest: true });
+        // a chandelier
+        const ch = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 6, 18), M.iron); ch.rotation.x = Math.PI / 2; ch.position.set(0, H - 1.4, -1); root.add(ch);
+        for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; flame(Math.cos(a), H - 1.45, -1 + Math.sin(a), 0.4, 0xffd070); }
+        light(0, H - 1.6, -1, 0xffd8a0, 30, 20);
+        owner(1.5, -3, -Math.PI / 2, { sit: !night, model: 'mage', tint: '#d8b8e8', hat: true });
+        if (R() < 0.6) person(-4, 3, 0.4, { resident: true, model: 'rogue', tint: '#e8d8b0' });
+      } else if (style === 'workshop') {
+        // a craftsman's workshop downstairs
+        counter(0, -D / 2 + 1.2, 6);
+        for (let k = 0; k < 5; k++) box(0.3 + R() * 0.3, 0.2 + R() * 0.3, 0.3, -2.5 + k * 1.2, 1.2, -D / 2 + 1.2, mat({ color: [0x8a5a34, 0xb88a54, 0x6a6a72][k % 3] }));
+        kit('town', 'resource_lumber', -W / 2 + 1.5, 1, 0.2, 5, { solid: true });
+        kit('town', 'weaponrack', W / 2 - 0.7, -1, -Math.PI / 2, 6);
+        // a loom
+        const lx = W / 2 - 2.5, lz = 2.5; for (const sx of [-1, 1]) box(0.15, 2.2, 0.15, lx + sx * 1, 1.1, lz, M.timber); box(2.2, 0.15, 0.15, lx, 2.2, lz, M.timber); box(2.2, 0.15, 0.6, lx, 0.9, lz, M.timber);
+        const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.2), mat({ color: [0xb83a30, 0x3a6ab8, 0xd8b040][Math.floor(R() * 3)], side: THREE.DoubleSide })); cloth.position.set(lx, 1.5, lz); root.add(cloth);
+        for (let k = 0; k < 3; k++) kit('dungeon', 'barrel_small', -W / 2 + 1, -D / 2 + 3 + k * 1.1);
+        kit('dungeon', 'crates_stacked', W / 2 - 1.5, D / 2 - 1.6, 0.2, 0.7);
+        stool(0, -D / 2 + 2.3);
+        light(0, H - 1, -1, 0xfff0d0, 18, 16); light(-3, H - 1, 2, 0xffd8a0, 10, 12);
+        loot(-W / 2 + 1.1, D / 2 - 2, Math.PI / 2, {});
+        owner(0, -D / 2 + 2.3, 0, { sit: !night, model: 'barbarian', tint: '#d8c8a8' });
+      } else if (style === 'scholar') {
+        // books from floor to ceiling
+        for (let k = 0; k < Math.floor(W / 2.6); k++) bookcase(-W / 2 + 1.4 + k * 2.6, -D / 2 + 0.35, 0, 2.5, H - 0.6);
+        bookcase(-W / 2 + 0.35, 0, Math.PI / 2, 2.5, H - 0.6); bookcase(W / 2 - 0.35, 1, -Math.PI / 2, 2.5, H - 0.6);
+        table(0, 0, 2.8, 1.5); stool(0, 1.1); candles(-0.8, 1.02, -0.2);
+        for (let k = 0; k < 4; k++) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 6), mat({ color: 0xf0e4c0 })); sc.rotation.z = Math.PI / 2; sc.rotation.y = R(); sc.position.set(0.3 + R() * 0.8, 1.08, -0.3 + R() * 0.5); root.add(sc); }
+        const globe = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), mat({ color: 0x4a8ab8 })); globe.position.set(W / 2 - 1.6, 1.4, D / 2 - 2); root.add(globe);
+        box(0.12, 0.9, 0.12, W / 2 - 1.6, 0.45, D / 2 - 2, M.timber);
+        rug(0, 0.5, 4, 3);
+        light(-0.8, 2.2, -0.2, 0xffd8a0, 22, 12); light(0, H - 1, 2, 0xfff0d0, 12, 14);
+        loot(W / 2 - 1.1, -2.5, -Math.PI / 2, {});
+        owner(0, 1.1, Math.PI, { sit: !night, model: 'mage', tint: '#c8d0e8', hat: true, gear: ['Spellbook'] });
+      } else if (style === 'family') {
+        hearth(-W / 2 + 0.6, -1, Math.PI / 2);
+        for (let k = 0; k < 3; k++) kit('dungeon', 'bed_floor', W / 2 - 1.2 - k * 2, -D / 2 + 2, 0, k === 2 ? 0.9 : 1.2);
+        table(0, 1.5, 3, 1.5); for (const [x, z] of [[-1, 0.4], [1, 0.4], [-1, 2.6], [1, 2.6]]) stool(x, z);
+        for (let k = 0; k < 4; k++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.08, 10), mat({ color: 0xe8dcc8 })); b.position.set(-1 + (k % 2) * 2, 1.06, 1 + Math.floor(k / 2)); root.add(b); }
+        pot(-W / 2 + 1.2, 0, 1.2, 0.35);
+        const cradle = box(1.2, 0.5, 0.7, -2, 0.45, -D / 2 + 1.6, M.woodL);
+        kit('dungeon', 'barrel_small', W / 2 - 1, D / 2 - 1.4); plant(-W / 2 + 0.8, D / 2 - 1);
+        painting(W / 2 - 0.3, 2.4, 1.5, -Math.PI / 2);
+        rug(0, 1.5, 4.5, 3.5); loot(W / 2 - 1.1, 2.5, -Math.PI / 2, {});
+        light(0, H - 0.8, 1, 0xffc890, 16, 14);
+        owner(1, 0.4, Math.PI, { sit: !night });
+        person(-1, 2.6, 0, { sit: !night, resident: true, model: 'rogue', tint: '#f0c8a0' });
+        if (R() < 0.7) { const kid = person(-2.5, 0, 0.5, { resident: true, tint: '#f8d8b8' }); kid.actor.root.scale.setScalar(0.62); }
+      } else if (style === 'poor') {
+        // one bare room, a fire pit, straw for a bed
+        const pit = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.25, 10), M.stoneM); pit.position.set(0, 0.12, -0.5); root.add(pit);
+        flame(0, 0.2, -0.5, 1.1); light(0, 1.2, -0.5, 0xff8a3c, 30, 14);
+        const straw = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 2.4), mat({ color: 0xc8a850 })); straw.position.set(-W / 2 + 1.2, 0.15, -D / 2 + 1.6); root.add(straw);
+        stool(2, 0.5); kit('dungeon', 'barrel_small', W / 2 - 1, -D / 2 + 1);
+        kit('town', 'sack', W / 2 - 1, 1.5, 0.3, 7, { solid: false }); kit('town', 'bucket_water', -2, 2, 0, 6, { solid: false });
+        owner(2, 0.5, -Math.PI / 2, { sit: true, model: 'rogue', tint: '#a89880' });
+      } else {
+        // a cook's kitchen: counters, pots, hanging herbs, a big oven
+        hearth(0, -D / 2 + 0.6, 0);
+        counter(-W / 2 + 0.6, -1, 6, Math.PI / 2); counter(W / 2 - 0.6, -1, 6, Math.PI / 2);
+        for (let k = 0; k < 4; k++) pot(-W / 2 + 0.6, 1.08, -3 + k * 1.6, 0.2 + R() * 0.1);
+        for (let k = 0; k < 6; k++) { const hb = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.5, 5), mat({ color: [0x5a8a3a, 0x8a7a3a, 0x7a3a2a][k % 3] })); hb.rotation.x = Math.PI; hb.position.set(-2 + k * 0.8, H - 0.6, -D / 2 + 2); root.add(hb); }
+        table(0, 1.5, 3, 1.4);
+        for (let k = 0; k < 6; k++) { const l = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.34, 3, 6), mat({ color: 0xc8843c })); l.rotation.z = Math.PI / 2; l.position.set(-1 + (k % 3) * 0.7, 1.15, 1.2 + Math.floor(k / 3) * 0.5); root.add(l); }
+        for (let k = 0; k < 3; k++) kit('town', 'sack', W / 2 - 1.2, D / 2 - 1.2 - k * 1.2, k, 7, { solid: false });
+        light(0, H - 1, 1, 0xfff0d0, 18, 14);
+        loot(W / 2 - 1.1, 3, -Math.PI / 2, {});
+        owner(0, 0.3, Math.PI, { model: 'barbarian', tint: '#f0e0c8' });
+      }
     } else if (kind === 'tavern') {
       // the bar
       box(12, 1.25, 1.1, -W / 2 + 8, 0.62, -D / 2 + 3.6, M.wood, true);

@@ -455,7 +455,7 @@ export class Scenery {
     const day = THREE.MathUtils.smoothstep(sunDir.y, -0.12, 0.25);
     const dusk = Math.max(0, 1 - Math.abs(sunDir.y) / 0.3) * (sunDir.y > -0.2 ? 1 : 0);
     const c = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
-    const top = c(0x070a1c, 0x3f86d6, day), bottom = c(0x141a33, 0xb9dcf2, day).lerp(new THREE.Color(0xf4a26a), dusk * 0.7);
+    const top = c(0x101a3a, 0x3f86d6, day), bottom = c(0x2a3a60, 0xb9dcf2, day).lerp(new THREE.Color(0xf4a26a), dusk * 0.7);
     this.skyU.top.value.copy(top);
     this.skyU.bottom.value.copy(bottom);
     this.skyU.sunDir.value.copy(sunDir);
@@ -465,14 +465,14 @@ export class Scenery {
     const f = focus || V3(0, 0, 0);
     this.sun.position.copy(f).addScaledVector(light, 90);
     this.sun.target.position.copy(f);
-    this.sun.intensity = inside ? 0 : 0.35 + day * 2.0;
-    this.sun.color.copy(c(0x8ea6ff, 0xfff1d8, day)).lerp(new THREE.Color(0xffa060), dusk * 0.6);
-    this.hemi.intensity = room ? 0.95 : inside ? 1.15 : 0.45 + day * 0.75;
-    this.hemi.color.copy(room ? new THREE.Color(0xffe2c0) : inside ? new THREE.Color(0x9a90b0) : c(0x4a5c9a, 0xcfe3ff, day));
-    this.hemi.groundColor.copy(room ? new THREE.Color(0x6a4a34) : inside ? new THREE.Color(0x40302a) : c(0x1a2018, 0x4a5a3a, day));
+    this.sun.intensity = inside ? 0 : 0.9 + day * 1.5; // the moon is bright enough to see by
+    this.sun.color.copy(c(0xa8bcff, 0xfff1d8, day)).lerp(new THREE.Color(0xffa060), dusk * 0.6);
+    this.hemi.intensity = room ? 1.45 : inside ? 1.15 : 1.05 + day * 0.3;
+    this.hemi.color.copy(room ? new THREE.Color(0xffe2c0) : inside ? new THREE.Color(0x9a90b0) : c(0x8a9cd0, 0xcfe3ff, day));
+    this.hemi.groundColor.copy(room ? new THREE.Color(0x6a4a34) : inside ? new THREE.Color(0x40302a) : c(0x3a4250, 0x4a5a3a, day));
     const fogC = room ? new THREE.Color(0x1a120c) : inside ? new THREE.Color(0x05060a) : bottom.clone().lerp(top, 0.15);
     this.scene.fog.color.copy(fogC);
-    this.scene.fog.density = room ? 0.006 : inside ? 0.028 : 0.0042 + (1 - day) * 0.0035 + (this.swampFog || 0);
+    this.scene.fog.density = room ? 0.004 : inside ? 0.022 : 0.0042 + (1 - day) * 0.0012 + (this.swampFog || 0);
     this.skyDome.visible = this.stars.visible = this.moon.visible = !inside;
     this.clouds.forEach(cl => { cl.visible = !inside; });
     (this.cloudMats || []).forEach(m => m.color.copy(c(0x7a8098, 0xf4f6ff, day)).lerp(new THREE.Color(0xffc8b0), dusk * 0.5));
