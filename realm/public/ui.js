@@ -117,13 +117,13 @@ export class UI {
     const g = this.g, p = g.player, cv = $('minimap'), c = cv.getContext('2d'), S = cv.width;
     c.save();
     c.clearRect(0, 0, S, S);
-    c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); c.clip();
+    c.beginPath(); if (c.roundRect) c.roundRect(2, 2, S - 4, S - 4, 14); else c.rect(2, 2, S - 4, S - 4); c.clip();
     if (g.zone !== 'world') { c.fillStyle = g.zone === 'inside' ? '#2a2018' : '#16141a'; c.fillRect(0, 0, S, S); }
     else if (this.mapImg) {
       const ppm = 1.0; // screen pixels per metre on the minimap
       const imgPpm = this.mapImg.width / (HALF * 2);
       c.translate(S / 2, S / 2);
-      c.rotate(p.yaw - Math.PI);
+      c.rotate(p.yaw);
       c.scale(ppm / imgPpm, ppm / imgPpm);
       const px = ((p.pos.x + HALF) / (HALF * 2)) * this.mapImg.width, pz = ((p.pos.z + HALF) / (HALF * 2)) * this.mapImg.width;
       c.drawImage(this.mapImg, -px, -pz);
@@ -132,7 +132,7 @@ export class UI {
     // things on the minimap
     const scale = 1.0; // pixels per metre
     const toScreen = (x, z) => {
-      const dx = x - p.pos.x, dz = z - p.pos.z, a = p.yaw - Math.PI, cs = Math.cos(a), sn = Math.sin(a);
+      const dx = x - p.pos.x, dz = z - p.pos.z, a = p.yaw, cs = Math.cos(a), sn = Math.sin(a);
       return [S / 2 + (dx * cs - dz * sn) * scale * (g.zone === 'barrow' ? 2.2 : 1), S / 2 + (dx * sn + dz * cs) * scale * (g.zone === 'barrow' ? 2.2 : 1)];
     };
     const dot = (x, z, col, r = 3) => { const [sx, sy] = toScreen(x, z); c.fillStyle = col; c.beginPath(); c.arc(sx, sy, r, 0, Math.PI * 2); c.fill(); };
@@ -161,9 +161,10 @@ export class UI {
       c.beginPath(); c.moveTo(sx, sy - 6); c.lineTo(sx + 5, sy); c.lineTo(sx, sy + 6); c.lineTo(sx - 5, sy); c.closePath(); c.fill(); c.stroke();
     }
     // you, and north
+    c.save(); c.translate(S / 2, S / 2); c.rotate(Math.PI - (p.rot - p.yaw)); // the way your hero faces
     c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 1.5;
-    c.beginPath(); c.moveTo(S / 2, S / 2 - 7); c.lineTo(S / 2 + 5, S / 2 + 5); c.lineTo(S / 2, S / 2 + 2); c.lineTo(S / 2 - 5, S / 2 + 5); c.closePath(); c.fill(); c.stroke();
-    const na = -(p.yaw - Math.PI) - Math.PI / 2;
+    c.beginPath(); c.moveTo(0, -8); c.lineTo(6, 6); c.lineTo(0, 2); c.lineTo(-6, 6); c.closePath(); c.fill(); c.stroke(); c.restore();
+    const na = Math.atan2(-Math.cos(p.yaw), Math.sin(p.yaw));
     c.fillStyle = '#ff6060'; c.font = 'bold 12px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('N', S / 2 + Math.cos(na) * (S / 2 - 9), S / 2 + Math.sin(na) * (S / 2 - 9));
   }
@@ -590,7 +591,7 @@ export class UI {
     // you
     const pp = g.zone === 'world' ? g.player.pos : g.zone === 'inside' && g.rooms.door ? { x: g.rooms.door.x, z: g.rooms.door.z } : SITES.barrow;
     const [px, py] = S(pp.x, pp.z);
-    c.save(); c.translate(px, py); c.rotate(-(g.player.yaw - Math.PI) + Math.PI);
+    c.save(); c.translate(px, py); c.rotate(Math.PI - g.player.rot);
     c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, -13); c.lineTo(9, 9); c.lineTo(0, 4); c.lineTo(-9, 9); c.closePath(); c.fill(); c.stroke(); c.restore();
     label('You', px, py + 24, '#ffffff', 12);
   }
@@ -699,20 +700,18 @@ export class UI {
             if (l < 12) { dx = dy = 0; } else { const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4); dx = Math.cos(a) * R; dy = Math.sin(a) * R; }
             knob.style.transform = `translate(${dx * 0.7}px, ${dy * 0.7}px)`;
             inp().move = { x: Math.round(dx / R * 100) / 100, y: -Math.round(dy / R * 100) / 100 };
-            inp().touch.sprint = l > R * 1.5;
             continue;
           }
           if (l > R) { dx = (dx / l) * R; dy = (dy / l) * R; }
           knob.style.transform = `translate(${dx}px, ${dy}px)`;
           inp().move = { x: dx / R, y: -dy / R };
-          inp().touch.sprint = l > R * 1.4;
         } else if (t.identifier === this.lookId) {
           inp().mx += (t.clientX - this.lx) * 2.2 * inp().sens; inp().my += (t.clientY - this.ly) * 2.2 * inp().sens;
           this.lx = t.clientX; this.ly = t.clientY;
         }
       }
     };
-    const end = e => { for (const t of e.changedTouches) { if (t.identifier === sid) { sid = null; knob.style.transform = ''; inp().move = { x: 0, y: 0 }; inp().touch.sprint = false; } if (t.identifier === this.lookId) this.lookId = null; } };
+    const end = e => { for (const t of e.changedTouches) { if (t.identifier === sid) { sid = null; knob.style.transform = ''; inp().move = { x: 0, y: 0 }; inp().touch.sprint = false; $('tSprint') && $('tSprint').classList.remove('on'); } if (t.identifier === this.lookId) this.lookId = null; } };
     addEventListener('touchmove', move, { passive: false });
     addEventListener('touchend', end);
     addEventListener('touchcancel', end);
@@ -735,8 +734,9 @@ export class UI {
     btn('tMenu', () => { g.togglePause(); });
     btn('tHorse', () => { inp().pressed.KeyH = true; });
     btn('tLock', () => { inp().pressed.KeyT = true; });
+    btn('tSprint', () => { inp().touch.sprint = !inp().touch.sprint; $('tSprint').classList.toggle('on', inp().touch.sprint); });
     btn('tWheel', () => { if (g.wheel) this.wheelClose(false); else this.wheelOpen(true); });
-    const ic = { tAttack: 'sword', tJump: 'jump', tDodge: 'dodge', tBlock: 'bolt', tPotion: 'potion', tUse: 'hand', tHorse: 'horse', tLock: 'target', tWheel: 'wheel', tMenu: 'menu' };
+    const ic = { tSprint: 'run', tAttack: 'sword', tJump: 'jump', tDodge: 'dodge', tBlock: 'bolt', tPotion: 'potion', tUse: 'hand', tHorse: 'horse', tLock: 'target', tWheel: 'wheel', tMenu: 'menu' };
     for (const [id, nm] of Object.entries(ic)) { const b = $(id); if (b) b.innerHTML = icon(nm); }
     $('wheel').addEventListener('click', e => { if (e.target.id === 'wheel') this.wheelClose(false); });
     try { this.setDpad(localStorage.getItem('realm.dpad') === '1'); } catch { this.setDpad(false); }

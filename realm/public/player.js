@@ -121,7 +121,7 @@ export class Player {
     this.pos = V3(0, 0, 0);
     this.vel = V3(0, 0, 0);
     this.rot = Math.PI;
-    this.yaw = Math.PI; this.pitch = 0.2; this.dist = 6.8;
+    this.yaw = Math.PI; this.pitch = 0.12; this.dist = 5.4;
     this.onGround = true;
     this.state = 'move';
     this.atkT = 0; this.combo = 0; this.dodgeT = 0; this.iframes = 0;
@@ -336,11 +336,11 @@ export class Player {
 
   updateCamera(dt) {
     const g = this.g;
-    const head = this.pos.clone().add(V3(0, this.mount ? 3.4 : 1.9, 0));
+    const head = this.pos.clone().add(V3(0, this.mount ? 3.3 : 1.75, 0));
     let dist = this.aimMode ? 3.6 : (this.mount ? 9 : g.bossActive ? 8.5 : g.inCombat ? this.dist * 1.12 : this.dist) * (g.zone === 'barrow' ? 0.85 : g.zone === 'inside' ? 0.62 : 1);
     if (g.finalT > 0) dist *= 0.55;
     const dir = V3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
-    const side = V3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(this.aimMode ? 1.15 : g.aiming ? 0.7 : 0.35);
+    const side = V3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(this.aimMode ? 1.15 : g.aiming ? 0.8 : 0.6); // over the shoulder
     let d2 = dist;
     // pull in when something is in the way
     for (let k = 1; k <= 8; k++) {

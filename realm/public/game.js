@@ -73,7 +73,7 @@ class Game {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    this.baseFov = this.camera.fov = w / h < 0.8 ? 72 : 60;
+    this.baseFov = this.camera.fov = w / h < 0.8 ? 74 : 64;
     this.camera.updateProjectionMatrix();
   }
 
@@ -97,7 +97,7 @@ class Game {
     this.loop = () => this.frame(Math.min(clock.getDelta(), this.maxDt));
     this.renderer.setAnimationLoop(this.loop);
     // for automated tests: hold the picture still while a screenshot is taken
-    window.__hold = on => { this.renderer.setAnimationLoop(on ? null : this.loop); if (on) this.renderer.render(this.scene, this.camera); clock.getDelta(); };
+    window.__hold = on => { this.renderer.setAnimationLoop(on ? null : this.loop); if (on) this.draw(); clock.getDelta(); };
   }
 
   titleScreen() {
@@ -387,7 +387,8 @@ class Game {
     if (this.state === 'play' || this.state === 'creator') this.entities.forEach(e => { if (e.preview || (this.state === 'creator' && e.near)) e.actor.update(dt); });
     if (this.state === 'play') this.ui.hud();
     this.input.endFrame();
-    this.renderer.render(this.scene, this.camera);
+    this.updateBeacons(rdt);
+    this.draw();
   }
   plaza() { const k = SETTLEMENTS[0]; return this._plaza || (this._plaza = V3(k.x, this.phys.ground(k.x, k.z + 30), k.z + 30)); }
   // outside of play, only draw the people near what the camera looks at
@@ -1603,6 +1604,74 @@ class Game {
   }
 
 
+
+  // ================================================================== the picture: a cinematic grade over the 3D render
+  draw() {
+    const r = this.renderer;
+    if (this.noGrade) { r.render(this.scene, this.camera); return; }
+    if (!this.grade) {
+      const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: isTouch ? 2 : 4 });
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { tex: { value: rt.texture }, night: { value: 0 } },
+        vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+        fragmentShader: `uniform sampler2D tex; uniform float night; varying vec2 vUv;
+          void main() {
+            vec3 c = texture2D(tex, vUv).rgb;
+            float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+            c = mix(vec3(l), c, 0.74);                                  // calmer colours, less cartoon
+            c = (c - 0.18) * 1.12 + 0.18;                               // a little more contrast
+            c *= mix(vec3(1.02, 0.99, 0.94), vec3(0.92, 0.97, 1.06), smoothstep(0.0, 0.25, 0.25 - l) * 0.6 + night * 0.3); // warm highlights, cool shadows
+            c *= 1.0 + night * 0.45;                                     // keep nights readable
+            vec2 d = vUv - 0.5; c *= 1.0 - dot(d, d) * 0.5;             // vignette
+            gl_FragColor = vec4(max(c, 0.0), 1.0);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+          }`,
+        depthTest: false, depthWrite: false, toneMapped: true,
+      });
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+      this.grade = { rt, mat, scene: new THREE.Scene().add(quad), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), size: new THREE.Vector2() };
+    }
+    const G = this.grade;
+    r.getDrawingBufferSize(G.size);
+    if (G.rt.width !== G.size.x || G.rt.height !== G.size.y) G.rt.setSize(G.size.x, G.size.y);
+    G.mat.uniforms.night.value = 1 - (this.scenery.dayK ?? 1);
+    r.setRenderTarget(G.rt);
+    r.render(this.scene, this.camera);
+    r.setRenderTarget(null);
+    r.render(G.scene, G.cam);
+  }
+  // pillars of light in the sky over your waypoint and your quest
+  updateBeacons(dt) {
+    if (!this.beacons) {
+      const make = col => {
+        const mat = new THREE.ShaderMaterial({ uniforms: { col: { value: new THREE.Color(col) }, t: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+          vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+          fragmentShader: 'uniform vec3 col; uniform float t; varying vec2 vUv; void main() { float a = (1.0 - vUv.y) * (0.55 + 0.25 * sin(t * 3.0 + vUv.y * 20.0)); float edge = 1.0 - abs(vUv.x - 0.5) * 2.0; gl_FragColor = vec4(col * a * (0.4 + edge), 1.0); }' });
+        const g = new THREE.Group();
+        const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 260, 16, 1, true), mat); beam.position.y = 130; g.add(beam);
+        const core = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 260, 8, 1, true), mat); core.position.y = 130; g.add(core);
+        const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 3, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+        ring.rotation.x = -Math.PI / 2; ring.position.y = 0.15; g.add(ring);
+        g.visible = false; g.renderOrder = 5; this.scene.add(g);
+        return { g, mat, ring };
+      };
+      this.beacons = { way: make(0xff5a2a), quest: make(0xffd040) };
+    }
+    const t = performance.now() / 1000, B = this.beacons;
+    const show = (b, at) => {
+      b.g.visible = !!at && this.zone === 'world' && this.state === 'play';
+      if (!b.g.visible) return;
+      b.g.position.set(at.x, this.phys.ground(at.x, at.z), at.z);
+      b.mat.uniforms.t.value = t;
+      const d = this.player ? Math.hypot(at.x - this.player.pos.x, at.z - this.player.pos.z) : 100;
+      b.g.scale.set(Math.max(1, d / 60), 1, Math.max(1, d / 60)); // stays visible from far off
+      b.ring.scale.setScalar(1 + (t % 1.2) * 0.6); b.ring.material.opacity = 0.8 - (t % 1.2) * 0.6;
+    };
+    show(B.way, this.waypoint);
+    const tq = this.hero && this.state === 'play' ? this.trackedQuest() : null, at = tq && this.questTarget(tq.id);
+    show(B.quest, at && at.zone === 'world' ? at : null);
+  }
   // ================================================================== freeflow: counters, knockdowns, the combo meter
   // Block (or aim) while an attacker shows the counter spark: you meet every one of them at once.
   tryCounter() {

@@ -28,6 +28,7 @@ const P = {
   arrows: '<path d="M5 19L19 5M14 5h5v5"/><path d="M5 13l6-6M5 13h3M5 13v3"/>',
   leaf: '<path d="M5 19c0-9 6-14 15-14 0 9-5 15-14 15"/><path d="M5 19l8-8"/>',
   bolt: '<path d="M13 2L5 14h6l-1 8 8-12h-6z"/>',
+  run: '<path d="M5 6l6 6-6 6M12 6l6 6-6 6"/>',
 };
 export function icon(name, cls = '') {
   return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.target}</svg>`;
