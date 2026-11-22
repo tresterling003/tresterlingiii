@@ -120,6 +120,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-
 #xhair i{position:absolute;inset:0;border:3px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 12px rgba(0,0,0,.4)}
 #xhair b{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.4)}
 #xhair span{position:absolute;left:50%;top:54px;transform:translateX(-50%);font-family:"Lilita One";font-size:17px;white-space:nowrap;text-shadow:0 2px 0 #000,0 0 8px #000}
+#rot{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);z-index:5;pointer-events:none;background:rgba(8,14,34,.8);border:2px solid rgba(255,210,63,.6);border-radius:12px;padding:6px 12px;font-weight:900;font-size:13px;white-space:nowrap}
 #xhair.hot i{border-color:#5dff8a}#xhair.hot span{color:#5dff8a}
 #loading{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;font-family:"Lilita One";font-size:28px;color:#ffd23f;background:#060c1c}
 </style>
@@ -127,6 +128,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-
 </head>
 <body>
 <canvas id="gl"></canvas><canvas id="fx"></canvas>
+<div id="rot" class="hidden">↻ Turn your phone sideways to see the whole field</div>
 <div id="xhair" class="hidden"><i></i><b></b><span id="xYd">20 YD</span></div>
 <div id="loading">Loading stadium…</div>
 
@@ -253,7 +255,9 @@ const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x0a1430,120,330);
 const camera=new THREE.PerspectiveCamera(55,1,0.1,700);
 let W=1,H=1,DPR=1;scene.add(camera);
 function resize(){W=innerWidth;H=innerHeight;DPR=Math.min(2,devicePixelRatio||1);renderer.setSize(W,H,false);camera.aspect=W/H;
-  camera.fov=W<H?74:58;camera.updateProjectionMatrix();fxc.width=W*DPR;fxc.height=H*DPR;}
+  setFov();fxc.width=W*DPR;fxc.height=H*DPR;}
+function setFov(){const asp=W/H;const hf=THREE.MathUtils.degToRad(112);let vf=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(hf/2)/asp));
+  const wide=G&&G.mode==='career'&&fpView();camera.fov=wide?clamp(vf,62,98):(W<H?74:58);camera.updateProjectionMatrix();}
 addEventListener('resize',resize);
 
 function canvasTex(w,h,draw,opts={}){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);
@@ -548,7 +552,7 @@ function setupFormation(){
   const qb=addP('O','QB',0,L-6.5,{max:6.5});G.qb=qb;
   for(const x of[-2.8,-1.4,0,1.4,2.8])addP('O','OL',x,L-0.9,{big:true,max:5.5});
   const wr1=addP('O','WR1',-13,L-0.6,{max:8.8,gloves:true}),wr2=addP('O','WR2',13,L-1.0,{max:8.8,gloves:true}),wr3=addP('O','WR3',-7.5,L-1.0,{max:8.6,gloves:true});
-  const te=addP('O','TE',4.4,L-0.9,{max:7.6,gloves:true}),rb=addP('O','RB',1.8,L-6.6,{max:8.4,gloves:true});
+  const te=addP('O','TE',4.4,L-0.9,{max:7.6,gloves:true}),rb=addP('O','RB',2.4,L-5.8,{max:8.4,gloves:true});
   G.elig=[wr1,wr2,wr3,te,rb];G.elig.forEach((p,i)=>{p.label=['A','B','C','D','E'][i];p.color=RCOL[i];});
   const sk=G.lvl.s;
   for(const x of[-3.6,-1.2,1.2,3.6])addP('D','DL',x,L+0.9,{big:true,max:6.2});
@@ -588,7 +592,7 @@ function startLevel(i){
   newPlay(true);showBanner(G.lvl.t,G.lvl.tip,'★ Touchdown   ★ Grab the star   ★ Score on the first play');A.whistle();
 }
 function newPlay(first){
-  G.timers=[];G.result=null;G.phase='presnap';G.picked=null;G.throwAnim=-1;G.timeScale=1;G.celebT=-1;G.tdT=-1;G.aim=null;G.lock=null;G.runner=null;G.target=null;G.juke=0;G.jukeCd=0;G.pressT=0;
+  G.fAim=null;G.timers=[];G.result=null;G.phase='presnap';G.picked=null;G.throwAnim=-1;G.timeScale=1;G.celebT=-1;G.tdT=-1;G.aim=null;G.lock=null;G.runner=null;G.target=null;G.juke=0;G.jukeCd=0;G.pressT=0;
   G.pressMax=(4.6-G.lvl.s*1.3)-(G.lvl.blitz?1.0:0);
   G.star=G.lvl.star&&!G.starEver?V(...G.lvl.star):null;starMesh.visible=starGlow.visible=!!G.star;
   setupFormation();routeGroup.visible=true;setHandsKit();
@@ -773,18 +777,16 @@ function fgOver(){if(G.mode!=='fg')return;$('#rTitle').textContent='FINAL KICK';
 /* ---------------- camera ---------------- */
 function viewDir(){return V(Math.sin(G.yaw)*Math.cos(G.pitch),Math.sin(G.pitch),Math.cos(G.yaw)*Math.cos(G.pitch));}
 function fpView(){return G.mode==='career'&&G.qb&&!G.runner&&!G.picked&&['presnap','pocket','air','dead'].includes(G.phase);}
-function frameCam(snap){if(G.mode==='career'){G.yaw=0;G.pitch=-0.05;}if(snap){cam.pos.copy(cam.tPos);cam.look.copy(cam.tLook);}}
+function frameCam(snap){if(G.mode==='career'){G.yaw=0;G.pitch=W<H?-0.27:-0.19;}if(snap){cam.pos.copy(cam.tPos);cam.look.copy(cam.tLook);}}
 function eyePos(){const q=G.qb;const sp=Math.hypot(q.vel.x,q.vel.z);const e=V(q.pos.x,2.08+Math.abs(Math.sin(G.t*7))*0.04*clamp(sp/4,0,1),q.pos.z);
   if(q.fall>0){e.y=lerp(2.08,0.5,q.fall);}return e;}
 function updCam(dt){
-  const fp=fpView();if(G.qb)G.qb.mesh.g.visible=!fp;
-  $('#xhair').classList.toggle('hidden',!(fp&&G.phase==='pocket'));
-  updHands(dt,fp&&(G.phase==='presnap'||G.phase==='pocket'||G.throwAnim>=0));
+  const fp=fpView();if(G.qb)G.qb.mesh.g.visible=!fp;if(fp!==G.wasFp){G.wasFp=fp;setFov();}
+  $('#rot').classList.toggle('hidden',!(fp&&W<H&&(G.phase==='presnap'||G.phase==='pocket')));
+  $('#xhair').classList.toggle('hidden',!(fp&&G.phase==='pocket'&&G.fAim));if(!(G.phase==='pocket'&&G.fAim))aimRing.visible=G.phase==='fgaim'&&aimRing.visible;
+  updHands(dt,false);
   if(fp){
-    if(G.phase==='air'){ // QB's eyes follow the ball
-      const d=ball.position.clone().sub(eyePos());const yT=Math.atan2(d.x,d.z),pT=Math.atan2(d.y,Math.hypot(d.x,d.z));
-      G.yaw+=(yT-G.yaw)*Math.min(1,dt*5);G.pitch+=(clamp(pT,-0.5,0.5)-G.pitch)*Math.min(1,dt*5);}
-    const e=eyePos();camera.position.copy(e);camera.up.set(0,1,0);camera.lookAt(e.clone().add(viewDir()));
+    const e=eyePos().add(V(0,1.0,-2.8));G.yaw=0;G.pitch=W<H?-0.27:-0.19;camera.position.copy(e);camera.up.set(0,1,0);camera.lookAt(e.clone().add(viewDir()));
     if(G.qb.fall>0)camera.rotateZ(G.qb.fall*0.9);
     if(G.shake>0){camera.rotateZ(rnd(-1,1)*G.shake*0.03);camera.rotateX(rnd(-1,1)*G.shake*0.02);G.shake=Math.max(0,G.shake-dt*2);}
     cam.pos.copy(e);cam.look.copy(e.clone().add(viewDir().multiplyScalar(10)));
@@ -805,14 +807,20 @@ const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 function groundAt(x,y){ndc.set(x/W*2-1,-(y/H)*2+1);ray.setFromCamera(ndc,camera);const d=ray.ray.direction,o=ray.ray.origin;if(d.y>=-1e-4)return null;const t=-o.y/d.y;return o.clone().addScaledVector(d,t);}
 function planeZAt(x,y,z){ndc.set(x/W*2-1,-(y/H)*2+1);ray.setFromCamera(ndc,camera);const d=ray.ray.direction,o=ray.ray.origin;if(d.z<=1e-4)return null;const t=(z-o.z)/d.z;return o.clone().addScaledVector(d,t);}
 const BALLSPD=21,CATCHY=1.25,GRAV=10.7;
+const AIMUP=70;
+function fingerTarget(x,y){ndc.set(x/W*2-1,-((y-AIMUP)/H)*2+1);ray.setFromCamera(ndc,camera);const d=ray.ray.direction,o=ray.ray.origin;const qb=G.qb.pos;let T;
+  if(d.y<-0.002){const t=(CATCHY-o.y)/d.y;T=o.clone().addScaledVector(d,t);}else{const h=V(d.x,0,d.z).normalize();T=o.clone().addScaledVector(h,70);T.y=CATCHY;}
+  let dx=T.x-qb.x,dz=T.z-qb.z,dist=Math.hypot(dx,dz);
+  if(dist<4){const k=4/Math.max(0.01,dist);dx*=k;dz*=k;dist=4;}if(dist>62){const k=62/dist;dx*=k;dz*=k;}
+  return V(qb.x+dx,CATCHY,qb.z+dz);}
 function aimPoint(){const e=eyePos(),d=viewDir();let T;
   if(d.y<-0.003){const t=(CATCHY-e.y)/d.y;T=e.clone().addScaledVector(d,t);}else{const h=V(d.x,0,d.z).normalize();T=e.clone().addScaledVector(h,60);T.y=CATCHY;}
   const dist=hd(e,T);if(dist>65){const k=65/dist;T.x=e.x+(T.x-e.x)*k;T.z=e.z+(T.z-e.z)*k;}return T;}
 function predictRoute(p,T){const q={pos:p.pos.clone(),wp:p.wp,route:p.route,routeName:p.routeName,vel:p.vel};const st=0.05;
   for(let t=0;t<T;t+=st){const tg=routeTarget(q);const dx=tg.x-q.pos.x,dz=tg.z-q.pos.z,d=Math.hypot(dx,dz);if(d>0.01){const m=Math.min(d,p.max*st);q.pos.x+=dx/d*m;q.pos.z+=dz/d*m;}}return q.pos;}
-function throwFP(power){
-  if(G.phase!=='pocket')return;const T=aimPoint();const qb=G.qb;
-  const from=eyePos().add(V(Math.cos(G.yaw)*0.35,0.15,-Math.sin(G.yaw)*0.35));
+function throwFP(power,T0){
+  if(G.phase!=='pocket')return;const T=T0||aimPoint();const qb=G.qb;
+  const from=V(qb.pos.x+0.35,2.2,qb.pos.z+0.2);
   const dist=from.distanceTo(T);const speed=lerp(14,27,power);const Tm=Math.max(0.3,dist/speed);
   const apex=GRAV*Tm*Tm/8;
   // receivers play the ball: whoever's route takes him near the spot goes up for it
@@ -835,22 +843,20 @@ function doThrow(plan){A.throw(G.lastPower||0.6);buzz(12);G.lastAim=plan.to.clon
 let ptr=null;
 glc.addEventListener('pointerdown',e=>{A.init();if(G.mode==='attract'||G.paused)return;e.preventDefault();try{glc.setPointerCapture(e.pointerId);}catch(_){}
   ptr={id:e.pointerId,x0:e.clientX,y0:e.clientY,t0:performance.now(),x:e.clientX,y:e.clientY,hist:[{x:e.clientX,y:e.clientY,t:performance.now()}]};
-  ptr.hist[0].yaw=G.yaw;ptr.hist[0].pitch=G.pitch;ptr.lx=e.clientX;ptr.ly=e.clientY;
+  if(G.phase==='pocket'&&fpView()){G.fAim=fingerTarget(e.clientX,e.clientY);G.fx_=e.clientX;G.fy_=e.clientY;}
   if(G.phase==='run'){G.steer={x0:e.clientX,x:e.clientX};const right=V().crossVectors(V().subVectors(cam.look,cam.pos),V(0,1,0));G.steerSign=right.x>0?1:-1;}
   if(G.phase==='fgaim'){const P=planeZAt(e.clientX,e.clientY,110);if(P){G.fgAim=P;showFGAim(P);}}});
 glc.addEventListener('pointermove',e=>{if(!ptr||e.pointerId!==ptr.id)return;ptr.x=e.clientX;ptr.y=e.clientY;const now=performance.now();
-  if(fpView()&&(G.phase==='presnap'||G.phase==='pocket')){const dx=e.clientX-ptr.lx,dy=e.clientY-ptr.ly;
-    G.yaw=clamp(G.yaw-dx*2.4/W,-1.55,1.55);G.pitch=clamp(G.pitch-dy*1.5/H,-0.62,0.3);}
-  ptr.lx=e.clientX;ptr.ly=e.clientY;
-  ptr.hist.push({x:e.clientX,y:e.clientY,t:now,yaw:G.yaw,pitch:G.pitch});if(ptr.hist.length>24)ptr.hist.shift();
+  if(G.phase==='pocket'&&fpView()){G.fAim=fingerTarget(e.clientX,e.clientY);G.fx_=e.clientX;G.fy_=e.clientY;}
+  ptr.hist.push({x:e.clientX,y:e.clientY,t:now});if(ptr.hist.length>24)ptr.hist.shift();
   if(G.phase==='run'&&G.steer){G.steer.x=e.clientX;
     const old=ptr.hist.find(h=>now-h.t<160);if(old&&old.y-e.clientY>55&&G.jukeCd<=0){G.juke=0.7;G.jukeCd=1.3;A.juke();buzz(12);say('JUKE!','cool','');ptr.hist=[];}}
   if(G.phase==='fgaim'&&G.fgAim){const P=planeZAt(e.clientX,e.clientY,110);if(P){G.fgAim=P;showFGAim(P);}}});
 function endPtr(e){if(!ptr||e.pointerId!==ptr.id)return;G.lastHist=ptr.hist;ptr=null;
   if(G.phase==='presnap'){return;}
-  if(G.phase==='pocket'){const h=G.lastHist||[];const now=performance.now();const end=h[h.length-1];
-    if(end){let o=h[0];for(const q of h){if(end.t-q.t<=150){o=q;break;}}if(o===end&&h.length>1)o=h[h.length-2];const dy=o.y-end.y,dt_=Math.max(16,end.t-o.t),vy=dy/dt_;
-      if(dy>30&&vy>0.6){if(o.yaw!==undefined){G.yaw=o.yaw;G.pitch=o.pitch;}throwFP(clamp((vy-0.55)/2.2,0,1));}}}
+  if(G.phase==='pocket'&&G.fAim){const h=G.lastHist||[];const end=h[h.length-1];let v=0;
+    if(end&&h.length>1){let o=h[0];for(const q of h){if(end.t-q.t<=120){o=q;break;}}if(o===end)o=h[h.length-2];v=Math.hypot(end.x-o.x,end.y-o.y)/Math.max(16,end.t-o.t);}
+    const T=G.fAim;G.fAim=null;throwFP(clamp(0.2+v/2.4,0.2,1),T);}
   if(G.phase==='run'){G.steer=null;}
   if(G.phase==='fgaim'&&G.fgAim){kickFG(G.fgAim);G.fgAim=null;}}
 glc.addEventListener('pointerup',endPtr);glc.addEventListener('pointercancel',endPtr);
@@ -873,8 +879,9 @@ function frame(now){const rdt=Math.min(0.05,(now-last)/1000);last=now;
     updBall(dt);updStar(rdt);updParts(rdt);updCam(rdt);updRings();
     if(G.phase==='pocket'){const pr=clamp(G.pressT/G.pressMax,0,1);$('#pressure i').style.width=(pr*100)+'%';qbRing.visible=true;qbRing.position.set(G.qb.pos.x,0.04,G.qb.pos.z);
       qbRing.material.color.setHSL(0.33*(1-pr),1,0.55);}
-    if(fpView()&&G.phase==='pocket'){const T=aimPoint();aimRing.visible=true;aimRing.rotation.set(0,0,0);aimRing.position.set(T.x,0.04,T.z);aimRing.material.color.set(0xffffff);
-      const e=eyePos();$('#xYd').textContent=Math.round(hd(e,T))+' YD';
+    if(fpView()&&G.phase==='pocket'&&G.fAim){const T=fingerTarget(G.fx_,G.fy_);G.fAim=T;aimRing.visible=true;aimRing.rotation.set(0,0,0);aimRing.position.set(T.x,0.04,T.z);aimRing.material.color.set(0xffffff);
+      $('#xhair').style.left=G.fx_+'px';$('#xhair').style.top=(G.fy_-AIMUP)+'px';
+      const e=G.qb.pos;$('#xYd').textContent=Math.round(hd(e,T))+' YD';
       let near=null;for(const p of G.elig){if(hd(p.pos,T)<2.2)near=p;}$('#xhair').classList.toggle('hot',!!near);qbRing.visible=false;}
     if(G.runner&&G.phase==='run'){runRing.visible=true;runRing.position.set(G.runner.pos.x,0.04,G.runner.pos.z);}else runRing.visible=false;
   }
@@ -900,7 +907,7 @@ function animPlayer(p,dt){const m=p.mesh;
     if(G.phase==='pocket'||G.phase==='air'){const sep=Math.min(...G.def.filter(d=>d.role!=='DL').map(d=>hd(d.pos,p.pos)));p.openCol=sep>3.2?'#5dff8a':sep>1.8?'#ffd23f':'#ff5a5a';p.labelSprite.material.color.set(p.openCol);}
     else{p.openCol=p.color;p.labelSprite.material.color.set(p.color);}}
   m.g.position.x=p.pos.x;m.g.position.z=p.pos.z;if(p.cel<=0)m.g.position.y=0;m.g.rotation.y=p.face;}
-function updBall(dt){const b=G.ball;ball.visible=!(fpView()&&b.state==='held'&&b.holder===G.qb);
+function updBall(dt){const b=G.ball;ball.visible=true;
   if(b.state==='held'&&b.holder){const h=b.holder.mesh.arms[b.holder===G.qb?1:0].hand;h.getWorldPosition(ball.position);ball.rotation.set(0.3,b.holder.face,0);ballSpin.rotation.z=0;}
   else if(b.state==='air'){const f=Math.min(1,b.t/b.T);const p=ballPos(f),q=ballPos(Math.min(1,f+0.02));ball.position.copy(p);ball.lookAt(q);ballSpin.rotation.z+=dt*25;}
   else if(b.state==='loose'){b.vel.y-=9.8*dt;ball.position.addScaledVector(b.vel,dt);if(ball.position.y<0.12){ball.position.y=0.12;b.vel.y*=-0.4;b.vel.x*=0.7;b.vel.z*=0.7;}ballSpin.rotation.x+=dt*6;}}
@@ -955,7 +962,7 @@ function renderPlayCards(){const box=$('#plays');box.innerHTML='';if(G.mode!=='c
 function showPlayUI(){const bottom=$('#bottom');bottom.classList.remove('hidden');$('#hud').classList.remove('hidden');
   const pre=G.phase==='presnap';$('#snap').classList.toggle('hidden',!pre);$('#plays').classList.toggle('hidden',!pre||G.mode!=='career');
   $('#pressure').classList.toggle('hidden',G.phase!=='pocket');
-  $('#hint').textContent=pre?'Drag to look around · pick a play · SNAP':G.phase==='pocket'?'Drag to look · FLICK UP to throw where the circle is':G.phase==='run'?'Drag left/right to steer · flick up to JUKE':G.phase==='fgaim'?'Touch between the posts to aim · let go to kick':'';}
+  $('#hint').textContent=pre?'Pick a play, then SNAP':G.phase==='pocket'?'Touch where to throw · let go to throw · flick = bullet, slow = lob':G.phase==='run'?'Drag left/right to steer · flick up to JUKE':G.phase==='fgaim'?'Touch between the posts to aim · let go to kick':'';}
 setInterval(()=>{if(G.phase==='run'||G.phase==='fgaim'||G.phase==='pocket')showPlayUI();else if(G.phase==='air'||G.phase==='dead'||G.phase==='td'||G.phase==='fgair')$('#hint').textContent='';},300);
 function mkBtn(t,cls,f){const b=document.createElement('button');b.className='btn '+cls;b.textContent=t;b.onclick=()=>{A.init();A.tap();f();};return b;}
 const SCR=['menu','levels','locker','result','pause'];
@@ -1023,7 +1030,7 @@ document.addEventListener('visibilitychange',()=>{if(!A.ctx)return;if(document.h
 
 resize();
 (document.fonts?document.fonts.load('40px "Lilita One"'):Promise.resolve()).catch(()=>{}).finally(()=>{goMenu();$('#loading').remove();requestAnimationFrame(frame);});
-window.__ez={setView:(y,p)=>{G.yaw=y;G.pitch=p;},throwFP,aimPoint,eyePos,touchdown,G,S,startLevel,startFG,hikeBall,throwPlan,doThrow,camera,LEVELS,groundAt,frameCam};
+window.__ez={fingerTarget,setView:(y,p)=>{G.yaw=y;G.pitch=p;},throwFP,aimPoint,eyePos,touchdown,G,S,startLevel,startFG,hikeBall,throwPlan,doThrow,camera,LEVELS,groundAt,frameCam};
 </script>
 </body>
 </html>
