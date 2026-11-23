@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "build:single": "tsc --noEmit && vite build --config vite.single.config.ts && node -e \"require('fs').renameSync('dist-single/index.html','dist-single/PosePilot.html')\""
   },
   "engines": {
     "node": ">=18.17"
@@ -35,6 +36,7 @@
     "tailwindcss": "3.4",
     "typescript": "5.6",
     "vite": "5.4",
+    "vite-plugin-singlefile": "^2.3.4",
     "vitest": "2.1"
   }
 }

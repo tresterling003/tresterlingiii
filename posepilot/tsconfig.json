@@ -13,5 +13,5 @@
     "allowJs": false,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "tests", "vite.config.ts"]
+  "include": ["src", "tests", "vite.config.ts", "vite.single.config.ts"]
 }
