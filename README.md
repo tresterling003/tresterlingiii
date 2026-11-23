@@ -5,5 +5,6 @@
 | [`rival/`](rival/) | **RIVAL — Fantasy Fitness.** Head-to-head fitness leagues for friends and family (Next.js + Postgres). See its README. |
 | [`voice-quest/`](voice-quest/) | **Voice Quest: Christmas Kingdom.** Voice-interactive 3D adventure for young children practicing communication (TypeScript + Three.js + Vite). See its README. |
 | [`character-creator/`](character-creator/) | **Cartoon Character Creator.** Quiz-style character discovery tool for Digital Arts & Animation students: character brief, story idea, and a ready-to-copy 5-sketch AI prompt (React + Vite). See its README. |
+| [`photoshop-classroom/`](photoshop-classroom/) | **Photoshop Lesson Recorder.** Photoshop panel: the teacher records a project step by step, and students replay it with automatic step checking, snapshots and bundled assets (UXP plugin). See its README. |
 | [`christmas/`](christmas/) | Christmas Broadside trivia game (single HTML file). |
 | [`review/`](review/) | Economics review game (single HTML file). |

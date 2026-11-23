@@ -1,0 +1,130 @@
+{
+ "format": "ps-classroom-lesson",
+ "version": 1,
+ "id": "sample-soft-glow",
+ "title": "Soft Glow (Orton Effect)",
+ "createdAt": "2026-11-23T00:00:00.000Z",
+ "document": null,
+ "assets": [],
+ "steps": [
+  {
+   "id": "s1",
+   "manual": true,
+   "title": "Open a portrait or landscape photo",
+   "note": "File → Open. Any photo works, but a sunny outdoor shot looks best.",
+   "required": true
+  },
+  {
+   "id": "s2",
+   "event": "duplicate",
+   "descriptor": {
+    "_target": [
+     {
+      "_ref": "layer",
+      "_enum": "ordinal",
+      "_value": "targetEnum"
+     }
+    ],
+    "version": 5
+   },
+   "title": "Duplicate the layer",
+   "note": "Layer → Duplicate Layer, or press Ctrl/Cmd + J.",
+   "required": true,
+   "layerName": "Background"
+  },
+  {
+   "id": "s3",
+   "event": "gaussianBlur",
+   "descriptor": {
+    "radius": {
+     "_unit": "pixelsUnit",
+     "_value": 15
+    }
+   },
+   "title": "Apply Gaussian Blur (15 px)",
+   "note": "Filter → Blur → Gaussian Blur. Blur the COPY, not the original.",
+   "required": true,
+   "layerName": "Background copy"
+  },
+  {
+   "id": "s4",
+   "event": "set",
+   "descriptor": {
+    "_target": [
+     {
+      "_ref": "layer",
+      "_enum": "ordinal",
+      "_value": "targetEnum"
+     }
+    ],
+    "to": {
+     "_obj": "layer",
+     "mode": {
+      "_enum": "blendMode",
+      "_value": "softLight"
+     }
+    }
+   },
+   "title": "Set the layer blend mode to Soft Light",
+   "note": "Use the blend mode dropdown at the top of the Layers panel.",
+   "required": true,
+   "layerName": "Background copy"
+  },
+  {
+   "id": "s5",
+   "event": "set",
+   "descriptor": {
+    "_target": [
+     {
+      "_ref": "layer",
+      "_enum": "ordinal",
+      "_value": "targetEnum"
+     }
+    ],
+    "to": {
+     "_obj": "layer",
+     "opacity": {
+      "_unit": "percentUnit",
+      "_value": 60
+     }
+    }
+   },
+   "title": "Set the layer opacity to 60%",
+   "note": "Too strong? Go lower. Your eye decides!",
+   "required": true,
+   "layerName": "Background copy"
+  },
+  {
+   "id": "s6",
+   "event": "make",
+   "descriptor": {
+    "_target": [
+     {
+      "_ref": "adjustmentLayer"
+     }
+    ],
+    "using": {
+     "_obj": "adjustmentLayer",
+     "type": {
+      "_obj": "hueSaturation",
+      "presetKind": {
+       "_enum": "presetKindType",
+       "_value": "presetKindDefault"
+      },
+      "colorize": false
+     }
+    }
+   },
+   "title": "Add a Hue/Saturation adjustment layer",
+   "note": "Click the half-circle icon at the bottom of the Layers panel.",
+   "required": true
+  },
+  {
+   "id": "s7",
+   "manual": true,
+   "title": "Lower Saturation to about −15",
+   "note": "A slightly muted color makes the glow feel dreamy.",
+   "required": false
+  }
+ ]
+}

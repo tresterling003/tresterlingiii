@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="tabs">
+    <div class="tab active" id="tabTeach">🎬 Teach</div>
+    <div class="tab" id="tabLearn">🎓 Learn</div>
+  </div>
+
+  <!-- ============ TEACHER: record a lesson ============ -->
+  <section id="teachView">
+    <input id="lessonTitle" class="title-input" type="text" placeholder="Lesson title (e.g. Soft Glow Portrait)" />
+
+    <div class="row">
+      <sp-button id="btnRecord" variant="cta">● Start recording</sp-button>
+    </div>
+    <div id="recStatus" class="status">Open a document, then press Start. Everything you do in Photoshop becomes a step.</div>
+
+    <div class="row wrap">
+      <sp-button id="btnManual" variant="secondary" quiet>✋ Add manual step</sp-button>
+      <sp-button id="btnAddAsset" variant="secondary" quiet>📎 Add asset file</sp-button>
+    </div>
+    <div class="hint">Use a manual step for things Photoshop can't record, like painting or brushing a mask.</div>
+
+    <div class="section-label">Assets <span id="assetCount" class="muted"></span></div>
+    <div id="assetList" class="asset-list"></div>
+
+    <div class="section-label">Steps <span id="stepCount" class="muted"></span></div>
+    <div id="stepList"></div>
+
+    <div class="row wrap footer">
+      <sp-button id="btnSave" variant="cta">💾 Save lesson…</sp-button>
+      <sp-button id="btnOpenEdit" variant="secondary">📂 Edit a lesson…</sp-button>
+      <sp-button id="btnClear" variant="warning" quiet>Clear</sp-button>
+    </div>
+    <div id="saveStatus" class="status"></div>
+  </section>
+
+  <!-- ============ STUDENT: follow a lesson ============ -->
+  <section id="learnView" class="hidden">
+    <div class="row">
+      <sp-button id="btnOpenLesson" variant="cta">📂 Open lesson…</sp-button>
+    </div>
+    <div id="learnEmpty" class="status">Pick the lesson folder your teacher gave you.</div>
+
+    <div id="learnBody" class="hidden">
+      <div id="lessonHeading" class="lesson-heading"></div>
+      <div class="progress"><div id="progressFill" class="progress-fill"></div></div>
+      <div id="progressText" class="muted small"></div>
+
+      <div id="stepCard" class="card current">
+        <div id="curNumber" class="step-number"></div>
+        <div id="curTitle" class="cur-title"></div>
+        <div id="curLayer" class="muted small"></div>
+        <div id="curNote" class="note"></div>
+        <div id="curAssets" class="cur-assets"></div>
+        <div id="curImageWrap" class="image-wrap">
+          <div class="muted small">Your teacher's result after this step:</div>
+          <img id="curImage" />
+        </div>
+        <div id="feedback" class="feedback"></div>
+        <div class="row wrap">
+          <sp-button id="btnBack" variant="secondary" quiet>◀ Back</sp-button>
+          <sp-button id="btnShowMe" variant="secondary">👀 Show me</sp-button>
+          <sp-button id="btnDidIt" variant="cta">✓ I did it</sp-button>
+          <sp-button id="btnSkip" variant="secondary" quiet>Skip ▶</sp-button>
+        </div>
+      </div>
+
+      <div id="doneCard" class="card done-card hidden">
+        <div class="big">🎉 Lesson complete!</div>
+        <div id="doneStats" class="muted"></div>
+        <sp-button id="btnRestart" variant="secondary">Start over</sp-button>
+      </div>
+
+      <div class="section-label">All steps</div>
+      <div id="overview"></div>
+    </div>
+  </section>
+
+  <script src="main.js"></script>
+</body>
+</html>

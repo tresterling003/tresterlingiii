@@ -1,0 +1,25 @@
+{
+  "id": "com.classroom.lessonrecorder",
+  "name": "Lesson Recorder",
+  "version": "0.1.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": {
+    "app": "PS",
+    "minVersion": "24.0.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "lessonPanel",
+      "label": { "default": "Lesson Recorder" },
+      "minimumSize": { "width": 260, "height": 320 },
+      "maximumSize": { "width": 2000, "height": 3000 },
+      "preferredDockedSize": { "width": 320, "height": 640 },
+      "preferredFloatingSize": { "width": 340, "height": 680 }
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess"
+  }
+}
