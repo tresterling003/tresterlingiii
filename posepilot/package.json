@@ -1,0 +1,40 @@
+{
+  "name": "posepilot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PosePilot - an AI-assisted 2D animation studio for beginners. Draw once. Describe the motion. Discover your next poses.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "start": "node server/index.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.77.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.7.0",
+    "fake-indexeddb": "^6.2.8",
+    "postcss": "^8.5.33",
+    "tailwindcss": "3.4",
+    "typescript": "5.6",
+    "vite": "5.4",
+    "vitest": "2.1"
+  }
+}
