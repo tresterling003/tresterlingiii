@@ -7,6 +7,10 @@ A Photoshop panel for teachers and students.
 
 Coming next, built on the same engine: a **live teacher dashboard** showing every student's screen and lesson progress, and a **Photoshop escape room**.
 
+## Download
+
+Get **`download/Photoshop-Lesson-Recorder.zip`**. It contains the double-click installer, the sample lesson, a backup copy of the plugin and a START HERE guide. To rebuild it after code changes, run `./build.sh`.
+
 ## Install (teacher computer)
 
 Needs **Photoshop 2023 (v24) or newer**.

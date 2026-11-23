@@ -1,0 +1,46 @@
+PHOTOSHOP LESSON RECORDER — START HERE
+======================================
+
+Needs Photoshop 2023 or newer and the Creative Cloud desktop app.
+
+STEP 1 — INSTALL
+  Double-click "1 - Double-click to install - LessonRecorder.ccx".
+  Creative Cloud opens and asks you to confirm. It warns that the
+  plugin isn't from the Adobe marketplace — click Install / OK.
+
+  Then in Photoshop:  Plugins menu  →  Lesson Recorder
+  (Restart Photoshop if you don't see it.)
+
+  Didn't work? See "BACKUP INSTALL" at the bottom.
+
+STEP 2 — TRY THE SAMPLE LESSON (2 minutes)
+  1. Open any photo in Photoshop.
+  2. In the panel, click the  🎓 Learn  tab  →  📂 Open lesson…
+  3. Choose the folder "2 - Sample Lesson - Soft Glow".
+  4. Follow the steps — the panel notices when you do each one!
+
+STEP 3 — RECORD YOUR OWN LESSON
+  1. Open your starting photo (or make a new document).
+  2. 🎬 Teach tab → type a title → ● Start recording.
+  3. Work normally. Every action becomes a step with a picture.
+     Painting/brushing isn't recorded — click "✋ Add manual step"
+     after you do it and type what you did.
+  4. ■ Stop → fix titles, add tips for students.
+  5. 💾 Save lesson… → choose an EMPTY folder.
+  6. Give students that whole folder (Google Drive, USB, shared drive).
+
+FOR STUDENTS
+  Install the same .ccx file, then  🎓 Learn → 📂 Open lesson…
+  and pick the lesson folder you shared.
+
+BACKUP INSTALL (if double-clicking the .ccx doesn't work)
+  1. Creative Cloud app → search "UXP Developer Tool" → Install.
+  2. Open Photoshop, then open UXP Developer Tool.
+  3. Add Plugin → choose
+       "3 - Backup install (UXP Developer Tool)/plugin/manifest.json"
+  4. Click  •••  →  Load.
+  (This way has to be repeated each time Photoshop restarts.)
+
+SCHOOL COMPUTERS: if installs are blocked, send IT the .ccx file
+and this note: "Third-party Photoshop UXP plugin. No network access;
+only reads/writes files the user picks. Install with Adobe UPIA."

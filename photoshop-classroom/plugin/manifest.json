@@ -12,14 +12,62 @@
     {
       "type": "panel",
       "id": "lessonPanel",
-      "label": { "default": "Lesson Recorder" },
-      "minimumSize": { "width": 260, "height": 320 },
-      "maximumSize": { "width": 2000, "height": 3000 },
-      "preferredDockedSize": { "width": 320, "height": 640 },
-      "preferredFloatingSize": { "width": 340, "height": 680 }
+      "label": {
+        "default": "Lesson Recorder"
+      },
+      "minimumSize": {
+        "width": 260,
+        "height": 320
+      },
+      "maximumSize": {
+        "width": 2000,
+        "height": 3000
+      },
+      "preferredDockedSize": {
+        "width": 320,
+        "height": 640
+      },
+      "preferredFloatingSize": {
+        "width": 340,
+        "height": 680
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panel.png",
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "all"
+          ],
+          "species": [
+            "chrome"
+          ]
+        }
+      ]
     }
   ],
   "requiredPermissions": {
     "localFileSystem": "fullAccess"
-  }
+  },
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/plugin.png",
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "all"
+      ],
+      "species": [
+        "pluginList"
+      ]
+    }
+  ]
 }
