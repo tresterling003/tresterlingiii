@@ -4,185 +4,219 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#a3122a">
+<meta name="theme-color" content="#f5f5f7">
 <title>My Christmas List</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style id="css">
-/* VOICE  occasion, warm and personal; a list family actually shops from
-   IDEA   a wrapped present: red paper band with a gold ribbon, each wish a gift tag
-   PICTURE the list of tags itself, under a ribbon-wrapped header carrying the "about me" tag
-   COLOUR  holly red ground band, pine green support, ribbon gold accent, white tags
-   TYPE    Fraunces 800 display + Figtree text
-   LAYOUT  header band, about-me tag + filters, grid of tags (3 cols laptop, 2 at 720, 1 on phone) */
-:root{color-scheme:light dark;--bg:light-dark(#f6f1ee,#140a0c);--ink:light-dark(#1d1012,#f5ecec);--muted:light-dark(#6b5558,#bba7aa);--card:light-dark(#ffffff,#22151a);--line:light-dark(#e6d9d6,#3a262c);--red:light-dark(#a3122a,#7a0d1f);--red-ink:#fff6f2;--pine:light-dark(#0f5a3a,#5cc28f);--pine-bg:light-dark(#e3f1ea,#12291f);--gold:#e9b730;--gold-ink:#3a2a00;--field:light-dark(#fff,#1a1013)}
+/* VOICE  calm, premium product page; the list reads like a store you already trust
+   IDEA   a product launch page: frosted nav, big tight headline, bento spec tiles, product cards
+   PICTURE the product grid itself, each wish a card with a photo stage that lifts on hover
+   COLOUR  #f5f5f7 ground, white cards, near-black ink, system blue actions, one festive red for Top wish
+   TYPE    system SF Pro (Inter fallback), heavy display with tight tracking
+   LAYOUT  nav bar, hero headline, bento about-me, segmented filter, 3/2/1 column grid */
+:root{color-scheme:light dark;--bg:light-dark(#f5f5f7,#000);--card:light-dark(#fff,#1c1c1e);--card2:light-dark(#fbfbfd,#2c2c2e);--ink:light-dark(#1d1d1f,#f5f5f7);--muted:light-dark(#6e6e73,#98989d);--line:light-dark(#d2d2d7,#38383a);--blue:light-dark(#0071e3,#0a84ff);--link:light-dark(#0066cc,#2997ff);--red:light-dark(#d70015,#ff453a);--green:light-dark(#248a3d,#30d158);--fill:light-dark(rgba(118,118,128,.12),rgba(118,118,128,.24));--glass:light-dark(rgba(251,251,253,.72),rgba(22,22,23,.72));--sh:light-dark(0 2px 12px rgba(0,0,0,.06),0 0 0 1px rgba(255,255,255,.06));--shh:light-dark(0 18px 48px rgba(0,0,0,.14),0 18px 48px rgba(0,0,0,.6));--ease:cubic-bezier(.28,.11,.32,1);--spring:cubic-bezier(.34,1.36,.64,1)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font:16px/1.55 Figtree,"Segoe UI",system-ui,sans-serif;overflow-x:clip}
+body{background:var(--bg);color:var(--ink);font:17px/1.47 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:-.022em;-webkit-font-smoothing:antialiased;overflow-x:clip}
 img{max-width:100%;display:block}
 [hidden]{display:none!important}
-.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{background:var(--red);color:var(--red-ink);position:relative;overflow:hidden;padding-top:max(28px,env(safe-area-inset-top,0px));padding-bottom:96px;background-image:radial-gradient(circle at 20% 30%,rgba(255,255,255,.09) 0 2px,transparent 3px),radial-gradient(circle at 70% 70%,rgba(255,255,255,.07) 0 2px,transparent 3px);background-size:46px 46px,58px 58px}
-header::before{content:"";position:absolute;top:0;bottom:0;left:clamp(40px,12vw,180px);width:22px;background:linear-gradient(90deg,#c9961c,var(--gold) 40%,#f6d670 55%,var(--gold) 70%,#c9961c)}
-header::after{content:"";position:absolute;left:0;right:0;bottom:44px;height:22px;background:linear-gradient(#c9961c,var(--gold) 40%,#f6d670 55%,var(--gold) 70%,#c9961c)}
-.bow{position:absolute;left:calc(clamp(40px,12vw,180px) - 39px);bottom:20px;width:100px;height:70px;z-index:2}
-.top{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;padding-left:clamp(56px,14vw,210px)}
-h1{font:800 clamp(34px,6vw,52px)/1.05 Fraunces,Georgia,serif;letter-spacing:-.02em;margin:0;text-wrap:balance}
-.sub{margin:8px 0 0;max-width:56ch;font-size:17px;opacity:.95}
-.btn{font:600 16px/1 Figtree,system-ui,sans-serif;min-height:44px;padding:0 18px;border-radius:999px;border:1.5px solid transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;white-space:nowrap}
-.btn:focus-visible,.chip:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-.b-gold{background:var(--gold);color:var(--gold-ink)}
-.b-gold:hover{background:#f3c84b}
-.b-ghost{background:transparent;color:inherit;border-color:currentColor}
-.b-pine{background:var(--pine);color:light-dark(#fff,#08140e)}
-.b-plain{background:var(--card);color:var(--ink);border-color:var(--line)}
-.b-danger{background:transparent;color:light-dark(#a3122a,#ff8a9a);border-color:currentColor}
-main{position:relative;z-index:3;margin-top:-64px;padding-bottom:64px}
-.lead{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
-.tag{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;position:relative;box-shadow:0 2px 0 var(--line)}
-.tag h2{font:700 24px/1.1 Fraunces,Georgia,serif;margin:0 0 12px}
-.hole{position:absolute;top:16px;right:18px;width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--bg)}
-.sizes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;padding:0;list-style:none}
-.sizes li{background:var(--pine-bg);color:var(--pine);border-radius:8px;padding:6px 10px;font-weight:600;white-space:nowrap}
-.sizes b{font-weight:500;color:var(--ink);opacity:.8;margin-right:4px}
-dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px}
-dt{color:var(--muted);font-weight:600}
-dd{margin:0}
-.how{display:grid;gap:12px}
-.how p{margin:0}
-.key{display:flex;gap:10px;align-items:flex-start}
-.key .badge{flex:none;width:92px;justify-content:center}
-.badge{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:4px 9px;border-radius:6px;white-space:nowrap}
-.k-exact{background:var(--red);color:var(--red-ink)}
-.k-idea{background:var(--pine-bg);color:var(--pine)}
-.k-top{background:var(--gold);color:var(--gold-ink)}
-.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:28px 0 16px}
-.chip{font:600 15px/1 Figtree,system-ui,sans-serif;min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
-.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.spacer{flex:1}
-.note{font-size:14px;color:var(--muted);margin:0 0 14px}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
-.item{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-.pic{aspect-ratio:4/3;background:var(--pine-bg);display:grid;place-items:center;overflow:hidden;position:relative}
-.pic img{width:100%;height:100%;object-fit:cover}
-.pic.blank{aspect-ratio:auto;height:96px}
-.pic .ph{font:800 44px/1 Fraunces,Georgia,serif;color:var(--pine);opacity:.55}
-.pic.idea{background:repeating-linear-gradient(135deg,var(--pine-bg) 0 18px,color-mix(in srgb,var(--pine-bg) 70%,var(--pine)) 18px 20px)}
-.badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}
-.body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;flex:1}
-.item h3{font:700 21px/1.15 Fraunces,Georgia,serif;margin:0}
-.brand{color:var(--muted);font-weight:600;font-size:15px}
-.specs{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
-.specs li{border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:14px;white-space:nowrap}
-.specs b{color:var(--muted);font-weight:500;margin-right:3px}
-.item p{margin:0}
-.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:4px}
-.links .btn{min-height:42px;font-size:15px}
-.edit-row{display:flex;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
-.need{color:light-dark(#9a5b00,#f2c25a);font-size:14px;font-weight:600}
-.empty{background:var(--card);border:1.5px dashed var(--line);border-radius:14px;padding:32px;text-align:center}
-.ownerbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--pine-bg);color:var(--ink);border-radius:12px;padding:10px 12px;margin-top:18px}
-.ownerbar span{font-weight:600;color:var(--pine);margin-right:auto}
-dialog{border:0;border-radius:16px;padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);background:var(--card);color:var(--ink)}
-dialog::backdrop{background:rgba(20,5,8,.55)}
-form.f{padding:22px;display:grid;gap:14px}
-form.f h2{font:700 26px/1.1 Fraunces,Georgia,serif;margin:0}
-label{display:grid;gap:5px;font-weight:600;font-size:15px}
-.hint{font-weight:400;color:var(--muted);font-size:13px}
-input,textarea,select{font:16px/1.4 Figtree,system-ui,sans-serif;color:var(--ink);background:var(--field);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
-textarea{min-height:84px;resize:vertical}
-.two{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.seg{display:flex;gap:8px;flex-wrap:wrap}
-.seg label{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;flex:1}
-.seg input{width:auto}
-.check{display:flex;align-items:center;gap:10px}
-.check input{width:22px;height:22px}
-.photo{display:flex;gap:12px;align-items:center}
-.photo img{width:84px;height:64px;object-fit:cover;border-radius:8px}
-.acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;position:sticky;bottom:0;background:var(--card);padding-top:8px}
-.acts .left{margin-right:auto}
-#toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;z-index:20;max-width:calc(100vw - 32px);display:flex;gap:12px;align-items:center}
-#toast button{background:none;border:0;color:var(--gold);font:700 15px Figtree,sans-serif;cursor:pointer;min-height:32px}
-footer{color:var(--muted);font-size:14px;padding-bottom:40px}
-@media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:720px){.lead{grid-template-columns:minmax(0,1fr)}}
-@media (max-width:600px){.grid{grid-template-columns:minmax(0,1fr)}.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.top{padding-left:56px}header::before{left:18px;width:16px}.bow{left:-8px;transform:scale(.8);transform-origin:left bottom}header{padding-bottom:84px}}
-@media (prefers-reduced-motion:no-preference){.item{animation:rise .35s ease both}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}}
+button{font:inherit;letter-spacing:inherit;color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(22px,env(safe-area-inset-left,0px));padding-right:max(22px,env(safe-area-inset-right,0px))}
+nav{position:sticky;top:0;z-index:10;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid light-dark(rgba(0,0,0,.08),rgba(255,255,255,.1));padding-top:env(safe-area-inset-top,0px)}
+nav .wrap{height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mark{display:flex;align-items:center;gap:8px;font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mark svg{flex:none}
+.hero{padding-top:clamp(40px,8vw,88px);padding-bottom:clamp(28px,5vw,48px)}
+.eyebrow{color:var(--red);font-weight:600;font-size:clamp(17px,2vw,21px);margin:0 0 6px}
+h1{font:800 clamp(44px,8vw,80px)/1.04 -apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.045em;margin:0;text-wrap:balance}
+.lede{font-size:clamp(19px,2.4vw,24px);line-height:1.35;color:var(--muted);max-width:30em;margin:14px 0 0;font-weight:500;letter-spacing:-.02em}
+h2{font:700 clamp(28px,4vw,40px)/1.1 -apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.035em;margin:0 0 18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 20px;border-radius:980px;border:0;cursor:pointer;font-size:17px;font-weight:500;text-decoration:none;white-space:nowrap;transition:background .3s var(--ease),transform .3s var(--spring),opacity .3s}
+.btn:active{transform:scale(.96)}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible,textarea:focus-visible,.sw input:focus-visible+i{outline:3px solid color-mix(in srgb,var(--blue) 55%,transparent);outline-offset:2px}
+.b-blue{background:var(--blue);color:#fff}
+.b-blue:hover{background:light-dark(#0077ed,#409cff)}
+.b-fill{background:var(--fill);color:var(--ink)}
+.b-fill:hover{background:light-dark(rgba(118,118,128,.2),rgba(118,118,128,.34))}
+.b-sm{min-height:32px;padding:0 14px;font-size:14px}
+.b-red{background:transparent;color:var(--red)}
+.tlink{color:var(--link);text-decoration:none;font-weight:500;white-space:nowrap}
+.tlink:hover{text-decoration:underline}
+.bento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.tile{background:var(--card);border-radius:22px;padding:24px;box-shadow:var(--sh)}
+.tile.wide{grid-column:span 2}
+.tile .k{color:var(--muted);font-size:14px;font-weight:600;margin:0 0 8px}
+.tile .v{font-size:19px;font-weight:600;line-height:1.3;margin:0}
+.specgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:16px 18px}
+.spec b{display:block;font:700 clamp(28px,3.4vw,36px)/1.05 -apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.03em;white-space:nowrap}
+.spec span{color:var(--muted);font-size:14px}
+.legend{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.legend li{display:flex;gap:10px;align-items:baseline;font-size:15px;line-height:1.4}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:980px;white-space:nowrap;flex:none;letter-spacing:-.01em}
+.p-exact{background:var(--ink);color:var(--bg)}
+.p-idea{background:var(--fill);color:var(--ink)}
+.p-top{background:var(--red);color:#fff}
+.section{padding-top:clamp(48px,7vw,80px)}
+.head{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:14px;margin-bottom:22px}
+.head h2{margin:0}
+.segwrap{overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:4px}
+.segwrap::-webkit-scrollbar{display:none}
+.seg{position:relative;display:inline-flex;background:var(--fill);border-radius:10px;padding:3px}
+.seg button{position:relative;z-index:1;border:0;background:none;padding:0 16px;min-height:34px;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap;transition:color .3s}
+.seg button[aria-pressed=true]{font-weight:600}
+.seg .ind{position:absolute;top:3px;bottom:3px;left:3px;width:0;border-radius:8px;background:light-dark(#fff,#636366);box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04);transition:left .45s var(--spring),width .45s var(--spring)}
+.note{font-size:15px;color:var(--muted);margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.item{background:var(--card);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--sh);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+@media (hover:hover){.item:hover{transform:translateY(-6px) scale(1.015);box-shadow:var(--shh)}.item:hover .pic img{transform:scale(1.06)}}
+.pic{aspect-ratio:1/1;background:linear-gradient(180deg,var(--card2),light-dark(#f0f0f3,#242426));display:grid;place-items:center;overflow:hidden;position:relative}
+.pic img{width:100%;height:100%;object-fit:contain;padding:8%;transition:transform .7s var(--ease)}
+.pic.blank{aspect-ratio:auto;height:150px;padding-top:34px}
+.ph{font:700 44px/1 -apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.04em;color:light-dark(#c7c7cc,#48484a)}
+.pills{position:absolute;top:14px;left:14px;display:flex;gap:6px;flex-wrap:wrap}
+.body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:8px;flex:1}
+.brand{color:var(--red);font-size:13px;font-weight:600;letter-spacing:-.01em}
+.item h3{font:700 22px/1.18 -apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.03em;margin:0}
+.meta{color:var(--muted);font-size:15px;margin:0}
+.meta b{color:var(--ink);font-weight:600}
+.item p{margin:0;font-size:15px;line-height:1.45}
+.buy{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:auto;padding-top:10px}
+.need{color:light-dark(#b25000,#ff9f0a);font-size:14px;font-weight:500}
+.editrow{padding-top:8px}
+.empty{background:var(--card);border-radius:22px;padding:48px 24px;text-align:center;grid-column:1/-1;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:21px;margin-bottom:4px}
+.dock{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translate(-50%,0);z-index:12;display:flex;gap:6px;align-items:center;padding:6px;border-radius:980px;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);box-shadow:0 10px 40px rgba(0,0,0,.18),0 0 0 1px light-dark(rgba(0,0,0,.06),rgba(255,255,255,.1));max-width:calc(100vw - 24px);overflow-x:auto;animation:dockIn .6s var(--spring) both}
+@keyframes dockIn{from{opacity:0;transform:translate(-50%,30px) scale(.9)}}
+.dock .btn{min-height:40px;padding:0 16px;font-size:15px}
+footer{color:var(--muted);font-size:13px;padding:56px 0 120px;border-top:1px solid var(--line);margin-top:64px}
+footer .wrap{padding-top:16px}
+dialog{border:0;padding:0;border-radius:14px;width:min(540px,calc(100vw - 24px));max-height:calc(100dvh - 40px);background:var(--bg);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+dialog[open]{animation:sheetIn .5s var(--spring)}
+dialog.closing{animation:sheetOut .25s var(--ease) forwards}
+dialog::backdrop{background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+dialog[open]::backdrop{animation:fade .3s ease}
+@keyframes sheetIn{from{opacity:0;transform:translateY(24px) scale(.96)}}
+@keyframes sheetOut{to{opacity:0;transform:translateY(24px) scale(.96)}}
+@keyframes fade{from{opacity:0}}
+.sheethd{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 14px;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+.sheethd h3{margin:0;font-size:17px;font-weight:600;text-align:center;white-space:nowrap}
+.sheethd .r{justify-self:end}
+.txtbtn{background:none;border:0;color:var(--link);font-size:17px;cursor:pointer;min-height:44px;padding:0 6px}
+.txtbtn.strong{font-weight:600}
+.txtbtn:disabled{opacity:.4}
+.form{padding:18px 16px 24px;display:grid;gap:22px}
+.grp{background:var(--card);border-radius:12px;overflow:hidden}
+.grp-t{font-size:13px;color:var(--muted);margin:0 0 6px 16px;text-transform:none}
+.grp-f{font-size:13px;color:var(--muted);margin:6px 16px 0;line-height:1.35}
+.row{display:flex;align-items:center;gap:12px;padding:0 16px;min-height:46px;position:relative}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:1px solid var(--line)}
+.row label{flex:none;width:6.2em;font-size:17px}
+.row input,.row textarea{flex:1;border:0;background:none;font-size:17px;line-height:1.35;font-family:inherit;color:var(--ink);padding:12px 0;width:100%;letter-spacing:-.02em}
+.row input:focus,.row textarea:focus{outline:none}
+.row textarea{min-height:88px;resize:vertical}
+.row.tall{align-items:flex-start}
+.row.tall label{padding-top:12px}
+.sw{margin-left:auto;position:relative;display:inline-block;width:51px;height:31px;flex:none}
+.sw input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;z-index:1}
+.sw i{position:absolute;inset:0;border-radius:31px;background:light-dark(#e9e9ea,#39393d);transition:background .3s}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 3px 1px rgba(0,0,0,.06);transition:transform .35s var(--spring)}
+.sw input:checked+i{background:var(--green)}
+.sw input:checked+i::after{transform:translateX(20px)}
+.kind{display:flex;width:100%}
+.kind button{flex:1}
+.photo{display:flex;align-items:center;gap:14px;padding:12px 16px}
+.photo img{width:64px;height:64px;object-fit:cover;border-radius:10px;background:var(--fill)}
+.photo label{color:var(--link);cursor:pointer;font-size:17px}
+.photo input{position:absolute;width:1px;height:1px;opacity:0}
+.del{display:block;width:100%;text-align:center;background:var(--card);border:0;border-radius:12px;color:var(--red);font-size:17px;min-height:46px;cursor:pointer}
+#toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:30;display:flex;gap:14px;align-items:center;padding:12px 20px;border-radius:980px;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);box-shadow:0 10px 40px rgba(0,0,0,.16),0 0 0 1px light-dark(rgba(0,0,0,.06),rgba(255,255,255,.1));font-size:15px;font-weight:500;max-width:calc(100vw - 32px);animation:toastIn .5s var(--spring)}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-16px) scale(.94)}}
+#toast button{background:none;border:0;color:var(--link);font-weight:600;cursor:pointer;min-height:32px}
+.rv{opacity:0;transform:translateY(28px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.rv.in{opacity:1;transform:none}
+@media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.bento{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.grid{grid-template-columns:minmax(0,1fr)}.bento{grid-template-columns:minmax(0,1fr)}.tile.wide{grid-column:auto}dialog{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:14px 14px 0 0;max-height:calc(100dvh - 44px)}@keyframes sheetIn{from{transform:translateY(100%)}}@keyframes sheetOut{to{transform:translateY(100%)}}.pic{aspect-ratio:4/3}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}}
 </style>
 </head>
 <body>
 <script type="text/html" id="shell">
-<header>
-  <svg class="bow" viewBox="0 0 100 70" aria-hidden="true"><defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d670"/><stop offset="1" stop-color="#c9961c"/></linearGradient></defs><path d="M50 38C34 12 6 8 8 30c2 18 26 14 42 8Z" fill="url(#gb)" stroke="#a87a10" stroke-width="2"/><path d="M50 38C66 12 94 8 92 30c-2 18-26 14-42 8Z" fill="url(#gb)" stroke="#a87a10" stroke-width="2"/><path d="M46 40 30 68h12l8-20 8 20h12L54 40Z" fill="#d9a826" stroke="#a87a10" stroke-width="2"/><circle cx="50" cy="38" r="9" fill="#f3c84b" stroke="#a87a10" stroke-width="2"/></svg>
-  <div class="wrap top">
-    <div>
-      <h1 id="title">My Christmas list</h1>
-      <p class="sub" id="intro"></p>
-    </div>
-  </div>
+<nav><div class="wrap">
+  <div class="mark"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 7h-2.2A3 3 0 0 0 12 3.8 3 3 0 0 0 6.2 7H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h.5v8a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-8h.5a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1Zm-5.5-2a1 1 0 1 1 0 2H13v-.3A1.7 1.7 0 0 1 14.5 5Zm-5 0a1.7 1.7 0 0 1 1.5 1.7V7H9.5a1 1 0 1 1 0-2ZM5 9h6v1H5Zm1.5 3H11v7.5H6.5Zm11 7.5H13V12h4.5ZM19 10h-6V9h6Z"/></svg><span id="navName">Christmas List</span></div>
+  <div id="navAct"></div>
+</div></nav>
+<header class="wrap hero">
+  <p class="eyebrow" id="eyebrow">Holiday wish list</p>
+  <h1 id="title">My Christmas list.</h1>
+  <p class="lede" id="intro"></p>
 </header>
-<main class="wrap">
-  <div class="lead">
-    <section class="tag" aria-labelledby="aboutH"><span class="hole"></span>
-      <h2 id="aboutH">About me</h2>
-      <div id="about"></div>
-    </section>
-    <section class="tag how" aria-label="How this list works">
-      <h2>How to use this list</h2>
-      <div class="key"><span class="badge k-exact">Exact pick</span><p>Something specific I want. Size, colour and a link to buy it are on the card.</p></div>
-      <div class="key"><span class="badge k-idea">Gift idea</span><p>A starting point, not an order. Use it to find something you think I'd love.</p></div>
-      <div class="key"><span class="badge k-top">Top wish</span><p>The ones I'm most excited about.</p></div>
-    </section>
-  </div>
-  <div id="ownerbar"></div>
-  <div class="bar" id="filters" role="toolbar" aria-label="Filter the list"></div>
-  <p class="note" id="sampleNote" hidden>These are sample wishes so you can see how it looks. Tap Edit list to replace them with yours.</p>
-  <div class="grid" id="grid"></div>
+<main>
+  <section class="wrap" aria-labelledby="aboutH">
+    <h2 id="aboutH" class="rv">Get to know the fit.</h2>
+    <div class="bento" id="about"></div>
+  </section>
+  <section class="wrap section" aria-labelledby="listH">
+    <div class="head rv"><h2 id="listH">The list.</h2>
+      <div class="segwrap"><div class="seg" id="filters" role="toolbar" aria-label="Filter the list"></div></div></div>
+    <p class="note" id="sampleNote" hidden>These are sample wishes so you can see how it looks. Tap Edit to replace them with yours.</p>
+    <div class="grid" id="grid"></div>
+  </section>
 </main>
-<footer class="wrap" id="foot"></footer>
+<footer><div class="wrap" id="foot"></div></footer>
+<div id="dock"></div>
 
-<dialog id="itemDlg"><form class="f" id="itemForm" method="dialog">
-  <h2 id="itemH">Add a wish</h2>
-  <div class="seg" role="radiogroup" aria-label="Kind">
-    <label><input type="radio" name="kind" value="exact" id="kExact" checked> Exact pick</label>
-    <label><input type="radio" name="kind" value="idea" id="kIdea"> Gift idea</label>
+<dialog id="itemDlg"><form id="itemForm" method="dialog">
+  <div class="sheethd"><button type="button" class="txtbtn" data-close>Cancel</button><h3 id="itemH">New Wish</h3><button type="submit" class="txtbtn strong r" id="fSave">Done</button></div>
+  <div class="form">
+    <div class="seg kind" role="radiogroup" aria-label="Kind"><span class="ind"></span><button type="button" id="kExact" data-kind="exact" aria-pressed="true">Exact pick</button><button type="button" id="kIdea" data-kind="idea" aria-pressed="false">Gift idea</button></div>
+    <div><div class="grp">
+      <div class="row"><label for="fTitle">Item</label><input id="fTitle" required maxlength="120" placeholder="Tech Fleece joggers"></div>
+      <div class="row"><label for="fBrand">Brand</label><input id="fBrand" maxlength="60" placeholder="Nike"></div>
+      <div class="row"><label for="fCat">Category</label><input id="fCat" list="cats" maxlength="40" placeholder="Clothes"></div>
+      <div class="row"><label for="fTop">Top wish</label><span class="sw"><input type="checkbox" id="fTop" role="switch"><i></i></span></div>
+    </div></div>
+    <div><p class="grp-t">Details</p><div class="grp">
+      <div class="row"><label for="fSize">Size</label><input id="fSize" maxlength="40" placeholder="M"></div>
+      <div class="row"><label for="fColor">Color</label><input id="fColor" maxlength="60" placeholder="Black"></div>
+      <div class="row"><label for="fPrice">Price</label><input id="fPrice" maxlength="30" placeholder="$110"></div>
+    </div></div>
+    <datalist id="cats"></datalist>
+    <div><p class="grp-t">Where to buy</p><div class="grp">
+      <div class="row tall"><label for="fLinks">Links</label><textarea id="fLinks" placeholder="https://www.nike.com/..."></textarea></div>
+    </div><p class="grp-f">Paste the link from the store's page. One per line.</p></div>
+    <div><p class="grp-t">Photo</p><div class="grp"><div class="photo"><img id="fPrev" alt="" hidden><label for="fPhoto" id="fPhotoL">Choose photo</label><input type="file" id="fPhoto" accept="image/*"><button type="button" class="txtbtn" id="fNoPhoto" style="margin-left:auto;color:var(--red)" hidden>Remove</button></div></div>
+      <p class="grp-f">Screenshot the product on your phone, then choose it here.</p></div>
+    <div><p class="grp-t">Notes for whoever shops</p><div class="grp">
+      <div class="row tall"><label for="fNotes" style="width:auto"></label><textarea id="fNotes" maxlength="600" placeholder="Fit, style, what I already have…" aria-label="Notes"></textarea></div>
+    </div></div>
+    <button type="button" class="del" id="fDel" hidden>Delete Wish</button>
   </div>
-  <label for="fTitle">What is it?<input id="fTitle" required maxlength="120" placeholder="Tech Fleece joggers"></label>
-  <div class="two">
-    <label for="fBrand">Brand or store<input id="fBrand" maxlength="60" placeholder="Nike"></label>
-    <label for="fCat">Category<input id="fCat" list="cats" maxlength="40" placeholder="Clothes"></label>
-    <label for="fPrice">Price<input id="fPrice" maxlength="30" placeholder="$70"></label>
-    <label for="fSize">Size<input id="fSize" maxlength="40" placeholder="M"></label>
-    <label for="fColor">Colour<input id="fColor" maxlength="60" placeholder="Black"></label>
-    <label class="check" for="fTop"><input type="checkbox" id="fTop"> Top wish</label>
-  </div>
-  <datalist id="cats"></datalist>
-  <label for="fLinks">Links to buy it <span class="hint">One per line. Copy the link from the store's page and paste it here.</span><textarea id="fLinks" placeholder="https://www.nike.com/..."></textarea></label>
-  <div><label for="fPhoto">Picture <span class="hint">Screenshot the product on your phone and pick it here.</span></label>
-    <div class="photo"><img id="fPrev" alt="" hidden><input type="file" id="fPhoto" accept="image/*"><button type="button" class="btn b-plain" id="fNoPhoto" hidden>Remove</button></div></div>
-  <label for="fNotes">Details for whoever shops <span class="hint">Fit, style, what I already have, anything that helps.</span><textarea id="fNotes" maxlength="600" placeholder="I like them fitted, not baggy."></textarea></label>
-  <div class="acts"><button type="button" class="btn b-danger left" id="fDel" hidden>Delete</button><button type="button" class="btn b-plain" data-close>Cancel</button><button type="submit" class="btn b-pine" id="fSave">Save</button></div>
 </form></dialog>
 
-<dialog id="aboutDlg"><form class="f" id="aboutForm" method="dialog">
-  <h2>About me</h2>
-  <label for="aName">Your name<input id="aName" maxlength="40" placeholder="Tre"></label>
-  <label for="aIntro">A note to your family<textarea id="aIntro" maxlength="300"></textarea></label>
-  <label for="aSizes">My sizes <span class="hint">One per line, like "Shoe: 10.5"</span><textarea id="aSizes"></textarea></label>
-  <label for="aColors">Colours I like<input id="aColors" maxlength="120"></label>
-  <label for="aBrands">Brands and stores I like<input id="aBrands" maxlength="160"></label>
-  <label for="aInto">Things I'm into lately<input id="aInto" maxlength="200"></label>
-  <label for="aNo">Please skip<input id="aNo" maxlength="160"></label>
-  <div class="acts"><button type="button" class="btn b-plain" data-close>Cancel</button><button type="submit" class="btn b-pine">Save</button></div>
+<dialog id="aboutDlg"><form id="aboutForm" method="dialog">
+  <div class="sheethd"><button type="button" class="txtbtn" data-close>Cancel</button><h3>About Me</h3><button type="submit" class="txtbtn strong r">Done</button></div>
+  <div class="form">
+    <div><div class="grp">
+      <div class="row"><label for="aName">Name</label><input id="aName" maxlength="40" placeholder="Your name"></div>
+      <div class="row tall"><label for="aIntro">Note</label><textarea id="aIntro" maxlength="300" placeholder="A note to your family"></textarea></div>
+    </div></div>
+    <div><p class="grp-t">Sizes</p><div class="grp"><div class="row tall"><label for="aSizes">Sizes</label><textarea id="aSizes" placeholder="Shoe: 10.5"></textarea></div></div><p class="grp-f">One per line, like "Shirt: M".</p></div>
+    <div><p class="grp-t">Favorites</p><div class="grp">
+      <div class="row"><label for="aColors">Colors</label><input id="aColors" maxlength="120"></div>
+      <div class="row"><label for="aBrands">Brands</label><input id="aBrands" maxlength="160"></div>
+      <div class="row"><label for="aInto">Into lately</label><input id="aInto" maxlength="200"></div>
+      <div class="row"><label for="aNo">Please skip</label><input id="aNo" maxlength="160"></div>
+    </div></div>
+  </div>
 </form></dialog>
 
-<dialog id="importDlg"><form class="f" id="importForm" method="dialog">
-  <h2>Paste from Notes</h2>
-  <p class="hint" style="font-size:15px;margin:0">Copy your list out of Notes and paste it below. Each line becomes a wish you can then fill in with sizes, links and pictures. Start a line with "idea:" to make it a gift idea.</p>
-  <label for="iText">Your list<textarea id="iText" style="min-height:200px" placeholder="Nike Tech Fleece joggers&#10;Dunks&#10;idea: stuff for my room"></textarea></label>
-  <div class="acts"><button type="button" class="btn b-plain" data-close>Cancel</button><button type="submit" class="btn b-pine">Add to my list</button></div>
+<dialog id="importDlg"><form id="importForm" method="dialog">
+  <div class="sheethd"><button type="button" class="txtbtn" data-close>Cancel</button><h3>Paste from Notes</h3><button type="submit" class="txtbtn strong r">Add</button></div>
+  <div class="form"><div><div class="grp"><div class="row tall"><textarea id="iText" style="min-height:220px" aria-label="Your list" placeholder="Nike Tech Fleece joggers&#10;Dunks&#10;idea: stuff for my room"></textarea></div></div>
+  <p class="grp-f">Copy your list out of Notes and paste it here. Each line becomes a wish you can fill in. Start a line with "idea:" to make it a gift idea.</p></div></div>
 </form></dialog>
 <div id="toast" role="status" hidden></div>
 </script>
@@ -191,7 +225,7 @@ footer{color:var(--muted);font-size:14px;padding-bottom:40px}
 
 <script id="appjs">
 {
-const HEAD='<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="theme-color" content="#a3122a">\n<title>My Christmas List</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Figtree:wght@400;500;600;700&display=swap">\n';
+const HEAD='<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="theme-color" content="#f5f5f7">\n<title>My Christmas List</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">\n';
 const $=id=>document.getElementById(id);
 const shellSrc=$('shell').textContent, cssSrc=$('css').textContent, appSrc=$('appjs').textContent;
 let state;
@@ -202,63 +236,77 @@ document.body.insertAdjacentHTML('afterbegin',shellSrc);
 const use=n=>window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const okUrl=u=>/^https:\/\/[^\s<>"']+$/i.test(u);
-const okImg=u=>/^\/_blob\/[A-Za-z0-9_\-.]+$/.test(u)||/^https:\/\/[^\s<>"']+$/i.test(u);
+const okImg=u=>/^\/_blob\/[A-Za-z0-9_\-.]+$/.test(u)||okUrl(u);
 const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return 'store'}};
 const uid=()=>Math.random().toString(36).slice(2,9);
-let canEdit=false, editing=false, filter='all', editId=null, photo=null, undo=null;
+let canEdit=false, editing=false, filter='all', editId=null, photo=null, undo=null, kind='exact';
 try{editing=sessionStorage.getItem('cl-edit')==='1'}catch(e){}
+
+const io='IntersectionObserver' in window?new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}},{rootMargin:'0px 0px -40px 0px'}):null;
+function reveal(){let n=0;for(const el of document.querySelectorAll('.rv:not(.in)')){if(!io){el.classList.add('in');continue}if(el.classList.contains('item'))el.style.transitionDelay=(n++%3)*70+'ms';io.observe(el)}}
 
 function toast(msg,actLabel,act){
   const t=$('toast');t.textContent=msg;
   if(actLabel){const b=document.createElement('button');b.textContent=actLabel;b.onclick=()=>{t.hidden=true;act()};t.appendChild(b)}
-  t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,actLabel?7000:3500);
+  t.hidden=true;void t.offsetWidth;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,actLabel?7000:3200);
+}
+
+function slide(seg,instant){
+  const ind=seg.querySelector('.ind'),on=seg.querySelector('[aria-pressed=true]');if(!ind||!on)return;
+  if(instant){ind.style.transition='none'}
+  ind.style.left=on.offsetLeft+'px';ind.style.width=on.offsetWidth+'px';
+  if(instant){void ind.offsetWidth;ind.style.transition=''}
 }
 
 function render(){
   const a=state.about, nm=(a.name||'').trim();
-  $('title').textContent=nm?nm+"'s Christmas list":'My Christmas list';
+  $('title').textContent=nm?nm+"'s Christmas list.":'My Christmas list.';
+  $('navName').textContent=nm?nm+"'s List":'Christmas List';
   document.title=nm?nm+"'s Christmas List":'My Christmas List';
+  $('eyebrow').textContent='Holiday '+new Date().getFullYear();
   $('intro').textContent=a.intro||'';
   const sizes=(a.sizes||[]).filter(Boolean);
-  const rows=[['Colours',a.colors],['Brands',a.brands],["I'm into",a.into],['Please skip',a.no]].filter(r=>r[1]);
-  $('about').innerHTML=(sizes.length?'<ul class="sizes">'+sizes.map(s=>{const i=s.indexOf(':');return i>0?'<li><b>'+esc(s.slice(0,i))+'</b>'+esc(s.slice(i+1).trim())+'</li>':'<li>'+esc(s)+'</li>'}).join('')+'</ul>':'')
-    +(rows.length?'<dl>'+rows.map(r=>'<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join('')+'</dl>':'')
-    +(!sizes.length&&!rows.length?'<p class="note">No sizes or favourites yet.</p>':'')
-    +(editing?'<p style="margin:12px 0 0"><button class="btn b-plain" id="editAbout">Edit about me</button></p>':'');
+  const t=(k,v,cls)=>v?'<div class="tile rv'+(cls||'')+'"><p class="k">'+esc(k)+'</p><p class="v">'+esc(v)+'</p></div>':'';
+  $('about').innerHTML=(sizes.length?'<div class="tile wide rv"><p class="k">My sizes</p><div class="specgrid">'+sizes.map(s=>{const i=s.indexOf(':');return i>0?'<div class="spec"><b>'+esc(s.slice(i+1).trim())+'</b><span>'+esc(s.slice(0,i))+'</span></div>':'<div class="spec"><b>'+esc(s)+'</b></div>'}).join('')+'</div></div>':'')
+    +'<div class="tile wide rv"><p class="k">How this list works</p><ul class="legend"><li><span class="pill p-exact">Exact pick</span>The exact thing, with size, color and a link to buy it.</li><li><span class="pill p-idea">Gift idea</span>A starting point. Find something you think I\'d love.</li><li><span class="pill p-top">Top wish</span>The ones I\'m most excited about.</li></ul></div>'
+    +t('Colors I like',a.colors)+t('Brands I like',a.brands)+t("Into lately",a.into)+t('Please skip',a.no)
+    +(editing?'<div class="tile rv" style="display:grid;place-items:center"><button class="btn b-fill" id="editAbout">Edit About Me</button></div>':'');
 
-  $('ownerbar').innerHTML=canEdit?(editing
-    ?'<div class="ownerbar"><span>Editing. Changes save for everyone.</span><button class="btn b-pine" id="addBtn">Add a wish</button><button class="btn b-plain" id="impBtn">Paste from Notes</button>'+(state.sample?'<button class="btn b-plain" id="clrBtn">Remove samples</button>':'')+'<button class="btn b-plain" id="doneBtn">Done</button></div>'
-    :'<div class="ownerbar"><span>This is your list. Family sees it without these buttons.</span><button class="btn b-pine" id="editBtn">Edit list</button></div>'):'';
+  $('navAct').innerHTML=canEdit?(editing?'<button class="btn b-blue b-sm" id="doneBtn">Done</button>':'<button class="btn b-fill b-sm" id="editBtn">Edit</button>'):'';
+  $('dock').innerHTML=canEdit&&editing?'<div class="dock" role="toolbar" aria-label="Edit list"><button class="btn b-blue" id="addBtn">+ Add Wish</button><button class="btn b-fill" id="impBtn">Paste from Notes</button>'+(state.sample?'<button class="btn b-fill" id="clrBtn">Clear Samples</button>':'')+'</div>':'';
 
   const items=state.items;
   const cats=[...new Set(items.map(i=>(i.cat||'').trim()).filter(Boolean))].sort();
-  const f=[['all','Everything'],['top','Top wishes'],['exact','Exact picks'],['idea','Gift ideas']].concat(cats.map(c=>['c:'+c,c]));
+  const f=[['all','All'],['top','Top Wishes'],['exact','Exact Picks'],['idea','Gift Ideas']].concat(cats.map(c=>['c:'+c,c]));
   if(!f.some(x=>x[0]===filter))filter='all';
-  $('filters').innerHTML=f.map(x=>'<button class="chip" data-f="'+esc(x[0])+'" aria-pressed="'+(filter===x[0])+'">'+esc(x[1])+'</button>').join('');
+  const seg=$('filters'), prev=seg.querySelector('.ind');
+  const pl=prev?prev.style.left:'', pw=prev?prev.style.width:'';
+  seg.innerHTML='<span class="ind" style="left:'+esc(pl)+';width:'+esc(pw)+'"></span>'+f.map(x=>'<button data-f="'+esc(x[0])+'" aria-pressed="'+(filter===x[0])+'">'+esc(x[1])+'</button>').join('');
+  requestAnimationFrame(()=>slide(seg,!pl));
   $('cats').innerHTML=cats.map(c=>'<option value="'+esc(c)+'">').join('');
   $('sampleNote').hidden=!state.sample;
 
-  const shown=items.filter(i=>filter==='all'||(filter==='top'&&i.top)||filter===i.kind||filter==='c:'+(i.cat||'').trim())
-    .sort((x,y)=>(y.top?1:0)-(x.top?1:0));
-  $('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty" style="grid-column:1/-1"><p><b>Nothing here yet.</b></p>'+(canEdit?'<p class="note">Tap Edit list, then Add a wish or Paste from Notes.</p>':'')+'</div>';
+  const shown=items.filter(i=>filter==='all'||(filter==='top'&&i.top)||filter===i.kind||filter==='c:'+(i.cat||'').trim()).sort((x,y)=>(y.top?1:0)-(x.top?1:0));
+  $('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>Nothing here yet.</b>'+(canEdit?'Tap Edit, then Add Wish or Paste from Notes.':'Check back soon.')+'</div>';
   const when=state.updated?new Date(state.updated).toLocaleDateString(undefined,{month:'long',day:'numeric'}):'';
-  $('foot').textContent=items.length+(items.length===1?' wish':' wishes')+(when?' · updated '+when:'');
+  $('foot').textContent=items.length+(items.length===1?' wish':' wishes')+(when?' · Updated '+when:'');
+  reveal();
 }
 
 function card(i){
-  const specs=[['Size',i.size],['Colour',i.color],['Price',i.price]].filter(s=>s[1]);
+  const meta=[['Size',i.size],['Color',i.color]].filter(s=>s[1]);
   const links=(i.links||[]).filter(okUrl);
-  const initials=(i.brand||i.title||'?').trim().slice(0,1).toUpperCase();
+  const hasImg=i.img&&okImg(i.img);
   const missing=i.kind==='exact'&&!i.size&&!links.length;
-  return '<article class="item">'
-    +'<div class="pic'+(i.kind==='idea'?' idea':'')+(i.img&&okImg(i.img)?'':' blank')+'">'+(i.img&&okImg(i.img)?'<img src="'+esc(i.img)+'" alt="'+esc(i.title)+'" loading="lazy">':'<span class="ph" aria-hidden="true">'+esc(initials)+'</span>')
-    +'<div class="badges">'+(i.kind==='idea'?'<span class="badge k-idea">Gift idea</span>':'<span class="badge k-exact">Exact pick</span>')+(i.top?'<span class="badge k-top">Top wish</span>':'')+'</div></div>'
+  return '<article class="item rv">'
+    +'<div class="pic'+(hasImg?'':' blank')+'">'+(hasImg?'<img src="'+esc(i.img)+'" alt="'+esc(i.title)+'" loading="lazy">':'<span class="ph" aria-hidden="true">'+esc((i.brand||i.title||'?').trim().slice(0,1).toUpperCase())+'</span>')
+    +'<div class="pills">'+(i.kind==='idea'?'<span class="pill p-idea">Gift idea</span>':'<span class="pill p-exact">Exact pick</span>')+(i.top?'<span class="pill p-top">Top wish</span>':'')+'</div></div>'
     +'<div class="body">'+(i.brand?'<div class="brand">'+esc(i.brand)+'</div>':'')+'<h3>'+esc(i.title)+'</h3>'
-    +(specs.length?'<ul class="specs">'+specs.map(s=>'<li><b>'+s[0]+'</b>'+esc(s[1])+'</li>').join('')+'</ul>':'')
+    +(meta.length?'<p class="meta">'+meta.map(s=>s[0]+' <b>'+esc(s[1])+'</b>').join(' · ')+'</p>':'')
     +(i.notes?'<p>'+esc(i.notes)+'</p>':'')
-    +(editing&&missing?'<p class="need">Add a size or a link so it\'s easy to buy.</p>':'')
-    +(links.length?'<div class="links">'+links.map((u,n)=>'<a class="btn '+(n?'b-plain':'b-gold')+'" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+(n?'Also at ':'Shop at ')+esc(host(u))+'</a>').join('')+'</div>':'')
-    +(editing?'<div class="edit-row"><button class="btn b-plain" data-edit="'+esc(i.id)+'">Edit</button></div>':'')
+    +(editing&&missing?'<p class="need">Add a size or link so it\'s easy to buy.</p>':'')
+    +((links.length||i.price)?'<div class="buy">'+(i.price?'<span class="meta"><b>'+esc(i.price)+'</b></span>':'')+links.map((u,n)=>n?'<a class="tlink" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(host(u))+' ›</a>':'<a class="btn b-blue b-sm" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">Buy at '+esc(host(u))+'</a>').join('')+'</div>':'')
+    +(editing?'<div class="editrow"><button class="btn b-fill b-sm" data-edit="'+esc(i.id)+'">Edit</button></div>':'')
     +'</div></article>';
 }
 
@@ -274,30 +322,34 @@ async function save(msg){
   try{sessionStorage.setItem('cl-edit',editing?'1':'0')}catch(e){}
   try{await art.publish(buildDoc());toast(msg||'Saved')}
   catch(e){const c=String(e&&(e.code||e.message)||'');
-    if(/conflict/.test(c))toast('Someone saved at the same moment. Reloading their version.');
+    if(/conflict/.test(c))toast('Someone saved at the same moment. Loading their version.');
     else if(/not_granted|not_writer/.test(c)){canEdit=false;editing=false;render();toast('Only the list owner can make changes.')}
-    else toast('Could not save. Check your connection and try again.')}
+    else toast('Couldn\'t save. Check your connection and try again.')}
 }
+
+function openD(d){d.classList.remove('closing');d.showModal()}
+function closeD(d){if(!d.open)return;if(matchMedia('(prefers-reduced-motion:reduce)').matches){d.close();return}d.classList.add('closing');setTimeout(()=>{d.classList.remove('closing');d.close()},230)}
+function setKind(k){kind=k;$('kExact').setAttribute('aria-pressed',k==='exact');$('kIdea').setAttribute('aria-pressed',k==='idea');slide($('kExact').parentNode)}
 
 function openItem(id){
   editId=id;const i=state.items.find(x=>x.id===id)||{kind:'exact',links:[]};
-  $('itemH').textContent=id?'Edit wish':'Add a wish';
-  $(i.kind==='idea'?'kIdea':'kExact').checked=true;
+  $('itemH').textContent=id?'Edit Wish':'New Wish';
   $('fTitle').value=i.title||'';$('fBrand').value=i.brand||'';$('fCat').value=i.cat||'';$('fPrice').value=i.price||'';
   $('fSize').value=i.size||'';$('fColor').value=i.color||'';$('fTop').checked=!!i.top;
   $('fLinks').value=(i.links||[]).join('\n');$('fNotes').value=i.notes||'';$('fPhoto').value='';
-  photo=i.img||'';showPhoto();$('fDel').hidden=!id;$('itemDlg').showModal();
+  photo=i.img||'';showPhoto();$('fDel').hidden=!id;openD($('itemDlg'));
+  requestAnimationFrame(()=>{kind=i.kind==='idea'?'idea':'exact';$('kExact').setAttribute('aria-pressed',kind==='exact');$('kIdea').setAttribute('aria-pressed',kind==='idea');slide($('kExact').parentNode,true)});
 }
-function showPhoto(){const p=$('fPrev');p.hidden=!photo;if(photo)p.src=photo;$('fNoPhoto').hidden=!photo}
+function showPhoto(){const p=$('fPrev');p.hidden=!photo;if(photo)p.src=photo;$('fNoPhoto').hidden=!photo;$('fPhotoL').textContent=photo?'Change photo':'Choose photo'}
 
 $('fPhoto').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;
   const assets=await use('assets');
-  if(!assets){toast('Pictures can be added when you open the list from its claude.ai link.');e.target.value='';return}
-  $('fSave').disabled=true;$('fSave').textContent='Uploading…';
-  try{const r=await assets.upload(file);photo=r.url||('/_blob/'+r.id);showPhoto()}
-  catch(err){toast('That picture did not upload. Try a smaller screenshot.')}
-  finally{$('fSave').disabled=false;$('fSave').textContent='Save'}
+  if(!assets){toast('Photos can be added when you open the list from its claude.ai link.');e.target.value='';return}
+  $('fSave').disabled=true;$('fPhotoL').textContent='Uploading…';
+  try{const r=await assets.upload(file);photo=r.url||('/_blob/'+r.id)}
+  catch(err){toast('That photo didn\'t upload. Try a smaller screenshot.')}
+  finally{$('fSave').disabled=false;showPhoto()}
 });
 $('fNoPhoto').onclick=()=>{photo='';$('fPhoto').value='';showPhoto()};
 
@@ -307,15 +359,15 @@ $('itemForm').addEventListener('submit',e=>{
   const raw=v('fLinks').split(/\s+/).filter(Boolean);
   const links=raw.map(u=>/^http:\/\//i.test(u)?'https://'+u.slice(7):(/^https:\/\//i.test(u)?u:(/^[\w-]+(\.[\w-]+)+/.test(u)?'https://'+u:''))).filter(okUrl);
   if(raw.length>links.length)toast('Some links were skipped. Paste the full address from the store.');
-  const item={id:editId||uid(),kind:$('kIdea').checked?'idea':'exact',top:$('fTop').checked,title:v('fTitle'),brand:v('fBrand'),cat:v('fCat'),price:v('fPrice'),size:v('fSize'),color:v('fColor'),links,img:photo||'',notes:v('fNotes')};
-  if(!item.title)return;
+  const item={id:editId||uid(),kind,top:$('fTop').checked,title:v('fTitle'),brand:v('fBrand'),cat:v('fCat'),price:v('fPrice'),size:v('fSize'),color:v('fColor'),links,img:photo||'',notes:v('fNotes')};
+  if(!item.title){$('fTitle').focus();return}
   const n=state.items.findIndex(x=>x.id===item.id);
   if(n>=0)state.items[n]=item;else state.items.unshift(item);
-  $('itemDlg').close();save(n>=0?'Wish updated':'Wish added');
+  closeD($('itemDlg'));save(n>=0?'Wish updated':'Wish added');
 });
 $('fDel').onclick=()=>{
   const n=state.items.findIndex(x=>x.id===editId);if(n<0)return;
-  const gone=state.items.splice(n,1)[0];$('itemDlg').close();render();
+  const gone=state.items.splice(n,1)[0];closeD($('itemDlg'));render();
   clearTimeout(undo);
   toast('Deleted "'+gone.title+'"','Undo',()=>{clearTimeout(undo);state.items.splice(n,0,gone);render()});
   undo=setTimeout(()=>save('Wish deleted'),7000);
@@ -323,39 +375,41 @@ $('fDel').onclick=()=>{
 
 function openAbout(){
   const a=state.about;$('aName').value=a.name||'';$('aIntro').value=a.intro||'';$('aSizes').value=(a.sizes||[]).join('\n');
-  $('aColors').value=a.colors||'';$('aBrands').value=a.brands||'';$('aInto').value=a.into||'';$('aNo').value=a.no||'';$('aboutDlg').showModal();
+  $('aColors').value=a.colors||'';$('aBrands').value=a.brands||'';$('aInto').value=a.into||'';$('aNo').value=a.no||'';openD($('aboutDlg'));
 }
 $('aboutForm').addEventListener('submit',e=>{
   e.preventDefault();const v=id=>$(id).value.trim();
   state.about={name:v('aName'),intro:v('aIntro'),sizes:v('aSizes').split('\n').map(s=>s.trim()).filter(Boolean),colors:v('aColors'),brands:v('aBrands'),into:v('aInto'),no:v('aNo')};
-  $('aboutDlg').close();save('About me saved');
+  closeD($('aboutDlg'));save('About Me saved');
 });
 
 $('importForm').addEventListener('submit',e=>{
   e.preventDefault();
   const lines=$('iText').value.split('\n').map(l=>l.replace(/^[\s\-•*·◦▪☐☑✓✔\d.)]+/,'').trim()).filter(Boolean);
-  if(!lines.length){$('importDlg').close();return}
+  if(!lines.length){closeD($('importDlg'));return}
   if(state.sample){state.items=state.items.filter(i=>!/^s\d$/.test(i.id));state.sample=false}
   const add=lines.slice(0,100).map(l=>{const idea=/^idea\s*[:\-]\s*/i.test(l);return {id:uid(),kind:idea?'idea':'exact',top:false,title:l.replace(/^idea\s*[:\-]\s*/i,'').slice(0,120),brand:'',cat:'',price:'',size:'',color:'',links:[],img:'',notes:''}});
-  state.items=add.concat(state.items);$('iText').value='';$('importDlg').close();
+  state.items=add.concat(state.items);$('iText').value='';closeD($('importDlg'));
   save(add.length+' wishes added. Tap Edit on each to add details.');
 });
 
 document.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.f){filter=t.dataset.f;render();return}
+  if(t.dataset.kind){setKind(t.dataset.kind);return}
   if(t.dataset.edit){openItem(t.dataset.edit);return}
-  if(t.hasAttribute('data-close')){t.closest('dialog').close();return}
+  if(t.hasAttribute('data-close')){closeD(t.closest('dialog'));return}
   switch(t.id){
     case 'editBtn':editing=true;render();break;
     case 'doneBtn':editing=false;try{sessionStorage.setItem('cl-edit','0')}catch(err){}render();break;
     case 'addBtn':openItem(null);break;
-    case 'impBtn':$('importDlg').showModal();break;
+    case 'impBtn':openD($('importDlg'));break;
     case 'editAbout':openAbout();break;
-    case 'clrBtn':state.items=state.items.filter(i=>!/^s\d$/.test(i.id));state.sample=false;save('Samples removed');break;
+    case 'clrBtn':state.items=state.items.filter(i=>!/^s\d$/.test(i.id));state.sample=false;save('Samples cleared');break;
   }
 });
-for(const d of document.querySelectorAll('dialog'))d.addEventListener('click',e=>{if(e.target===d)d.close()});
+for(const d of document.querySelectorAll('dialog')){d.addEventListener('click',e=>{if(e.target===d)closeD(d)});d.addEventListener('cancel',e=>{e.preventDefault();closeD(d)})}
+addEventListener('resize',()=>slide($('filters'),true));
 
 render();
 (async()=>{
