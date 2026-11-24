@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#a3122a">
+<title>My Christmas List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style id="css">
+/* VOICE  occasion, warm and personal; a list family actually shops from
+   IDEA   a wrapped present: red paper band with a gold ribbon, each wish a gift tag
+   PICTURE the list of tags itself, under a ribbon-wrapped header carrying the "about me" tag
+   COLOUR  holly red ground band, pine green support, ribbon gold accent, white tags
+   TYPE    Fraunces 800 display + Figtree text
+   LAYOUT  header band, about-me tag + filters, grid of tags (3 cols laptop, 2 at 720, 1 on phone) */
+:root{color-scheme:light dark;--bg:light-dark(#f6f1ee,#140a0c);--ink:light-dark(#1d1012,#f5ecec);--muted:light-dark(#6b5558,#bba7aa);--card:light-dark(#ffffff,#22151a);--line:light-dark(#e6d9d6,#3a262c);--red:light-dark(#a3122a,#7a0d1f);--red-ink:#fff6f2;--pine:light-dark(#0f5a3a,#5cc28f);--pine-bg:light-dark(#e3f1ea,#12291f);--gold:#e9b730;--gold-ink:#3a2a00;--field:light-dark(#fff,#1a1013)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 Figtree,"Segoe UI",system-ui,sans-serif;overflow-x:clip}
+img{max-width:100%;display:block}
+[hidden]{display:none!important}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{background:var(--red);color:var(--red-ink);position:relative;overflow:hidden;padding-top:max(28px,env(safe-area-inset-top,0px));padding-bottom:96px;background-image:radial-gradient(circle at 20% 30%,rgba(255,255,255,.09) 0 2px,transparent 3px),radial-gradient(circle at 70% 70%,rgba(255,255,255,.07) 0 2px,transparent 3px);background-size:46px 46px,58px 58px}
+header::before{content:"";position:absolute;top:0;bottom:0;left:clamp(40px,12vw,180px);width:22px;background:linear-gradient(90deg,#c9961c,var(--gold) 40%,#f6d670 55%,var(--gold) 70%,#c9961c)}
+header::after{content:"";position:absolute;left:0;right:0;bottom:44px;height:22px;background:linear-gradient(#c9961c,var(--gold) 40%,#f6d670 55%,var(--gold) 70%,#c9961c)}
+.bow{position:absolute;left:calc(clamp(40px,12vw,180px) - 39px);bottom:20px;width:100px;height:70px;z-index:2}
+.top{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;padding-left:clamp(56px,14vw,210px)}
+h1{font:800 clamp(34px,6vw,52px)/1.05 Fraunces,Georgia,serif;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.sub{margin:8px 0 0;max-width:56ch;font-size:17px;opacity:.95}
+.btn{font:600 16px/1 Figtree,system-ui,sans-serif;min-height:44px;padding:0 18px;border-radius:999px;border:1.5px solid transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;white-space:nowrap}
+.btn:focus-visible,.chip:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.b-gold{background:var(--gold);color:var(--gold-ink)}
+.b-gold:hover{background:#f3c84b}
+.b-ghost{background:transparent;color:inherit;border-color:currentColor}
+.b-pine{background:var(--pine);color:light-dark(#fff,#08140e)}
+.b-plain{background:var(--card);color:var(--ink);border-color:var(--line)}
+.b-danger{background:transparent;color:light-dark(#a3122a,#ff8a9a);border-color:currentColor}
+main{position:relative;z-index:3;margin-top:-64px;padding-bottom:64px}
+.lead{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
+.tag{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;position:relative;box-shadow:0 2px 0 var(--line)}
+.tag h2{font:700 24px/1.1 Fraunces,Georgia,serif;margin:0 0 12px}
+.hole{position:absolute;top:16px;right:18px;width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--bg)}
+.sizes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;padding:0;list-style:none}
+.sizes li{background:var(--pine-bg);color:var(--pine);border-radius:8px;padding:6px 10px;font-weight:600;white-space:nowrap}
+.sizes b{font-weight:500;color:var(--ink);opacity:.8;margin-right:4px}
+dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px}
+dt{color:var(--muted);font-weight:600}
+dd{margin:0}
+.how{display:grid;gap:12px}
+.how p{margin:0}
+.key{display:flex;gap:10px;align-items:flex-start}
+.key .badge{flex:none;width:92px;justify-content:center}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:4px 9px;border-radius:6px;white-space:nowrap}
+.k-exact{background:var(--red);color:var(--red-ink)}
+.k-idea{background:var(--pine-bg);color:var(--pine)}
+.k-top{background:var(--gold);color:var(--gold-ink)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:28px 0 16px}
+.chip{font:600 15px/1 Figtree,system-ui,sans-serif;min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.spacer{flex:1}
+.note{font-size:14px;color:var(--muted);margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.pic{aspect-ratio:4/3;background:var(--pine-bg);display:grid;place-items:center;overflow:hidden;position:relative}
+.pic img{width:100%;height:100%;object-fit:cover}
+.pic.blank{aspect-ratio:auto;height:96px}
+.pic .ph{font:800 44px/1 Fraunces,Georgia,serif;color:var(--pine);opacity:.55}
+.pic.idea{background:repeating-linear-gradient(135deg,var(--pine-bg) 0 18px,color-mix(in srgb,var(--pine-bg) 70%,var(--pine)) 18px 20px)}
+.badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}
+.body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;flex:1}
+.item h3{font:700 21px/1.15 Fraunces,Georgia,serif;margin:0}
+.brand{color:var(--muted);font-weight:600;font-size:15px}
+.specs{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.specs li{border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:14px;white-space:nowrap}
+.specs b{color:var(--muted);font-weight:500;margin-right:3px}
+.item p{margin:0}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:4px}
+.links .btn{min-height:42px;font-size:15px}
+.edit-row{display:flex;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.need{color:light-dark(#9a5b00,#f2c25a);font-size:14px;font-weight:600}
+.empty{background:var(--card);border:1.5px dashed var(--line);border-radius:14px;padding:32px;text-align:center}
+.ownerbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--pine-bg);color:var(--ink);border-radius:12px;padding:10px 12px;margin-top:18px}
+.ownerbar span{font-weight:600;color:var(--pine);margin-right:auto}
+dialog{border:0;border-radius:16px;padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(20,5,8,.55)}
+form.f{padding:22px;display:grid;gap:14px}
+form.f h2{font:700 26px/1.1 Fraunces,Georgia,serif;margin:0}
+label{display:grid;gap:5px;font-weight:600;font-size:15px}
+.hint{font-weight:400;color:var(--muted);font-size:13px}
+input,textarea,select{font:16px/1.4 Figtree,system-ui,sans-serif;color:var(--ink);background:var(--field);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+textarea{min-height:84px;resize:vertical}
+.two{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg label{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;flex:1}
+.seg input{width:auto}
+.check{display:flex;align-items:center;gap:10px}
+.check input{width:22px;height:22px}
+.photo{display:flex;gap:12px;align-items:center}
+.photo img{width:84px;height:64px;object-fit:cover;border-radius:8px}
+.acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;position:sticky;bottom:0;background:var(--card);padding-top:8px}
+.acts .left{margin-right:auto}
+#toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;z-index:20;max-width:calc(100vw - 32px);display:flex;gap:12px;align-items:center}
+#toast button{background:none;border:0;color:var(--gold);font:700 15px Figtree,sans-serif;cursor:pointer;min-height:32px}
+footer{color:var(--muted);font-size:14px;padding-bottom:40px}
+@media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:720px){.lead{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.grid{grid-template-columns:minmax(0,1fr)}.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.top{padding-left:56px}header::before{left:18px;width:16px}.bow{left:-8px;transform:scale(.8);transform-origin:left bottom}header{padding-bottom:84px}}
+@media (prefers-reduced-motion:no-preference){.item{animation:rise .35s ease both}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}}
+</style>
+</head>
+<body>
+<script type="text/html" id="shell">
+<header>
+  <svg class="bow" viewBox="0 0 100 70" aria-hidden="true"><defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d670"/><stop offset="1" stop-color="#c9961c"/></linearGradient></defs><path d="M50 38C34 12 6 8 8 30c2 18 26 14 42 8Z" fill="url(#gb)" stroke="#a87a10" stroke-width="2"/><path d="M50 38C66 12 94 8 92 30c-2 18-26 14-42 8Z" fill="url(#gb)" stroke="#a87a10" stroke-width="2"/><path d="M46 40 30 68h12l8-20 8 20h12L54 40Z" fill="#d9a826" stroke="#a87a10" stroke-width="2"/><circle cx="50" cy="38" r="9" fill="#f3c84b" stroke="#a87a10" stroke-width="2"/></svg>
+  <div class="wrap top">
+    <div>
+      <h1 id="title">My Christmas list</h1>
+      <p class="sub" id="intro"></p>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="lead">
+    <section class="tag" aria-labelledby="aboutH"><span class="hole"></span>
+      <h2 id="aboutH">About me</h2>
+      <div id="about"></div>
+    </section>
+    <section class="tag how" aria-label="How this list works">
+      <h2>How to use this list</h2>
+      <div class="key"><span class="badge k-exact">Exact pick</span><p>Something specific I want. Size, colour and a link to buy it are on the card.</p></div>
+      <div class="key"><span class="badge k-idea">Gift idea</span><p>A starting point, not an order. Use it to find something you think I'd love.</p></div>
+      <div class="key"><span class="badge k-top">Top wish</span><p>The ones I'm most excited about.</p></div>
+    </section>
+  </div>
+  <div id="ownerbar"></div>
+  <div class="bar" id="filters" role="toolbar" aria-label="Filter the list"></div>
+  <p class="note" id="sampleNote" hidden>These are sample wishes so you can see how it looks. Tap Edit list to replace them with yours.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<footer class="wrap" id="foot"></footer>
+
+<dialog id="itemDlg"><form class="f" id="itemForm" method="dialog">
+  <h2 id="itemH">Add a wish</h2>
+  <div class="seg" role="radiogroup" aria-label="Kind">
+    <label><input type="radio" name="kind" value="exact" id="kExact" checked> Exact pick</label>
+    <label><input type="radio" name="kind" value="idea" id="kIdea"> Gift idea</label>
+  </div>
+  <label for="fTitle">What is it?<input id="fTitle" required maxlength="120" placeholder="Tech Fleece joggers"></label>
+  <div class="two">
+    <label for="fBrand">Brand or store<input id="fBrand" maxlength="60" placeholder="Nike"></label>
+    <label for="fCat">Category<input id="fCat" list="cats" maxlength="40" placeholder="Clothes"></label>
+    <label for="fPrice">Price<input id="fPrice" maxlength="30" placeholder="$70"></label>
+    <label for="fSize">Size<input id="fSize" maxlength="40" placeholder="M"></label>
+    <label for="fColor">Colour<input id="fColor" maxlength="60" placeholder="Black"></label>
+    <label class="check" for="fTop"><input type="checkbox" id="fTop"> Top wish</label>
+  </div>
+  <datalist id="cats"></datalist>
+  <label for="fLinks">Links to buy it <span class="hint">One per line. Copy the link from the store's page and paste it here.</span><textarea id="fLinks" placeholder="https://www.nike.com/..."></textarea></label>
+  <div><label for="fPhoto">Picture <span class="hint">Screenshot the product on your phone and pick it here.</span></label>
+    <div class="photo"><img id="fPrev" alt="" hidden><input type="file" id="fPhoto" accept="image/*"><button type="button" class="btn b-plain" id="fNoPhoto" hidden>Remove</button></div></div>
+  <label for="fNotes">Details for whoever shops <span class="hint">Fit, style, what I already have, anything that helps.</span><textarea id="fNotes" maxlength="600" placeholder="I like them fitted, not baggy."></textarea></label>
+  <div class="acts"><button type="button" class="btn b-danger left" id="fDel" hidden>Delete</button><button type="button" class="btn b-plain" data-close>Cancel</button><button type="submit" class="btn b-pine" id="fSave">Save</button></div>
+</form></dialog>
+
+<dialog id="aboutDlg"><form class="f" id="aboutForm" method="dialog">
+  <h2>About me</h2>
+  <label for="aName">Your name<input id="aName" maxlength="40" placeholder="Tre"></label>
+  <label for="aIntro">A note to your family<textarea id="aIntro" maxlength="300"></textarea></label>
+  <label for="aSizes">My sizes <span class="hint">One per line, like "Shoe: 10.5"</span><textarea id="aSizes"></textarea></label>
+  <label for="aColors">Colours I like<input id="aColors" maxlength="120"></label>
+  <label for="aBrands">Brands and stores I like<input id="aBrands" maxlength="160"></label>
+  <label for="aInto">Things I'm into lately<input id="aInto" maxlength="200"></label>
+  <label for="aNo">Please skip<input id="aNo" maxlength="160"></label>
+  <div class="acts"><button type="button" class="btn b-plain" data-close>Cancel</button><button type="submit" class="btn b-pine">Save</button></div>
+</form></dialog>
+
+<dialog id="importDlg"><form class="f" id="importForm" method="dialog">
+  <h2>Paste from Notes</h2>
+  <p class="hint" style="font-size:15px;margin:0">Copy your list out of Notes and paste it below. Each line becomes a wish you can then fill in with sizes, links and pictures. Start a line with "idea:" to make it a gift idea.</p>
+  <label for="iText">Your list<textarea id="iText" style="min-height:200px" placeholder="Nike Tech Fleece joggers&#10;Dunks&#10;idea: stuff for my room"></textarea></label>
+  <div class="acts"><button type="button" class="btn b-plain" data-close>Cancel</button><button type="submit" class="btn b-pine">Add to my list</button></div>
+</form></dialog>
+<div id="toast" role="status" hidden></div>
+</script>
+
+<script type="application/json" id="state">{"sample":true,"about":{"name":"","intro":"Everything here is a guide, not a rule. If you see something that made you think of me, go for it.","sizes":["Shirt: M","Hoodie: L","Pants: 32x30","Shoe: 10.5"],"colors":"Black, grey, olive green","brands":"Nike, Carhartt, Target","into":"Basketball, the gym, music, gaming","no":"Cologne, candles"},"items":[{"id":"s1","kind":"exact","top":true,"title":"Tech Fleece joggers","brand":"Nike","cat":"Clothes","price":"about $110","size":"M","color":"Black","links":["https://www.nike.com/w/tech-fleece"],"img":"","notes":"Slim fit, the newer style with the zip pockets."},{"id":"s2","kind":"exact","top":false,"title":"Dunk Low sneakers","brand":"Nike","cat":"Shoes","price":"about $115","size":"10.5","color":"Black and white","links":["https://www.nike.com/w/dunk-shoes"],"img":"","notes":""},{"id":"s3","kind":"idea","top":false,"title":"Something for the gym","brand":"","cat":"Fitness","price":"","size":"","color":"","links":[],"img":"","notes":"A good water bottle, lifting straps, a gym bag. Surprise me."},{"id":"s4","kind":"idea","top":true,"title":"Stuff to make my room feel better","brand":"","cat":"Room","price":"","size":"","color":"","links":[],"img":"","notes":"LED lights, a poster, a little speaker. You know my style."}]}</script>
+
+<script id="appjs">
+{
+const HEAD='<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="theme-color" content="#a3122a">\n<title>My Christmas List</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Figtree:wght@400;500;600;700&display=swap">\n';
+const $=id=>document.getElementById(id);
+const shellSrc=$('shell').textContent, cssSrc=$('css').textContent, appSrc=$('appjs').textContent;
+let state;
+try{state=JSON.parse($('state').textContent)}catch(e){state={about:{},items:[]}}
+state.about=state.about||{};state.items=state.items||[];
+document.body.insertAdjacentHTML('afterbegin',shellSrc);
+
+const use=n=>window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const okUrl=u=>/^https:\/\/[^\s<>"']+$/i.test(u);
+const okImg=u=>/^\/_blob\/[A-Za-z0-9_\-.]+$/.test(u)||/^https:\/\/[^\s<>"']+$/i.test(u);
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return 'store'}};
+const uid=()=>Math.random().toString(36).slice(2,9);
+let canEdit=false, editing=false, filter='all', editId=null, photo=null, undo=null;
+try{editing=sessionStorage.getItem('cl-edit')==='1'}catch(e){}
+
+function toast(msg,actLabel,act){
+  const t=$('toast');t.textContent=msg;
+  if(actLabel){const b=document.createElement('button');b.textContent=actLabel;b.onclick=()=>{t.hidden=true;act()};t.appendChild(b)}
+  t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,actLabel?7000:3500);
+}
+
+function render(){
+  const a=state.about, nm=(a.name||'').trim();
+  $('title').textContent=nm?nm+"'s Christmas list":'My Christmas list';
+  document.title=nm?nm+"'s Christmas List":'My Christmas List';
+  $('intro').textContent=a.intro||'';
+  const sizes=(a.sizes||[]).filter(Boolean);
+  const rows=[['Colours',a.colors],['Brands',a.brands],["I'm into",a.into],['Please skip',a.no]].filter(r=>r[1]);
+  $('about').innerHTML=(sizes.length?'<ul class="sizes">'+sizes.map(s=>{const i=s.indexOf(':');return i>0?'<li><b>'+esc(s.slice(0,i))+'</b>'+esc(s.slice(i+1).trim())+'</li>':'<li>'+esc(s)+'</li>'}).join('')+'</ul>':'')
+    +(rows.length?'<dl>'+rows.map(r=>'<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join('')+'</dl>':'')
+    +(!sizes.length&&!rows.length?'<p class="note">No sizes or favourites yet.</p>':'')
+    +(editing?'<p style="margin:12px 0 0"><button class="btn b-plain" id="editAbout">Edit about me</button></p>':'');
+
+  $('ownerbar').innerHTML=canEdit?(editing
+    ?'<div class="ownerbar"><span>Editing. Changes save for everyone.</span><button class="btn b-pine" id="addBtn">Add a wish</button><button class="btn b-plain" id="impBtn">Paste from Notes</button>'+(state.sample?'<button class="btn b-plain" id="clrBtn">Remove samples</button>':'')+'<button class="btn b-plain" id="doneBtn">Done</button></div>'
+    :'<div class="ownerbar"><span>This is your list. Family sees it without these buttons.</span><button class="btn b-pine" id="editBtn">Edit list</button></div>'):'';
+
+  const items=state.items;
+  const cats=[...new Set(items.map(i=>(i.cat||'').trim()).filter(Boolean))].sort();
+  const f=[['all','Everything'],['top','Top wishes'],['exact','Exact picks'],['idea','Gift ideas']].concat(cats.map(c=>['c:'+c,c]));
+  if(!f.some(x=>x[0]===filter))filter='all';
+  $('filters').innerHTML=f.map(x=>'<button class="chip" data-f="'+esc(x[0])+'" aria-pressed="'+(filter===x[0])+'">'+esc(x[1])+'</button>').join('');
+  $('cats').innerHTML=cats.map(c=>'<option value="'+esc(c)+'">').join('');
+  $('sampleNote').hidden=!state.sample;
+
+  const shown=items.filter(i=>filter==='all'||(filter==='top'&&i.top)||filter===i.kind||filter==='c:'+(i.cat||'').trim())
+    .sort((x,y)=>(y.top?1:0)-(x.top?1:0));
+  $('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty" style="grid-column:1/-1"><p><b>Nothing here yet.</b></p>'+(canEdit?'<p class="note">Tap Edit list, then Add a wish or Paste from Notes.</p>':'')+'</div>';
+  const when=state.updated?new Date(state.updated).toLocaleDateString(undefined,{month:'long',day:'numeric'}):'';
+  $('foot').textContent=items.length+(items.length===1?' wish':' wishes')+(when?' · updated '+when:'');
+}
+
+function card(i){
+  const specs=[['Size',i.size],['Colour',i.color],['Price',i.price]].filter(s=>s[1]);
+  const links=(i.links||[]).filter(okUrl);
+  const initials=(i.brand||i.title||'?').trim().slice(0,1).toUpperCase();
+  const missing=i.kind==='exact'&&!i.size&&!links.length;
+  return '<article class="item">'
+    +'<div class="pic'+(i.kind==='idea'?' idea':'')+(i.img&&okImg(i.img)?'':' blank')+'">'+(i.img&&okImg(i.img)?'<img src="'+esc(i.img)+'" alt="'+esc(i.title)+'" loading="lazy">':'<span class="ph" aria-hidden="true">'+esc(initials)+'</span>')
+    +'<div class="badges">'+(i.kind==='idea'?'<span class="badge k-idea">Gift idea</span>':'<span class="badge k-exact">Exact pick</span>')+(i.top?'<span class="badge k-top">Top wish</span>':'')+'</div></div>'
+    +'<div class="body">'+(i.brand?'<div class="brand">'+esc(i.brand)+'</div>':'')+'<h3>'+esc(i.title)+'</h3>'
+    +(specs.length?'<ul class="specs">'+specs.map(s=>'<li><b>'+s[0]+'</b>'+esc(s[1])+'</li>').join('')+'</ul>':'')
+    +(i.notes?'<p>'+esc(i.notes)+'</p>':'')
+    +(editing&&missing?'<p class="need">Add a size or a link so it\'s easy to buy.</p>':'')
+    +(links.length?'<div class="links">'+links.map((u,n)=>'<a class="btn '+(n?'b-plain':'b-gold')+'" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+(n?'Also at ':'Shop at ')+esc(host(u))+'</a>').join('')+'</div>':'')
+    +(editing?'<div class="edit-row"><button class="btn b-plain" data-edit="'+esc(i.id)+'">Edit</button></div>':'')
+    +'</div></article>';
+}
+
+function buildDoc(){
+  const json=JSON.stringify(state).replace(/</g,'\\u003c');
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n'+HEAD+'<style id="css">'+cssSrc+'</style>\n</head>\n<body>\n<script type="text/html" id="shell">'+shellSrc+'</scr'+'ipt>\n\n<script type="application/json" id="state">'+json+'</scr'+'ipt>\n\n<script id="appjs">'+appSrc+'</scr'+'ipt>\n</body>\n</html>\n';
+}
+
+async function save(msg){
+  state.updated=Date.now();render();
+  const art=await use('artifact');
+  if(!art){toast('Saved on this screen only. Open the list from its claude.ai link to save for everyone.');return}
+  try{sessionStorage.setItem('cl-edit',editing?'1':'0')}catch(e){}
+  try{await art.publish(buildDoc());toast(msg||'Saved')}
+  catch(e){const c=String(e&&(e.code||e.message)||'');
+    if(/conflict/.test(c))toast('Someone saved at the same moment. Reloading their version.');
+    else if(/not_granted|not_writer/.test(c)){canEdit=false;editing=false;render();toast('Only the list owner can make changes.')}
+    else toast('Could not save. Check your connection and try again.')}
+}
+
+function openItem(id){
+  editId=id;const i=state.items.find(x=>x.id===id)||{kind:'exact',links:[]};
+  $('itemH').textContent=id?'Edit wish':'Add a wish';
+  $(i.kind==='idea'?'kIdea':'kExact').checked=true;
+  $('fTitle').value=i.title||'';$('fBrand').value=i.brand||'';$('fCat').value=i.cat||'';$('fPrice').value=i.price||'';
+  $('fSize').value=i.size||'';$('fColor').value=i.color||'';$('fTop').checked=!!i.top;
+  $('fLinks').value=(i.links||[]).join('\n');$('fNotes').value=i.notes||'';$('fPhoto').value='';
+  photo=i.img||'';showPhoto();$('fDel').hidden=!id;$('itemDlg').showModal();
+}
+function showPhoto(){const p=$('fPrev');p.hidden=!photo;if(photo)p.src=photo;$('fNoPhoto').hidden=!photo}
+
+$('fPhoto').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  const assets=await use('assets');
+  if(!assets){toast('Pictures can be added when you open the list from its claude.ai link.');e.target.value='';return}
+  $('fSave').disabled=true;$('fSave').textContent='Uploading…';
+  try{const r=await assets.upload(file);photo=r.url||('/_blob/'+r.id);showPhoto()}
+  catch(err){toast('That picture did not upload. Try a smaller screenshot.')}
+  finally{$('fSave').disabled=false;$('fSave').textContent='Save'}
+});
+$('fNoPhoto').onclick=()=>{photo='';$('fPhoto').value='';showPhoto()};
+
+$('itemForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=id=>$(id).value.trim();
+  const raw=v('fLinks').split(/\s+/).filter(Boolean);
+  const links=raw.map(u=>/^http:\/\//i.test(u)?'https://'+u.slice(7):(/^https:\/\//i.test(u)?u:(/^[\w-]+(\.[\w-]+)+/.test(u)?'https://'+u:''))).filter(okUrl);
+  if(raw.length>links.length)toast('Some links were skipped. Paste the full address from the store.');
+  const item={id:editId||uid(),kind:$('kIdea').checked?'idea':'exact',top:$('fTop').checked,title:v('fTitle'),brand:v('fBrand'),cat:v('fCat'),price:v('fPrice'),size:v('fSize'),color:v('fColor'),links,img:photo||'',notes:v('fNotes')};
+  if(!item.title)return;
+  const n=state.items.findIndex(x=>x.id===item.id);
+  if(n>=0)state.items[n]=item;else state.items.unshift(item);
+  $('itemDlg').close();save(n>=0?'Wish updated':'Wish added');
+});
+$('fDel').onclick=()=>{
+  const n=state.items.findIndex(x=>x.id===editId);if(n<0)return;
+  const gone=state.items.splice(n,1)[0];$('itemDlg').close();render();
+  clearTimeout(undo);
+  toast('Deleted "'+gone.title+'"','Undo',()=>{clearTimeout(undo);state.items.splice(n,0,gone);render()});
+  undo=setTimeout(()=>save('Wish deleted'),7000);
+};
+
+function openAbout(){
+  const a=state.about;$('aName').value=a.name||'';$('aIntro').value=a.intro||'';$('aSizes').value=(a.sizes||[]).join('\n');
+  $('aColors').value=a.colors||'';$('aBrands').value=a.brands||'';$('aInto').value=a.into||'';$('aNo').value=a.no||'';$('aboutDlg').showModal();
+}
+$('aboutForm').addEventListener('submit',e=>{
+  e.preventDefault();const v=id=>$(id).value.trim();
+  state.about={name:v('aName'),intro:v('aIntro'),sizes:v('aSizes').split('\n').map(s=>s.trim()).filter(Boolean),colors:v('aColors'),brands:v('aBrands'),into:v('aInto'),no:v('aNo')};
+  $('aboutDlg').close();save('About me saved');
+});
+
+$('importForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const lines=$('iText').value.split('\n').map(l=>l.replace(/^[\s\-•*·◦▪☐☑✓✔\d.)]+/,'').trim()).filter(Boolean);
+  if(!lines.length){$('importDlg').close();return}
+  if(state.sample){state.items=state.items.filter(i=>!/^s\d$/.test(i.id));state.sample=false}
+  const add=lines.slice(0,100).map(l=>{const idea=/^idea\s*[:\-]\s*/i.test(l);return {id:uid(),kind:idea?'idea':'exact',top:false,title:l.replace(/^idea\s*[:\-]\s*/i,'').slice(0,120),brand:'',cat:'',price:'',size:'',color:'',links:[],img:'',notes:''}});
+  state.items=add.concat(state.items);$('iText').value='';$('importDlg').close();
+  save(add.length+' wishes added. Tap Edit on each to add details.');
+});
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.f){filter=t.dataset.f;render();return}
+  if(t.dataset.edit){openItem(t.dataset.edit);return}
+  if(t.hasAttribute('data-close')){t.closest('dialog').close();return}
+  switch(t.id){
+    case 'editBtn':editing=true;render();break;
+    case 'doneBtn':editing=false;try{sessionStorage.setItem('cl-edit','0')}catch(err){}render();break;
+    case 'addBtn':openItem(null);break;
+    case 'impBtn':$('importDlg').showModal();break;
+    case 'editAbout':openAbout();break;
+    case 'clrBtn':state.items=state.items.filter(i=>!/^s\d$/.test(i.id));state.sample=false;save('Samples removed');break;
+  }
+});
+for(const d of document.querySelectorAll('dialog'))d.addEventListener('click',e=>{if(e.target===d)d.close()});
+
+render();
+(async()=>{
+  const u=await use('user');
+  if(u){try{canEdit=!!(await u.canEdit())}catch(e){canEdit=false}}
+  else canEdit=!!(await use('artifact'));
+  if(!canEdit)editing=false;
+  render();
+})();
+}
+</script>
+</body>
+</html>
