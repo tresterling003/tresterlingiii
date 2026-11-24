@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="CreateSpace — an all-in-one toolbox for designers, animators, filmmakers, photographers and creators. Make space for creativity." />
+    <meta name="theme-color" content="#F6F4EF" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>CreateSpace — Make space for creativity</title>
+    <script>
+      // Apply the saved theme before the page paints, so dark-mode users never see a white flash.
+      // Keep the storage key in sync with src/lib/theme.ts.
+      (function () {
+        try {
+          var pref = JSON.parse(localStorage.getItem('createspace:v1:theme') || '"system"');
+          var dark = pref === 'dark' || (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

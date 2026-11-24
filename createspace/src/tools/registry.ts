@@ -1,0 +1,196 @@
+import {
+  CalendarClock,
+  CalendarDays,
+  Calculator,
+  Clapperboard,
+  Crop,
+  Dices,
+  Eraser,
+  Headphones,
+  NotebookPen,
+  Palette,
+  PersonStanding,
+  ReceiptText,
+  ScrollText,
+  SquareUser,
+} from 'lucide-react';
+import type { CategoryId, ToolDefinition } from './types';
+
+/**
+ * THE TOOL REGISTRY: the single source of truth for every tool in CreateSpace.
+ *
+ * The dashboard, search, category pages, favorites, navigation counts and tool pages all read
+ * from this list. To add a tool, add one entry here (and, once built, a `workspace` component).
+ * No other page needs to be edited.
+ *
+ * None of these tools are built yet: they're listed so the site's structure is ready for them.
+ */
+const tools = [
+  {
+    id: 'color-studio',
+    name: 'Color Studio',
+    description: 'Build color palettes and gradients, check contrast and export them.',
+    category: 'creative',
+    icon: Palette,
+    accent: '#E4572E',
+    keywords: ['palette', 'gradient', 'gradient maker', 'hex', 'rgb', 'hsl', 'swatch', 'contrast', 'color picker', 'colour'],
+    status: 'coming-soon',
+    plannedFeatures: [
+      'Generate and lock palettes',
+      'Gradient Maker with CSS export',
+      'Contrast checks for readable text',
+    ],
+  },
+  {
+    id: 'canvas-resizer',
+    name: 'Canvas Resizer',
+    description: 'Resize and crop images to the exact sizes social platforms and print need.',
+    category: 'creative',
+    icon: Crop,
+    accent: '#3778E0',
+    keywords: ['resize', 'crop', 'aspect ratio', 'dimensions', 'instagram', 'youtube thumbnail', 'image size', 'print', 'dpi'],
+    status: 'coming-soon',
+    plannedFeatures: ['Platform size presets', 'Crop with aspect-ratio lock', 'Batch export'],
+  },
+  {
+    id: 'storyboard-studio',
+    name: 'Storyboard Studio',
+    description: 'Lay out shots in panels with notes on camera, action and dialogue.',
+    category: 'creative',
+    icon: Clapperboard,
+    accent: '#8257E6',
+    keywords: ['storyboard', 'shot list', 'panels', 'film', 'animation', 'scene', 'camera', 'previs'],
+    status: 'coming-soon',
+    plannedFeatures: ['Panel grids in common aspect ratios', 'Shot and dialogue notes', 'Printable boards'],
+  },
+  {
+    id: 'character-vault',
+    name: 'Character Vault',
+    description: 'Keep character profiles, traits and reference notes in one place.',
+    category: 'creative',
+    icon: SquareUser,
+    accent: '#B04FD6',
+    keywords: ['character', 'profile', 'reference', 'oc', 'bible', 'model sheet', 'personality'],
+    status: 'coming-soon',
+    tentative: true,
+    plannedFeatures: ['Character profiles', 'Trait and color notes', 'Reference images'],
+  },
+  {
+    id: 'pose-challenge',
+    name: 'Pose Challenge',
+    description: 'Timed figure-drawing sessions to sharpen gesture and anatomy.',
+    category: 'creative',
+    icon: PersonStanding,
+    accent: '#D99A14',
+    keywords: ['gesture', 'figure drawing', 'anatomy', 'timer', 'practice', 'sketch', 'reference', 'croquis'],
+    status: 'coming-soon',
+    plannedFeatures: ['Timed sessions (30s to 10 min)', 'Session history', 'Practice prompts'],
+  },
+  {
+    id: 'creative-challenge',
+    name: 'Creative Challenge',
+    description: 'Random prompts and constraints to break creative block.',
+    category: 'creative',
+    icon: Dices,
+    accent: '#E8862B',
+    keywords: ['prompt', 'idea', 'random', 'art block', 'inspiration', 'daily challenge', 'constraint'],
+    status: 'coming-soon',
+    plannedFeatures: ['Prompt generator', 'Constraint mixer', 'Saved challenges'],
+  },
+  {
+    id: 'background-remover',
+    name: 'Background Remover',
+    description: 'Remove image backgrounds for cut-outs, product shots and thumbnails.',
+    category: 'content',
+    icon: Eraser,
+    accent: '#17A398',
+    keywords: ['background', 'remove bg', 'cutout', 'transparent', 'png', 'mask', 'photo', 'thumbnail'],
+    status: 'coming-soon',
+    plannedFeatures: ['Transparent PNG export', 'Manual touch-up brush', 'Solid color backgrounds'],
+  },
+  {
+    id: 'content-calendar',
+    name: 'Content Calendar',
+    description: 'Plan posts and videos across platforms on a simple calendar.',
+    category: 'content',
+    icon: CalendarDays,
+    accent: '#1C9DC4',
+    keywords: ['schedule', 'posts', 'social media', 'planning', 'calendar', 'youtube', 'tiktok', 'instagram'],
+    status: 'coming-soon',
+    plannedFeatures: ['Month and week views', 'Status per post', 'Platform tags'],
+  },
+  {
+    id: 'teleprompter',
+    name: 'Teleprompter',
+    description: 'Scroll your script at a steady pace while you record.',
+    category: 'content',
+    icon: ScrollText,
+    accent: '#5465E8',
+    keywords: ['script', 'prompter', 'recording', 'video', 'scroll', 'speech', 'mirror', 'presentation'],
+    status: 'coming-soon',
+    plannedFeatures: ['Adjustable speed and text size', 'Mirror mode', 'Keyboard controls'],
+  },
+  {
+    id: 'focus-room',
+    name: 'Focus Room',
+    description: 'A distraction-free timer for deep work sessions.',
+    category: 'productivity',
+    icon: Headphones,
+    accent: '#2FA866',
+    keywords: ['pomodoro', 'timer', 'focus', 'deep work', 'concentration', 'ambient', 'session'],
+    status: 'coming-soon',
+    plannedFeatures: ['Focus and break timers', 'Session goals', 'Quiet full-screen mode'],
+  },
+  {
+    id: 'brain-dump',
+    name: 'Brain Dump',
+    description: 'Get ideas out of your head fast, then sort them later.',
+    category: 'productivity',
+    icon: NotebookPen,
+    accent: '#7FA524',
+    keywords: ['notes', 'ideas', 'capture', 'thoughts', 'list', 'scratchpad', 'todo'],
+    status: 'coming-soon',
+    plannedFeatures: ['Quick capture', 'Sort into groups', 'Turn ideas into tasks'],
+  },
+  {
+    id: 'deadline-tracker',
+    name: 'Deadline Tracker',
+    description: 'See every project due date and what needs attention next.',
+    category: 'productivity',
+    icon: CalendarClock,
+    accent: '#DD4685',
+    keywords: ['deadline', 'due date', 'projects', 'clients', 'tracker', 'countdown', 'milestones'],
+    status: 'coming-soon',
+    plannedFeatures: ['Project countdowns', 'Milestones', 'Overdue warnings'],
+  },
+  {
+    id: 'rate-calculator',
+    name: 'Rate Calculator & Project Estimator',
+    description: 'Work out your hourly rate and price projects with confidence.',
+    category: 'business',
+    icon: Calculator,
+    accent: '#1F9479',
+    keywords: ['pricing', 'rate', 'hourly', 'quote', 'estimate', 'freelance', 'budget', 'day rate'],
+    status: 'coming-soon',
+    plannedFeatures: ['Rate from income goals and costs', 'Project estimates', 'Shareable quotes'],
+  },
+  {
+    id: 'invoice-maker',
+    name: 'Invoice Maker',
+    description: 'Create clean, professional invoices and download them as PDFs.',
+    category: 'business',
+    icon: ReceiptText,
+    accent: '#D9434E',
+    keywords: ['invoice', 'billing', 'payment', 'pdf', 'client', 'freelance', 'receipt'],
+    status: 'coming-soon',
+    plannedFeatures: ['Line items and taxes', 'PDF download', 'Saved client details'],
+  },
+] satisfies Omit<ToolDefinition, 'route'>[];
+
+export const TOOLS: ToolDefinition[] = tools.map((tool) => ({ ...tool, route: `/tools/${tool.id}` }));
+
+const byId = new Map(TOOLS.map((t) => [t.id, t]));
+
+export const getTool = (id: string | undefined): ToolDefinition | undefined => (id ? byId.get(id) : undefined);
+
+export const toolsInCategory = (category: CategoryId) => TOOLS.filter((t) => t.category === category);
