@@ -13,7 +13,6 @@ export const GET = route(async () => {
     [uid],
   );
   if (!user) throw new AppError("unauthenticated", "Please sign in again.", 401);
-  const owned = (await db.query<{ item: string }>("select item from owned where user_id = $1", [uid])).map((r) => r.item);
   const fams = await db.query(
     `select f.id, f.name, f.code,
             coalesce(json_agg(json_build_object('id', u.id, 'name', u.name, 'avatar', u.avatar, 'color', u.color,
@@ -27,7 +26,7 @@ export const GET = route(async () => {
     "select coalesce(sum(coins),0)::int as n from plays where user_id = $1 and created_at > date_trunc('day', now())",
     [uid],
   );
-  return json({ user, owned, families: fams, coinsToday: today?.n ?? 0, dailyCap: DAILY_COIN_CAP });
+  return json({ user, families: fams, coinsToday: today?.n ?? 0, dailyCap: DAILY_COIN_CAP });
 });
 
 const Patch = z.object({
@@ -44,15 +43,6 @@ export const PATCH = route(async (req) => {
   const uid = await requireUser();
   const b = await body(req, Patch);
   await tx(async (db) => {
-    const owned = new Set((await db.query<{ item: string }>("select item from owned where user_id = $1", [uid])).map((r) => r.item));
-    const check = (kind: string, val: string | undefined, list: { key: string; price: number }[]) => {
-      if (val === undefined) return;
-      const it = list.find((x) => x.key === val);
-      if (it && it.price > 0 && !owned.has(`${kind}:${val}`)) throw new AppError("not_owned", "Get that in the Shop first.", 403);
-    };
-    check("avatar", b.avatar, AVATARS);
-    check("theme", b.theme, THEMES);
-    check("effect", b.effect, EFFECTS);
     const sets: string[] = [];
     const vals: unknown[] = [];
     for (const k of ["name", "avatar", "color", "theme", "effect", "budget_cents"] as const) {

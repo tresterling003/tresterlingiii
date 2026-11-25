@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import {
-  ArrowRight, ClipboardPaste, Coins, Gamepad2, Gift, ListChecks, Package, Palette, PiggyBank, Shuffle, ShoppingBag, Sparkles,
+  ArrowRight, ClipboardPaste, Coins, Gamepad2, Gift, ListChecks, Package, Palette, PiggyBank, Shuffle, Sparkles, Trophy,
   UserPlus, Users, Wand2,
 } from "lucide-react";
 import { useMe } from "@/lib/hooks";
@@ -46,7 +46,7 @@ export default function Home() {
     { href: "/finder", label: "Gift Finder", icon: Wand2, color: "purple" },
     { href: "/gifts", label: "Gift Tracker", icon: Package, color: "blue", badge: toBuy || undefined },
     { href: "/budget", label: "Budget", icon: PiggyBank, color: "gold" },
-    { href: "/shop", label: "Shop", icon: ShoppingBag, color: "pink" },
+    { href: "/games", label: "Leaderboard", icon: Trophy, color: "pink" },
     { href: "/games/catch", label: "Present Catch", icon: Gift, color: "teal" },
     { href: "/games/memory", label: "Ornament Match", icon: Sparkles, color: "orange" },
     { href: "/games/scramble", label: "Jingle Jumble", icon: Shuffle, color: "blue" },

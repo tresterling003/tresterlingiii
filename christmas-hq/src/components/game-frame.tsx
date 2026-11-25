@@ -75,7 +75,7 @@ export function GameFrame({ game, color, icon, howTo, children }: {
               )}
               <div className="flex flex-wrap justify-center gap-2">
                 <Button size="lg" onClick={start}>{phase === "intro" ? <><Play className="h-5 w-5" />Play</> : <><RotateCcw className="h-5 w-5" />Play again</>}</Button>
-                {phase === "done" && <Link href="/shop" className="inline-flex h-14 items-center rounded-full bg-card px-7 text-lg font-medium shadow-soft transition hover:shadow-pop">Shop</Link>}
+                {phase === "done" && <Link href="/games" className="inline-flex h-14 items-center rounded-full bg-card px-7 text-lg font-medium shadow-soft transition hover:shadow-pop">Leaderboard</Link>}
               </div>
             </div>
           </div>

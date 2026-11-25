@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const APP = ["/home", "/list", "/family", "/gifts", "/more", "/shop", "/finder", "/budget", "/games", "/settings"];
+const APP = ["/home", "/list", "/family", "/gifts", "/more", "/finder", "/budget", "/games", "/settings"];
 const AUTH = ["/sign-in", "/sign-up"];
 
 /** Cookie-presence routing only. Every API call validates the session for real. */
@@ -23,5 +23,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/sign-in", "/sign-up", "/home/:path*", "/list/:path*", "/family/:path*", "/gifts/:path*", "/more/:path*", "/shop/:path*", "/finder/:path*", "/budget/:path*", "/games/:path*", "/settings/:path*"],
+  matcher: ["/", "/sign-in", "/sign-up", "/home/:path*", "/list/:path*", "/family/:path*", "/gifts/:path*", "/more/:path*", "/finder/:path*", "/budget/:path*", "/games/:path*", "/settings/:path*"],
 };

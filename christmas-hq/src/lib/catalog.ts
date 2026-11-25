@@ -1,4 +1,4 @@
-/** Shop catalog, themes, avatars and game rules. Shared by client and server. */
+/** Themes, effects, avatars and game rules. Shared by client and server. All customization is free in Settings. */
 
 export type ThemeKey = "snow" | "candy" | "gingerbread" | "aurora" | "midnight" | "evergreen";
 export type EffectKey = "none" | "snowfall" | "lights" | "stars";
@@ -17,54 +17,36 @@ export const COLORS: Record<ColorKey, { bg: string; fg: string }> = {
   orange: { bg: "#FAE0C8", fg: "#D2752A" },
 };
 
-export type ShopItem = {
-  key: string;
-  kind: "theme" | "effect" | "avatar";
-  value: string;
-  name: string;
-  blurb: string;
-  price: number;
-};
-
-export const THEMES: { key: ThemeKey; name: string; blurb: string; price: number; swatch: [string, string, string] }[] = [
-  { key: "snow", name: "Fresh Snow", blurb: "Soft and bright, the classic.", price: 0, swatch: ["#F4F6F8", "#FFFFFF", "#C8323C"] },
-  { key: "candy", name: "Candy Cane", blurb: "Peppermint stripes and cherry red.", price: 150, swatch: ["#FDEEF0", "#FFFFFF", "#D7263D"] },
-  { key: "gingerbread", name: "Gingerbread", blurb: "Warm cookie browns and icing.", price: 200, swatch: ["#F3E3D0", "#FFF8EF", "#9A5B2C"] },
-  { key: "evergreen", name: "Evergreen", blurb: "Pine forest greens.", price: 200, swatch: ["#E2EFE6", "#F8FCF9", "#1F7A4D"] },
-  { key: "aurora", name: "Northern Lights", blurb: "Glowing teal and violet skies.", price: 300, swatch: ["#DCEFF2", "#F7FBFD", "#6B4FD8"] },
-  { key: "midnight", name: "Silent Night", blurb: "Dark mode under the stars.", price: 250, swatch: ["#111827", "#1B2436", "#F2C14E"] },
+export const THEMES: { key: ThemeKey; name: string; blurb: string; swatch: [string, string, string] }[] = [
+  { key: "snow", name: "Fresh Snow", blurb: "Soft and bright, the classic.", swatch: ["#F4F6F8", "#FFFFFF", "#C8323C"] },
+  { key: "candy", name: "Candy Cane", blurb: "Peppermint stripes and cherry red.", swatch: ["#FDEEF0", "#FFFFFF", "#D7263D"] },
+  { key: "gingerbread", name: "Gingerbread", blurb: "Warm cookie browns and icing.", swatch: ["#F3E3D0", "#FFF8EF", "#9A5B2C"] },
+  { key: "evergreen", name: "Evergreen", blurb: "Pine forest greens.", swatch: ["#E2EFE6", "#F8FCF9", "#1F7A4D"] },
+  { key: "aurora", name: "Northern Lights", blurb: "Glowing teal and violet skies.", swatch: ["#DCEFF2", "#F7FBFD", "#6B4FD8"] },
+  { key: "midnight", name: "Silent Night", blurb: "Dark mode under the stars.", swatch: ["#111827", "#1B2436", "#F2C14E"] },
 ];
 
-export const EFFECTS: { key: EffectKey; name: string; blurb: string; price: number }[] = [
-  { key: "none", name: "No effect", blurb: "Clean and calm.", price: 0 },
-  { key: "snowfall", name: "Snowfall", blurb: "Gentle snow drifts over your dashboard.", price: 100 },
-  { key: "lights", name: "String Lights", blurb: "Twinkling bulbs across the top.", price: 150 },
-  { key: "stars", name: "Twinkle Stars", blurb: "Little stars sparkle in the background.", price: 120 },
+export const EFFECTS: { key: EffectKey; name: string; blurb: string }[] = [
+  { key: "none", name: "No effect", blurb: "Clean and calm." },
+  { key: "snowfall", name: "Snowfall", blurb: "Gentle snow drifts over your dashboard." },
+  { key: "lights", name: "String Lights", blurb: "Twinkling bulbs across the top." },
+  { key: "stars", name: "Twinkle Stars", blurb: "Little stars sparkle in the background." },
 ];
 
-export const AVATARS: { key: AvatarKey; name: string; price: number }[] = [
-  { key: "tree", name: "Tree", price: 0 },
-  { key: "gift", name: "Present", price: 0 },
-  { key: "star", name: "Star", price: 0 },
-  { key: "snowflake", name: "Snowflake", price: 40 },
-  { key: "bell", name: "Bell", price: 40 },
-  { key: "candy", name: "Candy Cane", price: 60 },
-  { key: "cookie", name: "Cookie", price: 60 },
-  { key: "music", name: "Carols", price: 60 },
-  { key: "heart", name: "Heart", price: 60 },
-  { key: "flame", name: "Fireplace", price: 80 },
-  { key: "sparkles", name: "Sparkles", price: 100 },
-  { key: "crown", name: "Crown", price: 150 },
+export const AVATARS: { key: AvatarKey; name: string }[] = [
+  { key: "tree", name: "Tree" },
+  { key: "gift", name: "Present" },
+  { key: "star", name: "Star" },
+  { key: "snowflake", name: "Snowflake" },
+  { key: "bell", name: "Bell" },
+  { key: "candy", name: "Candy Cane" },
+  { key: "cookie", name: "Cookie" },
+  { key: "music", name: "Carols" },
+  { key: "heart", name: "Heart" },
+  { key: "flame", name: "Fireplace" },
+  { key: "sparkles", name: "Sparkles" },
+  { key: "crown", name: "Crown" },
 ];
-
-export const SHOP: ShopItem[] = [
-  ...THEMES.map((t) => ({ key: `theme:${t.key}`, kind: "theme" as const, value: t.key, name: t.name, blurb: t.blurb, price: t.price })),
-  ...EFFECTS.map((e) => ({ key: `effect:${e.key}`, kind: "effect" as const, value: e.key, name: e.name, blurb: e.blurb, price: e.price })),
-  ...AVATARS.map((a) => ({ key: `avatar:${a.key}`, kind: "avatar" as const, value: a.key, name: a.name, blurb: "Avatar", price: a.price })),
-];
-
-export const shopItem = (key: string) => SHOP.find((s) => s.key === key);
-export const isFree = (kind: ShopItem["kind"], value: string) => (shopItem(`${kind}:${value}`)?.price ?? 1) === 0;
 
 /* ---------------------------------------------------------------- games */
 

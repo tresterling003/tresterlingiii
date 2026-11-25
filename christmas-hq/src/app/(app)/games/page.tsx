@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Coins, Gift, Shuffle, Sparkles } from "lucide-react";
+import useSWR from "swr";
+import clsx from "clsx";
+import { Coins, Gift, Shuffle, Sparkles, Trophy } from "lucide-react";
+import { fetcher } from "@/lib/client";
+import type { Person } from "@/lib/types";
 import { useMe } from "@/lib/hooks";
 import { GAMES, type GameKey } from "@/lib/catalog";
-import { PageHead, Panel } from "@/components/ui";
+import { Avatar, PageHead, Panel } from "@/components/ui";
+
+type Board = { rows: (Person & { week: number; total: number })[]; me: string };
 
 const LIST: { key: GameKey; icon: typeof Gift; color: string }[] = [
   { key: "catch", icon: Gift, color: "teal" },
@@ -14,9 +20,10 @@ const LIST: { key: GameKey; icon: typeof Gift; color: string }[] = [
 
 export default function Games() {
   const { data: me } = useMe();
+  const { data: board } = useSWR<Board>("/api/leaderboard", fetcher, { refreshInterval: 30000 });
   return (
     <div className="grid gap-5">
-      <PageHead title="Games" sub="Play to earn coins, then spend them in the Shop." />
+      <PageHead title="Games" sub="Play to earn coins and climb the family leaderboard." />
       {me && (
         <Panel className="flex flex-wrap items-center gap-4">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-[#F7D774] text-[#8A6400]"><Coins /></span>
@@ -38,6 +45,22 @@ export default function Games() {
           </Link>
         ))}
       </div>
+      {board && board.rows.length > 0 && (
+        <Panel>
+          <h2 className="mb-1 flex items-center gap-2 text-2xl font-semibold"><Trophy className="h-6 w-6 text-[#B88A10]" />Family leaderboard</h2>
+          <p className="mb-3 text-muted">Coins earned this week. Resets every Monday.</p>
+          <ol className="grid gap-2">
+            {board.rows.map((r, i) => (
+              <li key={r.id} className={clsx("flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft", r.id === board.me && "ring-2 ring-accent/40")}>
+                <span className={clsx("grid h-9 w-9 shrink-0 place-items-center rounded-full text-[15px] font-semibold", i === 0 ? "bg-[#F7D774] text-[#8A6400]" : i === 1 ? "bg-[#E2E5EA] text-[#5B6577]" : i === 2 ? "bg-[#F1D2B6] text-[#8A4F1F]" : "bg-ink/[.06] text-muted")}>{i + 1}</span>
+                <Avatar avatar={r.avatar} color={r.color} size={40} />
+                <span className="min-w-0 flex-1 truncate font-semibold">{r.name}{r.id === board.me && " (you)"}</span>
+                <span className="text-right"><span className="block text-xl font-semibold tabular-nums">{r.week}</span><span className="block text-[12px] text-muted">{r.total} all-time</span></span>
+              </li>
+            ))}
+          </ol>
+        </Panel>
+      )}
     </div>
   );
 }

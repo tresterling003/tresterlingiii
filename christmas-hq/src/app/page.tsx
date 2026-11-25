@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, Gift, ListChecks, Package, PiggyBank, ShoppingBag, Sparkles, TreePine, Users, Wand2 } from "lucide-react";
+import { Gamepad2, Gift, ListChecks, Package, PiggyBank, Palette, Sparkles, TreePine, Users, Wand2 } from "lucide-react";
 
 const TILES = [
   { label: "Wishlists", icon: ListChecks, color: "red" },
@@ -8,7 +8,7 @@ const TILES = [
   { label: "Gift Tracker", icon: Package, color: "blue" },
   { label: "Budget", icon: PiggyBank, color: "gold" },
   { label: "Games", icon: Gamepad2, color: "teal" },
-  { label: "Shop", icon: ShoppingBag, color: "pink" },
+  { label: "Customize", icon: Palette, color: "pink" },
   { label: "Ornament Match", icon: Sparkles, color: "orange" },
   { label: "Present Catch", icon: Gift, color: "green" },
 ];
@@ -17,7 +17,7 @@ const POINTS = [
   { t: "Lists with the details", d: "Sizes, colors, photos and a link to buy. Or a gift idea that leaves room for a surprise." },
   { t: "Secret claims", d: "Tap “I'll get this” so nobody doubles up. The person getting the gift never sees who's buying it." },
   { t: "Budget and tracking", d: "Plan who you're shopping for, track what's bought and wrapped, and stay on budget." },
-  { t: "Games and coins", d: "Play quick Christmas games to earn coins, then unlock themes, effects and avatars." },
+  { t: "Games and coins", d: "Play quick Christmas games, earn coins and climb the family leaderboard. Pick your own theme and avatar." },
 ];
 
 export default function Landing() {

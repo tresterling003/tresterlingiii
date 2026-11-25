@@ -17,7 +17,7 @@ const TABS = [
   { href: "/gifts", label: "Gifts", icon: Gift },
   { href: "/more", label: "More", icon: Ellipsis },
 ];
-const MORE = ["/more", "/shop", "/finder", "/budget", "/games", "/settings"];
+const MORE = ["/more", "/finder", "/budget", "/games", "/settings"];
 
 export function CoinPill() {
   const { data } = useMe();
@@ -35,8 +35,8 @@ export function CoinPill() {
   }, [coins]);
   return (
     <Link
-      href="/shop"
-      aria-label={`${coins ?? 0} coins. Open the shop`}
+      href="/games"
+      aria-label={`${coins ?? 0} coins. Play games`}
       className="flex h-12 items-center gap-2 rounded-full bg-card pl-2 pr-4 font-semibold shadow-soft transition hover:shadow-pop active:scale-95"
     >
       <span className={clsx("grid h-8 w-8 place-items-center rounded-full bg-[#F7D774] text-[#8A6400]", bump && "coin-bump")}>

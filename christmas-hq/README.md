@@ -1,6 +1,6 @@
 # Christmas HQ
 
-A family Christmas dashboard. Everyone makes a wishlist with sizes, colors, photos and buy links (or open-ended gift ideas). Family members secretly claim gifts so nobody doubles up, track what they've bought and wrapped, plan a budget, find ideas, and play quick Christmas games to earn coins for themes, effects and avatars.
+A family Christmas dashboard. Everyone makes a wishlist with sizes, colors, photos and buy links (or open-ended gift ideas). Family members secretly claim gifts so nobody doubles up, track what they've bought and wrapped, plan a budget, find ideas, and play quick Christmas games to climb a family leaderboard. Themes, effects and avatars are free in Settings.
 
 The layout borrows the feel of myClassroom's tool board: pastel tool tiles in a rounded panel, a rounded font (Fredoka), round icon buttons along the top and a five-tab bar at the bottom.
 
@@ -15,8 +15,8 @@ The layout borrows the feel of myClassroom's tool board: pastel tool tiles in a 
 | **Gift Tracker** | Your gifts grouped by person: To buy → Bought → Wrapped → Given, with prices and per-person budget bars. Private to you. |
 | **Budget** | Total budget, per-person budgets, "split evenly", spent vs. left |
 | **Gift Finder** | Pick a person, budget, interests (pre-filled from their list and About Me) and gift type. Shows their unclaimed wishes in budget plus ideas from a bank of about 50, with a shopping search link and "Plan it". |
-| **Games** | Present Catch (canvas, touch or arrow keys), Ornament Match (memory), Jingle Jumble (word scramble) |
-| **Shop** | Spend coins on 6 themes (including a dark "Silent Night"), 3 effects (snowfall, string lights, twinkle stars) and 12 avatars |
+| **Games** | Present Catch (canvas, touch or arrow keys), Ornament Match (memory), Jingle Jumble (word scramble). Coins earned feed a weekly family leaderboard. |
+| **Settings** | Name, avatar (12), avatar color, theme (6, including a dark "Silent Night") and effect (snowfall, string lights, twinkle stars). All free. |
 
 ## Stack
 
@@ -52,7 +52,7 @@ BASE_URL=http://localhost:3000 npm run test:e2e   # SHOTS=1 saves screenshots to
 
 ## Tested
 
-`tests/e2e.cjs`: **29/29 pass** against a local production build and Postgres 16. It runs three people in separate sessions (desktop and phone) and covers sign-up, invite links, pasting from Notes, photos, About Me, secret claims (including that the recipient sees nothing in their list, gift plan or feed), double claims, gift status, budgets, outsider access, CSRF, games and coin caps, shop purchases and equipping, a full Ornament Match round, Present Catch on a phone, sign-out, and no browser errors.
+`tests/e2e.cjs`: **31/31 pass** against a local production build and Postgres 16. It runs three people in separate sessions (desktop and phone) and covers sign-up, invite links, pasting from Notes, photos, About Me, secret claims (including that the recipient sees nothing in their list, gift plan or feed), double claims, gift status, budgets, outsider access, CSRF, games and coin caps, switching themes in Settings, the family leaderboard (outsiders excluded), a full Ornament Match round, Present Catch on a phone, sign-out, and no browser errors.
 
 ## Not built yet
 

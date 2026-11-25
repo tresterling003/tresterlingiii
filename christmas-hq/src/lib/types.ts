@@ -2,7 +2,6 @@ export type Person = { id: string; name: string; avatar: string; color: string }
 export type About = { note?: string; sizes?: string[]; colors?: string; brands?: string; into?: string; skip?: string };
 export type Me = {
   user: Person & { email: string; theme: string; effect: string; coins: number; about: About; budget_cents: number };
-  owned: string[];
   families: { id: string; name: string; code: string; members: (Person & { wishes: number })[] }[];
   coinsToday: number;
   dailyCap: number;

@@ -237,18 +237,33 @@ async function call(ctx, method, url, data) {
     ok(total.coins === 0 && total.todayLeft === 0, "capped");
   });
 
-  await step("Shop: buy a theme, can't buy twice, can't equip what you don't own", async () => {
-    const before = (await call(apiB, "GET", "/api/me")).body.user.coins;
-    const r = await call(apiB, "POST", "/api/shop", { item: "theme:candy" });
-    ok(r.status === 200 && r.body.coins === before - 150, JSON.stringify(r));
-    const me = (await call(apiB, "GET", "/api/me")).body;
-    ok(me.user.theme === "candy" && me.owned.includes("theme:candy"), "equipped + owned");
-    ok((await call(apiB, "POST", "/api/shop", { item: "theme:candy" })).status === 409, "double buy");
-    ok((await call(apiB, "PATCH", "/api/me", { theme: "midnight" })).status === 403, "equip unowned");
-    ok((await call(apiA, "POST", "/api/shop", { item: "theme:aurora" })).status === 402, "too poor");
+  await step("Settings: themes, effects and avatars are free to switch; bad values rejected", async () => {
+    ok((await call(apiB, "PATCH", "/api/me", { theme: "candy", effect: "snowfall", avatar: "crown" })).status === 200, "patch");
+    const me = (await call(apiB, "GET", "/api/me")).body.user;
+    ok(me.theme === "candy" && me.effect === "snowfall" && me.avatar === "crown", "saved");
+    ok((await call(apiB, "PATCH", "/api/me", { theme: "hacker" })).status === 400, "unknown theme");
+    ok((await apiB.fetch("/api/shop", { method: "POST", data: { item: "theme:candy" } })).status() === 404, "shop is gone");
+  });
+
+  await step("Leaderboard shows family coins this week, not outsiders", async () => {
+    const lb = (await call(apiA, "GET", "/api/leaderboard")).body;
+    ok(lb.rows.length === 2, `rows ${lb.rows.length}`);
+    ok(lb.rows[0].name === "Mom" && lb.rows[0].week === 150, JSON.stringify(lb.rows[0]));
+    const c = (await call(apiC, "GET", "/api/leaderboard")).body;
+    ok(c.rows.length === 1 && c.rows[0].name === "Stranger", "outsider sees only self");
   });
 
   // ---------------- UI checks with screenshots
+  await step("UI: B switches to the Silent Night theme in Settings (phone)", async () => {
+    await pb.goto(`${BASE}/settings`);
+    await pb.getByRole("button", { name: /Silent Night.*Dark mode/ }).click();
+    await pb.waitForFunction(() => document.documentElement.dataset.theme === "midnight");
+    await pb.getByRole("button", { name: /Candy Cane.*Peppermint/ }).click();
+    await pb.waitForFunction(() => document.documentElement.dataset.theme === "candy");
+    await pb.waitForTimeout(500);
+    await shot(pb, "phone-settings");
+  });
+
   await step("UI: B's Home shows the dashboard tiles and family activity (phone)", async () => {
     await pb.goto(`${BASE}/home`);
     await pb.getByText("Family activity").waitFor();
@@ -288,8 +303,7 @@ async function call(ctx, method, url, data) {
       [`/finder?for=${meB.id}`, "Gift Finder", "desktop-finder"],
       ["/gifts", "Gift Tracker", "desktop-gifts"],
       ["/budget", "Per person", "desktop-budget"],
-      ["/shop", "Themes", "desktop-shop"],
-      ["/games", "Present Catch", "desktop-games"],
+      ["/games", "Family leaderboard", "desktop-games"],
       ["/settings", "Avatar color", "desktop-settings"],
     ]) {
       await pa.goto(BASE + url);
@@ -342,7 +356,7 @@ async function call(ctx, method, url, data) {
     await pb.getByRole("button", { name: "Play" }).click();
     await pb.waitForTimeout(2500);
     await shot(pb, "phone-catch");
-    ok(await pb.locator("canvas").isVisible(), "canvas visible");
+    ok(await pb.locator("canvas[aria-label]").isVisible(), "canvas visible");
   });
 
   await step("No browser errors on any page", async () => {
