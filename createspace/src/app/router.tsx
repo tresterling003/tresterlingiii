@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, type RouteObject } from 'react-router';
 import { AppShell } from '@/components/layout/AppShell';
 import { AllToolsPage } from '@/pages/AllToolsPage';
 import { CategoryPage } from '@/pages/CategoryPage';
@@ -11,7 +11,7 @@ import { ToolPage } from '@/pages/ToolPage';
 import { WhatsNewPage } from '@/pages/WhatsNewPage';
 
 /** Every page address in the app. Individual tools don't need entries: /tools/:toolId covers them all. */
-export const router = createBrowserRouter([
+const routes: RouteObject[] = [
   {
     element: <AppShell />,
     children: [
@@ -26,4 +26,12 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFoundPage /> },
     ],
   },
-]);
+];
+
+/**
+ * Normal builds use real addresses (/tools/color-studio).
+ * The "embedded" build (npm run build:embedded) is for hosts that show the app inside a frame
+ * where the address bar can't be changed, such as a claude.ai hosted page. There, navigation is
+ * kept in memory instead. Everything else works the same.
+ */
+export const router = import.meta.env.MODE === 'embedded' ? createMemoryRouter(routes) : createBrowserRouter(routes);

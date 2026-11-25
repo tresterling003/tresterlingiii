@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "CreateSpace — an all-in-one toolbox for creative professionals. Make space for creativity.",
+  "description": "CreateSpace \u2014 an all-in-one toolbox for creative professionals. Make space for creativity.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "build:embedded": "tsc --noEmit && vite build --mode embedded --base ./ --outDir dist-embedded --emptyOutDir"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",

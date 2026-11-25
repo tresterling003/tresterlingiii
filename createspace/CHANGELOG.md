@@ -17,4 +17,5 @@ All notable changes to CreateSpace. Versions follow [Semantic Versioning](https:
 - Light / Dark / System theme, remembered across reloads, applied before first paint.
 - Settings page: theme, clear favorites, reset all saved data.
 - What's New page and 404 page.
+- Live hosted copy on claude.ai, built with the new `npm run build:embedded` mode.
 - Unit tests (Vitest) and a browser acceptance test (Playwright) at desktop, tablet and phone sizes.

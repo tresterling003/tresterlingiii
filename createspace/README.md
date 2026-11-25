@@ -10,6 +10,15 @@ everyday creative problems.
 > navigation, branding, search, favorites and themes. **None of the 14 tools work yet.** Each one is
 > clearly labelled *Coming soon* and its page says so.
 
+## Live version
+
+**Open it here: https://claude.ai/artifact/Gua8Qo63JjnndtTuu1aFM6** (no setup needed).
+
+This hosted copy starts private to the owner; use **Share** on that page to give others access.
+It's built with `npm run build:embedded`, which keeps page navigation in memory because the
+hosting frame can't change the address bar. Everything else behaves the same as the normal build.
+The only difference: refreshing that page returns to the dashboard (your favorites and theme are kept).
+
 ## Getting started
 
 You need [Node.js](https://nodejs.org) 20.19+ or 22.12+.
@@ -24,6 +33,7 @@ npm run dev        # start the development server, then open the printed address
 |---|---|
 | `npm run dev` | Development server with instant reload while you edit |
 | `npm run build` | Type-checks the code and builds the production site into `dist/` |
+| `npm run build:embedded` | Builds the hosted copy (into `dist-embedded/`) used for the live link above |
 | `npm run preview` | Serves the production build locally to check it before publishing |
 | `npm test` | Unit tests (search ranking, favorites helpers, tool registry) |
 | `npm run e2e` | Browser test of every acceptance criterion at desktop, tablet and phone size (run `npm run build` first) |
@@ -99,7 +109,7 @@ support this with a one-line setting. That will be set up as part of deployment,
 - No individual tool works yet (by design for this milestone).
 - *Request a Tool* is a placeholder: nothing is collected or sent.
 - Favorites and theme are stored per browser/device only (no accounts or sync yet).
-- The site isn't deployed to a public address yet.
+- The live link is a claude.ai hosted page, private until you share it. A standalone public domain isn't set up yet.
 - Tested in Chromium only (desktop, tablet and phone sizes); Safari and Firefox have not been tested.
 
 See [ROADMAP.md](ROADMAP.md) for what's next and [CHANGELOG.md](CHANGELOG.md) for history.
