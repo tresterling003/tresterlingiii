@@ -9,6 +9,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const BASE = process.env.BASE_URL || "http://localhost:3100";
+// Use the environment's HTTPS proxy when testing a remote site (Playwright doesn't read it by itself).
+const PROXY = process.env.HTTPS_PROXY && !/localhost|127\.0\.0\.1/.test(BASE) ? { server: process.env.HTTPS_PROXY } : undefined;
 const SHOTS = process.env.SHOTS === "1";
 const OUT = path.join(__dirname, "results");
 const stamp = Date.now().toString(36);
@@ -28,7 +30,7 @@ async function step(name, fn) {
 const ok = (cond, msg) => { if (!cond) throw new Error(msg); };
 
 async function client() {
-  return request.newContext({ baseURL: BASE, extraHTTPHeaders: { origin: BASE } });
+  return request.newContext({ baseURL: BASE, extraHTTPHeaders: { origin: BASE }, proxy: PROXY });
 }
 async function call(ctx, method, url, data) {
   const r = await ctx.fetch(url, { method, data });
@@ -39,7 +41,7 @@ async function call(ctx, method, url, data) {
 
 (async () => {
   if (SHOTS) fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ proxy: PROXY });
   const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true }); };
 
   const A = { name: "Tre", email: `tre-${stamp}@example.com`, password: "candycane123" };
@@ -205,7 +207,7 @@ async function call(ctx, method, url, data) {
   });
 
   await step("SECURITY: cross-site writes and anonymous calls are refused", async () => {
-    const anon = await request.newContext({ baseURL: BASE });
+    const anon = await request.newContext({ baseURL: BASE, proxy: PROXY });
     const cross = await anon.fetch("/api/wishes", { method: "POST", headers: { origin: "https://evil.example" }, data: { title: "x" } });
     ok(cross.status() === 403, `cross-origin ${cross.status()}`);
     ok((await anon.fetch("/api/me")).status() === 401, "anonymous /api/me");
@@ -296,7 +298,7 @@ async function call(ctx, method, url, data) {
     await shot(pa, "desktop-my-list");
   });
 
-  await step("UI: A's Home, Family, Finder, Gifts, Budget, Shop and Games all render", async () => {
+  await step("UI: A's Home, Family, Finder, Gifts, Budget, Games and Settings all render", async () => {
     for (const [url, text, name] of [
       ["/home", "Family activity", "desktop-home"],
       ["/family", "The Sterlings", "desktop-family"],
