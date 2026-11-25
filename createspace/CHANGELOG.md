@@ -2,6 +2,13 @@
 
 All notable changes to CreateSpace. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.4.0] Background Remover (2026-11-25)
+
+### Added
+- **Background Remover** (Beta): in-browser AI subject detection (U²-Net-p via ONNX Runtime Web, bundled; nothing uploaded), plain-background removal by color, erase/restore brushes, pick-a-color removal, edge cleanup/softness, undo/redo (Ctrl/⌘+Z), hold-to-compare, background color choice, PNG download, Save to My Projects, drag-drop and paste. Falls back to the color method where AI can't run.
+- Reusable "Save to My Projects" dialog for tools.
+- THIRD_PARTY_NOTICES.md.
+
 ## [0.3.0] Business Dashboard (2026-11-25)
 
 ### Added

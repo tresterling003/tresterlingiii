@@ -31,6 +31,12 @@ Each task is built, tested and approved before the next starts.
 - [x] Favorites tab removed; favorites at top of Home
 - [ ] **Awaiting approval**
 
+## ✅ Task #004: Background Remover (v0.4.0)
+
+- [x] Automatic subject detection in the browser + plain-background removal
+- [x] Brushes, color pick, edges, undo/redo, compare, backgrounds, PNG export, save to project
+- [ ] **Awaiting approval**
+
 ## Version 1 tools (planned, not started)
 
 | # | Tool | Category | Status |
@@ -40,7 +46,7 @@ Each task is built, tested and approved before the next starts.
 | 3 | Storyboard Studio | Creative | Coming soon |
 | 4 | Character Vault *(tentative)* | Creative | Coming soon |
 | 5 | Pose Challenge | Creative | Coming soon |
-| 6 | Background Remover | Content | Coming soon |
+| 6 | Background Remover | Content | **Beta (working)** |
 | 7 | Content Calendar | Content | Coming soon |
 | 8 | Teleprompter | Content | Coming soon |
 | 9 | Focus Room | Productivity | Coming soon |

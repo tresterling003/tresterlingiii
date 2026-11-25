@@ -62,10 +62,10 @@ async function run({ label, ...ctxOptions }) {
 
   // ---- Every unbuilt tool is clearly labelled; the one working tool says Beta
   const badges = await page.locator('main ul[aria-label="All tools"] > li[data-tool]', { hasText: /Coming soon|In development/ }).count();
-  assert.equal(badges, 14, 'every unbuilt tool shows Coming soon / In development');
-  assert.match(await page.locator('li[data-tool="business-dashboard"]').innerText(), /Beta/);
+  assert.equal(badges, 13, 'every unbuilt tool shows Coming soon / In development');
+  for (const id of ['business-dashboard', 'background-remover']) assert.match(await page.locator(`li[data-tool="${id}"]`).innerText(), /Beta/);
   await expectCount(page.getByText(/^Available$/), 0);
-  check('unfinished tools labelled Coming soon; Business Dashboard labelled Beta');
+  check('unfinished tools labelled Coming soon; working tools labelled Beta');
 
   // ---- Search: name, keyword, description, category, empty state, clear
   const search = page.getByRole('searchbox', { name: 'Search tools' });
@@ -208,11 +208,11 @@ async function run({ label, ...ctxOptions }) {
 
   // ---- Every registered tool page renders (and says it isn't available)
   for (const id of ['color-studio', 'canvas-resizer', 'storyboard-studio', 'character-vault', 'pose-challenge', 'creative-challenge',
-    'background-remover', 'content-calendar', 'teleprompter', 'focus-room', 'brain-dump', 'deadline-tracker', 'rate-calculator', 'invoice-maker']) {
+    'content-calendar', 'teleprompter', 'focus-room', 'brain-dump', 'deadline-tracker', 'rate-calculator', 'invoice-maker']) {
     await page.goto(`${URL}/tools/${id}`);
     await page.getByText(/isn’t available yet/).waitFor();
   }
-  check('all 14 tool pages render with a clear "not available yet" notice');
+  check('all 13 unbuilt tool pages render with a clear "not available yet" notice');
 
   // ---- Suggest a tool / Projects without cloud storage: explain instead of pretending to work
   await page.goto(URL + '/');

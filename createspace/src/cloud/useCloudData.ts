@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCloud } from './CloudProvider';
-import { toDoc, toProject, type Project } from './projectModel';
+import { addFile, toDoc, toProject, type Project } from './projectModel';
 import type { Db, DocRef } from './runtime';
 import { readSuggestions, type Suggestion } from './suggestionModel';
 
@@ -174,5 +174,24 @@ export function updateSuggestionDoc(db: Db, authorId: string, change: (items: Su
     const snap = await ref.get();
     const items = change(readSuggestions(snap.exists ? snap.data() : undefined));
     await ref.set({ items, updatedAt: new Date().toISOString() });
+  });
+}
+
+/** Add an already-uploaded file to a project (used by tools that save their results into projects). */
+export function addFileToProject(
+  db: Db,
+  uid: string,
+  projectId: string,
+  file: { name: string; type: string; assetId: string; size: number },
+  folderId: string | null,
+) {
+  const ref = db.collection(projectsPath(uid)).doc(projectId);
+  return queueWrite(ref.path, async () => {
+    const snap = await ref.get();
+    const project = snap.exists ? toProject(snap.id, snap.data()) : null;
+    if (!project) throw { code: 'missing', message: 'That project no longer exists.' };
+    const next = addFile(project, file, folderId, new Date().toISOString());
+    await ref.set(toDoc(next));
+    return next.files[next.files.length - 1].name;
   });
 }

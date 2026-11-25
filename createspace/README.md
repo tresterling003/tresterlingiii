@@ -6,9 +6,9 @@ CreateSpace is an all-in-one toolbox for graphic designers, animators, filmmaker
 content creators, artists and freelancers. It's a single place with practical tools that solve
 everyday creative problems.
 
-> **Current version: 0.3.0 (Business Dashboard).** The dashboard, navigation, search, favorites and
-> themes, **My Projects** (cloud folders and files), **Suggest a Tool**, and the first working tool,
-> **Business Dashboard** (Beta). The other 14 tools are clearly labelled *Coming soon*.
+> **Current version: 0.4.0 (Background Remover).** The dashboard, navigation, search, favorites and
+> themes, **My Projects**, **Suggest a Tool**, and two working tools (Beta): **Business Dashboard**
+> and **Background Remover**. The other 13 tools are clearly labelled *Coming soon*.
 
 ## Live version
 
@@ -49,6 +49,7 @@ npm run dev        # start the development server, then open the printed address
 - **Light / dark / system theme**, remembered across visits
 - **Tool pages**: a shared layout (title, description, status, bookmark, workspace area) used by every tool
 - **My Projects** (cloud): create projects from templates (Animation, Film & Video, Brand Identity, Photo Shoot, Social Content, Client Project, Blank) with ready-made folders and starter files; nested folders; upload by button or drag-and-drop; preview images and video; download; upload new versions (last 10 kept); rename, move and delete. Saved to the person's account, so it opens on any computer
+- **Background Remover** (tool, Beta): automatic subject detection with a small AI model (U²-Net-p) that runs **in the browser** via ONNX Runtime Web (no uploads, no API, no keys; ~20 MB loaded the first time the tool is used); "Remove plain background" by color; erase/restore brushes; pick-a-color removal; edge cleanup and softness; undo/redo; hold to compare; transparent/white/black/custom background; PNG download; save to My Projects. Images over 2500 px on the long side are resized. If a host blocks WebAssembly, it falls back to the color method and says so. Code: `src/tools/background-remover/`
 - **Business Dashboard** (tool, Beta; cloud, private to each person): income (paid or waiting, with due dates and overdue alerts), expenses by category, contracts (status, value, dates, notes, attached PDF/image), clients built automatically from names, 12-month income chart, "Coming up" reminders, currency choice, CSV export. Starts empty; nothing is pre-filled. Code: `src/tools/business-dashboard/`
 - **Suggest a Tool** (cloud): anyone with access sends ideas and sees their status; the site owner gets an **Inbox** with everyone's suggestions, names and a status for each
 - **Settings**: theme, clear favorites, reset all saved data

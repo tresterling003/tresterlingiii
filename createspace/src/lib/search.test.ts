@@ -68,7 +68,7 @@ describe('registry', () => {
   it('only tools that are actually built are marked usable', () => {
     expect(TOOLS).toHaveLength(15);
     const usable = TOOLS.filter((t) => t.status === 'beta' || t.status === 'available');
-    expect(usable.map((t) => t.id)).toEqual(['business-dashboard']);
-    expect(TOOLS.filter((t) => t.workspace).map((t) => t.id)).toEqual(['business-dashboard']);
+    expect(usable.map((t) => t.id)).toEqual(['business-dashboard', 'background-remover']);
+    expect(TOOLS.filter((t) => t.workspace).map((t) => t.id)).toEqual(['business-dashboard', 'background-remover']);
   });
 });

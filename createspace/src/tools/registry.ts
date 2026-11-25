@@ -115,13 +115,14 @@ const tools = [
   {
     id: 'background-remover',
     name: 'Background Remover',
-    description: 'Remove image backgrounds for cut-outs, product shots and thumbnails.',
+    description: 'Cut out the subject of any image automatically, touch it up and export a transparent PNG.',
     category: 'content',
     icon: Eraser,
     accent: '#17A398',
-    keywords: ['background', 'remove bg', 'cutout', 'transparent', 'png', 'mask', 'photo', 'thumbnail'],
-    status: 'coming-soon',
-    plannedFeatures: ['Transparent PNG export', 'Manual touch-up brush', 'Solid color backgrounds'],
+    keywords: ['background', 'remove bg', 'cutout', 'cut out', 'transparent', 'png', 'mask', 'photo', 'thumbnail', 'product', 'sticker', 'erase'],
+    status: 'beta',
+    plannedFeatures: ['Automatic subject detection', 'Erase/restore brushes', 'Transparent or colored backgrounds'],
+    workspace: lazy(() => import('./background-remover/BackgroundRemover')),
   },
   {
     id: 'content-calendar',

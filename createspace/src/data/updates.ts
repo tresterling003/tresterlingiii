@@ -9,9 +9,20 @@ export interface Update {
   highlights: string[];
 }
 
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.4.0';
 
 export const UPDATES: Update[] = [
+  {
+    version: '0.4.0',
+    title: 'Background Remover',
+    date: '2026-11-25',
+    highlights: [
+      'Background Remover: automatic subject detection, right in your browser',
+      'Erase and restore brushes, color picker removal, undo and compare',
+      'Transparent, white, black or any color background; download as PNG',
+      'Save cut-outs straight into My Projects',
+    ],
+  },
   {
     version: '0.3.0',
     title: 'Business Dashboard',

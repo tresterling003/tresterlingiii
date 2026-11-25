@@ -293,6 +293,90 @@ async function run(label, viewport) {
   assert.equal(filesLeft, 0, 'deleting a contract removes its attached file');
   check('deleting a contract removes its attached file');
 
+  // ---------------- Background Remover ----------------
+  await page.goto(URL + '/tools/background-remover');
+  await page.getByRole('heading', { name: 'Drop an image here' }).waitFor();
+  // a figure on a busy, noisy background
+  const photo = Buffer.from(
+    (await page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 640; c.height = 480; const x = c.getContext('2d');
+      const g = x.createLinearGradient(0, 0, 640, 480); g.addColorStop(0, '#6a8caf'); g.addColorStop(1, '#c9b27c'); x.fillStyle = g; x.fillRect(0, 0, 640, 480);
+      let s = 7; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 4000; i++) { x.fillStyle = `hsla(${rnd() * 360},40%,60%,.35)`; x.fillRect(rnd() * 640, rnd() * 480, 6, 6); }
+      x.fillStyle = '#e0a57a'; x.beginPath(); x.arc(320, 150, 55, 0, 7); x.fill();
+      x.fillStyle = '#c0392b'; x.beginPath(); x.ellipse(320, 340, 110, 140, 0, 0, 7); x.fill();
+      return c.toDataURL('image/png');
+    })).split(',')[1],
+    'base64',
+  );
+  await page.getByTestId('image-input').first().setInputFiles({ name: 'portrait.png', mimeType: 'image/png', buffer: photo });
+  await page.getByText('Subject detected').waitFor({ timeout: 60000 });
+  const alphaAt = (x, y) => page.evaluate(([x, y]) => { const c = document.querySelector('[data-testid=stage]'); return c.getContext('2d').getImageData(x, y, 1, 1).data[3]; }, [x, y]);
+  const waitAlpha = async (x, y, ok, what) => {
+    const end = Date.now() + 4000; let a;
+    while (!ok((a = await alphaAt(x, y))) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(ok(a), `${what}: alpha ${a}`);
+  };
+  await waitAlpha(5, 5, (a) => a === 0, 'background corner removed');
+  await waitAlpha(320, 340, (a) => a === 255, 'subject kept');
+  await shot(page, '07-bg-detected');
+  check('Background Remover: AI detects the subject on a busy background (runs in the browser)');
+
+  // erase the head with a brush stroke, undo, then restore with the brush
+  await page.getByRole('slider', { name: /Brush size/ }).fill('120');
+  let box;
+  const locate = async () => {
+    await page.getByTestId('stage').scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, -80)); // keep it clear of the bottom tab bar
+    box = await page.getByTestId('stage').boundingBox();
+  };
+  const toScreen = (x, y) => [box.x + (x / 640) * box.width, box.y + (y / 480) * box.height];
+  await locate();
+  await page.mouse.move(...toScreen(300, 150));
+  await page.mouse.down();
+  await page.mouse.move(...toScreen(340, 150), { steps: 5 });
+  await page.mouse.up();
+  await waitAlpha(320, 150, (a) => a === 0, 'erase brush removes the head');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await waitAlpha(320, 150, (a) => a === 255, 'undo brings it back');
+  await page.getByRole('button', { name: 'Redo' }).click();
+  await waitAlpha(320, 150, (a) => a === 0, 'redo removes it again');
+  await page.getByRole('radio', { name: 'Restore' }).click();
+  await locate();
+  await page.mouse.move(...toScreen(320, 150));
+  await page.mouse.down();
+  await page.mouse.up();
+  await waitAlpha(320, 150, (a) => a === 255, 'restore brush brings it back');
+  check('erase and restore brushes work; undo/redo work');
+
+  // pick-color removes the red body; background color + download
+  await page.getByRole('radio', { name: 'Pick color' }).click();
+  await locate();
+  await page.mouse.click(...toScreen(320, 380));
+  await page.getByText(/Removed [\d,]+ pixels of that color/).waitFor();
+  await waitAlpha(320, 380, (a) => a === 0, 'picked color removed');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('radio', { name: 'White' }).click();
+  await page.getByRole('button', { name: 'Download PNG' }).click();
+  await page.getByText('Downloaded portrait-new-bg.png.').waitFor();
+  const dl = await page.evaluate(() => window.__downloads.at(-1));
+  assert.equal(dl.filename, 'portrait-new-bg.png');
+  assert.ok(dl.size > 1000, 'png has content');
+  check('pick-a-color removal; white background; PNG download');
+
+  // save into My Projects (creates "My Exports" when there are none)
+  await page.getByRole('radio', { name: 'Transparent' }).click();
+  await page.getByRole('button', { name: 'Save to My Projects' }).click();
+  await page.getByRole('button', { name: 'Create “My Exports” and save' }).click();
+  await page.getByText('Saved portrait-no-bg.png to My Exports.').waitFor();
+  await page.goto(URL + '/projects');
+  await page.getByRole('link', { name: /My Exports/ }).click();
+  await page.locator('ul[aria-label="Files"] > li', { hasText: 'portrait-no-bg.png' }).waitFor();
+  await page.locator('header').getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete project' }).click();
+  await page.getByText('No projects yet').waitFor();
+  check('save the cut-out into My Projects');
+
   // Signed out
   const out = await newPage({ signedOut: true });
   await out.goto(URL + '/projects');
