@@ -17,6 +17,14 @@ Each task is built, tested and approved before the next starts.
 - [x] Unit tests + browser acceptance test at 3 screen sizes
 - [ ] **Awaiting approval**
 
+## ✅ Task #002: Cloud Projects & Tool Suggestions (v0.2.0)
+
+- [x] Suggest a Tool page + owner-only inbox with statuses
+- [x] Cloud project folders from templates, nested folders
+- [x] Upload, preview, download, versions, rename, move, delete
+- [x] Works across computers via the person's claude.ai account; no keys or setup
+- [ ] **Awaiting approval**
+
 ## Version 1 tools (planned, not started)
 
 | # | Tool | Category | Status |
@@ -41,6 +49,6 @@ Categories are a proposal and easy to change in `src/tools/registry.ts`.
 ## Later (not scheduled)
 
 - Public deployment (static host with SPA fallback)
-- Working *Request a Tool* (needs a backend or form service; requires approval)
-- Accounts and cloud sync of favorites and tool data (`src/lib/storage.ts` is the seam for this)
+- Sync favorites to the account (currently per browser)
+- Save tool work (palettes, storyboards…) straight into projects
 - Cross-browser testing (Safari, Firefox) and an accessibility audit

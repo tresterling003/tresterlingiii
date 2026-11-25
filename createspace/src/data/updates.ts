@@ -9,9 +9,20 @@ export interface Update {
   highlights: string[];
 }
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 
 export const UPDATES: Update[] = [
+  {
+    version: '0.2.0',
+    title: 'Cloud Projects & Suggestions',
+    date: '2026-11-25',
+    highlights: [
+      'My Projects: cloud folders for your files, saved to your account',
+      'Start projects from templates like Animation, Brand Identity and Film',
+      'Upload, download and keep up to 10 versions of each file',
+      'Suggest a Tool: send ideas for new tools',
+    ],
+  },
   {
     version: '0.1.0',
     title: 'Foundation',

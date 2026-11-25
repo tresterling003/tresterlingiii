@@ -49,7 +49,7 @@ async function run({ label, ...ctxOptions }) {
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(over <= 1, `horizontal overflow of ${over}px on ${where}`);
   };
-  // Tool tiles only (the "Request a tool" tile has no data-tool).
+  // Tool tiles only (the "Suggest a tool" tile has no data-tool).
   const cards = () => page.locator('main ul[aria-label="All tools"] > li[data-tool], main ul[aria-label="Search results"] > li[data-tool]');
 
   // ---- App starts, dashboard renders
@@ -146,7 +146,7 @@ async function run({ label, ...ctxOptions }) {
     ['Productivity Tools', '/category/productivity', 'Productivity Tools'],
     ['Business Tools', '/category/business', 'Business Tools'],
     ['What’s New', '/whats-new', 'What’s New'],
-    ['Settings', '/settings', 'Settings'],
+    ['Projects', '/projects', 'My Projects'],
     ['Home', '/', 'What are you making today?'],
   ];
   for (const [link, path, heading] of routes) {
@@ -211,16 +211,21 @@ async function run({ label, ...ctxOptions }) {
   }
   check('all 14 tool pages render with a clear "not available yet" notice');
 
-  // ---- Request a tool, 404s
+  // ---- Suggest a tool / Projects without cloud storage: explain instead of pretending to work
   await page.goto(URL + '/');
-  await page.getByRole('link', { name: /Request a tool/ }).click();
-  await page.getByRole('heading', { level: 1, name: 'Request a Tool' }).waitFor();
-  await expectCount(page.locator('main form, main input, main textarea'), 0, 'no fake form');
+  await page.getByRole('link', { name: /Suggest a tool/ }).click();
+  await page.getByRole('heading', { level: 1, name: 'Suggest a Tool' }).waitFor();
+  await page.getByText('Cloud storage isn’t available here').waitFor();
+  await expectCount(page.locator('main form, main textarea'), 0, 'no form that cannot save');
+  await page.goto(URL + '/projects');
+  await page.getByText('Cloud storage isn’t available here').waitFor();
+  await page.goto(URL + '/request-tool');
+  await page.getByRole('heading', { level: 1, name: 'Suggest a Tool' }).waitFor();
   await page.goto(URL + '/tools/not-a-tool');
   await page.getByText('This page doesn’t exist').waitFor();
   await page.goto(URL + '/category/nope');
   await page.getByText('This page doesn’t exist').waitFor();
-  check('Request a Tool marked Planned (no fake form); unknown pages show 404');
+  check('without cloud storage, Suggest/Projects explain clearly; old link redirects; unknown pages show 404');
 
   // ---- Theme: toggle, persist, settings radio
   await page.goto(URL + '/');

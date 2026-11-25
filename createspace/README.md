@@ -6,9 +6,9 @@ CreateSpace is an all-in-one toolbox for graphic designers, animators, filmmaker
 content creators, artists and freelancers. It's a single place with practical tools that solve
 everyday creative problems.
 
-> **Current version: 0.1.0 (Foundation).** This release is the site's frame: dashboard,
-> navigation, branding, search, favorites and themes. **None of the 14 tools work yet.** Each one is
-> clearly labelled *Coming soon* and its page says so.
+> **Current version: 0.2.0 (Cloud Projects & Suggestions).** The dashboard, navigation, search,
+> favorites and themes, plus **My Projects** (cloud folders and files) and **Suggest a Tool**.
+> **None of the 14 creative tools work yet.** Each one is clearly labelled *Coming soon*.
 
 ## Live version
 
@@ -38,7 +38,7 @@ npm run dev        # start the development server, then open the printed address
 | `npm test` | Unit tests (search ranking, favorites helpers, tool registry) |
 | `npm run e2e` | Browser test of every acceptance criterion at desktop, tablet and phone size (run `npm run build` first) |
 
-## Current features (0.1.0)
+## Current features
 
 - **Launcher-style dashboard**: a soft grey page with one big rounded panel holding a grid of square pastel tool tiles (5 across on desktop, 4 on tablets, 3 on phones), plus search, category pills, Favorites, What's New and a *Request a Tool* tile (marked **Planned**)
 - **Navigation**: pill-shaped top bar (logo, latest-update pill, theme, settings) and a bottom tab bar on every screen size: Home, All Tools, Favorites, Categories (opens a sheet), What's New, Settings
@@ -48,6 +48,8 @@ npm run dev        # start the development server, then open the printed address
 - **Category filters** and dedicated category pages
 - **Light / dark / system theme**, remembered across visits
 - **Tool pages**: a shared layout (title, description, status, bookmark, workspace area) used by every tool
+- **My Projects** (cloud): create projects from templates (Animation, Film & Video, Brand Identity, Photo Shoot, Social Content, Client Project, Blank) with ready-made folders and starter files; nested folders; upload by button or drag-and-drop; preview images and video; download; upload new versions (last 10 kept); rename, move and delete. Saved to the person's account, so it opens on any computer
+- **Suggest a Tool** (cloud): anyone with access sends ideas and sees their status; the site owner gets an **Inbox** with everyone's suggestions, names and a status for each
 - **Settings**: theme, clear favorites, reset all saved data
 - **What's New** page, **404 page**
 
@@ -98,6 +100,23 @@ only shown when its status is *beta* or *available*, so an unfinished tool can't
 - **Fonts are bundled** (Nunito via Fontsource), with no calls to outside font services.
 - **Tools load on demand.** Each tool's code downloads only when someone opens it, which keeps the dashboard fast as tools are added.
 
+## Cloud features: how they work
+
+The hosted link runs on claude.ai, which provides sign-in, a database and file storage to the page
+(`window.claude.use(...)`). There are no API keys or accounts to set up. Code lives in `src/cloud/`:
+
+- `runtime.ts`: the connection to those services; `CloudProvider.tsx` connects once at startup
+- `projectModel.ts`, `suggestionModel.ts`, `templates.ts`, `files.ts`: plain logic (unit-tested)
+- `useCloudData.ts`: live data hooks; writes to one document are queued so they never overlap
+- Data paths: projects in `data/users/<id>/<projectId>` (private to that person; not even the owner can read them); suggestions in `suggestions/<id>` (only the owner reads everyone's)
+
+Who can use them: people must be signed in to claude.ai. Share the link from its **Share** menu;
+give people **Contributor** access so they can send suggestions and save projects. Uploading is
+guaranteed for you (the owner) and Editors; for Contributors it depends on the platform enabling it.
+
+Testing: `scripts/fake-claude.js` is a test-only stand-in for these services used by
+`scripts/e2e-cloud.mjs`. It is never part of the app.
+
 ## Hosting note
 
 This is a single-page app using real URLs (`/tools/color-studio`). When it's published, the host must
@@ -107,7 +126,9 @@ support this with a one-line setting. That will be set up as part of deployment,
 ## Known limitations
 
 - No individual tool works yet (by design for this milestone).
-- *Request a Tool* is a placeholder: nothing is collected or sent.
+- Cloud uploads accept PNG, JPG, GIF, WebP, SVG, MP4, WebM, PDF, TXT, MD, CSV, JSON and TTF, up to 20 MB each (SVG 2 MB). Design files such as .psd, .ai, .blend, .aep or .zip **can't be stored** because of the hosting platform's limits.
+- Cloud features only work on the hosted claude.ai link, for people signed in to claude.ai who have access.
+- The test suite checks cloud features against a stand-in for the platform, not the real service.
 - Favorites and theme are stored per browser/device only (no accounts or sync yet).
 - The live link is a claude.ai hosted page, private until you share it. A standalone public domain isn't set up yet.
 - Tested in Chromium only (desktop, tablet and phone sizes); Safari and Firefox have not been tested.

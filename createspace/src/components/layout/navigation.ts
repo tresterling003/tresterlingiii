@@ -1,4 +1,4 @@
-import { Bookmark, House, LayoutGrid, Settings, Shapes, Sparkles, type LucideIcon } from 'lucide-react';
+import { Bookmark, FolderOpen, House, LayoutGrid, Shapes, Sparkles, type LucideIcon } from 'lucide-react';
 import { CATEGORIES, categoryRoute } from '@/tools/categories';
 import { getTool, toolsInCategory } from '@/tools/registry';
 import type { CategoryDefinition, CategoryId } from '@/tools/types';
@@ -18,14 +18,14 @@ export const toolCategory = (path: string): CategoryId | undefined =>
 
 const isCategoryPath = (p: string) => p.startsWith('/category/') || toolCategory(p) !== undefined;
 
-/** Bottom tab bar. Categories opens a sheet listing every category page. */
+/** Bottom tab bar. Categories opens a sheet listing every category page. Settings is in the top bar. */
 export const TABS: TabItem[] = [
   { to: '/', label: 'Home', icon: House, match: (p) => p === '/' },
   { to: '/tools', label: 'All Tools', icon: LayoutGrid, match: (p) => p === '/tools' },
   { to: '/favorites', label: 'Favorites', icon: Bookmark, match: (p) => p === '/favorites' },
+  { to: '/projects', label: 'Projects', icon: FolderOpen, match: (p) => p.startsWith('/projects') },
   { to: 'categories', label: 'Categories', icon: Shapes, match: isCategoryPath },
   { to: '/whats-new', label: 'What’s New', icon: Sparkles, match: (p) => p === '/whats-new' },
-  { to: '/settings', label: 'Settings', icon: Settings, match: (p) => p === '/settings' },
 ];
 
 // Built from the category list, so a new category appears automatically.

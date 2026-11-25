@@ -1,5 +1,6 @@
 import { ArrowRight, Bookmark } from 'lucide-react';
 import { Link } from 'react-router';
+import { RecentProjects } from '@/components/cloud/RecentProjects';
 import { CategoryFilter } from '@/components/tools/CategoryFilter';
 import { NoResults } from '@/components/tools/NoResults';
 import { ToolGrid } from '@/components/tools/ToolCard';
@@ -52,6 +53,8 @@ export function DashboardPage() {
             Bookmark the tools you use most and they’ll appear here.
           </p>
         ))}
+
+      {!searching && <RecentProjects />}
 
       <Panel label="Tools" className="animate-fade-up">
         <SearchInput

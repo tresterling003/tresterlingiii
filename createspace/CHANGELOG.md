@@ -2,6 +2,18 @@
 
 All notable changes to CreateSpace. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.2.0] Cloud Projects & Suggestions (2026-11-25)
+
+### Added
+- **My Projects**: cloud project folders saved to each person's account, private to them. Templates (Animation, Film & Video, Brand Identity, Photo Shoot, Social Content, Client Project, Blank) create ready-made folders and starter files (project brief, shot list).
+- Upload files by button or drag-and-drop; preview images and video; download; upload new versions (last 10 kept, older ones downloadable); rename, move, delete files; create, rename and delete nested folders; delete projects. Stored files are cleaned up when deleted.
+- **Suggest a Tool**: send tool ideas and follow their status. The site owner gets a private Inbox with everyone's suggestions, filters and status controls.
+- Recent projects on the dashboard; Projects tab in the bottom bar (Settings moved to the top bar).
+- Cloud e2e test (30 checks) using a test-only stand-in for the hosting platform.
+
+### Changed
+- "Request a Tool (Planned)" replaced by the working Suggest a Tool page; the old address redirects.
+
 ## [0.1.0] Foundation (2026-11-24, redesigned 2026-11-25)
 
 ### Changed (2026-11-25)

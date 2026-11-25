@@ -138,7 +138,7 @@ export function SettingsPage() {
         <Panel title="Your data">
           <Row
             title="Stored on this device"
-            description="CreateSpace has no accounts yet. Your theme and favorites live in this browser’s local storage. They aren’t sent anywhere and won’t follow you to other devices."
+            description="Your theme and favorites are saved in this browser only. Projects and suggestions are saved to your account in the cloud and aren’t affected by this reset."
           >
             <ConfirmButton
               label="Reset everything"

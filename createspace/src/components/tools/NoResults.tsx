@@ -35,10 +35,10 @@ export function NoResults({ query, category, onClearQuery, onClearCategory }: Pr
       }
     >
       Try a different word, such as “color”, “video” or “invoice”. Missing something?{' '}
-      <Link to="/request-tool" className="font-medium text-fg underline decoration-line-strong underline-offset-2 hover:decoration-fg">
-        Tool requests
-      </Link>{' '}
-      are planned.
+      <Link to="/suggest" className="font-bold text-fg underline decoration-line-strong underline-offset-2 hover:decoration-fg">
+        Suggest a tool
+      </Link>
+      .
     </EmptyState>
   );
 }

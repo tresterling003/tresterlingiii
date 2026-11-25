@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Lightbulb } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/cn';
@@ -50,19 +50,17 @@ export function ToolTile({ tool }: { tool: ToolDefinition }) {
   );
 }
 
-/** Dashed "Request a tool" tile that sits at the end of the grid. */
+/** Dashed "Suggest a tool" tile that sits at the end of the grid. */
 export function RequestTile() {
   return (
     <Link
-      to="/request-tool"
+      to="/suggest"
       style={{ '--accent': '#8A8794' } as CSSProperties}
       className={cn(tileBase, 'border-2 border-dashed border-line-strong bg-surface/40 text-muted hover:border-muted hover:text-fg')}
     >
-      <Plus aria-hidden="true" strokeWidth={2.5} className="size-[28%]" />
-      <span className="mt-1.5 text-[0.8125rem] leading-tight font-extrabold sm:mt-2 sm:text-sm">Request a tool</span>
-      <span className="mt-1.5 rounded-full border border-dashed border-line-strong px-2 py-[2px] text-[0.625rem] leading-none font-extrabold sm:text-[0.6875rem]">
-        Planned
-      </span>
+      <Lightbulb aria-hidden="true" strokeWidth={2.3} className="size-[28%]" />
+      <span className="mt-1.5 text-[0.8125rem] leading-tight font-extrabold sm:mt-2 sm:text-sm">Suggest a tool</span>
+      <span className="mt-1.5 text-[0.625rem] leading-none font-bold sm:text-[0.6875rem]">Tell us your idea</span>
     </Link>
   );
 }

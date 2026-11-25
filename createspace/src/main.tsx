@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router';
 import '@fontsource-variable/nunito';
 import './styles/index.css';
 import { router } from './app/router';
+import { CloudProvider } from './cloud/CloudProvider';
 import { FavoritesProvider } from './state/FavoritesProvider';
 import { ThemeProvider } from './state/ThemeProvider';
 
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <FavoritesProvider>
-        <RouterProvider router={router} />
+        <CloudProvider>
+          <RouterProvider router={router} />
+        </CloudProvider>
       </FavoritesProvider>
     </ThemeProvider>
   </StrictMode>,

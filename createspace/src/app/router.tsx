@@ -1,11 +1,14 @@
-import { createBrowserRouter, createMemoryRouter, type RouteObject } from 'react-router';
+import { createBrowserRouter, createMemoryRouter, Navigate, type RouteObject } from 'react-router';
 import { AppShell } from '@/components/layout/AppShell';
 import { AllToolsPage } from '@/pages/AllToolsPage';
 import { CategoryPage } from '@/pages/CategoryPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { FavoritesPage } from '@/pages/FavoritesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { RequestToolPage } from '@/pages/RequestToolPage';
+import { NewProjectPage } from '@/pages/NewProjectPage';
+import { ProjectPage } from '@/pages/ProjectPage';
+import { ProjectsPage } from '@/pages/ProjectsPage';
+import { SuggestPage } from '@/pages/SuggestPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { ToolPage } from '@/pages/ToolPage';
 import { WhatsNewPage } from '@/pages/WhatsNewPage';
@@ -22,7 +25,12 @@ const routes: RouteObject[] = [
       { path: '/favorites', element: <FavoritesPage /> },
       { path: '/settings', element: <SettingsPage /> },
       { path: '/whats-new', element: <WhatsNewPage /> },
-      { path: '/request-tool', element: <RequestToolPage /> },
+      { path: '/projects', element: <ProjectsPage /> },
+      { path: '/projects/new', element: <NewProjectPage /> },
+      { path: '/projects/:projectId', element: <ProjectPage /> },
+      { path: '/suggest', element: <SuggestPage /> },
+      // old address from v0.1.0
+      { path: '/request-tool', element: <Navigate to="/suggest" replace /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
