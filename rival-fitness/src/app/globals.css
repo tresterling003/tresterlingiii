@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --nav-h: 64px;
+}
+
+html, body {
+  background: #0e0f12;
+  color: #f4f5f7;
+}
+
+body {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+@layer utilities {
+  .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .pb-nav { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px); }
+  .safe-b { padding-bottom: env(safe-area-inset-bottom); }
+  .eyebrow { @apply text-2xs font-semibold uppercase text-fg-faint; }
+  .hairline { @apply border-ink-700; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+}
+
+@layer components {
+  .panel { @apply rounded-lg border border-ink-700 bg-ink-850; }
+  .focus-ring { @apply outline-none focus-visible:ring-2 focus-visible:ring-lime focus-visible:ring-offset-2 focus-visible:ring-offset-ink-900; }
+  .skeleton {
+    background: linear-gradient(90deg, #181a1f 0%, #22252c 50%, #181a1f 100%);
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded-md;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

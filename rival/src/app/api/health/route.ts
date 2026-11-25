@@ -1,12 +1,13 @@
-import { withUser } from "@/lib/db";
+import { json, route } from "@/lib/api";
+import { db } from "@/lib/db";
+
+export const GET = route(async () => {
+  try {
+    await db.one("select 1");
+    return json({ ok: true, db: "connected" });
+  } catch {
+    return json({ ok: false, db: "unreachable" }, 503);
+  }
+});
 
 export const dynamic = "force-dynamic";
-
-export async function GET() {
-  try {
-    const r = await withUser(null, (tx) => tx.one<{ now: string }>("select rival_now() as now"));
-    return Response.json({ ok: true, db: "connected", serverTime: r?.now });
-  } catch {
-    return Response.json({ ok: false, db: "unreachable" }, { status: 503 });
-  }
-}

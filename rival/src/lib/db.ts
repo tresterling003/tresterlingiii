@@ -1,59 +1,55 @@
 import "server-only";
-import { Pool, type PoolClient, types } from "pg";
-import { requireEnv } from "./env";
-import { fromDbError } from "./errors";
+import { Pool, type PoolClient } from "pg";
+import { AppError } from "./errors";
 
-// Return DATE columns as 'YYYY-MM-DD' strings (no timezone shifting) and
-// NUMERIC as JS numbers (scores are small, one decimal).
-types.setTypeParser(1082, (v) => v);
-types.setTypeParser(1700, (v) => (v === null ? null : Number(v)));
-types.setTypeParser(20, (v) => Number(v));
-
-const globalForPool = globalThis as unknown as { rivalPool?: Pool };
+const g = globalThis as unknown as { hqPool?: Pool };
 
 function pool(): Pool {
-  if (!globalForPool.rivalPool) {
-    globalForPool.rivalPool = new Pool({
-      // Connects as the restricted `rival_app` role (no table writes, RLS enforced).
-      connectionString: requireEnv("DATABASE_URL"),
-      max: 5,
-      idleTimeoutMillis: 10_000,
-      connectionTimeoutMillis: 10_000,
-    });
+  if (!g.hqPool) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("Missing required environment variable DATABASE_URL");
+    g.hqPool = new Pool({ connectionString: url, max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
   }
-  return globalForPool.rivalPool;
+  return g.hqPool;
 }
 
-export type Tx = {
-  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
-  one<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T | undefined>;
+export type Db = {
+  query<T = Record<string, any>>(sql: string, params?: unknown[]): Promise<T[]>;
+  one<T = Record<string, any>>(sql: string, params?: unknown[]): Promise<T | undefined>;
 };
 
-/**
- * Run work in a transaction scoped to one authenticated user. The user id is
- * set as a transaction-local setting that row-level security policies and
- * every database function read. Pass null for anonymous (auth) calls.
- */
-export async function withUser<T>(userId: string | null, fn: (tx: Tx) => Promise<T>): Promise<T> {
+function mapErr(e: unknown): unknown {
+  const err = e as { code?: string };
+  if (err?.code === "23514" || err?.code === "22P02" || err?.code === "22001" || err?.code === "22003")
+    return new AppError("invalid", "Some of those values aren't valid.");
+  if (err?.code === "23505") return new AppError("conflict", "That already exists.", 409);
+  return e;
+}
+
+/** Runs work in a single transaction. */
+export async function tx<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   const client: PoolClient = await pool().connect();
   try {
     await client.query("begin");
-    await client.query("select set_config('rival.user_id', $1, true)", [userId ?? ""]);
-    const tx: Tx = {
-      async query(sql, params) {
-        return (await client.query(sql, params)).rows;
-      },
-      async one(sql, params) {
-        return (await client.query(sql, params)).rows[0];
-      },
+    // Works through Neon's transaction pooler: the setting lasts only for this transaction.
+    await client.query("set local search_path to hq, public");
+    const db: Db = {
+      query: async (sql, params) => (await client.query(sql, params)).rows,
+      one: async (sql, params) => (await client.query(sql, params)).rows[0],
     };
-    const result = await fn(tx);
+    const out = await fn(db);
     await client.query("commit");
-    return result;
+    return out;
   } catch (e) {
     await client.query("rollback").catch(() => {});
-    throw fromDbError(e) ?? e;
+    throw mapErr(e);
   } finally {
     client.release();
   }
 }
+
+/** Single statement in its own short transaction (so the hq search_path applies). */
+export const db: Db = {
+  query: (sql, params) => tx((d) => d.query(sql, params)),
+  one: (sql, params) => tx((d) => d.one(sql, params)),
+};

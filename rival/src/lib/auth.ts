@@ -1,66 +1,62 @@
 import "server-only";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { withUser } from "./db";
+import { db } from "./db";
 import { AppError } from "./errors";
 
-export const SESSION_COOKIE = "rival_session";
-const SESSION_DAYS = 60;
+export const SESSION_COOKIE = "hq_session";
+const SESSION_DAYS = 90;
 
-export function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
+export const hashToken = (t: string) => createHash("sha256").update(t).digest("hex");
+export const hashPassword = (pw: string) => bcrypt.hash(pw, 11);
+export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, hash);
+// Compared against when the email is unknown, so timing doesn't reveal which emails exist.
+export const DUMMY_HASH = "$2a$11$p/0fmMmHFs/3XFNF.roJHueCdlpJdI4HH0FdAJGv7xsikBd7zthLC";
 
-export async function hashPassword(pw: string) {
-  return bcrypt.hash(pw, 11);
-}
-
-export async function verifyPassword(pw: string, hash: string) {
-  return bcrypt.compare(pw, hash);
-}
-
-/** Creates a DB session and sets the httpOnly cookie. Only the SHA-256 of the token is stored. */
 export async function startSession(userId: string) {
   const token = randomBytes(32).toString("base64url");
-  const ua = headers().get("user-agent") ?? "";
-  await withUser(null, (tx) =>
-    tx.query("select auth_create_session($1, $2, $3)", [userId, hashToken(token), ua]),
+  await db.query(
+    "insert into sessions (token_hash, user_id, expires_at) values ($1, $2, now() + make_interval(days => $3))",
+    [hashToken(token), userId, SESSION_DAYS],
   );
   cookies().set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    maxAge: SESSION_DAYS * 86400,
   });
 }
 
 export async function endSession() {
   const token = cookies().get(SESSION_COOKIE)?.value;
-  if (token) {
-    await withUser(null, (tx) => tx.query("select auth_end_session($1)", [hashToken(token)]));
-  }
+  if (token) await db.query("delete from sessions where token_hash = $1", [hashToken(token)]);
   cookies().delete(SESSION_COOKIE);
 }
 
-export function currentTokenHash(): string | null {
-  const token = cookies().get(SESSION_COOKIE)?.value;
-  return token ? hashToken(token) : null;
-}
-
-/** Resolves the signed-in user id from the session cookie, or null. */
 export async function getUserId(): Promise<string | null> {
   const token = cookies().get(SESSION_COOKIE)?.value;
   if (!token || token.length > 100) return null;
-  const row = await withUser(null, (tx) =>
-    tx.one<{ uid: string | null }>("select auth_session_user($1) as uid", [hashToken(token)]),
+  const row = await db.one<{ user_id: string }>(
+    "select user_id from sessions where token_hash = $1 and expires_at > now()",
+    [hashToken(token)],
   );
-  return row?.uid ?? null;
+  return row?.user_id ?? null;
 }
 
-export async function requireUserId(): Promise<string> {
+export async function requireUser(): Promise<string> {
   const id = await getUserId();
-  if (!id) throw new AppError("unauthenticated", "Your session has expired. Please sign in again.", 401);
+  if (!id) throw new AppError("unauthenticated", "Please sign in again.", 401);
   return id;
 }
+
+/** Allows `limit` failures per `minutes` for a key; throws when exceeded. */
+export async function rateLimit(key: string, limit: number, minutes: number) {
+  const row = await db.one<{ n: number }>(
+    "select count(*)::int as n from attempts where key = $1 and at > now() - make_interval(mins => $2)",
+    [key, minutes],
+  );
+  if ((row?.n ?? 0) >= limit) throw new AppError("rate_limited", "Too many tries. Wait a few minutes and try again.", 429);
+}
+export const recordAttempt = (key: string) => db.query("insert into attempts (key) values ($1)", [key]);

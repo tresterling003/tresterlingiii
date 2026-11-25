@@ -3,20 +3,17 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/home",
-    name: "RIVAL — Fitness & Habits",
-    short_name: "RIVAL",
-    description: "Every Move Counts. Every Week Matters.",
+    name: "Christmas HQ",
+    short_name: "Christmas HQ",
+    description: "Your family's Christmas dashboard.",
     start_url: "/home",
     scope: "/",
     display: "standalone",
-    orientation: "portrait",
-    background_color: "#0E0F12",
-    theme_color: "#0E0F12",
-    categories: ["fitness", "health", "sports"],
+    background_color: "#F2F3F5",
+    theme_color: "#F2F3F5",
     icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+      { src: "/apple-icon.png", sizes: "180x180", type: "image/png" },
     ],
   };
 }

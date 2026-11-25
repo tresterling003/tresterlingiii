@@ -1,85 +1,104 @@
 "use client";
-import clsx from "clsx";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
-import { ClipboardList, Plus, Sun, TrendingUp, User } from "lucide-react";
-import { Wordmark } from "./brand";
-import { useApp } from "./league-context";
-import { Button } from "./ui/button";
-import { LogWorkoutSheet } from "./log-workout";
-import { PledgeGate } from "./pledge";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import clsx from "clsx";
+import { Coins, Ellipsis, Gift, House, ListChecks, Users, TreePine } from "lucide-react";
+import { useMe } from "@/lib/hooks";
+import { daysUntilChristmas } from "@/lib/catalog";
+import { Avatar, ToastProvider } from "./ui";
+import { Effects } from "./effects";
 
-const NAV = [
-  { href: "/home", label: "Today", icon: Sun },
-  { href: "/program", label: "Program", icon: ClipboardList },
-  { href: "/activity", label: "Progress", icon: TrendingUp },
-  { href: "/profile", label: "Profile", icon: User },
+const TABS = [
+  { href: "/home", label: "Home", icon: House },
+  { href: "/list", label: "My List", icon: ListChecks },
+  { href: "/family", label: "Family", icon: Users },
+  { href: "/gifts", label: "Gifts", icon: Gift },
+  { href: "/more", label: "More", icon: Ellipsis },
 ];
+const MORE = ["/more", "/finder", "/budget", "/games", "/settings"];
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const { me, openLog, logOpen, closeLog } = useApp();
-  const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
+export function CoinPill() {
+  const { data } = useMe();
+  const coins = data?.user.coins;
+  const prev = useRef<number | undefined>(coins);
+  const [bump, setBump] = useState(false);
+  useEffect(() => {
+    if (prev.current !== undefined && coins !== undefined && coins !== prev.current) {
+      setBump(true);
+      const t = setTimeout(() => setBump(false), 600);
+      prev.current = coins;
+      return () => clearTimeout(t);
+    }
+    prev.current = coins;
+  }, [coins]);
+  return (
+    <Link
+      href="/games"
+      aria-label={`${coins ?? 0} coins. Play games`}
+      className="flex h-12 items-center gap-2 rounded-full bg-card pl-2 pr-4 font-semibold shadow-soft transition hover:shadow-pop active:scale-95"
+    >
+      <span className={clsx("grid h-8 w-8 place-items-center rounded-full bg-[#F7D774] text-[#8A6400]", bump && "coin-bump")}>
+        <Coins className="h-[18px] w-[18px]" />
+      </span>
+      <span className="tabular-nums">{coins ?? "–"}</span>
+    </Link>
+  );
+}
+
+export function Shell({ children }: { children: ReactNode }) {
+  const path = usePathname();
+  const { data } = useMe();
+  const theme = data?.user.theme ?? "snow";
+  const effect = data?.user.effect ?? "none";
+  const days = daysUntilChristmas();
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("hq-theme", theme); } catch {}
+  }, [theme]);
 
   return (
-    <div className="min-h-dvh lg:flex">
-      {/* Desktop rail */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-ink-700 bg-ink-900 px-4 py-6 lg:flex">
-        <Link href="/home" className="focus-ring mb-10 self-start rounded-md px-2"><Wordmark /></Link>
-        <nav className="flex flex-col gap-1" aria-label="Primary">
-          {NAV.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} aria-current={active(href) ? "page" : undefined}
-              className={clsx(
-                "focus-ring flex h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors",
-                active(href) ? "bg-ink-800 text-fg" : "text-fg-muted hover:bg-ink-850 hover:text-fg",
-              )}>
-              <Icon className={clsx("h-5 w-5", active(href) && "text-lime")} strokeWidth={active(href) ? 2.4 : 2} />
-              {label}
+    <ToastProvider>
+      <div className="page-bg min-h-dvh">
+        <Effects effect={effect} />
+        <header className="relative z-20 mx-auto flex max-w-6xl items-center gap-3 px-4 pb-2 pt-[max(16px,env(safe-area-inset-top))] sm:px-6">
+          <Link href="/home" className="flex h-12 min-w-0 items-center gap-2 rounded-full bg-card pl-2 pr-4 shadow-soft transition hover:shadow-pop">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-onaccent">
+              <TreePine className="h-[18px] w-[18px]" />
+            </span>
+            <span className="truncate font-semibold">
+              {days === 0 ? "Merry Christmas!" : <><span className="tabular-nums">{days}</span> {days === 1 ? "day" : "days"}<span className="hidden sm:inline"> to Christmas</span></>}
+            </span>
+          </Link>
+          <div className="ml-auto flex items-center gap-2">
+            <CoinPill />
+            <Link href="/settings" aria-label="Your profile and settings" className="rounded-full shadow-soft transition hover:shadow-pop active:scale-90">
+              {data ? <Avatar avatar={data.user.avatar} color={data.user.color} size={48} className="ring-4 ring-card" /> : <span className="block h-12 w-12 rounded-full bg-card" />}
             </Link>
-          ))}
-        </nav>
-        <Button className="mt-6" block icon={<Plus className="h-4 w-4" />} onClick={openLog}>Log activity</Button>
-        <p className="mt-auto px-2 text-xs text-fg-faint">Every Move Counts. Every Week Matters.</p>
-      </aside>
-
-      <div className="min-w-0 flex-1">
-        {/* Mobile top bar — grows by the notch inset when installed. */}
-        <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-ink-700 bg-ink-900/95 px-4 backdrop-blur lg:hidden"
-          style={{ paddingTop: "env(safe-area-inset-top)", height: "calc(56px + env(safe-area-inset-top))" }}>
-          <Link href="/home" aria-label="RIVAL home" className="focus-ring rounded-md"><Wordmark size="sm" /></Link>
-          <div className="flex-1" />
-          <button onClick={openLog} aria-label="Log activity"
-            className="focus-ring inline-flex h-10 items-center gap-1 rounded-md bg-lime px-3 text-sm font-bold text-lime-ink active:scale-95">
-            <Plus className="h-4 w-4" strokeWidth={3} /> Log
-          </button>
+          </div>
         </header>
-
-        <main className="pb-nav mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">{children}</main>
+        <main className="relative z-10 mx-auto max-w-6xl px-4 pb-[calc(110px+env(safe-area-inset-bottom))] pt-3 sm:px-6">{children}</main>
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Main">
+          <div className="mx-auto grid max-w-6xl grid-cols-5 gap-1 px-2 py-2">
+            {TABS.map((t) => {
+              const on = path === t.href || path.startsWith(t.href + "/") || (t.href === "/more" && MORE.some((m) => path.startsWith(m)));
+              return (
+                <Link
+                  key={t.href}
+                  href={t.href}
+                  aria-current={on ? "page" : undefined}
+                  className={clsx("flex flex-col items-center gap-1 rounded-2xl py-2 text-[13px] transition", on ? "bg-ink/[.06] text-ink" : "text-muted hover:text-ink")}
+                >
+                  <t.icon className={clsx("h-[22px] w-[22px] transition-transform", on && "scale-110")} strokeWidth={on ? 2.3 : 1.8} />
+                  {t.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
-
-      {/* Mobile bottom nav */}
-      <nav aria-label="Primary" className="safe-b fixed inset-x-0 bottom-0 z-30 border-t border-ink-700 bg-ink-900/95 backdrop-blur lg:hidden">
-        <ul className="mx-auto grid h-16 max-w-lg grid-cols-4">
-          {NAV.map(({ href, label, icon: Icon }) => (
-            <li key={href}>
-              <Link href={href} aria-current={active(href) ? "page" : undefined}
-                className={clsx(
-                  "focus-ring flex h-full flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors active:scale-95",
-                  active(href) ? "text-fg" : "text-fg-faint",
-                )}>
-                <span className={clsx("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active(href) && "bg-lime-soft")}>
-                  <Icon className={clsx("h-5 w-5", active(href) && "text-lime")} strokeWidth={active(href) ? 2.4 : 2} />
-                </span>
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <LogWorkoutSheet open={logOpen} onClose={closeLog} />
-      {me && !me.account.pledged_at && <PledgeGate me={me} />}
-    </div>
+    </ToastProvider>
   );
 }

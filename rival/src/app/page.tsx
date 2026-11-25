@@ -1,77 +1,65 @@
 import Link from "next/link";
-import { ClipboardList, Droplet, Swords } from "lucide-react";
-import { Wordmark, TAGLINE } from "@/components/brand";
+import { Gamepad2, Gift, ListChecks, Package, PiggyBank, Palette, Sparkles, TreePine, Users, Wand2 } from "lucide-react";
 
-function SampleScoreboard() {
-  return (
-    <div className="panel overflow-hidden" aria-label="Example: you versus last week">
-      <div className="flex items-center justify-between border-b border-ink-700 px-6 py-3">
-        <p className="eyebrow">You vs last week</p>
-        <span className="text-2xs font-bold uppercase text-lime">Ahead by 13.5</span>
-      </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-4 px-6 py-8">
-        <div>
-          <p className="text-xs font-semibold text-fg-muted">This week</p>
-          <p className="tnum font-display text-score font-bold">127.5</p>
-          <div className="mt-2 h-1 w-12 rounded-full bg-lime" />
-        </div>
-        <p className="pb-6 font-display text-sm font-bold italic text-fg-faint">VS</p>
-        <div className="text-right">
-          <p className="text-xs font-semibold text-fg-muted">Last week, same day</p>
-          <p className="tnum font-display text-score font-bold text-fg-muted">114.0</p>
-          <div className="mt-2 h-1" />
-        </div>
-      </div>
-      <div className="border-t border-ink-700 px-6 py-4">
-        <div className="mb-2 flex justify-between text-xs"><span className="font-semibold">Beat 168.0 to win the week</span><span className="text-fg-faint">Example</span></div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-ink-700"><div className="h-full w-[76%] rounded-full bg-lime" /></div>
-      </div>
-    </div>
-  );
-}
+const TILES = [
+  { label: "Wishlists", icon: ListChecks, color: "red" },
+  { label: "Family Lists", icon: Users, color: "green" },
+  { label: "Gift Finder", icon: Wand2, color: "purple" },
+  { label: "Gift Tracker", icon: Package, color: "blue" },
+  { label: "Budget", icon: PiggyBank, color: "gold" },
+  { label: "Games", icon: Gamepad2, color: "teal" },
+  { label: "Customize", icon: Palette, color: "pink" },
+  { label: "Ornament Match", icon: Sparkles, color: "orange" },
+  { label: "Present Catch", icon: Gift, color: "green" },
+];
+
+const POINTS = [
+  { t: "Lists with the details", d: "Sizes, colors, photos and a link to buy. Or a gift idea that leaves room for a surprise." },
+  { t: "Secret claims", d: "Tap “I'll get this” so nobody doubles up. The person getting the gift never sees who's buying it." },
+  { t: "Budget and tracking", d: "Plan who you're shopping for, track what's bought and wrapped, and stay on budget." },
+  { t: "Games and coins", d: "Play quick Christmas games, earn coins and climb the family leaderboard. Pick your own theme and avatar." },
+];
 
 export default function Landing() {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-6 lg:px-10">
-      <header className="flex h-20 items-center justify-between">
-        <Wordmark />
-        <nav className="flex items-center gap-2">
-          <Link href="/sign-in" className="focus-ring rounded-md px-4 py-2 text-sm font-semibold text-fg-muted hover:text-fg">Sign in</Link>
-          <Link href="/sign-up" className="focus-ring rounded-md bg-lime px-4 py-2 text-sm font-bold text-lime-ink hover:bg-[#d4ff66]">Get started</Link>
-        </nav>
-      </header>
-
-      <main className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[1.1fr_1fr] lg:py-20">
-        <div className="animate-fade-up">
-          <p className="eyebrow mb-4 text-lime">Your program · your habits · your record</p>
-          <h1 className="font-display text-[52px] font-extrabold uppercase italic leading-[0.95] tracking-tight sm:text-[76px]">
-            Every move counts.<br /><span className="text-fg-muted">Beat last week.</span>
-          </h1>
-          <p className="mt-6 max-w-md text-lg text-fg-muted">
-            Build your training program, check off today&rsquo;s workout, hit your water and protein, and turn it all into a score you try to beat every week.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/sign-up" className="focus-ring inline-flex h-12 items-center rounded-md bg-lime px-6 text-base font-bold text-lime-ink hover:bg-[#d4ff66]">Start tracking</Link>
-            <Link href="/sign-in" className="focus-ring inline-flex h-12 items-center rounded-md border border-ink-600 px-6 text-base font-semibold hover:bg-ink-850">Sign in</Link>
+    <div className="page-bg min-h-dvh">
+      <div className="mx-auto max-w-6xl px-4 pb-16 pt-[max(20px,env(safe-area-inset-top))] sm:px-6">
+        <header className="flex items-center gap-3">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-accent text-onaccent shadow-soft"><TreePine /></span>
+          <span className="text-2xl font-semibold">Christmas HQ</span>
+          <Link href="/sign-in" className="ml-auto inline-flex h-11 items-center rounded-full bg-card px-5 font-medium shadow-soft transition hover:shadow-pop">Sign in</Link>
+        </header>
+        <section className="mt-10 grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="anim-rise">
+            <h1 className="text-[44px] font-semibold leading-[1.05] sm:text-[60px]">Your family's Christmas, all in one place.</h1>
+            <p className="mt-4 max-w-xl text-xl text-muted">Share wishlists, secretly claim gifts, plan your budget and play a few games along the way.</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link href="/sign-up" className="inline-flex h-14 items-center rounded-full bg-accent px-8 text-lg font-medium text-onaccent shadow-soft transition hover:brightness-110 active:scale-95">Get started free</Link>
+              <Link href="/sign-in" className="inline-flex h-14 items-center rounded-full bg-card px-8 text-lg font-medium shadow-soft transition hover:shadow-pop">I have an account</Link>
+            </div>
           </div>
-        </div>
-        <div className="animate-fade-up [animation-delay:120ms]"><SampleScoreboard /></div>
-      </main>
-
-      <section className="grid gap-6 border-t border-ink-700 py-12 sm:grid-cols-3">
-        {[
-          { icon: ClipboardList, title: "Your program", body: "Build workouts with sets, reps and weights, then assign them to days. Or start from a proven split." },
-          { icon: Droplet, title: "Daily habits", body: "Tap to log water and protein. Hitting your targets earns points and builds streaks." },
-          { icon: Swords, title: "You vs last week", body: "Every week is a matchup against your past self, with personal records and levels as you go." },
-        ].map(({ icon: Icon, title, body }) => (
-          <div key={title}>
-            <Icon className="mb-4 h-6 w-6 text-lime" />
-            <p className="font-semibold">{title}</p>
-            <p className="mt-2 text-sm text-fg-muted">{body}</p>
+          <div className="panel rounded-xl3 p-4 shadow-pop sm:p-6" aria-hidden>
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+              {TILES.map((t, i) => (
+                <div key={t.label} className="tile-press anim-rise grid aspect-square place-items-center rounded-[22px] shadow-tile" style={{ background: `var(--c-${t.color}-bg)`, color: `var(--c-${t.color}-fg)`, animationDelay: `${i * 50}ms` }}>
+                  <span className="flex flex-col items-center gap-1.5 text-center">
+                    <t.icon className="h-9 w-9 sm:h-11 sm:w-11" strokeWidth={2.2} />
+                    <span className="text-[13px] font-semibold sm:text-[16px]">{t.label}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </section>
-      <footer className="pb-8 text-xs text-fg-faint">RIVAL · {TAGLINE}</footer>
+        </section>
+        <section className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {POINTS.map((p) => (
+            <div key={p.t} className="rounded-[22px] bg-card p-5 shadow-soft">
+              <h2 className="text-xl font-semibold">{p.t}</h2>
+              <p className="mt-2 text-muted">{p.d}</p>
+            </div>
+          ))}
+        </section>
+      </div>
     </div>
   );
 }

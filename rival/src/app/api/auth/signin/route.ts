@@ -1,29 +1,22 @@
-import bcrypt from "bcryptjs";
-import { route, json, parseBody } from "@/lib/api";
-import { startSession, verifyPassword } from "@/lib/auth";
-import { withUser } from "@/lib/db";
+import { z } from "zod";
+import { body, json, route } from "@/lib/api";
+import { db } from "@/lib/db";
+import { DUMMY_HASH, rateLimit, recordAttempt, startSession, verifyPassword } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
-import { signInSchema } from "@/lib/validation";
 
-// Compare against a real hash for unknown emails so response time doesn't
-// reveal whether an account exists.
-let dummy: string | undefined;
-const dummyHash = () => (dummy ??= bcrypt.hashSync("rival-timing-equalizer", 11));
+const Schema = z.object({ email: z.string().trim().toLowerCase().max(200), password: z.string().max(200) });
 
 export const POST = route(async (req) => {
-  const { email, password } = await parseBody(req, signInSchema);
-  const result = await withUser(null, async (tx) => {
-    const failures = (await tx.one<{ n: number }>("select auth_failure_count($1) as n", [email]))!.n;
-    if (failures >= 8) return { limited: true as const };
-    const row = await tx.one<{ user_id: string; password_hash: string }>("select * from auth_lookup($1)", [email]);
-    return { limited: false as const, row };
-  });
-  if (result.limited) throw new AppError("rate_limited", "Too many attempts. Wait 15 minutes and try again.", 429);
-  const ok = await verifyPassword(password, result.row?.password_hash ?? dummyHash());
-  if (!result.row || !ok) {
-    await withUser(null, (tx) => tx.query("select auth_note_failure($1)", [email]));
-    throw new AppError("invalid_credentials", "That email and password don't match.", 401);
+  const b = await body(req, Schema);
+  await rateLimit(`signin:${b.email}`, 8, 15);
+  const u = await db.one<{ id: string; pw_hash: string }>("select id, pw_hash from users where email = $1", [b.email]);
+  const ok = await verifyPassword(b.password, u?.pw_hash ?? DUMMY_HASH);
+  if (!u || !ok) {
+    await recordAttempt(`signin:${b.email}`);
+    throw new AppError("bad_login", "That email and password don't match.", 401);
   }
-  await startSession(result.row.user_id);
+  await startSession(u.id);
   return json({ ok: true });
 });
+
+export const dynamic = "force-dynamic";
