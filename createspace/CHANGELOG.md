@@ -2,7 +2,12 @@
 
 All notable changes to CreateSpace. Versions follow [Semantic Versioning](https://semver.org).
 
-## [0.1.0] Foundation (2026-11-24)
+## [0.1.0] Foundation (2026-11-24, redesigned 2026-11-25)
+
+### Changed (2026-11-25)
+- Redesigned to a launcher style: soft grey background, rounded panels, square pastel tool tiles with large icons, pill-shaped controls, rounded Nunito font.
+- Replaced the sidebar with a pill top bar and a bottom tab bar on all screen sizes; categories open in a sheet.
+- "Request a tool" is now a dashed tile at the end of the grid.
 
 ### Added
 - CreateSpace brand: wordmark, crop-mark symbol, favicon, warm off-white light theme and deep charcoal dark theme, per-tool accent colors.

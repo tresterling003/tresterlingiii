@@ -4,6 +4,7 @@ import { ToolGrid } from '@/components/tools/ToolCard';
 import { ToolPageLayout } from '@/components/tools/ToolPageLayout';
 import { ToolUnavailable } from '@/components/tools/ToolUnavailable';
 import { SectionHeader } from '@/components/ui/PageHeader';
+import { Panel } from '@/components/ui/Panel';
 import { getCategory } from '@/tools/categories';
 import { getTool, toolsInCategory } from '@/tools/registry';
 import { STATUS } from '@/tools/status';
@@ -24,15 +25,15 @@ export function ToolPage() {
       footer={
         !Workspace &&
         related.length > 0 && (
-          <section aria-labelledby="related-heading">
+          <Panel label="Related tools">
             <SectionHeader id="related-heading" title={`More ${getCategory(tool.category).name.toLowerCase()} tools`} />
             <ToolGrid tools={related} label="Related tools" />
-          </section>
+          </Panel>
         )
       }
     >
       {Workspace ? (
-        <Suspense fallback={<div className="min-h-[340px] animate-pulse rounded-lg bg-surface-2" aria-label="Loading tool" />}>
+        <Suspense fallback={<div className="panel min-h-[340px] animate-pulse" aria-label="Loading tool" />}>
           <Workspace />
         </Suspense>
       ) : (

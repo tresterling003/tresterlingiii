@@ -1,77 +1,100 @@
-import type { CSSProperties } from 'react';
+import { Plus } from 'lucide-react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
-import { StatusBadge, Badge } from '@/components/ui/Badge';
-import { getCategory } from '@/tools/categories';
 import { cn } from '@/lib/cn';
+import { STATUS } from '@/tools/status';
 import type { ToolDefinition } from '@/tools/types';
 import { BookmarkButton } from './BookmarkButton';
-import { ToolIcon } from './ToolIcon';
+
+const tileBase =
+  'group relative flex aspect-square flex-col items-center justify-center rounded-[22px] px-1.5 pt-3 pb-2 text-center transition-transform duration-200 ease-out hover:-translate-y-1 hover:scale-[1.03] active:scale-[0.97] has-[a:focus-visible]:outline-[3px] has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand';
+
+/** Small status pill under the tile's name, e.g. "Coming soon". */
+function TileChip({ children }: { children: ReactNode }) {
+  return (
+    <span className="mt-1.5 rounded-full bg-white/70 px-2 py-[3px] text-[0.625rem] leading-none font-extrabold whitespace-nowrap tile-ink sm:text-[0.6875rem] dark:bg-black/25">
+      {children}
+    </span>
+  );
+}
 
 /**
- * One tool in a grid. The whole card is clickable (via the stretched title link),
- * while the bookmark button stays independently clickable on top.
+ * A tool as a square pastel tile: big icon, name, status chip and bookmark.
+ * The whole tile is clickable (stretched link); the bookmark stays separately clickable on top.
  */
-export function ToolCard({ tool }: { tool: ToolDefinition }) {
-  const category = getCategory(tool.category);
+export function ToolTile({ tool }: { tool: ToolDefinition }) {
+  const Icon = tool.icon;
   return (
-    <article
-      style={{ '--accent': tool.accent } as CSSProperties}
-      className="group relative flex flex-col rounded-lg border border-line bg-surface p-4 shadow-card transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--accent)_45%,var(--color-line))] hover:shadow-lift has-[a:focus-visible]:border-(--accent)"
-    >
-      {/* Crop-mark corners in the tool's accent, echoing the CreateSpace logo. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-px -left-px size-3 rounded-tl-lg border-t-2 border-l-2 border-(--accent) opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-has-[a:focus-visible]:opacity-100"
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-px -bottom-px size-3 rounded-br-lg border-r-2 border-b-2 border-(--accent) opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-has-[a:focus-visible]:opacity-100"
-      />
+    <article style={{ '--accent': tool.accent } as CSSProperties} title={tool.description} className={cn(tileBase, 'tile')}>
+      <BookmarkButton tool={tool} variant="tile" className="absolute top-1 right-1" />
 
-      <div className="flex items-start justify-between gap-3">
-        <ToolIcon tool={tool} />
-        <BookmarkButton tool={tool} className="-mt-1 -mr-1.5" />
-      </div>
-
-      <h3 className="mt-3 font-display text-base leading-snug font-semibold">
-        <Link
-          to={tool.route}
-          className="outline-none after:absolute after:inset-0 after:rounded-lg after:content-['']"
-        >
-          {tool.name}
+      <Icon
+        aria-hidden="true"
+        strokeWidth={2.3}
+        fill="currentColor"
+        fillOpacity={0.2}
+        className="size-[30%] tile-ink drop-shadow-[0_2px_0_rgb(255_255_255/0.5)] transition-transform duration-200 group-hover:scale-110 dark:drop-shadow-none"
+      />
+      <h3 className="mt-1.5 line-clamp-2 text-[0.8125rem] leading-tight font-extrabold tile-ink sm:mt-2 sm:text-sm">
+        <Link to={tool.route} className="outline-none after:absolute after:inset-0 after:rounded-[22px] after:content-['']">
+          {tool.shortName ?? tool.name}
+          {tool.shortName && <span className="sr-only"> ({tool.name})</span>}
         </Link>
       </h3>
-      <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">{tool.description}</p>
-
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
-        <span className="text-xs font-medium text-muted">{category.name}</span>
-        <span className="flex items-center gap-1.5">
-          {tool.tentative && <Badge tone="neutral">Tentative</Badge>}
-          <StatusBadge status={tool.status} />
-        </span>
-      </div>
+      <p className="sr-only">{tool.description}</p>
+      <TileChip>
+        {STATUS[tool.status].label}
+        {tool.tentative && <span className="sr-only">, tentative</span>}
+      </TileChip>
     </article>
+  );
+}
+
+/** Dashed "Request a tool" tile that sits at the end of the grid. */
+export function RequestTile() {
+  return (
+    <Link
+      to="/request-tool"
+      style={{ '--accent': '#8A8794' } as CSSProperties}
+      className={cn(tileBase, 'border-2 border-dashed border-line-strong bg-surface/40 text-muted hover:border-muted hover:text-fg')}
+    >
+      <Plus aria-hidden="true" strokeWidth={2.5} className="size-[28%]" />
+      <span className="mt-1.5 text-[0.8125rem] leading-tight font-extrabold sm:mt-2 sm:text-sm">Request a tool</span>
+      <span className="mt-1.5 rounded-full border border-dashed border-line-strong px-2 py-[2px] text-[0.625rem] leading-none font-extrabold sm:text-[0.6875rem]">
+        Planned
+      </span>
+    </Link>
   );
 }
 
 interface GridProps {
   tools: ToolDefinition[];
   label?: string;
-  /** "narrow" when the grid shares the row with a sidebar column (dashboard). */
-  width?: 'full' | 'narrow';
+  /** Append the "Request a tool" tile. */
+  withRequest?: boolean;
+  /** Fewer columns, for narrower spaces. */
+  compact?: boolean;
 }
 
-export function ToolGrid({ tools, label, width = 'full' }: GridProps) {
+export function ToolGrid({ tools, label, withRequest = false, compact = false }: GridProps) {
   return (
     <ul
       aria-label={label}
-      className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2', width === 'full' ? 'xl:grid-cols-3' : '2xl:grid-cols-3')}
+      className={cn(
+        'grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4',
+        compact ? 'lg:grid-cols-4' : 'lg:grid-cols-5',
+      )}
     >
       {tools.map((tool, i) => (
-        <li key={tool.id} className="flex animate-fade-up *:flex-1" style={{ animationDelay: `${Math.min(i, 10) * 18}ms` }}>
-          <ToolCard tool={tool} />
+        <li key={tool.id} data-tool={tool.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 14) * 22}ms` }}>
+          <ToolTile tool={tool} />
         </li>
       ))}
+      {withRequest && (
+        <li className="animate-fade-up" style={{ animationDelay: `${Math.min(tools.length, 14) * 22}ms` }}>
+          <RequestTile />
+        </li>
+      )}
     </ul>
   );
 }

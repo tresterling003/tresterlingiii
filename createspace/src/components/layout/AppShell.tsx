@@ -1,113 +1,185 @@
-import { Menu, X } from 'lucide-react';
+import { ArrowRight, Settings } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, ScrollRestoration, useLocation } from 'react-router';
-import { Logo } from '@/components/brand/Logo';
+import { LogoMark } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { SidebarNav } from './SidebarNav';
+import { UPDATES } from '@/data/updates';
+import { cn } from '@/lib/cn';
+import { useFavorites } from '@/state/FavoritesProvider';
+import { CATEGORY_LINKS, TABS } from './navigation';
 
-/**
- * The frame around every page:
- * - desktop (≥1024px): fixed sidebar on the left
- * - tablet and phone: a slim top bar with a menu button that opens the same navigation as a drawer
- */
-export function AppShell() {
-  const [menuOpen, setMenuOpen] = useState(false);
+const roundButton =
+  'grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card transition-[transform,background-color] duration-150 hover:bg-surface-2 active:scale-95';
+
+/** Pill-shaped top bar: logo, latest-update pill, theme and settings buttons. */
+function TopBar() {
+  const latest = UPDATES[0];
+  return (
+    <header className="mx-auto flex w-full max-w-[960px] items-center gap-2.5 px-4 pt-4 sm:gap-3 sm:px-6 sm:pt-6">
+      <Link
+        to="/"
+        aria-label="CreateSpace home"
+        className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-surface pr-4 pl-1.5 shadow-card transition-transform active:scale-[0.97]"
+      >
+        <LogoMark className="size-8" />
+        <span className="text-[1.0625rem] font-extrabold tracking-tight">
+          Create<span className="font-semibold">Space</span>
+        </span>
+      </Link>
+
+      <Link
+        to="/whats-new"
+        className="group hidden h-11 min-w-0 flex-1 items-center gap-3 rounded-full bg-surface pr-3 pl-4 text-sm text-muted shadow-card transition-colors hover:text-fg md:flex"
+      >
+        <span className="size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+        <span className="truncate">
+          <span className="font-bold text-fg">New in v{latest.version}:</span> {latest.highlights[0]}
+        </span>
+        <ArrowRight className="ml-auto size-4 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </Link>
+
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+        <ThemeToggle className={roundButton} />
+        <Link to="/settings" aria-label="Settings" title="Settings" className={roundButton}>
+          <Settings className="size-[18px]" aria-hidden="true" />
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+/** Bottom tab bar (all screen sizes) with a pop-up sheet for categories. */
+function TabBar() {
   const { pathname } = useLocation();
-  const menuButton = useRef<HTMLButtonElement>(null);
-  const drawer = useRef<HTMLDivElement>(null);
+  const { ids } = useFavorites();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheet = useRef<HTMLDivElement>(null);
+  const sheetButton = useRef<HTMLButtonElement>(null);
 
-  // Close the drawer whenever the page changes.
-  useEffect(() => setMenuOpen(false), [pathname]);
+  useEffect(() => setSheetOpen(false), [pathname]);
 
-  // While the drawer is open: Escape closes it, focus moves inside, and the page behind can't scroll.
+  // While the sheet is open: Escape closes it and focus moves into it.
   useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSheetOpen(false);
     document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    drawer.current?.querySelector<HTMLElement>('a[aria-current="page"], a')?.focus();
-    const button = menuButton.current;
+    sheet.current?.querySelector<HTMLElement>('a')?.focus();
+    const button = sheetButton.current;
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
       button?.focus();
     };
-  }, [menuOpen]);
+  }, [sheetOpen]);
 
-  // Close the drawer if the window is widened to desktop size.
-  useEffect(() => {
-    const m = window.matchMedia('(min-width: 1024px)');
-    const onChange = () => m.matches && setMenuOpen(false);
-    m.addEventListener('change', onChange);
-    return () => m.removeEventListener('change', onChange);
-  }, []);
+  const tabClass = (active: boolean) =>
+    cn(
+      'relative flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[0.6875rem] font-bold transition-colors duration-150 sm:text-xs',
+      active ? 'bg-surface-2 text-fg' : 'text-muted hover:text-fg',
+    );
 
   return (
-    <div className="min-h-dvh lg:pl-64">
-      <a
-        href="#main"
-        className="sr-only z-50 rounded-md bg-ink px-3 py-2 text-sm text-ink-contrast focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-      >
-        Skip to content
-      </a>
-
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-line bg-surface lg:block">
-        <SidebarNav />
-      </aside>
-
-      {/* Compact top bar (tablet & phone) */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-line bg-canvas/90 px-2 backdrop-blur-sm sm:px-4 lg:hidden">
-        <button
-          ref={menuButton}
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-          aria-expanded={menuOpen}
-          aria-controls="mobile-nav"
-          className="grid size-10 place-items-center rounded-md text-fg hover:bg-surface-2"
-        >
-          <Menu className="size-5" aria-hidden="true" />
-        </button>
-        <Link to="/" aria-label="CreateSpace home" className="rounded-md">
-          <Logo />
-        </Link>
-        <ThemeToggle className="size-10" />
-      </header>
-
-      {/* Mobile drawer */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+    <>
+      {sheetOpen && (
+        <div className="fixed inset-0 z-40" aria-hidden="false">
+          <div className="absolute inset-0 animate-fade-in bg-black/25" onClick={() => setSheetOpen(false)} aria-hidden="true" />
           <div
-            ref={drawer}
-            id="mobile-nav"
+            ref={sheet}
+            id="categories-sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Navigation"
-            className="absolute inset-y-0 left-0 flex w-[min(18rem,85vw)] animate-drawer-in flex-col border-r border-line bg-surface shadow-lift"
+            aria-label="Categories"
+            className="panel absolute inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] mx-auto max-w-md animate-fade-up p-3"
           >
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <Logo showTagline />
-              <button
-                type="button"
-                onClick={() => setMenuOpen(false)}
-                aria-label="Close menu"
-                className="grid size-9 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
-              >
-                <X className="size-5" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1">
-              <SidebarNav showLogo={false} />
-            </div>
+            <ul className="grid gap-1">
+              {CATEGORY_LINKS.map((c) => {
+                const active = c.match(pathname);
+                const Icon = c.icon;
+                return (
+                  <li key={c.id}>
+                    <Link
+                      to={c.to}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'flex h-12 items-center gap-3 rounded-2xl px-3 font-bold transition-colors',
+                        active ? 'bg-surface-2' : 'hover:bg-surface-2',
+                      )}
+                    >
+                      <span className="grid size-8 place-items-center rounded-xl bg-surface shadow-card">
+                        <Icon className="size-4" aria-hidden="true" />
+                      </span>
+                      {c.navLabel}
+                      <span className="ml-auto text-sm font-semibold text-muted tabular-nums">{c.count}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       )}
 
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1280px] px-4 pt-6 pb-16 outline-none sm:px-6 lg:px-10 lg:pt-10">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm">
+        <nav aria-label="Main" className="mx-auto flex max-w-[960px] gap-1 px-2 py-1.5">
+          {TABS.map((tab) => {
+            const active = tab.match(pathname);
+            const Icon = tab.icon;
+            const inner = (
+              <>
+                <Icon className="size-5" aria-hidden="true" strokeWidth={2.2} />
+                <span className="max-w-full truncate px-0.5">{tab.label}</span>
+                {tab.to === '/favorites' && ids.length > 0 && (
+                  <span
+                    className="absolute top-1.5 left-[calc(50%+6px)] grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[0.625rem] font-extrabold text-white tabular-nums"
+                    aria-label={`${ids.length} saved`}
+                  >
+                    {ids.length}
+                  </span>
+                )}
+              </>
+            );
+            return tab.to === 'categories' ? (
+              <button
+                key={tab.label}
+                ref={sheetButton}
+                type="button"
+                onClick={() => setSheetOpen((o) => !o)}
+                aria-expanded={sheetOpen}
+                aria-controls="categories-sheet"
+                className={tabClass(active || sheetOpen)}
+              >
+                {inner}
+              </button>
+            ) : (
+              <Link key={tab.label} to={tab.to} aria-current={active ? 'page' : undefined} className={tabClass(active)}>
+                {inner}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </>
+  );
+}
+
+/** The frame around every page: pill top bar, page content, bottom tab bar. */
+export function AppShell() {
+  return (
+    <div className="min-h-dvh">
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-full bg-ink px-4 py-2 text-sm font-bold text-ink-contrast focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Skip to content
+      </a>
+      <TopBar />
+      <main
+        id="main"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-[960px] px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] outline-none sm:px-6 sm:pt-8"
+      >
         <Outlet />
       </main>
+      <TabBar />
       <ScrollRestoration />
     </div>
   );

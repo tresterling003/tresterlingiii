@@ -6,12 +6,12 @@ import type { ToolDefinition } from '@/tools/types';
 
 interface Props {
   tool: ToolDefinition;
-  /** "icon" for cards; "labeled" shows text too (tool pages). */
-  variant?: 'icon' | 'labeled';
+  /** "tile" sits in a tool tile's corner; "labeled" shows text too (tool pages). */
+  variant?: 'tile' | 'labeled';
   className?: string;
 }
 
-export function BookmarkButton({ tool, variant = 'icon', className }: Props) {
+export function BookmarkButton({ tool, variant = 'tile', className }: Props) {
   const { isFavorite, toggle } = useFavorites();
   const saved = isFavorite(tool.id);
   const [popKey, setPopKey] = useState(0);
@@ -29,18 +29,23 @@ export function BookmarkButton({ tool, variant = 'icon', className }: Props) {
         toggle(tool.id);
       }}
       className={cn(
-        'relative z-10 inline-flex shrink-0 items-center justify-center gap-2 rounded-md transition-colors duration-150',
-        variant === 'icon'
-          ? 'size-9 hover:bg-surface-2'
-          : 'h-10 border border-line bg-surface px-3.5 text-sm font-medium shadow-card hover:border-line-strong hover:bg-surface-2',
-        saved ? 'text-brand' : 'text-muted hover:text-fg',
+        'z-10 inline-flex shrink-0 items-center justify-center gap-2 rounded-full transition-[background-color,color,opacity] duration-150',
+        variant === 'tile'
+          ? cn(
+              'size-9 hover:bg-white/60 dark:hover:bg-black/25',
+              saved ? 'text-brand' : 'tile-ink opacity-60 hover:opacity-100 focus-visible:opacity-100',
+            )
+          : cn(
+              'relative h-11 border border-line bg-surface px-4 text-sm font-bold shadow-card hover:bg-surface-2',
+              saved ? 'text-brand' : 'text-muted hover:text-fg',
+            ),
         className,
       )}
     >
       <Bookmark
         key={popKey}
         aria-hidden="true"
-        className={cn('size-[18px]', popKey > 0 && saved && 'animate-pop')}
+        className={cn(variant === 'tile' ? 'size-4' : 'size-[18px]', popKey > 0 && saved && 'animate-pop')}
         fill={saved ? 'currentColor' : 'none'}
         strokeWidth={2}
       />

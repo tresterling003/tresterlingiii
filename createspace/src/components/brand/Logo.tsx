@@ -26,7 +26,7 @@ export function Logo({ className, showTagline = false }: { className?: string; s
     <span className={cn('flex items-center gap-2.5', className)}>
       <LogoMark className="size-8" />
       <span className="flex flex-col leading-none">
-        <span className="font-display text-[1.1875rem] font-bold tracking-[-0.03em]">
+        <span className="text-[1.1875rem] font-extrabold tracking-tight">
           Create<span className="font-medium">Space</span>
         </span>
         {showTagline && <span className="mt-1 text-[0.6875rem] text-muted">Make space for creativity</span>}

@@ -2,6 +2,7 @@ import { useParams } from 'react-router';
 import { NoResults } from '@/components/tools/NoResults';
 import { ToolGrid } from '@/components/tools/ToolCard';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Panel } from '@/components/ui/Panel';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useToolFilters } from '@/hooks/useToolFilters';
@@ -25,7 +26,7 @@ function CategoryView({ categoryId }: { categoryId: CategoryId }) {
   const Icon = category.icon;
 
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow={
           <span className="inline-flex items-center gap-1.5">
@@ -35,22 +36,23 @@ function CategoryView({ categoryId }: { categoryId: CategoryId }) {
         title={category.navLabel}
         description={category.description}
       />
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        shortcut
-        label={`Search ${category.navLabel}`}
-        placeholder={`Search ${category.name.toLowerCase()} tools`}
-        className="mt-6 max-w-xl"
-      />
-      <p aria-live="polite" className="mt-5 mb-3 text-sm text-muted">
-        {results.length} of {tools.length} tools
-      </p>
-      {results.length > 0 ? (
-        <ToolGrid tools={results} label={category.navLabel} />
-      ) : (
-        <NoResults query={query} category={categoryId} onClearQuery={() => setQuery('')} />
-      )}
+      <Panel label={category.navLabel}>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          shortcut
+          label={`Search ${category.navLabel}`}
+          placeholder={`Search ${category.name.toLowerCase()} tools`}
+        />
+        <p aria-live="polite" className="mt-5 mb-3 px-1 text-sm font-bold text-muted">
+          {results.length} of {tools.length} tools
+        </p>
+        {results.length > 0 ? (
+          <ToolGrid tools={results} label={category.navLabel} />
+        ) : (
+          <NoResults query={query} category={categoryId} onClearQuery={() => setQuery('')} />
+        )}
+      </Panel>
     </div>
   );
 }

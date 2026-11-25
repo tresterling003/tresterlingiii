@@ -40,9 +40,9 @@ npm run dev        # start the development server, then open the printed address
 
 ## Current features (0.1.0)
 
-- **Dashboard** (home page): greeting, search, your Favorites, every tool with category filters, What's New and a *Request a Tool* entry point (marked **Planned**)
-- **Navigation**: sidebar on desktop; top bar + slide-out menu on tablets and phones
-- **Tool cards**: name, icon, description, category, bookmark button and status for each tool, each with its own accent color
+- **Launcher-style dashboard**: a soft grey page with one big rounded panel holding a grid of square pastel tool tiles (5 across on desktop, 4 on tablets, 3 on phones), plus search, category pills, Favorites, What's New and a *Request a Tool* tile (marked **Planned**)
+- **Navigation**: pill-shaped top bar (logo, latest-update pill, theme, settings) and a bottom tab bar on every screen size: Home, All Tools, Favorites, Categories (opens a sheet), What's New, Settings
+- **Tool tiles**: big icon, name, status (*Coming soon*) and bookmark button; each tile takes its pastel color from the tool's accent. Descriptions appear on hover and on the tool's page
 - **Favorites**: bookmark or un-bookmark any tool; saved in the browser and kept after refresh
 - **Search**: live, matches names, descriptions, categories and keywords (press `/` to jump to search)
 - **Category filters** and dedicated category pages
@@ -68,8 +68,8 @@ createspace/
     │   └── types.ts             The shape every tool entry must have
     ├── components/
     │   ├── brand/Logo.tsx       Wordmark + symbol
-    │   ├── layout/              App shell, sidebar, mobile drawer, nav config
-    │   ├── tools/               ToolCard, ToolGrid, BookmarkButton, CategoryFilter, ToolPageLayout, …
+    │   ├── layout/              App shell (top bar, bottom tab bar, categories sheet), nav config
+    │   ├── tools/               ToolTile + ToolGrid (ToolCard.tsx), BookmarkButton, CategoryFilter, ToolPageLayout, …
     │   └── ui/                  Generic pieces: Button, Badge, SearchInput, EmptyState, PageHeader, ThemeToggle
     ├── pages/                 One file per page
     ├── state/                 ThemeProvider, FavoritesProvider (app-wide state)
@@ -95,7 +95,7 @@ only shown when its status is *beta* or *available*, so an unfinished tool can't
 - **Search and filters live in the address bar** (`?q=color&category=creative`), so Back, refresh and shared links keep them.
 - **Saved data goes through `src/lib/storage.ts`.** Keys are namespaced (`createspace:v1:…`), bad data is ignored rather than crashing, and when accounts and cloud sync arrive this is the one file to change.
 - **Semantic color tokens** (`bg-surface`, `text-muted` …) in `styles/index.css` define both themes in one place.
-- **Fonts are bundled** (Inter + Bricolage Grotesque via Fontsource), with no calls to outside font services.
+- **Fonts are bundled** (Nunito via Fontsource), with no calls to outside font services.
 - **Tools load on demand.** Each tool's code downloads only when someone opens it, which keeps the dashboard fast as tools are added.
 
 ## Hosting note

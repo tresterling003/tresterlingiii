@@ -20,7 +20,7 @@ export function CategoryFilter({ value, onChange, className }: Props) {
     <div
       role="group"
       aria-label="Filter by category"
-      className={cn('-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0', className)}
+      className={cn('-mx-3.5 flex gap-1.5 overflow-x-auto px-3.5 py-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0', className)}
     >
       {options.map((opt) => {
         const active = value === opt.id;
@@ -31,10 +31,10 @@ export function CategoryFilter({ value, onChange, className }: Props) {
             aria-pressed={active}
             onClick={() => onChange(opt.id)}
             className={cn(
-              'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors duration-150',
+              'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition-[background-color,color,transform] duration-150 active:scale-95',
               active
-                ? 'border-ink bg-ink text-ink-contrast'
-                : 'border-line bg-surface text-muted hover:border-line-strong hover:text-fg',
+                ? 'bg-ink text-ink-contrast shadow-card'
+                : 'bg-surface text-muted shadow-card hover:text-fg',
             )}
           >
             {opt.label}

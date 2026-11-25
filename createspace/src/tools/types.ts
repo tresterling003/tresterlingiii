@@ -15,6 +15,8 @@ export interface ToolDefinition {
   /** Unique, URL-safe id. Also used as the favorites key, so never rename a published id. */
   id: string;
   name: string;
+  /** Shorter label for small tiles (defaults to name). */
+  shortName?: string;
   /** One short sentence describing what the tool does. */
   description: string;
   category: CategoryId;

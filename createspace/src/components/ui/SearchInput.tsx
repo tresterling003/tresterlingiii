@@ -46,7 +46,7 @@ export function SearchInput({
       </label>
       <Search
         aria-hidden="true"
-        className={cn('pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted', size === 'lg' ? 'left-4 size-5' : 'left-3 size-4')}
+        className={cn('pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted', size === 'lg' ? 'left-4 size-5' : 'left-3.5 size-[18px]')}
       />
       <input
         ref={ref}
@@ -64,10 +64,10 @@ export function SearchInput({
           }
         }}
         className={cn(
-          'peer w-full rounded-lg border border-line bg-surface text-fg shadow-card transition-[border-color,box-shadow] duration-150 outline-none placeholder:text-muted/80',
-          'hover:border-line-strong focus:border-fg/40 focus:ring-4 focus:ring-brand/15',
+          'peer w-full rounded-full border border-transparent bg-surface font-semibold text-fg shadow-card transition-[border-color,box-shadow] duration-150 outline-none placeholder:text-muted/80',
+          'hover:border-line focus:border-line-strong focus:ring-4 focus:ring-brand/15 placeholder:font-medium',
           '[&::-webkit-search-cancel-button]:appearance-none',
-          size === 'lg' ? 'h-13 pr-24 pl-12 text-base' : 'h-10 pr-20 pl-9 text-sm',
+          size === 'lg' ? 'h-12 pr-20 pl-12 text-base' : 'h-11 pr-20 pl-10 text-[0.9375rem]',
         )}
       />
       <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1">
@@ -79,7 +79,7 @@ export function SearchInput({
               ref.current?.focus();
             }}
             aria-label="Clear search"
-            className="grid size-8 place-items-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            className="grid size-8 place-items-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -88,7 +88,7 @@ export function SearchInput({
             <kbd
               aria-hidden="true"
               title='Press "/" to search'
-              className="mr-1 hidden h-6 min-w-6 place-items-center rounded border border-line bg-surface-2 px-1.5 font-sans text-xs text-muted sm:grid"
+              className="mr-1.5 hidden h-6 min-w-6 place-items-center rounded-md border border-line bg-surface-2 px-1.5 font-sans text-xs text-muted sm:grid"
             >
               /
             </kbd>

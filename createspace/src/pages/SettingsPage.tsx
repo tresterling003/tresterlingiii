@@ -15,7 +15,7 @@ function Row({ title, description, children }: { title: string; description: Rea
   return (
     <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="max-w-md">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-[0.9375rem] font-extrabold">{title}</h3>
         <p className="mt-1 text-sm leading-relaxed text-muted">{description}</p>
       </div>
       <div className="shrink-0">{children}</div>
@@ -26,8 +26,8 @@ function Row({ title, description, children }: { title: string; description: Rea
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title}>
-      <h2 className="mb-2 font-display text-lg font-semibold">{title}</h2>
-      <div className="divide-y divide-line rounded-lg border border-line bg-surface shadow-card">{children}</div>
+      <h2 className="mb-2 px-1 font-display text-lg">{title}</h2>
+      <div className="panel divide-y divide-line">{children}</div>
     </section>
   );
 }
@@ -75,18 +75,18 @@ export function SettingsPage() {
   const count = favorites.ids.length;
 
   return (
-    <div className="max-w-3xl animate-fade-up">
+    <div className="animate-fade-up">
       <PageHeader title="Settings" description="Preferences are saved in this browser only." />
 
       <div className="mt-8 space-y-8">
         <Panel title="Appearance">
           <Row title="Theme" description="Choose light or dark, or follow your device’s setting.">
-            <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-lg border border-line bg-surface-2 p-1">
+            <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-full bg-surface-2 p-1">
               {themeOptions.map(({ value, label, icon: Icon }) => (
                 <label
                   key={value}
                   className={cn(
-                    'relative inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand',
+                    'relative inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand',
                     preference === value ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg',
                   )}
                 >
@@ -158,7 +158,7 @@ export function SettingsPage() {
           {notice}
         </p>
 
-        <p className="text-sm text-muted">
+        <p className="px-1 text-sm text-muted">
           CreateSpace v{APP_VERSION} ·{' '}
           <Link to="/whats-new" className="underline decoration-line-strong underline-offset-2 hover:text-fg">
             What’s New

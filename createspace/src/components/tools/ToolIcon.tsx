@@ -3,9 +3,9 @@ import { cn } from '@/lib/cn';
 import type { ToolDefinition } from '@/tools/types';
 
 const sizes = {
-  sm: 'size-8 rounded-md [&_svg]:size-4',
-  md: 'size-10 rounded-lg [&_svg]:size-5',
-  lg: 'size-14 rounded-xl [&_svg]:size-7',
+  sm: 'size-8 rounded-xl [&_svg]:size-4',
+  md: 'size-11 rounded-2xl [&_svg]:size-5',
+  lg: 'size-20 rounded-[22px] [&_svg]:size-9 sm:size-24 sm:[&_svg]:size-11',
 };
 
 /** The tool's icon on a soft tile of its accent color. */
@@ -16,14 +16,12 @@ export function ToolIcon({ tool, size = 'md', className }: { tool: ToolDefinitio
       aria-hidden="true"
       style={{ '--accent': tool.accent } as CSSProperties}
       className={cn(
-        'grid shrink-0 place-items-center',
-        'bg-[color-mix(in_oklab,var(--accent)_13%,transparent)] text-(--accent)',
-        'dark:bg-[color-mix(in_oklab,var(--accent)_20%,transparent)] dark:text-[color-mix(in_oklab,var(--accent)_70%,white)]',
+        'tile grid shrink-0 place-items-center tile-ink',
         sizes[size],
         className,
       )}
     >
-      <Icon strokeWidth={2} />
+      <Icon strokeWidth={2.3} fill="currentColor" fillOpacity={0.2} />
     </span>
   );
 }

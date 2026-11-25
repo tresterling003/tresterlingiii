@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "CreateSpace \u2014 an all-in-one toolbox for creative professionals. Make space for creativity.",
+  "description": "CreateSpace — an all-in-one toolbox for creative professionals. Make space for creativity.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -14,8 +14,7 @@
     "build:embedded": "tsc --noEmit && vite build --mode embedded --base ./ --outDir dist-embedded --emptyOutDir"
   },
   "dependencies": {
-    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
-    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/nunito": "^5.3.0",
     "lucide-react": "^1.79.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

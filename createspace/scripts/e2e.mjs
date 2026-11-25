@@ -49,7 +49,8 @@ async function run({ label, ...ctxOptions }) {
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(over <= 1, `horizontal overflow of ${over}px on ${where}`);
   };
-  const cards = () => page.locator('main ul[aria-label="All tools"] > li, main ul[aria-label="Search results"] > li');
+  // Tool tiles only (the "Request a tool" tile has no data-tool).
+  const cards = () => page.locator('main ul[aria-label="All tools"] > li[data-tool], main ul[aria-label="Search results"] > li[data-tool]');
 
   // ---- App starts, dashboard renders
   await page.goto(URL + '/');
@@ -60,7 +61,7 @@ async function run({ label, ...ctxOptions }) {
   check('dashboard loads with all 14 tools');
 
   // ---- Every tool is clearly labelled as not yet available
-  const badges = await page.locator('main ul[aria-label="All tools"]').getByText(/^(Coming soon|In development)$/).count();
+  const badges = await page.locator('main ul[aria-label="All tools"] > li[data-tool]', { hasText: /Coming soon|In development/ }).count();
   assert.equal(badges, 14, 'every card shows Coming soon / In development');
   await expectCount(page.getByText(/^Available$/), 0);
   check('all unfinished tools labelled Coming soon');
@@ -126,14 +127,16 @@ async function run({ label, ...ctxOptions }) {
   await shot('03-favorites-on-dashboard');
   check('bookmarking works and persists after refresh');
 
-  // ---- Navigation: every nav link (via drawer on smaller screens)
+  // ---- Navigation: every tab in the bottom bar, plus the Categories sheet
+  const tabs = page.getByRole('navigation', { name: 'Main' });
   const nav = async (name) => {
-    if (!desktop) {
-      await page.getByRole('button', { name: 'Open menu' }).click();
-      await page.getByRole('dialog', { name: 'Navigation' }).waitFor();
+    if (name.endsWith(' Tools') && name !== 'All Tools') {
+      await tabs.getByRole('button', { name: 'Categories' }).click();
+      await page.getByRole('dialog', { name: 'Categories' }).getByRole('link', { name: new RegExp(`^${name}`) }).click();
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+    } else {
+      await tabs.getByRole('link', { name: new RegExp(`^${name}`) }).click();
     }
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: new RegExp(`^${name}`) }).click();
-    if (!desktop) await page.getByRole('dialog').waitFor({ state: 'detached' });
   };
   const routes = [
     ['All Tools', '/tools', 'All Tools'],
@@ -150,19 +153,27 @@ async function run({ label, ...ctxOptions }) {
     await nav(link);
     await page.waitForURL(URL + path);
     await page.getByRole('heading', { level: 1, name: heading }).waitFor();
-    const active = page.getByRole('navigation', { name: 'Main' }).locator('[aria-current="page"]');
-    if (desktop) assert.match(await active.innerText(), new RegExp(link), `${link} highlighted`);
+    if (path.startsWith('/category/')) {
+      // the Categories tab is highlighted (it's a button, so check its style state via the sheet instead)
+      await tabs.getByRole('button', { name: 'Categories' }).click();
+      const current = page.getByRole('dialog', { name: 'Categories' }).locator('[aria-current="page"]');
+      assert.match(await current.innerText(), new RegExp(link), `${link} highlighted`);
+      await page.keyboard.press('Escape');
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+    } else {
+      assert.match(await tabs.locator('[aria-current="page"]').innerText(), new RegExp(link), `${link} highlighted`);
+    }
     await noOverflow(path);
   }
-  check('all 9 navigation links reach the right page and highlight');
+  check('all 9 navigation destinations reach the right page and highlight');
+  check('categories sheet opens and closes with Escape');
 
-  if (!desktop) {
-    await page.getByRole('button', { name: 'Open menu' }).click();
-    await shot('04-mobile-menu');
-    await page.keyboard.press('Escape');
-    await page.getByRole('dialog').waitFor({ state: 'detached' });
-    check('mobile drawer opens and closes with Escape');
-  }
+  // Top-bar shortcuts
+  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await page.getByRole('heading', { level: 1, name: 'Settings' }).waitFor();
+  await page.getByRole('link', { name: 'CreateSpace home' }).click();
+  await page.getByRole('heading', { level: 1, name: 'What are you making today?' }).waitFor();
+  check('top-bar logo and settings buttons work');
 
   // ---- Favorites page: remove a bookmark, empty state
   await page.goto(URL + '/favorites');
@@ -202,7 +213,7 @@ async function run({ label, ...ctxOptions }) {
 
   // ---- Request a tool, 404s
   await page.goto(URL + '/');
-  await page.getByRole('link', { name: 'Learn more' }).click();
+  await page.getByRole('link', { name: /Request a tool/ }).click();
   await page.getByRole('heading', { level: 1, name: 'Request a Tool' }).waitFor();
   await expectCount(page.locator('main form, main input, main textarea'), 0, 'no fake form');
   await page.goto(URL + '/tools/not-a-tool');

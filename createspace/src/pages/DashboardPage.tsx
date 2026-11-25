@@ -1,10 +1,9 @@
-import { ArrowRight, Bookmark, MessageSquarePlus } from 'lucide-react';
+import { ArrowRight, Bookmark } from 'lucide-react';
 import { Link } from 'react-router';
 import { CategoryFilter } from '@/components/tools/CategoryFilter';
 import { NoResults } from '@/components/tools/NoResults';
 import { ToolGrid } from '@/components/tools/ToolCard';
-import { Badge } from '@/components/ui/Badge';
-import { ButtonLink } from '@/components/ui/Button';
+import { Panel } from '@/components/ui/Panel';
 import { SectionHeader } from '@/components/ui/PageHeader';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { UPDATES, formatDate } from '@/data/updates';
@@ -26,109 +25,75 @@ export function DashboardPage() {
   const latest = UPDATES[0];
 
   return (
-    <div className="animate-fade-up">
-      <header className="max-w-3xl">
-        <p className="text-sm font-medium text-muted">{greeting()}</p>
-        <h1 className="mt-1 font-display text-[1.875rem] leading-tight font-bold sm:text-[2.25rem]">What are you making today?</h1>
+    <div className="space-y-5 sm:space-y-6">
+      <header className="animate-fade-up px-1">
+        <p className="text-sm font-bold text-muted">{greeting()}</p>
+        <h1 className="font-display text-[1.75rem] leading-tight sm:text-[2rem]">What are you making today?</h1>
       </header>
 
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        shortcut
-        size="lg"
-        placeholder={`Search ${TOOLS.length} tools by name, task or keyword`}
-        className="mt-5 max-w-3xl"
-      />
-
-      <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="min-w-0 space-y-10">
-          {!searching && (
-            <section aria-labelledby="favorites-heading">
-              <SectionHeader
-                id="favorites-heading"
-                title="Favorites"
-                count={favorites.tools.length || undefined}
-                actions={
-                  favorites.tools.length > 0 && (
-                    <Link to="/favorites" className="inline-flex items-center gap-1 rounded text-sm font-medium text-muted hover:text-fg">
-                      View all <ArrowRight className="size-3.5" aria-hidden="true" />
-                    </Link>
-                  )
-                }
-              />
-              {favorites.tools.length > 0 ? (
-                <ToolGrid tools={favorites.tools.slice(0, 6)} label="Favorite tools" width="narrow" />
-              ) : (
-                <div className="flex items-center gap-3 rounded-lg border border-dashed border-line-strong px-4 py-4 text-sm text-muted">
-                  <Bookmark className="size-4 shrink-0" aria-hidden="true" />
-                  <span>Bookmark the tools you use most and they’ll appear here.</span>
-                </div>
-              )}
-            </section>
-          )}
-
-          <section aria-labelledby="all-tools-heading">
+      {!searching &&
+        (favorites.tools.length > 0 ? (
+          <Panel label="Favorites" className="animate-fade-up">
             <SectionHeader
-              id="all-tools-heading"
-              title={searching ? 'Search results' : 'All tools'}
-              count={results.length}
+              id="favorites-heading"
+              title="Favorites"
+              count={favorites.tools.length}
+              actions={
+                <Link to="/favorites" className="inline-flex items-center gap-1 rounded-full text-sm font-bold text-muted hover:text-fg">
+                  View all <ArrowRight className="size-3.5" aria-hidden="true" />
+                </Link>
+              }
             />
-            <CategoryFilter value={category} onChange={setCategory} className="mb-4" />
-            <div aria-live="polite" className="sr-only">
-              {results.length} {results.length === 1 ? 'tool' : 'tools'} found
-            </div>
-            {results.length > 0 ? (
-              <ToolGrid tools={results} label={searching ? 'Search results' : 'All tools'} width="narrow" />
-            ) : (
-              <NoResults
-                query={query}
-                category={category}
-                onClearQuery={() => setQuery('')}
-                onClearCategory={() => setCategory(null)}
-              />
-            )}
-          </section>
+            <ToolGrid tools={favorites.tools} label="Favorite tools" />
+          </Panel>
+        ) : (
+          <p className="flex animate-fade-up items-center gap-2.5 rounded-full bg-surface/70 px-4 py-2.5 text-sm font-semibold text-muted shadow-card">
+            <Bookmark className="size-4 shrink-0" aria-hidden="true" />
+            Bookmark the tools you use most and they’ll appear here.
+          </p>
+        ))}
+
+      <Panel label="Tools" className="animate-fade-up">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          shortcut
+          placeholder={`Search ${TOOLS.length} tools`}
+        />
+        <CategoryFilter value={category} onChange={setCategory} className="mt-3" />
+        <div className="mt-5">
+          <SectionHeader id="all-tools-heading" title={searching ? 'Search results' : 'All tools'} count={results.length} />
+          <div aria-live="polite" className="sr-only">
+            {results.length} {results.length === 1 ? 'tool' : 'tools'} found
+          </div>
+          {results.length > 0 ? (
+            <ToolGrid
+              tools={results}
+              label={searching ? 'Search results' : 'All tools'}
+              withRequest={!searching && !category}
+            />
+          ) : (
+            <NoResults query={query} category={category} onClearQuery={() => setQuery('')} onClearCategory={() => setCategory(null)} />
+          )}
         </div>
+      </Panel>
 
-        <aside className="grid content-start gap-4 sm:grid-cols-2 xl:grid-cols-1" aria-label="Updates and requests">
-          <section aria-labelledby="whats-new-heading" className="rounded-lg border border-line bg-surface p-4 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-              <h2 id="whats-new-heading" className="font-display text-base font-semibold">What’s New</h2>
-              <Badge>v{latest.version}</Badge>
-            </div>
-            <p className="mt-2 text-sm font-medium">{latest.title}</p>
-            <p className="text-xs text-muted">{formatDate(latest.date)}</p>
-            <ul className="mt-3 space-y-1.5">
-              {latest.highlights.slice(0, 3).map((h) => (
-                <li key={h} className="flex gap-2 text-sm leading-snug text-muted">
-                  <span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-brand" />
-                  {h}
-                </li>
-              ))}
-            </ul>
-            <Link to="/whats-new" className="mt-3 inline-flex items-center gap-1 rounded text-sm font-medium hover:underline">
-              All updates <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Link>
-          </section>
-
-          <section aria-labelledby="request-heading" className="rounded-lg border border-line bg-surface p-4 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-              <h2 id="request-heading" className="flex items-center gap-2 font-display text-base font-semibold">
-                <MessageSquarePlus className="size-4 text-muted" aria-hidden="true" />
-                Request a tool
-              </h2>
-              <Badge tone="outline">Planned</Badge>
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Suggesting tools isn’t open yet. It’s on the roadmap.
-            </p>
-            <ButtonLink to="/request-tool" size="sm" className="mt-3">
-              Learn more
-            </ButtonLink>
-          </section>
-        </aside>
-      </div>
+      <Link
+        to="/whats-new"
+        aria-label={`What’s New: version ${latest.version}, ${latest.title}`}
+        className="group flex animate-fade-up items-center gap-3 rounded-[22px] bg-surface px-4 py-3.5 shadow-card transition-transform active:scale-[0.99]"
+      >
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-brand/12 text-sm font-extrabold text-brand">
+          {latest.version.split('.').slice(0, 2).join('.')}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-extrabold">What’s New · {latest.title}</span>
+          <span className="block truncate text-sm text-muted">
+            {formatDate(latest.date)} · {latest.highlights.slice(0, 2).join(' · ')}
+          </span>
+        </span>
+        <ArrowRight className="ml-auto size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </Link>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import type { ToolStatus } from '@/tools/types';
 type Tone = 'neutral' | 'amber' | 'green' | 'blue' | 'outline';
 
 const tones: Record<Tone, string> = {
-  neutral: 'bg-surface-2 text-muted',
+  neutral: 'bg-surface text-muted shadow-card',
   outline: 'border border-dashed border-line-strong text-muted',
   amber: 'bg-amber-100 text-amber-900 dark:bg-amber-400/15 dark:text-amber-200',
   green: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-200',
@@ -17,7 +17,7 @@ export function Badge({ tone = 'neutral', children, className }: { tone?: Tone; 
   return (
     <span
       className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium whitespace-nowrap',
+        'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold whitespace-nowrap',
         tones[tone],
         className,
       )}

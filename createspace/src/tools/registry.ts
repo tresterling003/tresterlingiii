@@ -166,6 +166,7 @@ const tools = [
   {
     id: 'rate-calculator',
     name: 'Rate Calculator & Project Estimator',
+    shortName: 'Rate Calculator',
     description: 'Work out your hourly rate and price projects with confidence.',
     category: 'business',
     icon: Calculator,

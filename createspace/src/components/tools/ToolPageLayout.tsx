@@ -28,8 +28,8 @@ export function ToolPageLayout({ tool, actions, children, footer }: Props) {
 
   return (
     <div style={{ '--accent': tool.accent } as CSSProperties} className="animate-fade-up">
-      <nav aria-label="Breadcrumb" className="mb-5">
-        <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
+      <nav aria-label="Breadcrumb" className="mb-4 px-1">
+        <ol className="flex flex-wrap items-center gap-1 text-sm font-bold text-muted">
           <li>
             <Link to="/tools" className="rounded hover:text-fg">
               All Tools
@@ -48,11 +48,11 @@ export function ToolPageLayout({ tool, actions, children, footer }: Props) {
         </ol>
       </nav>
 
-      <header className="flex flex-col gap-5 border-b border-line pb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 gap-4">
+      <header className="panel flex flex-col gap-5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex min-w-0 items-center gap-4 sm:gap-5">
           <ToolIcon tool={tool} size="lg" />
           <div className="min-w-0">
-            <h1 className="font-display text-[1.625rem] leading-tight font-bold sm:text-[2rem]">{tool.name}</h1>
+            <h1 className="font-display text-[1.625rem] leading-tight sm:text-[2rem]">{tool.name}</h1>
             <p className="mt-1.5 max-w-xl text-[0.9375rem] leading-relaxed text-muted">{tool.description}</p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <StatusBadge status={tool.status} />
@@ -67,11 +67,11 @@ export function ToolPageLayout({ tool, actions, children, footer }: Props) {
         </div>
       </header>
 
-      <section aria-label={`${tool.name} workspace`} className="mt-6">
+      <section aria-label={`${tool.name} workspace`} className="mt-5 sm:mt-6">
         {children}
       </section>
 
-      {footer && <div className="mt-10">{footer}</div>}
+      {footer && <div className="mt-5 sm:mt-6">{footer}</div>}
     </div>
   );
 }
