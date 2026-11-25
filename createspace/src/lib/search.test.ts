@@ -34,8 +34,8 @@ describe('filterTools', () => {
 
   it('matches category names', () => {
     const business = ids('business');
-    expect(business).toEqual(expect.arrayContaining(['rate-calculator', 'invoice-maker']));
-    expect(business).toHaveLength(2);
+    expect(business).toEqual(expect.arrayContaining(['business-dashboard', 'rate-calculator', 'invoice-maker']));
+    expect(business).toHaveLength(3);
   });
 
   it('requires every word to match', () => {
@@ -48,7 +48,7 @@ describe('filterTools', () => {
   });
 
   it('filters by category, alone and combined with search', () => {
-    expect(ids('', 'business')).toEqual(['rate-calculator', 'invoice-maker']);
+    expect(ids('', 'business')).toEqual(['business-dashboard', 'rate-calculator', 'invoice-maker']);
     expect(ids('timer', 'productivity')).toEqual(['focus-room']);
     expect(ids('timer', 'business')).toEqual([]);
   });
@@ -65,9 +65,10 @@ describe('registry', () => {
     }
   });
 
-  it('contains the 14 planned version-1 tools, none marked usable yet', () => {
-    expect(TOOLS).toHaveLength(14);
-    expect(TOOLS.every((t) => t.status === 'coming-soon' || t.status === 'in-development')).toBe(true);
-    expect(TOOLS.every((t) => !t.workspace)).toBe(true);
+  it('only tools that are actually built are marked usable', () => {
+    expect(TOOLS).toHaveLength(15);
+    const usable = TOOLS.filter((t) => t.status === 'beta' || t.status === 'available');
+    expect(usable.map((t) => t.id)).toEqual(['business-dashboard']);
+    expect(TOOLS.filter((t) => t.workspace).map((t) => t.id)).toEqual(['business-dashboard']);
   });
 });

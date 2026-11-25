@@ -14,7 +14,7 @@ export function AllToolsPage() {
 
   return (
     <div className="animate-fade-up space-y-5 sm:space-y-6">
-      <PageHeader title="All Tools" description={`${TOOLS.length} tools are planned for version 1. None are ready to use yet.`} />
+      <PageHeader title="All Tools" description={`${TOOLS.filter((t) => t.workspace).length} ready to use, more on the way. Tools marked “Coming soon” aren’t built yet.`} />
       <Panel label="Tools">
         <SearchInput value={query} onChange={setQuery} shortcut />
         <CategoryFilter value={category} onChange={setCategory} className="mt-3" />

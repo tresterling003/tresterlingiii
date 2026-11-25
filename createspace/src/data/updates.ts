@@ -9,9 +9,20 @@ export interface Update {
   highlights: string[];
 }
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 
 export const UPDATES: Update[] = [
+  {
+    version: '0.3.0',
+    title: 'Business Dashboard',
+    date: '2026-11-25',
+    highlights: [
+      'Business Dashboard: track income, expenses, contracts and clients',
+      'See what you’ve earned, what’s owed and what’s overdue at a glance',
+      'Attach contract files and export income or expenses as CSV',
+      'Favorites now sit at the top of Home (no separate tab)',
+    ],
+  },
   {
     version: '0.2.0',
     title: 'Cloud Projects & Suggestions',

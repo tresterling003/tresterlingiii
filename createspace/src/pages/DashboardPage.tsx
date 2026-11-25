@@ -39,11 +39,6 @@ export function DashboardPage() {
               id="favorites-heading"
               title="Favorites"
               count={favorites.tools.length}
-              actions={
-                <Link to="/favorites" className="inline-flex items-center gap-1 rounded-full text-sm font-bold text-muted hover:text-fg">
-                  View all <ArrowRight className="size-3.5" aria-hidden="true" />
-                </Link>
-              }
             />
             <ToolGrid tools={favorites.tools} label="Favorite tools" />
           </Panel>

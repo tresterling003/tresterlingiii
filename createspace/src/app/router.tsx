@@ -3,7 +3,6 @@ import { AppShell } from '@/components/layout/AppShell';
 import { AllToolsPage } from '@/pages/AllToolsPage';
 import { CategoryPage } from '@/pages/CategoryPage';
 import { DashboardPage } from '@/pages/DashboardPage';
-import { FavoritesPage } from '@/pages/FavoritesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { NewProjectPage } from '@/pages/NewProjectPage';
 import { ProjectPage } from '@/pages/ProjectPage';
@@ -22,7 +21,8 @@ const routes: RouteObject[] = [
       { path: '/tools', element: <AllToolsPage /> },
       { path: '/tools/:toolId', element: <ToolPage /> },
       { path: '/category/:categoryId', element: <CategoryPage /> },
-      { path: '/favorites', element: <FavoritesPage /> },
+      // Favorites now live at the top of Home
+      { path: '/favorites', element: <Navigate to="/" replace /> },
       { path: '/settings', element: <SettingsPage /> },
       { path: '/whats-new', element: <WhatsNewPage /> },
       { path: '/projects', element: <ProjectsPage /> },

@@ -1,4 +1,6 @@
+import { lazy } from 'react';
 import {
+  BriefcaseBusiness,
   CalendarClock,
   CalendarDays,
   Calculator,
@@ -23,9 +25,22 @@ import type { CategoryId, ToolDefinition } from './types';
  * from this list. To add a tool, add one entry here (and, once built, a `workspace` component).
  * No other page needs to be edited.
  *
- * None of these tools are built yet: they're listed so the site's structure is ready for them.
+ * Only tools with a `workspace` and a usable status (beta/available) can be opened and used;
+ * the rest are listed so the site's structure is ready for them.
  */
 const tools = [
+  {
+    id: 'business-dashboard',
+    name: 'Business Dashboard',
+    description: 'Track income, expenses, contracts and clients in one private place.',
+    category: 'business',
+    icon: BriefcaseBusiness,
+    accent: '#4F7CAC',
+    keywords: ['income', 'money', 'earnings', 'expenses', 'contracts', 'clients', 'freelance', 'finance', 'tax', 'profit', 'tracker', 'payments'],
+    status: 'beta',
+    plannedFeatures: ['Income and expense tracking', 'Contracts with attached files', 'Client totals and payment reminders'],
+    workspace: lazy(() => import('./business-dashboard/BusinessDashboard')),
+  },
   {
     id: 'color-studio',
     name: 'Color Studio',

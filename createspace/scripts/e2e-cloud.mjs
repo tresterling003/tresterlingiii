@@ -206,6 +206,93 @@ async function run(label, viewport) {
   assert.equal(left, 0, 'deleting the project removes its stored files');
   check('delete a folder with its files, and delete a whole project (stored files cleaned up)');
 
+  // ---------------- Business Dashboard ----------------
+  await page.goto(URL + '/tools/business-dashboard');
+  await page.getByRole('heading', { name: 'Your business at a glance' }).waitFor();
+  const localDay = (offset) => page.evaluate((o) => { const d = new Date(); d.setDate(d.getDate() + o); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }, offset);
+  const dlg = page.getByRole('dialog');
+  // validation
+  await page.getByRole('button', { name: 'Add income' }).first().click();
+  await dlg.getByRole('button', { name: 'Add income' }).click();
+  await dlg.getByText('Enter an amount').waitFor();
+  await dlg.getByLabel('Amount (USD)').fill('1,200.50');
+  await dlg.getByLabel('Client (optional)').fill('Acme Studio');
+  await dlg.getByLabel('What was it for? (optional)').fill('Logo design');
+  await dlg.getByRole('button', { name: 'Add income' }).click();
+  await dlg.waitFor({ state: 'detached' });
+  const stat = (label) => page.locator('.tile', { hasText: label }).first().innerText();
+  assert.match(await stat('Earned this month'), /\$1,200\.50/);
+  // pending, overdue
+  await page.getByRole('button', { name: 'Add income' }).first().click();
+  await dlg.getByLabel('Amount (USD)').fill('300');
+  await dlg.getByRole('button', { name: 'Waiting for payment' }).click();
+  await dlg.getByLabel('Payment due (optional)').fill(await localDay(-3));
+  await dlg.getByLabel('Client (optional)').fill('Acme Studio');
+  await dlg.getByRole('button', { name: 'Add income' }).click();
+  assert.match(await stat('Waiting to be paid'), /\$300\.00[\s\S]*overdue/);
+  await page.locator('ul[aria-label="Coming up"] > li', { hasText: '3 days overdue' }).waitFor();
+  check('Business Dashboard: empty start, validation, paid + overdue income show in the overview');
+
+  // expense → profit
+  await page.getByRole('button', { name: 'Add expense' }).first().click();
+  await dlg.getByLabel('Amount (USD)').fill('49.99');
+  await dlg.getByLabel('What was it? (optional)').fill('Font license');
+  await dlg.getByRole('button', { name: 'Add expense' }).click();
+  await dlg.waitFor({ state: 'detached' });
+  assert.match(await stat('Profit in'), /\$1,150\.51/);
+  // contract with file, ending soon
+  await page.getByRole('button', { name: 'Add contract' }).first().click();
+  await dlg.getByLabel('Contract name').fill('Brand package');
+  await dlg.getByLabel('Client (optional)').fill('Acme Studio');
+  await dlg.getByRole('button', { name: 'Signed' }).click();
+  await dlg.getByLabel('Total value (optional) (USD)').fill('2500');
+  await dlg.getByLabel('End / delivery date (optional)').fill(await localDay(10));
+  await dlg.locator('input[type=file]').setInputFiles({ name: 'contract.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') });
+  await dlg.getByText('contract.pdf').waitFor();
+  await dlg.getByRole('button', { name: 'Add contract' }).click();
+  await page.locator('ul[aria-label="Coming up"] > li', { hasText: 'in 10 days' }).waitFor();
+  await shot(page, '06-business-overview');
+  check('expenses reduce profit; a signed contract ending soon appears in Coming up');
+
+  await page.getByRole('tab', { name: 'Contracts' }).click();
+  await page.getByRole('button', { name: 'Download contract.pdf' }).click();
+  await page.getByText('Downloaded contract.pdf.').waitFor();
+  await page.getByRole('tab', { name: 'Clients' }).click();
+  const client = page.locator('ul[aria-label="Client list"] > li');
+  await expectCount(client, 1);
+  assert.match(await client.first().innerText(), /Acme Studio[\s\S]*1 contract \(1 active\)[\s\S]*\$1,200\.50[\s\S]*\$300\.00/);
+  await page.getByRole('tab', { name: 'Income' }).click();
+  await page.getByRole('button', { name: 'Mark paid' }).click();
+  await expectCount(page.getByRole('button', { name: 'Mark paid' }), 0);
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  const csv = await page.evaluate(() => window.__downloads.at(-1));
+  assert.match(csv.filename, /^createspace-income-\d{4}-\d{2}-\d{2}\.csv$/);
+  check('contract file downloads; clients total up; mark paid; export income CSV');
+
+  // currency, persistence, privacy, projects unaffected
+  await page.getByRole('tab', { name: 'Overview' }).click();
+  await page.getByLabel('Currency').selectOption('EUR');
+  assert.match(await stat('Earned this month'), /€/);
+  await page.reload();
+  await page.getByRole('tab', { name: 'Overview' }).waitFor();
+  assert.match(await stat('Earned this month'), /€\s?1,500\.50|1,500\.50\s?€/);
+  const other2 = await newPage({ userId: 'u_guest', isOwner: false });
+  await other2.goto(URL + '/tools/business-dashboard');
+  await other2.getByRole('heading', { name: 'Your business at a glance' }).waitFor();
+  await other2.close();
+  await page.goto(URL + '/projects');
+  await page.getByText('No projects yet').waitFor();
+  check('currency choice and data persist after reload; private to each person; not shown as projects');
+
+  await page.goto(URL + '/tools/business-dashboard');
+  await page.getByRole('tab', { name: 'Contracts' }).click();
+  await page.getByRole('button', { name: 'Delete Brand package' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  await page.getByText('Keep track of client agreements').waitFor();
+  const filesLeft = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('fake-claude:assets') || '{}')).length);
+  assert.equal(filesLeft, 0, 'deleting a contract removes its attached file');
+  check('deleting a contract removes its attached file');
+
   // Signed out
   const out = await newPage({ signedOut: true });
   await out.goto(URL + '/projects');

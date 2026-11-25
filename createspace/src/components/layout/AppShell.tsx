@@ -5,7 +5,6 @@ import { LogoMark } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UPDATES } from '@/data/updates';
 import { cn } from '@/lib/cn';
-import { useFavorites } from '@/state/FavoritesProvider';
 import { CATEGORY_LINKS, TABS } from './navigation';
 
 const roundButton =
@@ -51,7 +50,6 @@ function TopBar() {
 /** Bottom tab bar (all screen sizes) with a pop-up sheet for categories. */
 function TabBar() {
   const { pathname } = useLocation();
-  const { ids } = useFavorites();
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheet = useRef<HTMLDivElement>(null);
   const sheetButton = useRef<HTMLButtonElement>(null);
@@ -127,14 +125,6 @@ function TabBar() {
               <>
                 <Icon className="size-5" aria-hidden="true" strokeWidth={2.2} />
                 <span className="max-w-full truncate px-0.5">{tab.label}</span>
-                {tab.to === '/favorites' && ids.length > 0 && (
-                  <span
-                    className="absolute top-1.5 left-[calc(50%+6px)] grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[0.625rem] font-extrabold text-white tabular-nums"
-                    aria-label={`${ids.length} saved`}
-                  >
-                    {ids.length}
-                  </span>
-                )}
               </>
             );
             return tab.to === 'categories' ? (

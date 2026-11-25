@@ -43,7 +43,8 @@ export function useProjects() {
     return db.collection(projectsPath(userId)).onSnapshot(
       (snap) => {
         const list = snap.docs
-          .filter((d) => d.exists)
+          // ids starting with "_" are app data stored beside projects (e.g. Business Dashboard)
+          .filter((d) => d.exists && !d.id.startsWith('_'))
           .map((d) => toProject(d.id, d.data()))
           .filter((p): p is Project => !!p)
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

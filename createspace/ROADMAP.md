@@ -25,6 +25,12 @@ Each task is built, tested and approved before the next starts.
 - [x] Works across computers via the person's claude.ai account; no keys or setup
 - [ ] **Awaiting approval**
 
+## ✅ Task #003: Business Dashboard + Favorites on Home (v0.3.0)
+
+- [x] Income, expenses, contracts (with files), clients, overview, reminders, CSV export
+- [x] Favorites tab removed; favorites at top of Home
+- [ ] **Awaiting approval**
+
 ## Version 1 tools (planned, not started)
 
 | # | Tool | Category | Status |
@@ -43,6 +49,7 @@ Each task is built, tested and approved before the next starts.
 | 12 | Deadline Tracker | Productivity | Coming soon |
 | 13 | Rate Calculator & Project Estimator | Business | Coming soon |
 | 14 | Invoice Maker | Business | Coming soon |
+| + | Business Dashboard | Business | **Beta (working)** |
 
 Categories are a proposal and easy to change in `src/tools/registry.ts`.
 

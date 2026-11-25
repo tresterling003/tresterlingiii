@@ -55,16 +55,17 @@ async function run({ label, ...ctxOptions }) {
   // ---- App starts, dashboard renders
   await page.goto(URL + '/');
   await page.getByRole('heading', { level: 1, name: 'What are you making today?' }).waitFor();
-  await expectCount(cards(), 14);
+  await expectCount(cards(), 15);
   await noOverflow('dashboard');
   await shot('01-dashboard');
-  check('dashboard loads with all 14 tools');
+  check('dashboard loads with all 15 tools');
 
-  // ---- Every tool is clearly labelled as not yet available
+  // ---- Every unbuilt tool is clearly labelled; the one working tool says Beta
   const badges = await page.locator('main ul[aria-label="All tools"] > li[data-tool]', { hasText: /Coming soon|In development/ }).count();
-  assert.equal(badges, 14, 'every card shows Coming soon / In development');
+  assert.equal(badges, 14, 'every unbuilt tool shows Coming soon / In development');
+  assert.match(await page.locator('li[data-tool="business-dashboard"]').innerText(), /Beta/);
   await expectCount(page.getByText(/^Available$/), 0);
-  check('all unfinished tools labelled Coming soon');
+  check('unfinished tools labelled Coming soon; Business Dashboard labelled Beta');
 
   // ---- Search: name, keyword, description, category, empty state, clear
   const search = page.getByRole('searchbox', { name: 'Search tools' });
@@ -78,12 +79,12 @@ async function run({ label, ...ctxOptions }) {
   await expectCount(cards(), 1);
   assert.match(await cards().first().innerText(), /Storyboard Studio/);
   await search.fill('business'); // category
-  await expectCount(cards(), 2);
+  await expectCount(cards(), 3);
   await search.fill('zzqxv');
   await page.getByText('No tools match “zzqxv”').waitFor();
   await shot('02-empty-search');
   await page.getByRole('button', { name: 'Clear search' }).first().click();
-  await expectCount(cards(), 14);
+  await expectCount(cards(), 15);
   check('search matches names, keywords, descriptions, categories; empty state + clear work');
 
   // "/" shortcut focuses search (keyboard devices)
@@ -97,7 +98,7 @@ async function run({ label, ...ctxOptions }) {
 
   // ---- Category filters
   const filters = page.getByRole('group', { name: 'Filter by category' });
-  for (const [name, n] of [['Creative', 6], ['Content', 3], ['Productivity', 3], ['Business', 2]]) {
+  for (const [name, n] of [['Creative', 6], ['Content', 3], ['Productivity', 3], ['Business', 3]]) {
     await filters.getByRole('button', { name: new RegExp(`^${name}`) }).click();
     await filters.locator('button[aria-pressed="true"]', { hasText: name }).waitFor();
     await expectCount(cards(), n, `${name} filter count`);
@@ -108,7 +109,7 @@ async function run({ label, ...ctxOptions }) {
   await expectCount(cards(), 2, 'timer across all categories (Pose Challenge, Focus Room)');
   await search.fill('');
   await filters.getByRole('button', { name: /^All/ }).click();
-  await expectCount(cards(), 14);
+  await expectCount(cards(), 15);
   check('category filters (and combined with search) work');
 
   // ---- Favorites: add, persist across reload, remove
@@ -140,7 +141,6 @@ async function run({ label, ...ctxOptions }) {
   };
   const routes = [
     ['All Tools', '/tools', 'All Tools'],
-    ['Favorites', '/favorites', 'Favorites'],
     ['Creative Tools', '/category/creative', 'Creative Tools'],
     ['Content Tools', '/category/content', 'Content Tools'],
     ['Productivity Tools', '/category/productivity', 'Productivity Tools'],
@@ -165,7 +165,7 @@ async function run({ label, ...ctxOptions }) {
     }
     await noOverflow(path);
   }
-  check('all 9 navigation destinations reach the right page and highlight');
+  check('all 8 navigation destinations reach the right page and highlight');
   check('categories sheet opens and closes with Escape');
 
   // Top-bar shortcuts
@@ -175,17 +175,20 @@ async function run({ label, ...ctxOptions }) {
   await page.getByRole('heading', { level: 1, name: 'What are you making today?' }).waitFor();
   check('top-bar logo and settings buttons work');
 
-  // ---- Favorites page: remove a bookmark, empty state
-  await page.goto(URL + '/favorites');
+  // ---- Favorites (top of Home): remove bookmarks, empty hint; no Favorites tab
+  await page.goto(URL + '/');
+  assert.equal(await tabs.getByRole('link', { name: /^Favorites/ }).count(), 0, 'no Favorites tab');
   const favPage = page.locator('ul[aria-label="Favorite tools"] > li');
   await expectCount(favPage, 2);
-  await page.getByRole('button', { name: 'Remove Invoice Maker from favorites' }).click();
+  await favPage.getByRole('button', { name: 'Remove Invoice Maker from favorites' }).click();
   await expectCount(favPage, 1);
-  await page.getByRole('button', { name: 'Remove Color Studio from favorites' }).click();
-  await page.getByText('No favorites yet').waitFor();
+  await favPage.getByRole('button', { name: 'Remove Color Studio from favorites' }).click();
+  await page.getByText('Bookmark the tools you use most').waitFor();
   await page.reload();
-  await page.getByText('No favorites yet').waitFor();
-  check('unbookmarking works and persists; empty state shows');
+  await page.getByText('Bookmark the tools you use most').waitFor();
+  await page.goto(URL + '/favorites');
+  await page.getByRole('heading', { level: 1, name: 'What are you making today?' }).waitFor();
+  check('unbookmarking from Home works and persists; old /favorites link goes Home');
 
   // ---- Category page search + tool page layout
   await page.goto(URL + '/category/productivity');

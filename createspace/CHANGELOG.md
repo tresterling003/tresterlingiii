@@ -2,6 +2,15 @@
 
 All notable changes to CreateSpace. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.3.0] Business Dashboard (2026-11-25)
+
+### Added
+- **Business Dashboard** (first working tool, Beta): income with paid/waiting status, due dates and overdue alerts; expenses by category; contracts with status, value, dates, notes and an attached file; clients summarized automatically; 12-month income chart; "Coming up" list; currency choice; CSV export of income and expenses. Private to each person, saved to their account, starts empty.
+
+### Changed
+- Removed the Favorites tab: bookmarked tools show at the top of Home. The old `/favorites` link opens Home.
+- All Tools now says how many tools are ready to use.
+
 ## [0.2.0] Cloud Projects & Suggestions (2026-11-25)
 
 ### Added
