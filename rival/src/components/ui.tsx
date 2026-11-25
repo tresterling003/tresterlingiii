@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import {
   Bell, Candy, CandyCane, Cookie, Crown, Flame, Gift, Heart, Loader2, Music, Snowflake, Sparkles, Star, TreePine, X,
@@ -75,7 +76,8 @@ export function Avatar({ avatar, color, size = 40, className }: { avatar: string
 
 /* ------------------------------------------------------------- sheet (modal) */
 
-export function Sheet({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
+/** Modal panel. `footer` stays pinned below the scrolling content (use the `form` attribute to submit a form inside). */
+export function Sheet({ open, onClose, title, children, wide, footer }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -89,9 +91,11 @@ export function Sheet({ open, onClose, title, children, wide }: { open: boolean;
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+  if (!open || typeof document === "undefined") return null;
+  // Rendered into <body> so it sits above the header, effects and the bottom tab bar
+  // (inside <main> it would be trapped under them).
+  return createPortal(
+    <div className="fixed inset-0 z-[55] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="anim-fade absolute inset-0 bg-black/35 backdrop-blur-sm" onClick={onClose} />
       <div
         ref={ref}
@@ -106,9 +110,11 @@ export function Sheet({ open, onClose, title, children, wide }: { open: boolean;
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-2">{children}</div>
+        <div className={clsx("overflow-y-auto overscroll-contain px-5 pt-2", footer ? "pb-4" : "pb-[max(20px,env(safe-area-inset-bottom))]")}>{children}</div>
+        {footer && <div className="border-t border-line bg-bg px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

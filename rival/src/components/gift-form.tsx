@@ -48,8 +48,13 @@ export function GiftForm({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={gift ? "Edit gift" : "Plan a gift"}>
-      <form onSubmit={save} className="grid gap-4 pb-2">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={gift ? "Edit gift" : "Plan a gift"}
+      footer={<Button type="submit" form="gift-form" busy={busy} disabled={!gift && !f.recipient_id} className="w-full">{gift ? "Save" : "Add to plan"}</Button>}
+    >
+      <form id="gift-form" onSubmit={save} className="grid gap-4 pb-2">
         {!gift && (
           <div className="grid gap-1.5">
             <span className="text-[15px] font-medium">For</span>
@@ -69,7 +74,6 @@ export function GiftForm({
         <Field label="Price"><input inputMode="decimal" value={f.price} onChange={(e) => setF((x) => ({ ...x, price: e.target.value }))} className={inputCls} placeholder="$45" /></Field>
         <Field label="Link (optional)"><input value={f.link} onChange={(e) => setF((x) => ({ ...x, link: e.target.value }))} className={inputCls} placeholder="https://" /></Field>
         <Field label="Notes (only you see these)"><textarea rows={2} maxLength={400} value={f.notes} onChange={(e) => setF((x) => ({ ...x, notes: e.target.value }))} className={inputCls} /></Field>
-        <Button type="submit" busy={busy} disabled={!gift && !f.recipient_id}>{gift ? "Save" : "Add to plan"}</Button>
       </form>
     </Sheet>
   );

@@ -152,8 +152,18 @@ export function WishEditor({ open, wish, onClose, onSaved }: { open: boolean; wi
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={wish ? "Edit wish" : "New wish"}>
-      <form onSubmit={save} className="grid gap-4 pb-2">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={wish ? "Edit wish" : "New wish"}
+      footer={
+        <div className="flex items-center gap-2">
+          {wish && <Button type="button" variant="danger" onClick={remove} disabled={busy}><Trash2 className="h-4 w-4" />Delete</Button>}
+          <Button type="submit" form="wish-form" busy={busy} disabled={uploading} className="ml-auto">{wish ? "Save" : "Add wish"}</Button>
+        </div>
+      }
+    >
+      <form id="wish-form" onSubmit={save} className="grid gap-4 pb-2">
         <Segmented label="Kind of wish" value={f.kind} onChange={(v) => setF((x) => ({ ...x, kind: v }))} options={[{ value: "exact", label: "Exact pick" }, { value: "idea", label: "Gift idea" }]} />
         <p className="-mt-2 text-[13px] text-muted">{f.kind === "exact" ? "A specific thing you want. Add the size, color and a link." : "A starting point. Your family picks something they think you'd love."}</p>
         <Field label="What is it?"><input required maxLength={120} value={f.title} onChange={set("title")} className={inputCls} placeholder={f.kind === "exact" ? "Tech Fleece joggers" : "Something for the gym"} /></Field>
@@ -181,10 +191,7 @@ export function WishEditor({ open, wish, onClose, onSaved }: { open: boolean; wi
           <span className="text-[13px] text-muted">Screenshot the product on your phone, then add it here.</span>
         </div>
         <Field label="Details for whoever shops"><textarea maxLength={600} rows={3} value={f.notes} onChange={set("notes")} className={inputCls} placeholder="Fit, style, what I already have…" /></Field>
-        <div className="flex items-center gap-2 pt-1">
-          {wish && <Button type="button" variant="danger" onClick={remove} disabled={busy}><Trash2 className="h-4 w-4" />Delete</Button>}
-          <Button type="submit" busy={busy} className="ml-auto">{wish ? "Save" : "Add wish"}</Button>
-        </div>
+
       </form>
     </Sheet>
   );

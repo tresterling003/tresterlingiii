@@ -134,15 +134,14 @@ function AboutSheet({ open, about, onClose, onSaved }: { open: boolean; about: A
     }
   }
   return (
-    <Sheet open={open} onClose={onClose} title="About me">
-      <form onSubmit={save} className="grid gap-4 pb-2">
+    <Sheet open={open} onClose={onClose} title="About me" footer={<Button type="submit" form="about-form" busy={busy} className="w-full">Save</Button>}>
+      <form id="about-form" onSubmit={save} className="grid gap-4 pb-2">
         <Field label="A note to your family"><textarea rows={2} maxLength={300} value={f.note} onChange={set("note")} className={inputCls} placeholder="Everything here is a guide. Surprise me!" /></Field>
         <Field label="My sizes" hint={'One per line, like "Shoe: 10.5"'}><textarea rows={4} value={f.sizes} onChange={set("sizes")} className={inputCls} placeholder={"Shirt: M\nPants: 32x30\nShoe: 10.5"} /></Field>
         <Field label="Colors I like"><input maxLength={120} value={f.colors} onChange={set("colors")} className={inputCls} /></Field>
         <Field label="Brands and stores I like"><input maxLength={160} value={f.brands} onChange={set("brands")} className={inputCls} /></Field>
         <Field label="Things I'm into lately"><input maxLength={200} value={f.into} onChange={set("into")} className={inputCls} /></Field>
         <Field label="Please skip"><input maxLength={160} value={f.skip} onChange={set("skip")} className={inputCls} /></Field>
-        <Button type="submit" busy={busy}>Save</Button>
       </form>
     </Sheet>
   );

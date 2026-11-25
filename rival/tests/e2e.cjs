@@ -275,6 +275,23 @@ async function call(ctx, method, url, data) {
     await shot(pb, "phone-home-candy");
   });
 
+  await step("UI: on a phone, the wish editor's Add button is on top and tappable (not under the tab bar)", async () => {
+    await pb.goto(`${BASE}/list`);
+    await pb.getByRole("button", { name: "Add wish" }).first().click();
+    const dlg = pb.getByRole("dialog");
+    await dlg.getByPlaceholder("Tech Fleece joggers").fill("MacBook Air");
+    await dlg.getByPlaceholder("Nike", { exact: true }).fill("Apple");
+    await dlg.getByPlaceholder("https://www.nike.com/...").fill("https://www.bestbuy.com/site/apple-macbook-air");
+    const btn = dlg.getByRole("button", { name: "Add wish" });
+    const box = await btn.boundingBox();
+    ok(box && box.y + box.height <= 844, `button off screen: ${JSON.stringify(box)}`);
+    const topmost = await pb.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.textContent, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    ok(topmost && topmost.includes("Add wish"), `something covers the button: ${topmost}`);
+    await shot(pb, "phone-wish-editor");
+    await btn.tap();
+    await pb.locator("article", { hasText: "MacBook Air" }).waitFor();
+  });
+
   await step("UI: B sees 'You're getting this' on A's list; others show 'I'll get this'", async () => {
     await pb.goto(`${BASE}/family/${meA.id}`);
     await pb.getByText("You're getting this").waitFor();
