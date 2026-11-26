@@ -332,6 +332,20 @@ async function call(ctx, method, url, data) {
     }
   });
 
+  await step("UI: Copy my list puts a nicely formatted list with links on the clipboard", async () => {
+    await ctxA.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
+    await pa.goto(`${BASE}/list`);
+    await pa.getByRole("button", { name: "Copy my list" }).click();
+    await pa.getByText("Copied!").first().waitFor();
+    const text = await pa.evaluate(() => navigator.clipboard.readText());
+    ok(text.startsWith("🎄 Tre's Christmas List"), `header: ${text.slice(0, 40)}`);
+    ok(text.includes("Sizes: Shirt M · Shoe 10.5"), "sizes");
+    ok(/1\. Nike Tech Fleece joggers ⭐\n   Size: M · Color: Black · Price: \$110\n   Slim fit\n   Buy it: https:\/\/www\.nike\.com\/w\/tech-fleece/.test(text), `top wish block:\n${text}`);
+    ok(text.includes("GIFT IDEAS (surprise me!)\n1. stuff for my room"), "ideas section");
+    ok(!/getting this|Mom/.test(text), "no claim info in export");
+    if (SHOTS) fs.writeFileSync(path.join(OUT, "exported-list.txt"), text);
+  });
+
   await step("UI: A adds a wish with the editor", async () => {
     await pa.goto(`${BASE}/list`);
     await pa.getByRole("button", { name: "Add wish" }).first().click();

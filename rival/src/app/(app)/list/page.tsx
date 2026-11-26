@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR, { mutate } from "swr";
-import { ClipboardPaste, ListChecks, Pencil, Plus, UserRound } from "lucide-react";
+import { Check, ClipboardPaste, Copy, ListChecks, Pencil, Plus, Share2, UserRound } from "lucide-react";
 import { api, ApiError, fetcher } from "@/lib/client";
 import { useMe } from "@/lib/hooks";
 import type { About, WishRow } from "@/lib/types";
 import { Button, Empty, ErrorBox, Field, PageHead, Segmented, Sheet, Spinner, inputCls, useToast } from "@/components/ui";
 import { AboutCard, WishCard, WishEditor } from "@/components/wish";
+import { copyText, listAsText } from "@/lib/export-list";
 
 type ListData = { owner: { id: string; name: string; about: About }; mine: boolean; wishes: WishRow[] };
 
@@ -22,6 +23,8 @@ export default function MyList() {
   const [importOpen, setImportOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "exact" | "idea">("all");
+  const [copied, setCopied] = useState(false);
+  const [exportText, setExportText] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.get("import")) setImportOpen(true);
@@ -31,12 +34,26 @@ export default function MyList() {
   if (error) return <ErrorBox message={error.message} retry={() => reload()} />;
   if (!data || !me) return <Spinner />;
 
+  async function copyList() {
+    const text = listAsText(data!.owner.name, data!.owner.about ?? {}, data!.wishes, window.location.origin);
+    if (await copyText(text)) {
+      setCopied(true);
+      toast("List copied! Paste it in Notes, a text or an email.");
+      setTimeout(() => setCopied(false), 2500);
+    } else {
+      setExportText(text); // clipboard blocked: show it so they can copy or share by hand
+    }
+  }
+
   const shown = data.wishes.filter((w) => filter === "all" || w.kind === filter);
   const needs = data.wishes.filter((w) => w.kind === "exact" && !w.size && !w.links.length).length;
 
   return (
     <div>
       <PageHead title="My Wishlist" sub={`${data.wishes.length} ${data.wishes.length === 1 ? "wish" : "wishes"}. Everyone in your family sees this list.`}>
+        <Button variant="soft" onClick={copyList} disabled={!data.wishes.length} aria-live="polite">
+          {copied ? <Check className="h-5 w-5 text-good" /> : <Copy className="h-5 w-5" />}{copied ? "Copied!" : "Copy my list"}
+        </Button>
         <Button variant="soft" onClick={() => setImportOpen(true)}><ClipboardPaste className="h-5 w-5" />Paste from Notes</Button>
         <Button onClick={() => { setEditing(null); setEditorOpen(true); }}><Plus className="h-5 w-5" />Add wish</Button>
       </PageHead>
@@ -76,6 +93,22 @@ export default function MyList() {
 
       <WishEditor open={editorOpen} wish={editing} onClose={() => setEditorOpen(false)} onSaved={refresh} />
       <ImportSheet open={importOpen} onClose={() => setImportOpen(false)} onDone={(n) => { toast(`${n} ${n === 1 ? "wish" : "wishes"} added. Tap Edit to add details.`); refresh(); }} />
+      <Sheet
+        open={exportText !== null}
+        onClose={() => setExportText(null)}
+        title="Your list as text"
+        footer={
+          <div className="flex gap-2">
+            {typeof navigator !== "undefined" && "share" in navigator && (
+              <Button variant="soft" className="flex-1" onClick={() => navigator.share({ text: exportText ?? "" }).catch(() => {})}><Share2 className="h-5 w-5" />Share</Button>
+            )}
+            <Button className="flex-1" onClick={async () => { if (await copyText(exportText ?? "")) { toast("List copied!"); setExportText(null); } }}><Copy className="h-5 w-5" />Copy</Button>
+          </div>
+        }
+      >
+        <p className="mb-2 text-muted">Copying was blocked by your browser. Select the text below, or use Share.</p>
+        <textarea readOnly value={exportText ?? ""} rows={14} className={inputCls + " font-mono text-[14px]"} onFocus={(e) => e.currentTarget.select()} aria-label="Your list as text" />
+      </Sheet>
       <AboutSheet open={aboutOpen} about={data.owner.about ?? {}} onClose={() => setAboutOpen(false)} onSaved={refresh} />
     </div>
   );
