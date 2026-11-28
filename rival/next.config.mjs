@@ -9,6 +9,10 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Earshot (the audiobook app in ../audiobooks) is built into public/earshot.
+  async rewrites() {
+    return [{ source: "/earshot", destination: "/earshot/index.html" }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -36,7 +36,13 @@ npm run build        # type-check and build to dist/
 
 ## Deploy
 
-It's a static Vite site. On Vercel: create a new project from this repo, set **Root Directory** to `audiobooks`, and deploy. `vercel.json` sets the framework and keeps `sw.js` uncached. No environment variables are needed.
+**Live at https://tresterlingiii.vercel.app/earshot**, served by the Christmas HQ project. Vercel builds only `rival/`, so the built app is committed in `rival/public/earshot/`, and a rewrite in `rival/next.config.mjs` serves `/earshot`. After changing Earshot, rebuild it into that folder and commit the result:
+
+```
+npm run build:hq     # builds with base /earshot/ into ../rival/public/earshot
+```
+
+To host it on its own instead, it's a plain static Vite site. On Vercel: create a new project from this repo, set **Root Directory** to `audiobooks`, and deploy. `vercel.json` sets the framework and keeps `sw.js` uncached. No environment variables are needed.
 
 To install it on an iPhone, open the site in Safari, tap Share, then **Add to Home Screen**. On Android, use Chrome's menu and tap **Install app**.
 
@@ -46,7 +52,7 @@ To install it on an iPhone, open the site in Safari, tap Share, then **Add to Ho
 
 ```
 npm run build && npx vite preview --port 4173 &
-npm run test:e2e                     # or BASE_URL=https://your-site npm run test:e2e
+npm run test:e2e                     # or BASE_URL=https://tresterlingiii.vercel.app/earshot npm run test:e2e
 ```
 
 **17/17 pass** (2026-11-28). The tests cover:

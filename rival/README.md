@@ -2,6 +2,8 @@
 
 **Live: https://tresterlingiii.vercel.app**
 
+> The site also serves **Earshot**, the audiobook app from `../audiobooks`, at `/earshot`. Its built files live in `public/earshot/` (regenerate with `npm run build:hq` in `audiobooks/`).
+>
 > This folder is named `rival/` because the existing Vercel project (which used to host RIVAL, now in `rival-fitness/`) builds this folder. Christmas HQ reuses that project's database and environment variables: its tables live in a separate `hq` schema, RIVAL's tables are untouched, and the migration grants the existing `rival_app` role access to `hq`. A `public/sw.js` removes RIVAL's old offline service worker from browsers that had it.
 
 A family Christmas dashboard. Everyone makes a wishlist with sizes, colors, photos and buy links (or open-ended gift ideas). Family members secretly claim gifts so nobody doubles up, track what they've bought and wrapped, plan a budget, find ideas, and play quick Christmas games to climb a family leaderboard. Themes, effects and avatars are free in Settings.

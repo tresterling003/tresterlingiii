@@ -1,9 +1,11 @@
 // Earshot service worker: keeps the app itself available offline and opens
 // instantly. Book data and audio always come from archive.org.
 const CACHE = 'earshot-v1';
+const SCOPE = self.registration.scope; // e.g. https://site/earshot/
+const HOME = SCOPE + 'index.html';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll([HOME, SCOPE + 'manifest.webmanifest', SCOPE + 'icon.svg'])));
   self.skipWaiting();
 });
 
@@ -16,8 +18,7 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== location.origin) return;
+  if (req.method !== 'GET' || !req.url.startsWith(SCOPE)) return;
 
   // Pages: network first so updates arrive, cached copy when offline.
   if (req.mode === 'navigate') {
@@ -25,10 +26,10 @@ self.addEventListener('fetch', (e) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/', copy));
+          caches.open(CACHE).then((c) => c.put(HOME, copy));
           return res;
         })
-        .catch(() => caches.match('/')),
+        .catch(() => caches.match(HOME)),
     );
     return;
   }

@@ -9,7 +9,7 @@ const { chromium, devices } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const BASE = process.env.BASE_URL || 'http://localhost:4173';
+const BASE = (process.env.BASE_URL || 'http://localhost:4173').replace(/\/+$/, '');
 const SHOTS = process.env.SHOTS;
 const tone = fs.readFileSync(path.join(__dirname, 'tone.mp3'));
 const BOOK = 'dracula_librivox';
