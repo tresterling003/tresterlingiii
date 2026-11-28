@@ -2,7 +2,7 @@
 
 Built from the Phase One interview. Updated after every round. Nothing here is guessed: if a field is empty, it hasn't been asked yet.
 
-Last updated: 2026-11-28 (after Round 5)
+Last updated: 2026-11-28 (after Round 6)
 
 ---
 
@@ -61,7 +61,26 @@ Last updated: 2026-11-28 (after Round 5)
 - Sleep: about 7 hours.
 - **Football season (Aug–Dec): 3–4 days a week, 30–45 minutes, morning or lunch.**
 - **Soccer season: starts Mon Nov 30, 2026, ends around April 2027.** Arrive 5 am, practice 7 am, home by about 3–4 pm.
-- **Summer break starts around May 16.** Football "is back around that time": what the summer football schedule looks like is still to confirm.
+- **Summer break starts around May 16.** Summer football is 7-on-7, about 2 hours a day; otherwise free. Summer is the main build block.
+- **Can shower at school after a lunch workout.** Lunch (12:00–1:30) is a real training window.
+
+## Nutrition (current)
+
+| | |
+|---|---|
+| Typical day | Fast food during the day, then a lot of snacks until dinner at home |
+| Who cooks | **Self** — simple meals most nights (willing) |
+| Tracking | **None.** Wants to learn the science behind it eventually |
+| Water | ~20 oz a day |
+| Other drinks | Alani energy drink and Diet Cokes (amounts to confirm) |
+| Alcohol | Rarely (Round 3) |
+| Favorites | Pizza, burgers, fries, cheese |
+| Dislikes | **Vegetables, especially greens.** Most condiments (mayo, mustard) |
+| Allergies | None reported |
+| Household grocery budget | ~$350/week |
+| Supplements | None |
+
+Nutrition approach (coach's decision): no calorie counting. Protein anchors at every meal, ranked fast-food orders, a small set of default meals, favorites kept (planned, not banned), fruit and "hidden" vegetables instead of salads, one habit change at a time. Short explainers in the app cover the science.
 
 ## Facilities
 
@@ -157,7 +176,7 @@ Standards are from memory of the HYROX rulebook; confirm against the current off
 
 ## Open questions
 
-- Summer football schedule (mid-May onward).
+- Snacks, fast-food spots, fruit preferences, daily caffeine amounts.
 - School weight room access times and shower.
-- Nutrition, accountability, and app/tech preferences.
+- Accountability and app/tech preferences.
 - Health follow-ups: see the private file.
