@@ -2,7 +2,7 @@
 
 Built from the Phase One interview. Updated after every round. Nothing here is guessed: if a field is empty, it hasn't been asked yet.
 
-Last updated: 2026-11-28 (after Round 3)
+Last updated: 2026-11-28 (after Round 4)
 
 ---
 
@@ -33,11 +33,11 @@ Last updated: 2026-11-28 (after Round 3)
 
 ## Goals
 
-- Stated main 2027 priority (Round 1): lean and muscular. Round 3 added: **"win my first ever HYROX"** and "dominate from the jump." The ranking between the two needs confirming (asked in Round 4).
+- Round 1 said lean and muscular comes first. Round 3 added **"win my first ever HYROX"** and "dominate from the jump." Round 4: left the tiebreak to the coach. **Decision: HYROX performance wins tiebreaks.** Arm, shoulder and chest work stays in every strength day as accessories, so the physique goal is still trained every week.
 - Wants a build like David Goggins and John Cena; practically, a lean safety's build at 200–210 lb.
-- HYROX: Open, probably Singles. About 12 months of preparation. No event chosen yet.
+- HYROX: Open, probably Singles. **Race window: Option A, summer 2027 / summer break as the peak block.** No event chosen yet. See "Race options" below.
 - Wants training that is fun: athletic challenges and drills, an "anime training arc" feel.
-- Wife wants to get healthier and leaner too. She prefers running to weights and likes training together.
+- Wife wants to get healthier and leaner too. She prefers running to weights and likes training together. **Runs together 3–4 times a week is realistic.** She won't use the app, so the app is single-user; a run can be tagged as a partner run.
 
 ## Schedule
 
@@ -58,6 +58,22 @@ Last updated: 2026-11-28 (after Round 3)
 - Weekends: free. Rarely drinks, out late, or travels. A longer weekend session is fine.
 - Football playoffs right now: almost no time. Soccer season has its own schedule (games around Tuesday and Friday).
 - Daily steps: low.
+- Sleep: about 7 hours.
+- **Football season (Aug–Dec): 3–4 days a week, 30–45 minutes, morning or lunch.**
+- Soccer season (dates to confirm): home by about 3–4 pm, so more time than football season.
+
+## Facilities
+
+- **School weight room: everything**: barbells, racks, dumbbells, cables, machines, sleds, rower, SkiErg, bike, wall balls, sandbags, kettlebells, turf/track. Access times and shower still to confirm.
+- **Home gym:** bench, squat rack, pull-up bar, dumbbells, kettlebells, Marcy machine, bands, jump ropes, boxes, a short bar, bumper plates up to 275 lb, small accessories. No SkiErg, rower or sled.
+- Running: anywhere, mixed. Can run indoors whenever needed (coach access), which solves Dallas summer heat.
+
+## Race options (researched 2026-11-28, from third-party calendars; confirm on hyrox.com)
+
+- HYROX Dallas is listed for Nov 18–22, 2026 (already happening now); the next Dallas race would likely land in football season.
+- No US race found in June–early August 2027. The 2026/27 US season ends with late-spring events: Minneapolis May 7–9, San Diego May 13–16, Portland May 21–23, and New York (date TBA, reported late May–early June). Houston is April 1–4 (too early).
+- The 2027/28 season calendar (Aug/Sept 2027 events) isn't out yet.
+- **Coach recommendation:** peak for the first races of the 2027/28 season (late Aug–Sept 2027), with summer break as the main build block. Fallback: a late-May 2027 race. The first ~16 weeks of training are the same either way, so the decision can wait for the calendar.
 
 ## Benchmarks (self-reported estimates, not tested)
 
@@ -106,9 +122,7 @@ Last updated: 2026-11-28 (after Round 3)
 
 ## Open questions
 
-- Goal ranking: physique vs winning HYROX.
-- Race timing; soccer season dates; summer schedule.
-- Actual sleep with young kids at home.
-- Equipment and facilities: school weight room, gym, home, running locations.
-- How to include the wife.
+- Soccer season dates; summer break dates.
+- School weight room access times and shower.
+- Training preferences, strength numbers, running history, HYROX station familiarity.
 - Health follow-ups: see the private file.
