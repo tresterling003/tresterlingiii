@@ -53,7 +53,8 @@ function assert(cond, msg) {
   });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('pageerror', (e) => { errors.push(e.message); if (process.env.DEBUG) console.log('PAGEERROR', e.stack); });
+  page.on('crash', () => errors.push('page crashed'));
   page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
   const shot = async (name) => SHOTS && page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
   const audio = (expr) => page.evaluate(`(() => { const a = window.__earshotAudio; return ${expr}; })()`);
@@ -61,16 +62,40 @@ function assert(cond, msg) {
   console.log(`Earshot e2e against ${BASE}`);
   await page.goto(BASE);
 
-  await step('empty shelf shows the most-listened-to books', async () => {
+  await step('Home shows kids picks and newer classics', async () => {
     await page.getByRole('heading', { name: /Free audiobooks/ }).waitFor();
-    await page.locator('.grid .card').first().waitFor({ timeout: 20000 });
-    assert((await page.locator('.grid .card').count()) >= 6, 'expected popular books');
-    await page.waitForTimeout(800);
-    await shot('1-empty-shelf');
+    const kids = page.locator('.row', { has: page.getByRole('heading', { name: 'For the kids' }) });
+    assert((await kids.locator('.card').count()) >= 10, 'kids row');
+    assert(await kids.locator('.card strong', { hasText: 'Winnie-the-Pooh' }).first().isVisible(), 'Pooh up front');
+    const newer = page.locator('.row', { has: page.getByRole('heading', { name: /Newer classics/ }) });
+    assert(await newer.locator('.card strong', { hasText: 'The Great Gatsby' }).isVisible(), 'Gatsby in newer classics');
+    await page.waitForTimeout(1200);
+    await shot('1-home');
+  });
+
+  await step('Kids tab has three shelves, all kids books and a kids search', async () => {
+    await page.locator('nav.tabs').getByRole('link', { name: 'Kids' }).click();
+    await page.getByRole('heading', { name: 'Kids', exact: true }).waitFor();
+    for (const h of ['Bedtime and little ones', 'Mysteries and adventures', 'Big-kid classics', 'All kids’ books'])
+      await page.getByRole('heading', { name: h }).waitFor();
+    await page.locator('.grid .card').nth(5).waitFor({ timeout: 20000 });
+    await page.waitForTimeout(1000);
+    await shot('2-kids');
+    await page.getByLabel('Search kids’ books').fill('pooh');
+    await page.locator('.grid .card', { hasText: 'Pooh' }).first().waitFor({ timeout: 20000 });
+    await page.getByLabel('Search kids’ books').fill('');
+  });
+
+  await step('a kids pick opens with its friendly title, and Home is one tap away', async () => {
+    await page.locator('.row .card', { hasText: 'The Secret of the Old Clock' }).click();
+    await page.getByRole('heading', { name: 'Nancy Drew: The Secret of the Old Clock' }).waitFor();
+    await page.locator('.chapters li').nth(3).waitFor({ timeout: 20000 });
+    await page.locator('nav.tabs').getByRole('link', { name: 'Home' }).click();
+    await page.getByRole('heading', { name: 'For the kids' }).waitFor();
   });
 
   await step('search finds Dracula by title', async () => {
-    await page.getByRole('link', { name: 'Browse' }).click();
+    await page.locator('nav.tabs').getByRole('link', { name: 'Browse' }).click();
     await page.getByLabel('Search by title or author').fill('dracula');
     await page.locator('.card', { hasText: 'Dracula' }).first().waitFor({ timeout: 20000 });
     assert(/books/.test(await page.locator('.count').innerText()), 'result count shown');
@@ -88,7 +113,7 @@ function assert(cond, msg) {
     assert((await page.getByRole('button', { name: 'Mystery' }).getAttribute('aria-pressed')) === 'true', 'chip pressed');
     assert((await page.locator('.grid .card').count()) > 4, 'mystery results');
     await page.waitForTimeout(800);
-    await shot('2-browse-mystery');
+    await shot('3-browse-mystery');
   });
 
   await step('book page lists chapters and the description', async () => {
@@ -98,7 +123,7 @@ function assert(cond, msg) {
     assert((await page.locator('.chapters li').count()) === 27, 'Dracula has 27 parts');
     assert((await page.locator('.desc').innerText()).length > 50, 'description');
     await page.waitForTimeout(500);
-    await shot('3-book');
+    await shot('4-book');
   });
 
   await step('Play starts the first chapter and shows the mini player', async () => {
@@ -116,7 +141,7 @@ function assert(cond, msg) {
     await page.getByRole('menuitemradio', { name: '1.5×' }).click();
     assert((await audio('a.playbackRate')) === 1.5, 'rate 1.5');
     await page.waitForTimeout(400);
-    await shot('4-player');
+    await shot('5-player');
   });
 
   await step('skip forward and back move the position', async () => {
@@ -181,7 +206,7 @@ function assert(cond, msg) {
     const st = await page.evaluate(() => JSON.parse(localStorage.getItem('earshot:v1')).books.dracula_librivox);
     assert(st.ch === 4 && Math.abs(st.pos - savedPos) <= 2, `saved ch ${st.ch} pos ${st.pos} vs ${savedPos}`);
     await page.waitForTimeout(500);
-    await shot('5-shelf');
+    await shot('6-home-continue');
   });
 
   await step('Resume continues from the saved spot', async () => {
@@ -208,7 +233,7 @@ function assert(cond, msg) {
     await d.locator('.chapters li').nth(5).waitFor({ timeout: 20000 });
     const over = await d.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     assert(!over, 'no overflow');
-    if (SHOTS) await d.screenshot({ path: path.join(SHOTS, '6-desktop.png') });
+    if (SHOTS) await d.screenshot({ path: path.join(SHOTS, '7-desktop.png') });
     await d.close();
   });
 

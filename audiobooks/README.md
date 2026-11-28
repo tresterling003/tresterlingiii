@@ -4,9 +4,10 @@ A free audiobook player for the LibriVox catalogue: about 18,900 English public-
 
 ## What it does
 
-- **Browse and search** the whole catalogue by title or author (partial words work, e.g. `austen prid`), with genre chips (Mystery, Adventure, Science fiction, Horror, Children, Poetry and more) and an English-only switch. Results are sorted by how often they're listened to.
+- **Home** has a *Continue listening* card, your shelf, a kids' row and *Newer classics, 1900s–1930* (Gatsby, Hemingway, Hammett and others). LibriVox only has public-domain books, so nothing is newer than about 1930; the hand-picked rows in `src/curated.ts` lean toward that end.
+- **Kids** tab: hand-picked shelves (*Bedtime and little ones*, *Mysteries and adventures* with the Hardy Boys and Nancy Drew, *Big-kid classics*), a kids-only search and every LibriVox children's book.
+- **Browse and search** the whole catalogue by title or author (partial words work, e.g. `austen prid`), with genre chips (Kids, Mystery, Adventure, Science fiction, Horror, Children, Poetry and more) and an English-only switch. Results are sorted by how often they're listened to.
 - **Book pages** show the cover, length, description and every chapter. Tap any chapter to play it.
-- **Your shelf** shows a *Continue listening* card for the book you're on, plus everything else you've added, with progress and time left.
 - **Player:** back 15 s and forward 30 s, previous and next chapter, a scrubber, speeds from 0.75× to 3×, a sleep timer (5 to 90 minutes, or end of chapter) and bookmarks with notes. It also shows how much of the book is left at your current speed.
 - **Remembers your place** in every book, saved every few seconds and whenever you pause or leave the app. Your speed is remembered too. If you come back after more than a minute, it replays the last 5 seconds.
 - **Lock-screen and headphone controls** (play/pause, skip, chapter, scrubbing) through the Media Session API, with cover art.
@@ -22,7 +23,7 @@ LibriVox recordings are hosted on the Internet Archive, and archive.org's search
 - Book details and chapter files: `archive.org/metadata/<id>` (it uses the 64 kbps MP3s)
 - Audio and covers: `archive.org/download/<id>/<file>` and `archive.org/services/img/<id>`
 
-Code: `src/api.ts` (archive.org), `src/store.ts` (shelf and progress), `src/player.ts` (the audio engine, sleep timer and lock screen), `src/views.tsx` (shelf, browse and book pages), `src/App.tsx` (frame, mini player and full player).
+Code: `src/api.ts` (archive.org), `src/store.ts` (shelf and progress), `src/player.ts` (the audio engine, sleep timer and lock screen), `src/views.tsx` (Home, Kids, Browse and book pages), `src/curated.ts` (hand-picked rows), `src/App.tsx` (frame, mini player and full player).
 
 Stack: Vite, React 18 and TypeScript. Fonts are Literata and Inter, both self-hosted.
 
@@ -55,9 +56,10 @@ npm run build && npx vite preview --port 4173 &
 npm run test:e2e                     # or BASE_URL=https://tresterlingiii.vercel.app/earshot npm run test:e2e
 ```
 
-**17/17 pass** (2026-11-28). The tests cover:
+**19/19 pass** (2026-11-28). The tests cover:
 
-- popular books and search by title, author and partial words
+- Home's kids and newer-classics rows, the Kids tab and its search, and moving between pages without a reload
+- search by title, author and partial words
 - genre filters and the book page
 - play, speed, skips, bookmarks with notes, next chapter, and the end-of-chapter sleep timer
 - playing from the chapter list

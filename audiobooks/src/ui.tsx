@@ -52,6 +52,12 @@ export const INext = (p: IconProps) => (
 export const IShelf = (p: IconProps) => (
   <Svg {...p}><path d="M4 19h16" /><path d="M6 19V6h3v13" /><path d="M10 19V4h3v15" /><path d="m15 7 2.8-.8 3 12.1-2.9.7Z" /></Svg>
 );
+export const IHome = (p: IconProps) => (
+  <Svg {...p}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" /></Svg>
+);
+export const IKids = (p: IconProps) => (
+  <Svg {...p}><path d="M12 15c-3.3 0-6-2.9-6-6.5S8.7 2 12 2s6 2.9 6 6.5-2.7 6.5-6 6.5Z" /><path d="m11 15-1 2h4l-1-2" /><path d="M12 17c0 2-2 2.5-2 5" /></Svg>
+);
 export const ISearch = (p: IconProps) => (
   <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Svg>
 );
@@ -83,7 +89,7 @@ export const IPlus = (p: IconProps) => (
 export function Cover({ src, title, className = '' }: { src: string; title: string; className?: string }) {
   return (
     <div className={`cover ${className}`}>
-      <span className="cover-fallback">{title}</span>
+      <span className="cover-fallback" aria-hidden="true">{title}</span>
       <img src={src} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
     </div>
   );

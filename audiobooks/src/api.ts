@@ -20,20 +20,10 @@ export type BookDetail = BookSummary & {
   language: string;
 };
 
-export const GENRES = [
-  'Mystery',
-  'Adventure',
-  'Science fiction',
-  'Fantasy',
-  'Horror',
-  'Romance',
-  'Humor',
-  'Children',
-  'Short stories',
-  'Poetry',
-  'History',
-  'Biography',
-  'Philosophy',
+export const GENRES: { label: string; subject: string }[] = [
+  { label: 'Kids', subject: 'children' },
+  ...['Mystery', 'Adventure', 'Science fiction', 'Fantasy', 'Horror', 'Romance', 'Humor', 'Short stories', 'Poetry', 'History', 'Biography', 'Philosophy']
+    .map((g) => ({ label: g, subject: g.toLowerCase() })),
 ];
 
 export const coverThumb = (id: string) => `${IA}/services/img/${encodeURIComponent(id)}`;

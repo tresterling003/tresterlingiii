@@ -120,6 +120,23 @@ img { display: block; }
 .hero { padding: 8px 0 4px; max-width: 640px; }
 .hero p { font-size: 17px; color: var(--muted); margin: 0 0 20px; }
 
+/* ---------- rows of picks ---------- */
+.row { margin-top: 8px; }
+.row-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 32px 0 12px; }
+.row-head .section { margin: 0; }
+.row-head p { margin: 2px 0 0; }
+.see-all { flex: none; min-height: 44px; display: inline-flex; align-items: center; font-weight: 600; font-size: 15px; color: var(--wine-ink); text-decoration: none; }
+.row-list {
+  list-style: none; margin: 0 calc(-1 * max(5vw, 16px)); padding: 2px max(5vw, 16px) 10px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 138px; gap: 14px;
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: max(5vw, 16px); scrollbar-width: none;
+}
+.row-list::-webkit-scrollbar { display: none; }
+.row-list li { scroll-snap-align: start; }
+@media (min-width: 900px) { .row-list { grid-auto-columns: 164px; gap: 20px; } }
+.hero + .row .row-head, .continue + .row .row-head { margin-top: 28px; }
+.kids .search { margin-bottom: 4px; }
+
 /* ---------- browse ---------- */
 .search {
   display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; height: 52px;
@@ -183,7 +200,7 @@ img { display: block; }
 /* ---------- tabs ---------- */
 .tabs {
   position: fixed; inset: auto 0 0; z-index: 10; height: var(--tabs-h); padding-bottom: var(--safe-b);
-  display: grid; grid-template-columns: repeat(2, minmax(0, 200px)); justify-content: center;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 180px)); justify-content: center;
   background: var(--bg); border-top: 1px solid var(--line);
 }
 .tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--muted); }

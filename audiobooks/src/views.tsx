@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GENRES, getBook, itemPage, searchBooks, coverThumb, type BookDetail, type BookSummary } from './api';
+import { KIDS_SAMPLER, KIDS_SHELVES, NEWER, type Pick } from './curated';
 import { playBook, toggle, usePlayer, goToChapter } from './player';
 import {
   deleteBookmark, editBookmark, elapsedInBook, getState, progress, removeBook, saveBook, setFinished, setState,
@@ -7,8 +8,12 @@ import {
 } from './store';
 import { Bar, clock, Cover, go, ICheck, ILeft, IPause, IPlay, IPlus, ISearch, IX, length } from './ui';
 
-// ---------------------------------------------------------------- Library
-export function Library() {
+const PICKS: Record<string, Pick> = Object.fromEntries(
+  [...KIDS_SHELVES.flatMap((s) => s.books), ...NEWER].map((b) => [b.id, b]),
+);
+
+// ---------------------------------------------------------------- Home
+export function Home() {
   const books = useStore((s) => s.books);
   const currentId = useStore((s) => s.currentId);
   const list = useMemo(
@@ -18,11 +23,9 @@ export function Library() {
   const current = (currentId && books[currentId]) || list.find((b) => b.lastPlayedAt && !b.finished) || null;
   const rest = list.filter((b) => b !== current);
 
-  if (!list.length) return <EmptyShelf />;
-
   return (
     <div className="page">
-      <h1 className="title">Your shelf</h1>
+      {list.length ? <h1 className="title">Home</h1> : <Intro />}
       {current && <ContinueCard book={current} />}
       {rest.length > 0 && (
         <>
@@ -52,7 +55,35 @@ export function Library() {
           </ul>
         </>
       )}
+      <Row title="For the kids" blurb="Pooh, Nancy Drew, the Hardy Boys and more" books={KIDS_SAMPLER} more={{ href: '#kids', label: 'All kids’ books' }} />
+      <Row title="Newer classics, 1900s–1930" blurb="Gatsby, Hemingway, Hammett and friends" books={NEWER} />
     </div>
+  );
+}
+
+/** A sideways-scrolling shelf of hand-picked books. */
+function Row({ title, blurb, books, more }: { title: string; blurb?: string; books: Pick[]; more?: { href: string; label: string } }) {
+  return (
+    <section className="row">
+      <div className="row-head">
+        <div>
+          <h2 className="section">{title}</h2>
+          {blurb && <p className="muted small">{blurb}</p>}
+        </div>
+        {more && <a className="see-all" href={more.href}>{more.label}</a>}
+      </div>
+      <ul className="row-list">
+        {books.map((b) => (
+          <li key={b.id}>
+            <a className="card" href={`#book/${encodeURIComponent(b.id)}`}>
+              <Cover src={coverThumb(b.id)} title={b.title} />
+              <strong>{b.title}</strong>
+              <span className="muted small">{b.author}{b.year ? ` · ${b.year}` : ''}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -84,20 +115,54 @@ function ContinueCard({ book }: { book: SavedBook }) {
   );
 }
 
-function EmptyShelf() {
+function Intro() {
   return (
-    <div className="page">
-      <section className="hero">
-        <h1 className="title">Free audiobooks, read by people who love them</h1>
-        <p>
-          Earshot plays the 18,000+ English recordings in the LibriVox catalogue: public-domain classics read by
-          volunteers. Pick a book and it lands here, with your place saved.
-        </p>
-        <button className="btn primary" onClick={() => go('browse')}><ISearch size={18} /> Find a book</button>
-      </section>
-      <h2 className="section">Most listened to</h2>
-      <Results query="" genre="" rows={12} />
+    <section className="hero">
+      <h1 className="title">Free audiobooks, read by people who love them</h1>
+      <p>
+        Free LibriVox recordings, read by volunteers. They're all out of copyright, so the newest are from about 1930.
+      </p>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- Kids
+export function Kids() {
+  const [text, setText] = useState(() => sessionStorage.getItem('earshot:kq') ?? '');
+  const [query, setQuery] = useState(text);
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(text.trim()), 350);
+    sessionStorage.setItem('earshot:kq', text);
+    return () => clearTimeout(t);
+  }, [text]);
+
+  return (
+    <div className="page kids">
+      <h1 className="title">Kids</h1>
+      <SearchBox value={text} onChange={setText} onSubmit={() => setQuery(text.trim())} label="Search kids’ books" />
+      {query ? (
+        <Results query={query} genre="children" />
+      ) : (
+        <>
+          {KIDS_SHELVES.map((s) => <Row key={s.title} title={s.title} blurb={s.blurb} books={s.books} />)}
+          <h2 className="section">All kids’ books</h2>
+          <Results query="" genre="children" />
+        </>
+      )}
     </div>
+  );
+}
+
+function SearchBox({ value, onChange, onSubmit, label }: { value: string; onChange: (v: string) => void; onSubmit: () => void; label: string }) {
+  return (
+    <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); onSubmit(); (document.activeElement as HTMLElement)?.blur(); }}>
+      <ISearch size={20} />
+      <input
+        type="search" value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder="Title or author" aria-label={label} autoComplete="off" enterKeyHint="search"
+      />
+      {value && <button type="button" className="icon-btn" aria-label="Clear search" onClick={() => onChange('')}><IX size={18} /></button>}
+    </form>
   );
 }
 
@@ -106,30 +171,28 @@ export function Browse() {
   const english = useStore((s) => s.english);
   const [text, setText] = useState(() => sessionStorage.getItem('earshot:q') ?? '');
   const [query, setQuery] = useState(text);
-  const [genre, setGenre] = useState(() => sessionStorage.getItem('earshot:g') ?? '');
+  const [genre, setGenre] = useState(() => {
+    const g = sessionStorage.getItem('earshot:g') ?? '';
+    return GENRES.some((x) => x.subject === g) ? g : '';
+  });
 
   useEffect(() => {
     const t = setTimeout(() => setQuery(text.trim()), 350);
     sessionStorage.setItem('earshot:q', text);
     return () => clearTimeout(t);
   }, [text]);
-  useEffect(() => sessionStorage.setItem('earshot:g', genre), [genre]);
+  useEffect(() => {
+    sessionStorage.setItem('earshot:g', genre);
+  }, [genre]);
 
   return (
     <div className="page">
       <h1 className="title">Browse LibriVox</h1>
-      <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); setQuery(text.trim()); (document.activeElement as HTMLElement)?.blur(); }}>
-        <ISearch size={20} />
-        <input
-          id="search" type="search" value={text} onChange={(e) => setText(e.target.value)}
-          placeholder="Title or author" aria-label="Search by title or author" autoComplete="off" enterKeyHint="search"
-        />
-        {text && <button type="button" className="icon-btn" aria-label="Clear search" onClick={() => setText('')}><IX size={18} /></button>}
-      </form>
+      <SearchBox value={text} onChange={setText} onSubmit={() => setQuery(text.trim())} label="Search by title or author" />
       <div className="chips" role="group" aria-label="Genre">
-        {['', ...GENRES].map((g) => (
-          <button key={g || 'all'} className={`chip ${genre === g ? 'on' : ''}`} aria-pressed={genre === g} onClick={() => setGenre(g)}>
-            {g || 'All'}
+        {[{ label: 'All', subject: '' }, ...GENRES].map((g) => (
+          <button key={g.label} className={`chip ${genre === g.subject ? 'on' : ''}`} aria-pressed={genre === g.subject} onClick={() => setGenre(g.subject)}>
+            {g.label}
           </button>
         ))}
       </div>
@@ -180,7 +243,7 @@ function Results({ query, genre, english = true, rows = 24 }: { query: string; g
       </div>
     );
   if (status === 'ok' && !items.length)
-    return <p className="notice">No books match{query ? ` “${query}”` : ''}{genre ? ` in ${genre}` : ''}. Try fewer words or another genre.</p>;
+    return <p className="notice">No books match{query ? ` “${query}”` : ''}{genre ? ` in ${GENRES.find((g) => g.subject === genre)?.label ?? genre}` : ''}. Try fewer words or another genre.</p>;
 
   return (
     <>
@@ -222,7 +285,9 @@ export function Book({ id }: { id: string }) {
     setDetail(null);
     setError('');
     getBook(id, ac.signal)
-      .then((d) => {
+      .then((raw) => {
+        const pick = PICKS[id];
+        const d = pick ? { ...raw, title: pick.title, author: pick.author } : raw;
         setDetail(d);
         // Keep the shelf copy's chapter list fresh.
         if (getState().books[id]) saveBook(d);
@@ -231,10 +296,12 @@ export function Book({ id }: { id: string }) {
     return () => ac.abort();
   }, [id]);
 
-  useEffect(() => window.scrollTo(0, 0), [id]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
 
-  const title = detail?.title ?? saved?.title ?? '';
-  const author = detail?.author ?? saved?.author ?? '';
+  const title = detail?.title ?? saved?.title ?? PICKS[id]?.title ?? '';
+  const author = detail?.author ?? saved?.author ?? PICKS[id]?.author ?? '';
   const cover = detail?.cover ?? saved?.cover ?? coverThumb(id);
   const chapters = detail?.chapters ?? saved?.chapters ?? [];
   const total = detail?.total ?? saved?.total ?? 0;

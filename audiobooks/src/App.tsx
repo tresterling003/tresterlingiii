@@ -5,9 +5,9 @@ import {
 import {
   cue, getPlayer, goToChapter, play, seek, setSleep, setSpeed, skip, SKIP_BACK, SKIP_FORWARD, SPEEDS, toggle, usePlayer, eject,
 } from './player';
-import { Book, Browse, Library } from './views';
+import { Book, Browse, Home, Kids } from './views';
 import {
-  clock, Cover, IBack, IDown, IFwd, IList, IMark, IMoon, INext, IPause, IPlay, IPrev, ISearch, IShelf, IX, length,
+  clock, Cover, IBack, IDown, IFwd, IHome, IKids, IList, IMark, IMoon, INext, IPause, IPlay, IPrev, ISearch, IX, length,
 } from './ui';
 
 function useRoute() {
@@ -39,7 +39,7 @@ export default function App() {
   }, [route]);
 
   const bookId = route.startsWith('book/') ? route.slice(5) : null;
-  const tab = bookId ? null : route === 'browse' ? 'browse' : 'library';
+  const tab = bookId ? null : route === 'browse' || route === 'kids' ? route : 'home';
 
   return (
     <div className={`app ${p.bookId ? 'has-player' : ''}`}>
@@ -49,16 +49,16 @@ export default function App() {
         </a>
       </header>
       <main>
-        {bookId ? <Book id={bookId} key={bookId} /> : tab === 'browse' ? <Browse /> : <Library />}
+        {bookId ? <Book id={bookId} key={bookId} /> : tab === 'browse' ? <Browse /> : tab === 'kids' ? <Kids /> : <Home />}
       </main>
       {p.bookId && <MiniPlayer onOpen={() => setSheet(true)} />}
       <nav className="tabs" aria-label="Sections">
-        <a href="#" className={tab === 'library' ? 'on' : ''} aria-current={tab === 'library' ? 'page' : undefined}>
-          <IShelf size={22} /> Shelf
-        </a>
-        <a href="#browse" className={tab === 'browse' ? 'on' : ''} aria-current={tab === 'browse' ? 'page' : undefined}>
-          <ISearch size={22} /> Browse
-        </a>
+        {([['home', '#', 'Home', IHome], ['kids', '#kids', 'Kids', IKids], ['browse', '#browse', 'Browse', ISearch]] as const).map(([key, href, label, Icon]) => (
+          <a key={key} href={href} className={tab === key ? 'on' : ''} aria-current={tab === key ? 'page' : undefined}
+            onClick={() => tab === key && window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <Icon size={22} /> {label}
+          </a>
+        ))}
       </nav>
       {sheet && p.bookId && <PlayerSheet onClose={() => setSheet(false)} />}
     </div>
