@@ -108,7 +108,7 @@ Last updated: 2026-11-28 (after Round 3)
 
 - Goal ranking: physique vs winning HYROX.
 - Race timing; soccer season dates; summer schedule.
-- Actual sleep with infant twins.
+- Actual sleep with young kids at home.
 - Equipment and facilities: school weight room, gym, home, running locations.
 - How to include the wife.
 - Health follow-ups: see the private file.
