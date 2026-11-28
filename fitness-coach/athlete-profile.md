@@ -2,7 +2,7 @@
 
 Built from the Phase One interview. Updated after every round. Nothing here is guessed: if a field is empty, it hasn't been asked yet.
 
-Last updated: 2026-11-28 (after Round 4)
+Last updated: 2026-11-28 (after Round 5)
 
 ---
 
@@ -60,7 +60,8 @@ Last updated: 2026-11-28 (after Round 4)
 - Daily steps: low.
 - Sleep: about 7 hours.
 - **Football season (Aug–Dec): 3–4 days a week, 30–45 minutes, morning or lunch.**
-- Soccer season (dates to confirm): home by about 3–4 pm, so more time than football season.
+- **Soccer season: starts Mon Nov 30, 2026, ends around April 2027.** Arrive 5 am, practice 7 am, home by about 3–4 pm.
+- **Summer break starts around May 16.** Football "is back around that time": what the summer football schedule looks like is still to confirm.
 
 ## Facilities
 
@@ -82,6 +83,40 @@ Last updated: 2026-11-28 (after Round 4)
 | Mile | ~8:30 |
 | Push-ups (max) | ~50 |
 | Pull-ups (max) | ~15 |
+
+| Lift | NFL best | Estimated now |
+|---|---|---|
+| Power clean | 345 | ~250 (not programmed: wrist) |
+| Back squat | 450 | ~405 |
+| Bench press | 325 | ~285 |
+| Deadlift | not given | not given |
+
+All "now" numbers get verified with rep-max tests (not true 1RMs) in the first testing week.
+
+## Running background
+
+- Football running only: sprints and conditioning. Never trained distance. Longest continuous run: unknown.
+- **Lungs give out first, not legs.** Aerobic base is the gap.
+
+## HYROX station familiarity
+
+| Station | Open men's standard | Feel |
+|---|---|---|
+| SkiErg | 1,000 m | Not answered |
+| Sled push | 152 kg incl. sled, 50 m | Easy |
+| Sled pull | 103 kg incl. sled, 50 m | Easy |
+| Burpee broad jumps | 80 m | Okay |
+| Row | 1,000 m | **Sucks** |
+| Farmer's carry | 2 × 24 kg, 200 m | Easy |
+| Sandbag lunges | 20 kg, 100 m | **Sucks** |
+| Wall balls | 6 kg to a 3 m target, 100 reps | Seems fun |
+
+Standards are from memory of the HYROX rulebook; confirm against the current official standards.
+
+## Preferences
+
+- Favorite and least favorite exercises: "idk". The app should learn this from ratings after each session.
+- Week view vs. just today: left to the coach. **Decision: the app opens on today's workout; the full week is one swipe away.**
 
 ## Mobility (self-tested)
 
@@ -122,7 +157,7 @@ Last updated: 2026-11-28 (after Round 4)
 
 ## Open questions
 
-- Soccer season dates; summer break dates.
+- Summer football schedule (mid-May onward).
 - School weight room access times and shower.
-- Training preferences, strength numbers, running history, HYROX station familiarity.
+- Nutrition, accountability, and app/tech preferences.
 - Health follow-ups: see the private file.
